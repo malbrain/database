@@ -10,22 +10,25 @@ enum ObjType {
 };
 
 typedef struct {
-	DbAddr head[1];		// earliest frame waiting to be recycled
-	DbAddr tail[1];		// location of latest frame to be recycle
-	DbAddr free[1];		// frames of free objects
+	DbAddr tail[1];		// location of newest frame to be recycled
+	DbAddr head[1];		// oldest frame waiting to be recycled
+	DbAddr free[1];		// frames of available free objects
 } FreeList;
 
 //	Local Handle for an arena
 
-#define HANDLE_dead	0x1
-#define HANDLE_incr	0x2
-
 struct Handle_ {
-	DbMap *map;			// pointer to map
-	uint32_t status[1];	// active entry count/dead status
-	uint16_t arenaIdx;	// arena handle table entry index
+	DbMap *map;			// pointer to map, zeroed on close
+#ifdef ENFORCE_CLONING
+	DbHandle *addr;		// user's DbHandle address
+#endif
+	FreeList *list;		// list of free blocks
+	int32_t status[1];	// active entry in use count
 	uint16_t hndlType;	// type of arena map
-	FreeList list[MaxObjType];
+	uint16_t arenaIdx;	// arena handle table entry index
+	uint16_t listIdx;	// arena handle table entry index
+	uint16_t xtraSize;	// size of following structure
+	uint16_t maxType;	// number of list entries
 };
 
 /**
@@ -73,10 +76,10 @@ bool isCommitted(uint64_t ts);
 
 uint32_t get64(uint8_t *key, uint32_t len, uint64_t *result);
 uint32_t store64(uint8_t *key, uint32_t keylen, uint64_t what);
+uint64_t makeHandle(DbMap *map, uint32_t xtraSize, uint32_t listMax);
 void closeHandle(Handle  *hndl);
-Handle *makeHandle(DbMap *map);
 
-Handle *bindHandle(void **hndl);
+Status bindHandle(DbHandle *dbHndl, Handle **hndl);
 void releaseHandle(Handle *hndl);
 
 void *arrayElement(DbMap *map, DbAddr *array, uint16_t idx, size_t size);

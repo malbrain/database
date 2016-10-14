@@ -102,3 +102,10 @@ typedef struct {
 	uint32_t size;
 } Object;
 
+typedef struct {
+	DbAddr handle;
+#ifdef ENFORCE_CLONING
+	void *addr;
+#endif
+} DbHandle;
+

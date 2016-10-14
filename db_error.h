@@ -35,6 +35,7 @@ typedef enum {
 	ERROR_btreestruct,
 	ERROR_arenadropped,
 	ERROR_indextype,
+	CURSOR_notfound,
 	BTREE_needssplit,
 	ARTREE_error,
 } Status;

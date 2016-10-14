@@ -7,14 +7,11 @@
 
 //	TODO: lock record
 
-DbCursor *artNewCursor(Handle *index, uint64_t timestamp, ObjId txnId, char type) {
+Status artNewCursor(Handle *index, ArtCursor *cursor, uint64_t timestamp, ObjId txnId, char type) {
 CursorStack* stack;
-ArtCursor *cursor;
 DbAddr *base;
 
 	base = artIndexAddr(index->map)->root;
-
-	cursor = db_malloc(sizeof(ArtCursor), true);
 
 	cursor->base->txnId.bits = txnId.bits;
 	cursor->base->key = cursor->key;
@@ -30,13 +27,10 @@ DbAddr *base;
 	else
     	stack->ch = 256;
 
-	return cursor->base;
+	return OK;
 }
 
-Status artReturnCursor(DbCursor *dbCursor) {
-ArtCursor *cursor = (ArtCursor *)dbCursor;
-
-	db_free(cursor);
+Status artReturnCursor(Handle *index, DbCursor *dbCursor) {
 	return OK;
 }
 

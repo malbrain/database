@@ -13,14 +13,12 @@ uint64_t result;
 	return result;
 }
 
-DbCursor *btree1NewCursor(Handle *index, uint64_t timestamp, ObjId txnId, char type) {
-Btree1Cursor *cursor;
+Status btree1NewCursor(Handle *index, Btree1Cursor *cursor, uint64_t timestamp, ObjId txnId, char type) {
 Btree1Index *btree1;
 Btree1Page *first;
 
     btree1 = btree1index(index->map);
 
-	cursor = db_malloc(sizeof(Btree1Cursor), true);
 	cursor->pageAddr.bits = btree1NewPage(index, 0);
 	cursor->page = getObj(index->map, cursor->pageAddr);
 
@@ -33,24 +31,16 @@ Btree1Page *first;
 
 	cursor->base->txnId.bits = txnId.bits;
 	cursor->base->ts = timestamp;
-	*cursor->base->idx = index;
 	cursor->slotIdx = 0;
-	return cursor->base;
+	return OK;
 }
 
-Status btree1ReturnCursor(DbCursor *dbCursor) {
+Status btree1ReturnCursor(Handle *index, DbCursor *dbCursor) {
 Btree1Cursor *cursor = (Btree1Cursor *)dbCursor;
-Handle *index;
 
 	// return cursor page buffer
 
-	if ((index = bindHandle(cursor->base->idx)))
-		addSlotToFrame(index->map, &index->list[cursor->pageAddr.type], cursor->pageAddr);
-	else
-		return ERROR_arenadropped;
-
-	releaseHandle(index);
-	db_free(cursor);
+	addSlotToFrame(index->map, &index->list[cursor->pageAddr.type], cursor->pageAddr);
 	return OK;
 }
 

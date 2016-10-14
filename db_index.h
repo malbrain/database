@@ -12,19 +12,18 @@ typedef struct {
 // database index cursor
 
 typedef struct {
-    void *idx[1];           // index handle
 	uint64_t ver;			// cursor doc version
     uint64_t ts;            // cursor timestamp
     ObjId txnId;            // cursor transaction
     ObjId docId;            // current doc ID
     Document *doc;          // current document
+    DbHandle idx[1];        // index handle
 	uint32_t keyLen;
 	uint8_t *key;
 	bool foundKey;			// cursor position found the key
 } DbCursor;
 
 typedef struct {
-	Handle *hndl;			// docStore handle
 	RWLock2 lock[1];		// index list r/w lock
 	SkipHead indexes[1];	// index handles by Id
 	uint64_t childId;		// last child installed
@@ -33,11 +32,11 @@ typedef struct {
 
 #define dbindex(map) ((DbIndex *)(map->arena + 1))
 
-Status storeDoc(DocHndl *docHndl, Handle *hndl, void *obj, uint32_t objSize, ObjId *result, ObjId txnId);
-Status installIndexes(DocHndl *docHndl);
+Status storeDoc(Handle *docHndl, void *obj, uint32_t objSize, ObjId *result, ObjId txnId);
+Status installIndexes(Handle *docHndl);
 
-Status dbPositionCursor(DbCursor *cursor, uint8_t *key, uint32_t keyLen);
-Status dbNextKey(DbCursor *cursor, Handle *index, uint8_t *maxKey, uint32_t maxLen);
-Status dbPrevKey(DbCursor *cursor, Handle *index, uint8_t *maxKey, uint32_t maxLen);
-Status dbNextDoc(DbCursor *cursor, uint8_t *maxKey, uint32_t maxLen);
-Status dbPrevDoc(DbCursor *cursor, uint8_t *maxKey, uint32_t maxLen);
+Status dbPositionCursor(DbMap *index, DbCursor *cursor, uint8_t *key, uint32_t keyLen);
+Status dbNextKey(DbMap *index, DbCursor *cursor, uint8_t *maxKey, uint32_t maxLen);
+Status dbPrevKey(DbMap *index, DbCursor *cursor, uint8_t *maxKey, uint32_t maxLen);
+Status dbNextDoc(DbMap *index, DbCursor *cursor, uint8_t *maxKey, uint32_t maxLen);
+Status dbPrevDoc(DbMap *index, DbCursor *cursor, uint8_t *maxKey, uint32_t maxLen);

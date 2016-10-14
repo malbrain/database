@@ -8,13 +8,22 @@
 #include "btree1/btree1.h"
 #include "artree/artree.h"
 
-//  open and install index map in docHndl cache
+extern DbMap memMap[1];
+extern int maxType[8];
 
-void installIdx(DocHndl *docHndl, ArrayEntry *entry) {
+//  open and install index DbHandle in hndl cache
+//	call with docStore handle and arenaDef address.
+
+void installIdx(Handle *hndl, ArrayEntry *entry) {
+uint64_t *hndlAddr;
 RedBlack *rbEntry;
-Handle *idxhndl;
-Handle **hndl;
+Handle *childHndl;
+DocHndl *docHndl;
 DbAddr rbAddr;
+DbMap *child;
+DbAddr addr;
+
+	docHndl = (DocHndl *)(hndl + 1);
 
 	//  no more than 255 indexes
 
@@ -23,23 +32,28 @@ DbAddr rbAddr;
 	else
 		return;
 
-	rbAddr.bits = *entry->val;
-	rbEntry = getObj(docHndl->hndl->map->parent->db, rbAddr);
+	hndlAddr = skipAdd(hndl->map, docHndl->indexes->head, *entry->key);
 
-	idxhndl = makeHandle(arenaRbMap(docHndl->hndl->map, rbEntry));
-	hndl = skipAdd(docHndl->hndl->map, docHndl->indexes->head, *entry->key);
-	*hndl = idxhndl;
+	rbAddr.bits = *entry->val;
+	rbEntry = getObj(hndl->map->parent->db, rbAddr);
+	child = arenaRbMap(hndl->map, rbEntry);
+
+	*hndlAddr = makeHandle(child, 0, maxType[*child->arena->type]);
 }
 
-//	install new indexes
+//	create new index handles based on children of the docStore.
+//	call with docStore handle.
 
-Status installIndexes(DocHndl *docHndl) {
-ArenaDef *arenaDef = docHndl->hndl->map->arenaDef;
+Status installIndexes(Handle *hndl) {
+ArenaDef *arenaDef = hndl->map->arenaDef;
 DbAddr *next = arenaDef->idList->head;
 uint64_t maxId = 0;
 SkipList *skipList;
 ArrayEntry *entry;
+DocHndl *docHndl;
 int idx;
+
+	docHndl = (DocHndl *)(hndl + 1);
 
 	if (docHndl->childId < arenaDef->childId)
 		readLock2 (arenaDef->idList->lock);
@@ -48,18 +62,23 @@ int idx;
 
 	writeLock2 (docHndl->indexes->lock);
 
-	//	transfer Id slots from arena childId list to our handle list
+	//	open maps based on childId skip list
+	// 	of arenaDef to continue the index handle list
+
+	//	processs the skip list nodes one at a time
 
 	while (next->addr) {
-		skipList = getObj(docHndl->hndl->map->db, *next);
+		skipList = getObj(hndl->map->db, *next);
 		idx = next->nslot;
 
 		if (!maxId)
 			maxId = *skipList->array[next->nslot - 1].key;
 
+		// process the skip list entries of arenaDef addr
+
 		while (idx--)
 			if (*skipList->array[idx].key > docHndl->childId)
-				installIdx(docHndl, &skipList->array[idx]);
+				installIdx(hndl, &skipList->array[idx]);
 			else
 				break;
 
@@ -72,69 +91,78 @@ int idx;
 	return OK;
 }
 
-Status installIndexKey(DocHndl *docHndl, ArrayEntry *entry, Document *doc) {
-ArrayEntry *array = getObj(docHndl->hndl->map, *doc->verKeys);
+Status installIndexKey(Handle *hndl, ArrayEntry *entry, Document *doc) {
+ArrayEntry *versions = getObj(hndl->map, *doc->verKeys);
 uint8_t key[MAX_key];
 uint64_t *verPtr;
-Handle *idxhndl;
+DbHandle *dbHndl;
+Handle *idxHndl;
 DbIndex *index;
-void *hndl[1];
 Object *spec;
 Status stat;
+DbAddr addr;
 int keyLen;
 
-	*hndl = (Handle *)(*entry->val);
+	addr.bits = *entry->val;
+	dbHndl = getObj(memMap, addr);
 
-	if ((idxhndl = bindHandle(hndl)))
-		index = dbindex(idxhndl->map);
-	else
-		return ERROR_arenadropped;
+	if ((stat = bindHandle(dbHndl, &idxHndl)))
+		return stat;
 
-	spec = getObj(idxhndl->map, index->keySpec);
+	index = dbindex(idxHndl->map);
+
+	spec = getObj(idxHndl->map, index->keySpec);
 	keyLen = keyGenerator(key, doc + 1, doc->size, spec + 1, spec->size);
 
 	keyLen = store64(key, keyLen, doc->docId.bits);
 
-	if (idxhndl->map->arenaDef->useTxn)
+	if (idxHndl->map->arenaDef->useTxn)
 		keyLen = store64(key, keyLen, doc->version);
 
-	verPtr = arrayAdd(array, doc->verKeys->nslot++, *entry->key);
+	verPtr = arrayAdd(versions, doc->verKeys->nslot++, *entry->key);
 	*verPtr = doc->version;
 
-	switch (*idxhndl->map->arena->type) {
+	switch (*idxHndl->map->arena->type) {
 	case ARTreeIndexType:
-		stat = artInsertKey(idxhndl, key, keyLen);
+		stat = artInsertKey(idxHndl, key, keyLen);
 		break;
 
 	case Btree1IndexType:
-		stat = btree1InsertKey(idxhndl, key, keyLen, 0, Btree1_indexed);
+		stat = btree1InsertKey(idxHndl, key, keyLen, 0, Btree1_indexed);
 		break;
 	}
 
-	releaseHandle(idxhndl);
+	releaseHandle(idxHndl);
 	return stat;
 }
 
-Status installIndexKeys(DocHndl *docHndl, Document *doc) {
-DbAddr *next = docHndl->indexes->head;
+//	install keys for a document insert
+//	call with docStore handle
+
+Status installIndexKeys(Handle *hndl, Document *doc) {
 SkipList *skipList;
 ArrayEntry *array;
+DocHndl *docHndl;
+DbAddr *next;
 Status stat;
 int idx;
 
+	docHndl = (DocHndl *)(hndl + 1);
+
+	next = docHndl->indexes->head;
 	readLock2 (docHndl->indexes->lock);
 
 	//	install keys for document
 
-	doc->verKeys->bits = allocBlk (docHndl->hndl->map, docHndl->idxCnt * sizeof(ArrayEntry), true);
+	doc->verKeys->bits = allocBlk (hndl->map, docHndl->idxCnt * sizeof(ArrayEntry), true);
 
 	while (next->addr) {
-	  skipList = getObj(docHndl->hndl->map, *next);
+	  skipList = getObj(hndl->map, *next);
 	  idx = next->nslot;
 
 	  while (idx--) {
 		if (~*skipList->array[idx].key & CHILDID_DROP)
-		  if ((stat = installIndexKey(docHndl, &skipList->array[idx], doc)))
+		  if ((stat = installIndexKey(hndl, &skipList->array[idx], doc)))
 			return stat;
 	  }
 
@@ -145,7 +173,7 @@ int idx;
 	return OK;
 }
 
-Status storeDoc(DocHndl *docHndl, Handle *hndl, void *obj, uint32_t objSize, ObjId *result, ObjId txnId) {
+Status storeDoc(Handle *hndl, void *obj, uint32_t objSize, ObjId *result, ObjId txnId) {
 DocStore *docStore;
 ArenaDef *arenaDef;
 Txn *txn = NULL;
@@ -186,13 +214,12 @@ int idx;
 	slot->bits = addr.bits;
 
 	//	add keys for the document
-	//	enumerate docHndl children (e.g. indexes)
+	//	enumerate children (e.g. indexes)
 
-	installIndexKeys(docHndl, doc);
+	installIndexKeys(hndl, doc);
 
 	if (txn)
 		addIdToTxn(hndl->map->db, txn, docId, addDoc); 
 
-	releaseHandle(hndl);
 	return OK;
 }

@@ -8,13 +8,20 @@
 #include "btree1/btree1.h"
 #include "artree/artree.h"
 
+int cursorSize[8] = {0, 0, 0, 0, 0, sizeof(ArtCursor), sizeof(Btree1Cursor), 0};
+int maxType[8] = {0, 0, 0, 0, 0, MaxARTType, MAXBtree1Type, 0};
+
+extern DbMap memMap[1];
+
 void initialize() {
 	memInit();
 }
 
-Status openDatabase(void **hndl, char *name, uint32_t nameLen, Params *params) {
+Status openDatabase(DbHandle *hndl, char *name, uint32_t nameLen, Params *params) {
 ArenaDef arenaDef[1];
 DbMap *map;
+
+	memset (hndl, 0, sizeof(DbHandle));
 
 	memset (arenaDef, 0, sizeof(ArenaDef));
 	arenaDef->baseSize = sizeof(DataBase);
@@ -27,29 +34,27 @@ DbMap *map;
 		return ERROR_createdatabase;
 
 	*map->arena->type = DatabaseType;
-	*hndl = makeHandle(map);
+	hndl->handle.bits = makeHandle(map, 0, 0);
 	return OK;
 }
 
-Status openDocStore(void **hndl, void **dbhndl, char *path, uint32_t pathLen, Params *params) {
+Status openDocStore(DbHandle *hndl, DbHandle *dbHndl, char *path, uint32_t pathLen, Params *params) {
 DbMap *map, *parent = NULL;
+Handle *database = NULL;
 DocStore *docStore;
-DocHndl *docHndl;
 uint64_t *inUse;
-Handle *dbHndl;
 DataBase *db;
 DbAddr *addr;
 int idx, jdx;
+Status stat;
 
-	*hndl = NULL;
+	memset (hndl, 0, sizeof(DbHandle));
 
-	docHndl = db_malloc(sizeof(DocHndl), true);
+	if (dbHndl)
+	  if ((stat = bindHandle(dbHndl, &database)))
+		return stat;
 
-	if (dbhndl)
-	  if ((dbHndl = bindHandle(dbhndl)))
-		parent = dbHndl->map, db = database(parent);
-	  else
-		return ERROR_arenadropped;
+	parent = database->map, db = database(parent);
 
 	//  create the docStore and assign database txn idx
 
@@ -70,34 +75,34 @@ int idx, jdx;
 	  docStore->init = 1;
 	}
 
-	if (dbhndl)
-		releaseHandle(dbHndl);
+	if (database)
+		releaseHandle(database);
 
 	map->arena->type[0] = DocStoreType;
-	docHndl->hndl = makeHandle(map);
+	hndl->handle.bits = makeHandle(map, sizeof(DocHndl), MAX_blk);
 
 	if (parent)
 		unlockLatch(parent->arenaDef->nameTree->latch);
 
-	*hndl = docHndl;
 	return OK;
 }
 
-Status createIndex(void **hndl, void **dochndl, ArenaType type, char *name, uint32_t nameLen, void *keySpec, uint16_t specSize, Params *params) {
-DocHndl *docHndl = NULL;
+Status createIndex(DbHandle *hndl, DbHandle *docStore, ArenaType type, char *name, uint32_t nameLen, void *keySpec, uint16_t specSize, Params *params) {
+Handle *docHndl = NULL;
 uint32_t baseSize = 0;
 DbMap *map, *parent;
-Handle *idxhndl;
+Handle *idxHndl;
 DbIndex *index;
 Object *obj;
+Status stat;
 
-	*hndl = NULL;
+	memset (hndl, 0, sizeof(DbHandle));
 
-	if (*dochndl)
-	  if (!(docHndl = *dochndl))
-		return ERROR_arenadropped;
+	if (docStore->handle.bits)
+	  if ((stat = bindHandle(docStore, &docHndl)))
+		return stat;
 	  else
-		parent = docHndl->hndl->map;
+		parent = docHndl->map;
 	else
 		parent = NULL;
 
@@ -122,16 +127,9 @@ Object *obj;
 	  return ERROR_createindex;
 	}
 
-	idxhndl = makeHandle(map);
-
-	if (bindHandle((void **)&idxhndl))
-		index = dbindex(map);
-	else {
-		if (parent)
-		  unlockLatch(parent->arenaDef->nameTree->latch);
-
-		return ERROR_arenadropped;
-	}
+	hndl->handle.bits = makeHandle(map, 0, maxType[type]);
+	idxHndl = getObj(memMap, hndl->handle);
+	index = dbindex(map);
 
 	if (!index->keySpec.addr) {
 		index->keySpec.bits = allocBlk(map, specSize + sizeof(Object), false);
@@ -142,237 +140,256 @@ Object *obj;
 
 		switch (type) {
 		case ARTreeIndexType:
-			artInit(idxhndl, params);
+			artInit(idxHndl, params);
 			break;
 
 		case Btree1IndexType:
-			btree1Init(idxhndl, params);
+			btree1Init(idxHndl, params);
 			break;
 		}
 	}
 
+	*map->arena->type = type;
+
 	if (parent)
 		unlockLatch(parent->arenaDef->nameTree->latch);
 
-	if (idxhndl)
-		releaseHandle(idxhndl);
-
 	if (docHndl)
-		releaseHandle(docHndl->hndl);
+		releaseHandle(docHndl);
 
-	*hndl = idxhndl;
 	return OK;
 }
 
 //	create new cursor
 
-Status createCursor(void **hndl, void **hndl1, ObjId txnId, char type) {
+Status createCursor(DbHandle *hndl, DbHandle *idxHndl, ObjId txnId, char type) {
 uint64_t timestamp;
 DbCursor *cursor;
-Handle *idxhndl;
+Handle *index;
+Status stat;
 Txn *txn;
 
-	if (!(idxhndl = bindHandle(hndl1)))
-		return ERROR_arenadropped;
+	memset (hndl, 0, sizeof(DbHandle));
+
+	if ((stat = bindHandle(idxHndl, &index)))
+		return stat;
 
 	if (txnId.bits) {
-		txn = fetchIdSlot(idxhndl->map->db, txnId);
+		txn = fetchIdSlot(index->map->db, txnId);
 		timestamp = txn->timestamp;
 	} else
-		timestamp = allocateTimestamp(idxhndl->map->db, en_reader);
+		timestamp = allocateTimestamp(index->map->db, en_reader);
 
-	switch (*idxhndl->map->arena->type) {
+	hndl->handle.bits = makeHandle(index->map, cursorSize[*index->map->arena->type], 0);
+	cursor = (DbCursor *)((Handle *)getObj(memMap, hndl->handle) + 1);
+
+	switch (*index->map->arena->type) {
 	case ARTreeIndexType:
-		cursor = artNewCursor(idxhndl, timestamp, txnId, type);
+		stat = artNewCursor(index, (ArtCursor *)cursor, timestamp, txnId, type);
 		break;
 
 	case Btree1IndexType:
-		cursor = btree1NewCursor(idxhndl, timestamp, txnId, type);
+		stat = btree1NewCursor(index, (Btree1Cursor *)cursor, timestamp, txnId, type);
 		break;
 	}
 
-	releaseHandle(idxhndl);
-	*cursor->idx = *hndl1;
-	*hndl = cursor;
-	return OK;
+	releaseHandle(index);
+	return stat;
 }
 
-Status returnCursor(void **hndl) {
+Status returnCursor(DbHandle *hndl) {
 DbCursor *cursor;
-Handle *idxhndl;
+Status stat = OK;
+Handle *index;
 
-	if (!(cursor = *hndl))
-		return ERROR_handleclosed;
+	if ((stat = bindHandle(hndl, &index)))
+		return stat;
 
-	if (!(idxhndl = bindHandle(cursor->idx)))
-		return ERROR_arenadropped;
+	lockLatch (hndl->handle.latch);
+	cursor = (DbCursor *)((Handle *)getObj(memMap, hndl->handle) + 1);
 
-	switch (*idxhndl->map->arena->type) {
+	switch (*index->map->arena->type) {
 	case ARTreeIndexType:
-		artReturnCursor(cursor);
+		stat = artReturnCursor(index, cursor);
 		break;
 
 	case Btree1IndexType:
-		btree1ReturnCursor(cursor);
+		stat = btree1ReturnCursor(index, cursor);
 		break;
 	}
 
-	*hndl = NULL;
-	return OK;
+	releaseHandle(index);
+	returnHandle(index);
+
+	hndl->handle.bits = 0;
+	return stat;
 }
 
 //	position cursor on a key
 
-bool positionCursor(void **hndl, uint8_t *key, uint32_t keyLen) {
+Status positionCursor(DbHandle *hndl, uint8_t *key, uint32_t keyLen) {
 DbCursor *cursor;
+Handle *index;
 Status stat;
 
-	if (!(cursor = *hndl))
-		return ERROR_handleclosed;
+	if ((stat = bindHandle(hndl, &index)))
+		return stat;
 
-	if ((stat = dbPositionCursor(cursor, key, keyLen)))
-		return false;
+	cursor = (DbCursor *)((Handle *)getObj(memMap, hndl->handle) + 1);
 
-	return cursor->foundKey;
+	if ((stat = dbPositionCursor(index->map, cursor, key, keyLen)))
+		cursor->foundKey = false;
+
+	releaseHandle(index);
+	return cursor->foundKey ? OK : CURSOR_notfound;
 }
 
 //	iterate cursor to next key
 //	return zero on Eof
 
-Status nextKey(void **hndl, uint8_t **key, uint32_t *keyLen, uint8_t *maxKey, uint32_t maxLen) {
+Status nextKey(DbHandle *hndl, uint8_t **key, uint32_t *keyLen, uint8_t *maxKey, uint32_t maxLen) {
 DbCursor *cursor;
+Handle *index;
 Status stat;
 
-	if ((cursor = *hndl))
-		stat = dbNextKey(cursor, NULL, maxKey, maxLen);
-	else
-		return ERROR_arenadropped;
-
-	if (stat)
+	if ((stat = bindHandle(hndl, &index)))
 		return stat;
+
+	cursor = (DbCursor *)((Handle *)getObj(memMap, hndl->handle) + 1);
+
+	stat = dbNextKey(index->map, cursor, maxKey, maxLen);
 
 	if (key)
 		*key = cursor->key;
 	if (keyLen)
 		*keyLen = cursor->keyLen;
 
-	return OK;
+	releaseHandle(index);
+	return stat;
 }
 
 //	iterate cursor to prev key
 //	return zero on Bof
 
-uint32_t prevKey(void **hndl, uint8_t **key, uint32_t *keyLen, uint8_t *maxKey, uint32_t maxLen) {
+Status prevKey(DbHandle *hndl, uint8_t **key, uint32_t *keyLen, uint8_t *maxKey, uint32_t maxLen) {
 DbCursor *cursor;
+Handle *index;
 Status stat;
 
-	if ((cursor = *hndl))
-		stat = dbPrevKey(cursor, NULL, maxKey, maxLen);
-	else
-		return ERROR_arenadropped;
-
-	if (stat)
+	if ((stat = bindHandle(hndl, &index)))
 		return stat;
+
+	cursor = (DbCursor *)((Handle *)getObj(memMap, hndl->handle) + 1);
+
+	stat = dbPrevKey(index->map, cursor, maxKey, maxLen);
 
 	if (key)
 		*key = cursor->key;
 	if (keyLen)
 		*keyLen = cursor->keyLen;
 
-	return OK;
+	releaseHandle(index);
+	return stat;
 }
 
 //	iterate cursor to next document
 
-Status nextDoc(void **hndl, Document **doc, uint8_t *maxKey, uint32_t maxLen) {
+Status nextDoc(DbHandle *hndl, Document **doc, uint8_t *maxKey, uint32_t maxLen) {
 DbCursor *cursor;
+Handle *index;
 Status stat;
 
-	if ((cursor = *hndl))
-		stat = dbNextDoc(cursor, maxKey, maxLen);
-	else
-		return ERROR_handleclosed;
+	if ((stat = bindHandle(hndl, &index)))
+		return stat;
+
+	cursor = (DbCursor *)((Handle *)getObj(memMap, hndl->handle) + 1);
+
+	stat = dbNextDoc(index->map, cursor, maxKey, maxLen);
 
 	if (!stat)
 		*doc = cursor->doc;
 
+	releaseHandle(index);
 	return stat;
 }
 
 //	iterate cursor to previous document
 
-Status prevDoc(void **hndl, Document **doc, uint8_t *maxKey, uint32_t maxLen) {
+Status prevDoc(DbHandle *hndl, Document **doc, uint8_t *maxKey, uint32_t maxLen) {
 DbCursor *cursor;
+Handle *index;
 Status stat;
 
-	if ((cursor = *hndl))
-		stat = dbPrevDoc(cursor, maxKey, maxLen);
-	else
-		return ERROR_handleclosed;
+	if ((stat = bindHandle(hndl, &index)))
+		return stat;
+
+	cursor = (DbCursor *)((Handle *)getObj(memMap, hndl->handle) + 1);
+
+	stat = dbPrevDoc(index->map, cursor, maxKey, maxLen);
 
 	if (!stat)
 		*doc = cursor->doc;
 
+	releaseHandle(index);
 	return stat;
 }
 
-Status cloneHandle(void **newhndl, void **oldhndl) {
-Handle *hndl;
-
-	if ((hndl = bindHandle(oldhndl))) {
-		*newhndl = makeHandle(hndl->map);
-		return OK;
-	}
-
-	return ERROR_handleclosed;
-}
-
-Status rollbackTxn(void **hndl, ObjId txnId);
-
-Status commitTxn(void **hndl, ObjId txnId);
-
-Status addIndexKeys(void **dochndl) {
-DocHndl *docHndl;
-
-	if (!(docHndl = *dochndl))
-		return ERROR_handleclosed;
-
-	return installIndexes(docHndl);
-}
-
-Status addDocument(void **dochndl, void *obj, uint32_t objSize, ObjId *result, ObjId txnId) {
-DocHndl *docHndl;
+Status cloneHandle(DbHandle *newHndl, DbHandle *oldHndl) {
 Handle *hndl;
 Status stat;
 
-	if (!(docHndl = *dochndl))
-		return ERROR_handleclosed;
+	if ((stat = bindHandle(oldHndl, &hndl)))
+		return stat;
 
-	if (!(hndl = bindHandle((void **)&docHndl->hndl)))
-		return ERROR_arenadropped;
+	newHndl->handle.bits = makeHandle(hndl->map, hndl->xtraSize, hndl->maxType);
+	return OK;
+}
 
-	stat = storeDoc(docHndl, hndl, obj, objSize, result, txnId);
-	releaseHandle(hndl);
+Status rollbackTxn(DbHandle *hndl, ObjId txnId);
+
+Status commitTxn(DbHandle *hndl, ObjId txnId);
+
+Status addIndexKeys(DbHandle *hndl) {
+Handle *docHndl;
+Status stat;
+
+	if ((stat = bindHandle(hndl, &docHndl)))
+		return stat;
+
+	stat = installIndexes(docHndl);
+	releaseHandle(docHndl);
 	return stat;
 }
 
-Status insertKey(void **hndl, uint8_t *key, uint32_t len) {
-Handle *idxhndl;
+Status addDocument(DbHandle *hndl, void *obj, uint32_t objSize, ObjId *result, ObjId txnId) {
+Handle *docHndl;
 Status stat;
 
-	if (!(idxhndl = bindHandle(hndl)))
-		return ERROR_arenadropped;
+	if ((stat = bindHandle(hndl, &docHndl)))
+		return stat;
 
-	switch (*idxhndl->map->arena->type) {
+	stat = storeDoc(docHndl, obj, objSize, result, txnId);
+	releaseHandle(docHndl);
+	return stat;
+}
+
+Status insertKey(DbHandle *hndl, uint8_t *key, uint32_t len) {
+Handle *index;
+Status stat;
+
+	if ((stat = bindHandle(hndl, &index)))
+		return stat;
+
+	switch (*index->map->arena->type) {
 	case ARTreeIndexType:
-		stat = artInsertKey(idxhndl, key, len);
+		stat = artInsertKey(index, key, len);
 		break;
 
 	case Btree1IndexType:
-		stat = btree1InsertKey(idxhndl, key, len, 0, Btree1_indexed);
+		stat = btree1InsertKey(index, key, len, 0, Btree1_indexed);
 		break;
 	}
 
-	releaseHandle(idxhndl);
+	releaseHandle(index);
 	return stat;
 }

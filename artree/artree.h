@@ -107,8 +107,8 @@ typedef struct {
 
 #define artIndexAddr(map)((ArtIndex *)(map->arena + 1))
 
-DbCursor *artNewCursor(Handle *index, uint64_t timestamp, ObjId txnId, char type);
-uint8_t *artCursorKey(DbCursor *dbCursor, uint32_t *len);
+Status artNewCursor(Handle *index, ArtCursor *cursor, uint64_t timestamp, ObjId txnId, char type);
+Status artReturnCursor(Handle *index, DbCursor *dbCursor);
 
 Status artNextKey(DbCursor *dbCursor, DbMap *index);
 Status artPrevKey(DbCursor *dbCursor, DbMap *index);
@@ -116,6 +116,8 @@ Status artSeekKey(DbCursor *cursor, uint8_t *key, uint32_t keylen);
 
 Status artInit(Handle *hndl, Params *params);
 Status artInsertKey (Handle *hndl, uint8_t *key, uint32_t keyLen);
+
 uint64_t artAllocateNode(Handle *index, int type, uint32_t size);
 
 bool artFindKey( DbCursor *dbCursor, DbMap *index, uint8_t *key, uint32_t keyLen);
+uint8_t *artCursorKey(DbCursor *dbCursor, uint32_t *len);

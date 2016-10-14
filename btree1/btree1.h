@@ -25,7 +25,7 @@ typedef enum{
 	Btree1_rootPage = 3,
 	Btree1_interior,
 	Btree1_leafPage,
-	Btree1_maxType
+	MAXBtree1Type
 } Btree1PageType;
 
 //	Btree1Index global data on disk
@@ -107,7 +107,9 @@ typedef struct {
 
 #define btree1index(map) ((Btree1Index *)(map->arena + 1))
 
-DbCursor *btree1NewCursor(Handle *idx, uint64_t timestamp, ObjId txnId, char type);
+Status btree1NewCursor(Handle *idx, Btree1Cursor *cursor, uint64_t timestamp, ObjId txnId, char type);
+Status btree1ReturnCursor(Handle *index, DbCursor *dbCursor);
+
 uint8_t *btree1CursorKey(DbCursor *dbCursor, uint32_t *len);
 
 uint64_t btree1NewPage (Handle *hndl, uint8_t lvl);

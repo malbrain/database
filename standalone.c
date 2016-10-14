@@ -105,7 +105,7 @@ typedef struct {
 	char *inFile;
 	char *maxKey;
 	char *minKey;
-	void **database;
+	DbHandle *database;
 	int useTxn, noDocs;
 	int bits, xtra, onDisk;
 	int num, idxType, keyLen;
@@ -139,9 +139,10 @@ unsigned char key[4096];
 ThreadArg *args = arg;
 KeySpec keySpec[1];
 ArenaType idxType;
-void *docStore[1];
-void *cursor[1];
-void *index[1];
+DbHandle database[1];
+DbHandle docStore[1];
+DbHandle cursor[1];
+DbHandle index[1];
 char *idxName;
 bool found;
 
@@ -154,12 +155,14 @@ ObjId objId;
 ObjId txnId;
 FILE *in;
 
+	cloneHandle(database, args->database);
+
 	if (args->maxKey)
 		maxLen = strlen(args->maxKey);
 	
 	idxType = indexType[args->idxType];
 	idxName = indexNames[args->idxType];
-	*docStore = NULL;
+	docStore->handle.bits = 0;
 
 	txnId.bits = 0;
 
@@ -182,7 +185,7 @@ FILE *in;
 		keySpec->keyLen = args->keyLen;
 
 		if (!args->noDocs)
-			openDocStore(docStore, args->database, "documents", strlen("documents"), params);
+			openDocStore(docStore, database, "documents", strlen("documents"), params);
 
 		createIndex(index, docStore, idxType, idxName, strlen(idxName), keySpec, sizeof(keySpec), params);
 
@@ -218,12 +221,12 @@ FILE *in;
 		keySpec->keyLen = args->keyLen;
 
 		if (!args->noDocs)
-			openDocStore(docStore, args->database, "documents", strlen("documents"), params);
+			openDocStore(docStore, database, "documents", strlen("documents"), params);
 
 		if ((stat = createIndex(index, docStore, idxType, idxName, strlen(idxName), keySpec, sizeof(keySpec), params)))
 		  fprintf(stderr, "createIndex Error %d name: %s\n", stat, idxName), exit(0);
 
-		if (*docStore)
+		if (docStore->handle.bits)
 			addIndexKeys(docStore);
 
 		if( in = fopen (args->inFile, "r") )
@@ -236,7 +239,7 @@ FILE *in;
 #endif
 			  line++;
 
-			  if (*docStore) {
+			  if (docStore->handle.bits) {
 				if ((stat = addDocument (docStore, key, len, &objId, txnId)))
 				  fprintf(stderr, "Add Document Error %d Line: %lld\n", stat, line), exit(0);
 			  } else
@@ -256,11 +259,11 @@ FILE *in;
 		keySpec->keyLen = args->keyLen;
 
 		if (!args->noDocs)
-			openDocStore(docStore, args->database, "documents", strlen("documents"), params);
+			openDocStore(docStore, database, "documents", strlen("documents"), params);
 
 		createIndex(index, docStore, idxType, idxName, strlen(idxName), keySpec, sizeof(keySpec), params);
 
-		if (*docStore)
+		if (docStore->handle.bits)
 			addIndexKeys(docStore);
 
 		createCursor (cursor, index, txnId, 'f');
@@ -278,10 +281,10 @@ FILE *in;
 			  if (keySpec->keyLen)
 				len = keySpec->keyLen;
 
-			  found = positionCursor (cursor, key, len);
+			  stat = positionCursor (cursor, key, len);
 
 			  if (args->noDocs) {
-				if (!found)
+				if (stat == CURSOR_notfound)
 				  fprintf(stderr, "findKey not Found: line: %lld expected: %.*s \n", line, len, key), exit(0);
 			  } else {
 				if ((stat = nextDoc (cursor, &doc, args->maxKey, maxLen)))
@@ -311,7 +314,7 @@ FILE *in;
 		fprintf(stderr, "\n");
 
 		if (!args->noDocs)
-			openDocStore(docStore, args->database, "documents", strlen("documents"), params);
+			openDocStore(docStore, database, "documents", strlen("documents"), params);
 
 		createIndex(index, docStore, idxType, idxName, strlen(idxName), keySpec, sizeof(keySpec), params);
 		addIndexKeys(docStore);
@@ -354,7 +357,7 @@ FILE *in;
 		fprintf(stderr, "\n");
 
 		if (!args->noDocs)
-			openDocStore(docStore, args->database, "documents", strlen("documents"), params);
+			openDocStore(docStore, database, "documents", strlen("documents"), params);
 
 		createIndex(index, docStore, idxType, idxName, strlen(idxName), keySpec, sizeof(keySpec), params);
 		addIndexKeys(docStore);
@@ -397,7 +400,7 @@ FILE *in;
 		fprintf(stderr, "\n");
 
 		if (!args->noDocs)
-			openDocStore(docStore, args->database, "documents", strlen("documents"), params);
+			openDocStore(docStore, database, "documents", strlen("documents"), params);
 
 		createIndex(index, docStore, idxType, idxName, strlen(idxName), keySpec, sizeof(keySpec), params);
 		addIndexKeys(docStore);
@@ -451,9 +454,9 @@ int num = 0;
 char key[1];
 Params params[MaxParam];
 bool onDisk = true;
-void *database[1];
-void *docStore[1];
-void *index[1];
+DbHandle database[1];
+DbHandle docStore[1];
+DbHandle index[1];
 
 #ifdef _WIN32
 	GetSystemInfo(info);

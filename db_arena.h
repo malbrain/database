@@ -44,7 +44,7 @@ struct DbArena_ {
 	DbSeg segs[MAX_segs]; 		// segment meta-data
 	uint64_t lowTs, delTs;		// low hndl ts, Incr on delete
 	DbAddr freeBlk[MAX_blk];	// free blocks in frames
-	DbAddr handleArray[1];		// handle array for our arena
+	DbAddr listArray[1];		// free lists array for our arena
 	DbAddr freeFrame[1];		// free frames in frames
 	DbAddr arenaDef[1];			// address of arenaDef for map
 	uint64_t objCount;			// overall number of objects
@@ -69,6 +69,7 @@ struct DbMap_ {
 #endif
 	DbArena *arena;			// ptr to mapped seg zero
 	DbMap *parent, *db;		// ptr to parent and database
+	DbAddr handleArray[1];	// handle array for our instance
 	SkipHead childMaps[1];	// skipList of child DbMaps
 	char path[MAX_path];	// file database path
 	ArenaDef *arenaDef;		// our arena definition
