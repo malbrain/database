@@ -108,7 +108,7 @@ int idx, max;
 	return array->maxidx * 64 + 1;
 }
 
-uint64_t makeHandle(DbMap *map, uint32_t xtraSize, uint32_t listMax) {
+uint64_t makeHandle(DbMap *map, uint32_t xtraSize, uint32_t listMax, HandleType type) {
 DbAddr *array = map->handleArray;
 uint64_t *inUse;
 DbAddr *addr;
@@ -126,7 +126,7 @@ uint16_t idx;
 		return 0;
 
 	memset (hndl, 0, amt);
-	hndl->hndlType = *map->arena->type;
+	hndl->hndlType = type;
 	hndl->arenaIdx = idx;
 	hndl->map = map;
 

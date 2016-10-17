@@ -1,4 +1,4 @@
-Btree-source-code/database
+malbrain/database
 ==========================
 
 A working project for High-concurrency B-tree/Database source code in C.
@@ -66,6 +66,29 @@ Sample eight thread output from indexing 80M pennysort keys:
      real 0m46.590s
      user 1m51.374s
      sys  1m3.939s
+
+Sample output from finding 80M pennysort records:
+
+    [karl@test7x64 xlink]$ ./dbtest tstdb -cmds=f -keyLen=10 -noDocs pennykey[01234567]
+    started finding keys for pennykey1
+    started finding keys for pennykey2
+    started finding keys for pennykey0
+    started finding keys for pennykey4
+    started finding keys for pennykey3
+    started finding keys for pennykey5
+    started finding keys for pennykey6
+    started finding keys for pennykey7
+    finished pennykey5 for 10000000 keys, found 10000000
+    finished pennykey2 for 10000000 keys, found 10000000
+    finished pennykey4 for 10000000 keys, found 10000000
+    finished pennykey0 for 10000000 keys, found 10000000
+    finished pennykey3 for 10000000 keys, found 10000000
+    finished pennykey1 for 10000000 keys, found 10000000
+    finished pennykey6 for 10000000 keys, found 10000000
+    finished pennykey7 for 10000000 keys, found 10000000
+     real 0m7.387s
+     user 0m55.924s
+     sys  0m2.237s
 
 Sample output from storing/indexing/persisting 40M pennysort records (4GB):
 

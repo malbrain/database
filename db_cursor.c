@@ -27,7 +27,6 @@ Status dbPositionCursor(DbMap *index, DbCursor *cursor, uint8_t *key, uint32_t k
 }
 
 Status dbNextDoc(DbMap *index, DbCursor *cursor, uint8_t *maxKey, uint32_t maxLen) {
-ArrayEntry *array;
 Txn *txn = NULL;
 uint64_t *ver;
 Status stat;
@@ -47,9 +46,9 @@ Status stat;
 	  if (!(cursor->doc = findDocVer(index->parent, cursor->docId, txn)))
 		continue;
 
-	  array = getObj(index->parent, *cursor->doc->verKeys);
+	  //  find version in verKeys skip list
 
-	  if ((ver = arrayFind(array, cursor->doc->verKeys->nslot, index->arenaDef->id)))
+	  if ((ver = skipFind(index->parent, cursor->doc->verKeys, index->arenaDef->id)))
 		if (*ver == cursor->ver)
 		  break;
 	}
@@ -58,7 +57,6 @@ Status stat;
 }
 
 Status dbPrevDoc(DbMap *index, DbCursor *cursor, uint8_t *maxKey, uint32_t maxLen) {
-ArrayEntry *array;
 Txn *txn = NULL;
 uint64_t *ver;
 Status stat;
@@ -78,9 +76,9 @@ Status stat;
 	  if (!(cursor->doc = findDocVer(index->parent, cursor->docId, txn)))
 		continue;
 
-	  array = getObj(index->parent, *cursor->doc->verKeys);
+	  //  find version in verKeys skip list
 
-	  if ((ver = arrayFind(array, cursor->doc->verKeys->nslot, index->arenaDef->id)))
+	  if ((ver = skipFind(index->parent, cursor->doc->verKeys, index->arenaDef->id)))
 		if (*ver == cursor->ver)
 		  break;
 	}

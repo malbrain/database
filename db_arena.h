@@ -13,7 +13,7 @@
 #define MAX_path  4096
 #define MAX_blk		49	// max arena blk size in half bits
 
-//  on disk arena segment
+//  disk arena segment
 
 typedef struct {
 	uint64_t off;		// file offset of segment
@@ -22,11 +22,11 @@ typedef struct {
 	ObjId nextId;		// highest object ID in use
 } DbSeg;
 
-//  Child arena specifications
+//  arena specifications
 
 typedef struct ArenaDef_ {
 	DbAddr node;				// database redblack node
-	uint64_t id;				// our arena id in parent
+	uint64_t id;				// child arena id in parent
 	uint64_t childId;			// highest child Id issued
 	uint64_t initSize;			// initial arena size
 	uint32_t localSize;			// extra space after DbMap
@@ -34,19 +34,20 @@ typedef struct ArenaDef_ {
 	uint32_t objSize;			// size of ObjectId array slot
 	uint8_t onDisk;				// arena onDisk/inMemory
 	uint8_t useTxn;				// transactions are used
+	uint8_t arenaType;			// type of the arena
 	DbAddr nameTree[1];			// child arena name red/black tree
-	SkipHead idList[1];			// child nameTree entry addr by id
+	SkipHead idList[1];			// child skiplist of names by id
 } ArenaDef;
 
-//  on disk/mmap arena seg zero
+//  arena at beginning of seg zero
 
 struct DbArena_ {
 	DbSeg segs[MAX_segs]; 		// segment meta-data
 	uint64_t lowTs, delTs;		// low hndl ts, Incr on delete
 	DbAddr freeBlk[MAX_blk];	// free blocks in frames
-	DbAddr listArray[1];		// free lists array for our arena
+	DbAddr hndlCalls[1];		// array of open handle call cnts
+	DbAddr listArray[1];		// free lists array for handles
 	DbAddr freeFrame[1];		// free frames in frames
-	DbAddr arenaDef[1];			// address of arenaDef for map
 	uint64_t objCount;			// overall number of objects
 	uint64_t objSpace;			// overall size of objects
 	uint32_t objSize;			// size of object array element
@@ -57,7 +58,7 @@ struct DbArena_ {
 	char type[1];				// arena type
 };
 
-//	in memory arena map
+//	per instance arena structure
 
 struct DbMap_ {
 	char *base[MAX_segs];	// pointers to mapped segment memory
@@ -82,20 +83,20 @@ struct DbMap_ {
 
 typedef struct {
 	uint64_t timestamp[1];	// database txn timestamp
-	ArenaDef arenaDef[1];	// our create variables
+	ArenaDef arenaDef[1];	// database variables and root of children
 	DbAddr txnIdx[1];		// array of active idx for txn entries
 } DataBase;
 
 #define database(db) ((DataBase *)(db->arena + 1))
 
-//	docstore variables
+//	docarena variables
 
 typedef struct {
 	uint16_t docIdx;		// our map index for txn
 	uint8_t init;			// set on init
-} DocStore;
+} DocArena;
 
-#define docstore(map) ((DocStore *)(map->arena + 1))
+#define docarena(map) ((DocArena *)(map->arena + 1))
 
 /**
  *  memory mapping

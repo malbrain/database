@@ -77,19 +77,8 @@ typedef union {
 	int intVal;
 } Params;
 
-//	types of arenas
-
-typedef enum {
-	NotSetYet = 0,
-	DatabaseType,
-	DocStoreType,
-	Btree1IndexType,
-	Btree2IndexType,
-	ARTreeIndexType
-} ArenaType;
-
 typedef struct {
-	DbAddr verKeys[1];	// array of versions by index key
+	DbAddr verKeys[1];	// skiplist of versions with Id key
 	DbAddr prevDoc[1];	// previous version of doc
 	uint64_t version;	// version of the document
 	ObjId docId;		// ObjId of the document

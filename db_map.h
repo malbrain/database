@@ -11,7 +11,7 @@ typedef struct PathStk_ PathStk;
  * open/create arenas
  */
 
-DbMap *createMap(DbMap *parent, char *name, uint32_t nameLen, uint32_t localSize, uint32_t baseSize, uint32_t objSize, Params *params);
+DbMap *createMap(DbMap *parent, HandleType arenaType, char *name, uint32_t nameLen, uint32_t localSize, uint32_t baseSize, uint32_t objSize, Params *params);
 DbMap *openMap(DbMap *parent, char *name, uint32_t nameLen, ArenaDef *arena);
 DbMap *arenaRbMap(DbMap *parent, RedBlack *entry);
 DbMap *initMap(DbMap *map, ArenaDef *arenaDef);

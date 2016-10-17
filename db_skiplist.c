@@ -3,18 +3,27 @@
 #include "db.h"
 #include "db_map.h"
 
+//	initialize initial skip list node
+
+uint64_t skipInit(DbMap *map, int numEntries) {
+  if (numEntries > 127)
+	numEntries = 127;
+
+  return allocBlk(map, numEntries * sizeof(SkipEntry) + sizeof(SkipNode), true);
+}
+
 //	find key value in skiplist, return entry address
 
 void *skipFind(DbMap *map, DbAddr *skip, uint64_t key) {
 DbAddr *next = skip;
-SkipList *skipList;
-ArrayEntry *entry;
+SkipNode *skipNode;
+SkipEntry *entry;
 
   while (next->addr) {
-	skipList = getObj(map, *next);
+	skipNode = getObj(map, *next);
 
-	if (*skipList->array->key <= key) {
-	  entry = arraySearch(skipList->array, next->nslot, key);
+	if (*skipNode->array->key <= key) {
+	  entry = skipSearch(skipNode->array, next->nslot, key);
 
 	  if (*entry->key == key)
 		return entry->val;
@@ -22,119 +31,130 @@ ArrayEntry *entry;
 	  return NULL;
 	}
 
-	next = skipList->next;
+	next = skipNode->next;
   }
 
   return NULL;
 }
 
 //	remove key from skip list
+//	returning value from slot
 
-void skipDel(DbMap *map, DbAddr *skip, uint64_t key) {
-SkipList *skipList = NULL, *prevList;
+uint64_t skipDel(DbMap *map, DbAddr *skip, uint64_t key) {
+SkipNode *skipNode = NULL, *prevNode;
 DbAddr *next = skip;
-ArrayEntry *entry;
+SkipEntry *entry;
+uint64_t val;
 
   while (next->addr) {
-	prevList = skipList;
-	skipList = getObj(map, *next);
+	prevNode = skipNode;
+	skipNode = getObj(map, *next);
 
-	if (*skipList->array->key <= key) {
-	  entry = arraySearch(skipList->array, next->nslot, key);
+	if (*skipNode->array->key <= key) {
+	  entry = skipSearch(skipNode->array, next->nslot, key);
 
-	  if (*entry->key != key)
-		return;
+	  if (*entry->key == key)
+		val = *entry->val;
+	  else
+		return 0;
 
 	  //  remove the entry slot
 
 	  if (--next->nslot) {
-		while (entry - skipList->array < next->nslot) {
+		while (entry - skipNode->array < next->nslot) {
 		  entry[0] = entry[1];
 		  entry++;
 		}
 
-		return;
+		return val;
 	  }
 
 	  //  skip list node is empty, remove it
 
-	  if (prevList)
-		prevList->next->bits = skipList->next->bits;
+	  if (prevNode)
+		prevNode->next->bits = skipNode->next->bits;
 	  else
-		skip->bits = skipList->next->bits;
+		skip->bits = skipNode->next->bits;
 
 	  freeBlk(map, next);
-	  return;
+	  return val;
 	}
 
-	next = skipList->next;
+	next = skipNode->next;
   }
+
+  return 0;
 }
 
 //	Push new maximal key onto head of skip list
 //	return the value slot address
 
 void *skipPush(DbMap *map, DbAddr *skip, uint64_t key) {
-SkipList *skipList;
-ArrayEntry *entry;
+SkipNode *skipNode;
+SkipEntry *entry;
 uint64_t next;
 
-	if (!skip->addr || skip->nslot == SKIP_node) {
-		next = skip->bits;
-		skip->bits = allocBlk(map, sizeof(SkipList), true);
-		skipList = getObj(map, *skip);
-		skipList->next->bits = next;
+	if (!skip->addr || skip->nslot == skipSize(skip)) {
+	  next = skip->bits;
+
+	  if (!skip->addr)
+		skip->bits = allocBlk(map, SKIP_first * sizeof(SkipEntry) + sizeof(SkipNode), true);
+	  else
+		skip->bits = allocBlk(map, 1ULL << (skip->type < SKIP_max ? skip->type * 2 : skip->type), true);
+
+	  skipNode = getObj(map, *skip);
+	  skipNode->next->bits = next;
 	}
 
-	entry = skipList->array + skip->nslot++;
+	entry = skipNode->array + skip->nslot++;
 	*entry->key = key;
 	return entry->val;
 }
 
-//	Add new key to skip list
+//	Add arbitrary key to skip list
 //	return val address
 
 void *skipAdd(DbMap *map, DbAddr *skip, uint64_t key) {
-SkipList *skipList = NULL, *nextList;
+SkipNode *skipNode = NULL, *nextNode;
 DbAddr *next = skip;
 uint64_t prevBits;
-ArrayEntry *entry;
+SkipEntry *entry;
 int min, max;
 
   while (next->addr) {
-	skipList = getObj(map, *next);
+	skipNode = getObj(map, *next);
 
 	//  find skipList node that covers key
 
-	if (skipList->next->bits && *skipList->array->key > key) {
-	  next = skipList->next;
+	if (skipNode->next->bits && *skipNode->array->key > key) {
+	  next = skipNode->next;
 	  continue;
 	}
 
-	if (*skipList->array->key <= key) {
-	  entry = arraySearch(skipList->array, next->nslot, key);
+	if (*skipNode->array->key <= key) {
+	  entry = skipSearch(skipNode->array, next->nslot, key);
 	
 	  //  does key already exist?
 
 	  if (*entry->key == key)
 		return entry->val;
 
-	  min = ++entry - skipList->array;
+	  min = ++entry - skipNode->array;
 	} else
 	  min = 0;
 
 	//  split node if already full
 
-	if (next->nslot == SKIP_node) {
-	  prevBits = skipList->next->bits;
-	  skipList->next->bits = allocBlk(map, sizeof(SkipList), true);
+	if (next->nslot == skipSize(next)) {
+	  prevBits = skipNode->next->bits;
+	  skipNode->next->bits = allocBlk(map, 1ULL << (next->type < SKIP_max ? next->type * 2 : next->type), true);
 
-	  nextList = getObj(map, *skipList->next);
-	  nextList->next->bits = prevBits;
-	  memcpy(nextList->array, skipList->array + SKIP_node / 2, sizeof(SkipList) * (SKIP_node - SKIP_node / 2));
+	  nextNode = getObj(map, *skipNode->next);
+	  nextNode->next->bits = prevBits;
+	  memcpy(nextNode->array, skipNode->array + skipSize(skipNode->next) / 2, sizeof(skipNode->next) * (skipSize(skipNode->next) - skipSize(skipNode->next) / 2));
 
-	  skipList->next->nslot = SKIP_node - SKIP_node / 2;
-	  next->nslot = SKIP_node / 2;
+	  skipNode->next->nslot = skipSize(skipNode->next) - skipSize(skipNode->next) / 2;
+	  next->nslot = skipSize(next) / 2;
 	  continue;
 	}
 
@@ -143,51 +163,29 @@ int min, max;
 	max = next->nslot++;
 
 	while (max > min)
-	  skipList->array[max] = skipList->array[max - 1], max--;
+	  skipNode->array[max] = skipNode->array[max - 1], max--;
 
-	return skipList->array[max].val;
+	//  fill in key and return value slot
+
+	*skipNode->array[max].key = key;
+	return skipNode->array[max].val;
   }
 
   // initialize empty list
 
-  skip->bits = allocBlk(map, sizeof(SkipList), true);
-  skipList = getObj(map, *skip);
+  skip->bits = allocBlk(map, SKIP_first * sizeof(SkipEntry) + sizeof(SkipNode), true);
+  skipNode = getObj(map, *skip);
 
-  *skipList->array->key = key;
+  *skipNode->array->key = key;
   skip->nslot = 1;
 
-  return skipList->array->val;
+  return skipNode->array->val;
 }
 
-// add array entry
-
-void *arrayAdd(ArrayEntry *array, uint32_t max, uint64_t key) {
-
-  while (max)
-	if (*array[max - 1].key < key)
-	  break;
-	else
-	  array[max] = array[max - 1];
-
-  *array[max].key = key;
-  return array[max].val;
-}
-
-// find array entry, or return NULL
-
-void *arrayFind(ArrayEntry *array, int high, uint64_t key) {
-ArrayEntry *entry = arraySearch(array, high, key);
-
-	if(*entry->key == key)
-		return entry->val;
-
-	return NULL;
-}
-
-//	search Array node for key value
+//	search Skip node for key value
 //	return highest entry <= key
 
-ArrayEntry *arraySearch(ArrayEntry *array, int high, uint64_t key) {
+SkipEntry *skipSearch(SkipEntry *array, int high, uint64_t key) {
 int low = 0, diff;
 
 	//	key < high

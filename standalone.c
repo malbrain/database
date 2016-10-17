@@ -88,14 +88,14 @@ typedef struct {
 	int keyLen;
 } KeySpec;
 
-uint16_t keyGenerator (uint8_t *key, void *obj, uint16_t objSize, void *spec, uint16_t specSize) {
-KeySpec *keySpec = (KeySpec *)spec;
+uint16_t keyGenerator (uint8_t *key, Document *doc, Object *spec) {
+KeySpec *keySpec = (KeySpec *)(spec + 1);
 uint16_t keyLen = 0;
 
 	if (!(keyLen = keySpec->keyLen))
-		keyLen = objSize;
+		keyLen = doc->size;
 
-	memcpy(key, obj, keyLen);
+	memcpy(key, doc + 1, keyLen);
 	return keyLen;
 }
 
@@ -117,7 +117,7 @@ char *indexNames[] = {
 "Btree2Idx"
 };
 
-ArenaType indexType[] = {
+HandleType indexType[] = {
 ARTreeIndexType,
 Btree1IndexType,
 Btree2IndexType
@@ -138,11 +138,12 @@ Params params[MaxParam];
 unsigned char key[4096];
 ThreadArg *args = arg;
 KeySpec keySpec[1];
-ArenaType idxType;
+HandleType idxType;
 DbHandle database[1];
-DbHandle docStore[1];
+DbHandle docHndl[1];
 DbHandle cursor[1];
 DbHandle index[1];
+DbHandle *parent;
 char *idxName;
 bool found;
 
@@ -162,7 +163,7 @@ FILE *in;
 	
 	idxType = indexType[args->idxType];
 	idxName = indexNames[args->idxType];
-	docStore->handle.bits = 0;
+	docHndl->handle.bits = 0;
 
 	txnId.bits = 0;
 
@@ -184,13 +185,18 @@ FILE *in;
 
 		keySpec->keyLen = args->keyLen;
 
-		if (!args->noDocs)
-			openDocStore(docStore, database, "documents", strlen("documents"), params);
+		if (args->noDocs)
+			parent = database;
+		else {
+			openDocStore(docHndl, database, "documents", strlen("documents"), params);
+			parent = docHndl;
+		}
 
-		createIndex(index, docStore, idxType, idxName, strlen(idxName), keySpec, sizeof(keySpec), params);
+		if ((stat = createIndex(index, parent, idxType, idxName, strlen(idxName), keySpec, sizeof(keySpec), params)))
+		  fprintf(stderr, "createIndex Error %d name: %s\n", stat, idxName), exit(0);
 
-		if (*docStore)
-			addIndexKeys(docStore);
+		if (docHndl->handle->bits)
+			addIndexKeys(docHndl);
 
 		if( in = fopen (args->inFile, "rb") )
 		  while( ch = getc(in), ch != EOF )
@@ -202,7 +208,7 @@ FILE *in;
 #endif
 			  line++;
 
-			  if ((stat = delDocument (docStore, key, len, &objId, txnId)))
+			  if ((stat = delDocument (docHndl, key, len, &objId, txnId)))
 				  fprintf(stderr, "Del Document Error %d Line: %lld\n", stat, line), exit(0);
 			  len = 0;
 			  continue;
@@ -220,14 +226,18 @@ FILE *in;
 
 		keySpec->keyLen = args->keyLen;
 
-		if (!args->noDocs)
-			openDocStore(docStore, database, "documents", strlen("documents"), params);
+		if (args->noDocs)
+			parent = database;
+		else {
+			openDocStore(docHndl, database, "documents", strlen("documents"), params);
+			parent = docHndl;
+		}
 
-		if ((stat = createIndex(index, docStore, idxType, idxName, strlen(idxName), keySpec, sizeof(keySpec), params)))
+		if ((stat = createIndex(index, parent, idxType, idxName, strlen(idxName), keySpec, sizeof(keySpec), params)))
 		  fprintf(stderr, "createIndex Error %d name: %s\n", stat, idxName), exit(0);
 
-		if (docStore->handle.bits)
-			addIndexKeys(docStore);
+		if (docHndl->handle.bits)
+			addIndexKeys(docHndl);
 
 		if( in = fopen (args->inFile, "r") )
 		  while( ch = getc(in), ch != EOF )
@@ -239,8 +249,8 @@ FILE *in;
 #endif
 			  line++;
 
-			  if (docStore->handle.bits) {
-				if ((stat = addDocument (docStore, key, len, &objId, txnId)))
+			  if (docHndl->handle.bits) {
+				if ((stat = addDocument (docHndl, key, len, &objId, txnId)))
 				  fprintf(stderr, "Add Document Error %d Line: %lld\n", stat, line), exit(0);
 			  } else
 				if ((stat = insertKey(index, key, len)))
@@ -258,13 +268,18 @@ FILE *in;
 
 		keySpec->keyLen = args->keyLen;
 
-		if (!args->noDocs)
-			openDocStore(docStore, database, "documents", strlen("documents"), params);
+		if (args->noDocs)
+			parent = database;
+		else {
+			openDocStore(docHndl, database, "documents", strlen("documents"), params);
+			parent = docHndl;
+		}
 
-		createIndex(index, docStore, idxType, idxName, strlen(idxName), keySpec, sizeof(keySpec), params);
+		if ((stat = createIndex(index, parent, idxType, idxName, strlen(idxName), keySpec, sizeof(keySpec), params)))
+		  fprintf(stderr, "createIndex Error %d name: %s\n", stat, idxName), exit(0);
 
-		if (docStore->handle.bits)
-			addIndexKeys(docStore);
+		if (docHndl->handle.bits)
+			addIndexKeys(docHndl);
 
 		createCursor (cursor, index, txnId, 'f');
 
@@ -313,11 +328,18 @@ FILE *in;
 
 		fprintf(stderr, "\n");
 
-		if (!args->noDocs)
-			openDocStore(docStore, database, "documents", strlen("documents"), params);
+		if (args->noDocs)
+			parent = database;
+		else {
+			openDocStore(docHndl, database, "documents", strlen("documents"), params);
+			parent = docHndl;
+		}
 
-		createIndex(index, docStore, idxType, idxName, strlen(idxName), keySpec, sizeof(keySpec), params);
-		addIndexKeys(docStore);
+		if ((stat = createIndex(index, parent, idxType, idxName, strlen(idxName), keySpec, sizeof(keySpec), params)))
+		  fprintf(stderr, "createIndex Error %d name: %s\n", stat, idxName), exit(0);
+
+		if (docHndl->handle.bits)
+			addIndexKeys(docHndl);
 
 		// create forward cursor
 
@@ -356,11 +378,18 @@ FILE *in;
 
 		fprintf(stderr, "\n");
 
-		if (!args->noDocs)
-			openDocStore(docStore, database, "documents", strlen("documents"), params);
+		if (args->noDocs)
+			parent = database;
+		else {
+			openDocStore(docHndl, database, "documents", strlen("documents"), params);
+			parent = docHndl;
+		}
 
-		createIndex(index, docStore, idxType, idxName, strlen(idxName), keySpec, sizeof(keySpec), params);
-		addIndexKeys(docStore);
+		if ((stat = createIndex(index, parent, idxType, idxName, strlen(idxName), keySpec, sizeof(keySpec), params)))
+		  fprintf(stderr, "createIndex Error %d name: %s\n", stat, idxName), exit(0);
+
+		if (docHndl->handle.bits)
+			addIndexKeys(docHndl);
 
 		// create reverse cursor
 
@@ -399,11 +428,15 @@ FILE *in;
 
 		fprintf(stderr, "\n");
 
-		if (!args->noDocs)
-			openDocStore(docStore, database, "documents", strlen("documents"), params);
+		if (args->noDocs)
+			parent = database;
+		else {
+			openDocStore(docHndl, database, "documents", strlen("documents"), params);
+			parent = docHndl;
+		}
 
-		createIndex(index, docStore, idxType, idxName, strlen(idxName), keySpec, sizeof(keySpec), params);
-		addIndexKeys(docStore);
+		if ((stat = createIndex(index, parent, idxType, idxName, strlen(idxName), keySpec, sizeof(keySpec), params)))
+		  fprintf(stderr, "createIndex Error %d name: %s\n", stat, idxName), exit(0);
 
 		//  create forward cursor
 
@@ -455,7 +488,7 @@ char key[1];
 Params params[MaxParam];
 bool onDisk = true;
 DbHandle database[1];
-DbHandle docStore[1];
+DbHandle docHndl[1];
 DbHandle index[1];
 
 #ifdef _WIN32

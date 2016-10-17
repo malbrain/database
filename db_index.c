@@ -11,34 +11,48 @@
 extern DbMap memMap[1];
 extern int maxType[8];
 
+//	remove a dropped index from the docStore indexes skiplist
+//	call with arena child skiplist entry
+
+void removeIdx(Handle *hndl, SkipEntry *entry) {
+DocStore *docStore;
+Handle *index;
+DbAddr addr;
+
+	docStore = (DocStore *)(hndl + 1);
+
+	//	find the childId in our indexes skiplist
+	//	and return the handle
+
+	if ((addr.bits = skipDel(hndl->map, docStore->indexes->head, *entry->key)))
+		index = getObj(memMap, addr);
+	else
+		return;
+
+	returnHandle(index);
+}
+
 //  open and install index DbHandle in hndl cache
 //	call with docStore handle and arenaDef address.
 
-void installIdx(Handle *hndl, ArrayEntry *entry) {
+void installIdx(Handle *hndl, SkipEntry *entry) {
 uint64_t *hndlAddr;
+DocStore *docStore;
 RedBlack *rbEntry;
-Handle *childHndl;
-DocHndl *docHndl;
 DbAddr rbAddr;
 DbMap *child;
 DbAddr addr;
 
-	docHndl = (DocHndl *)(hndl + 1);
+	docStore = (DocStore *)(hndl + 1);
 
-	//  no more than 255 indexes
-
-	if (docHndl->idxCnt < 255)
-		docHndl->idxCnt++;
-	else
-		return;
-
-	hndlAddr = skipAdd(hndl->map, docHndl->indexes->head, *entry->key);
+	hndlAddr = skipAdd(hndl->map, docStore->indexes->head, *entry->key);
 
 	rbAddr.bits = *entry->val;
 	rbEntry = getObj(hndl->map->parent->db, rbAddr);
+
 	child = arenaRbMap(hndl->map, rbEntry);
 
-	*hndlAddr = makeHandle(child, 0, maxType[*child->arena->type]);
+	*hndlAddr = makeHandle(child, 0, maxType[*child->arena->type], *child->arena->type);
 }
 
 //	create new index handles based on children of the docStore.
@@ -46,93 +60,101 @@ DbAddr addr;
 
 Status installIndexes(Handle *hndl) {
 ArenaDef *arenaDef = hndl->map->arenaDef;
-DbAddr *next = arenaDef->idList->head;
+DocStore *docStore;
 uint64_t maxId = 0;
-SkipList *skipList;
-ArrayEntry *entry;
-DocHndl *docHndl;
+SkipNode *skipNode;
+SkipEntry *entry;
+DbAddr *next;
 int idx;
 
-	docHndl = (DocHndl *)(hndl + 1);
+	docStore = (DocStore *)(hndl + 1);
 
-	if (docHndl->childId < arenaDef->childId)
-		readLock2 (arenaDef->idList->lock);
-	else
+	if (docStore->childId >= arenaDef->childId)
 		return OK;
 
-	writeLock2 (docHndl->indexes->lock);
+	readLock2 (arenaDef->idList->lock);
+	writeLock2 (docStore->indexes->lock);
+
+	next = arenaDef->idList->head;
 
 	//	open maps based on childId skip list
 	// 	of arenaDef to continue the index handle list
 
 	//	processs the skip list nodes one at a time
+	//	most recent first
 
 	while (next->addr) {
-		skipList = getObj(hndl->map->db, *next);
+		skipNode = getObj(hndl->map->db, *next);
 		idx = next->nslot;
 
 		if (!maxId)
-			maxId = *skipList->array[next->nslot - 1].key;
-
-		// process the skip list entries of arenaDef addr
+			maxId = *skipNode->array[next->nslot - 1].key;
 
 		while (idx--)
-			if (*skipList->array[idx].key > docHndl->childId)
-				installIdx(hndl, &skipList->array[idx]);
+		  if (*skipNode->array[idx].key > docStore->childId)
+			if (*skipNode->array[idx].key & CHILDID_DROP)
+			  installIdx(hndl, &skipNode->array[idx]);
 			else
-				break;
+			  removeIdx(hndl, &skipNode->array[idx]);
+		  else
+			break;
 
-		next = skipList->next;
+		next = skipNode->next;
 	}
 
-	docHndl->childId = maxId;
-	writeUnlock2 (docHndl->indexes->lock);
+	docStore->childId = maxId;
+	writeUnlock2 (docStore->indexes->lock);
 	readUnlock2 (arenaDef->idList->lock);
 	return OK;
 }
 
-Status installIndexKey(Handle *hndl, ArrayEntry *entry, Document *doc) {
-ArrayEntry *versions = getObj(hndl->map, *doc->verKeys);
+//	install index key for a document
+//	call with docStore handle
+
+Status installIndexKey(Handle *hndl, SkipEntry *entry, Document *doc) {
 uint8_t key[MAX_key];
+DbIndex *dbIndex;
 uint64_t *verPtr;
-DbHandle *dbHndl;
-Handle *idxHndl;
-DbIndex *index;
+Handle *index;
 Object *spec;
 Status stat;
 DbAddr addr;
 int keyLen;
 
 	addr.bits = *entry->val;
-	dbHndl = getObj(memMap, addr);
+	index = getObj(memMap, addr);
 
-	if ((stat = bindHandle(dbHndl, &idxHndl)))
-		return stat;
+	//  bind the dbIndex handle
 
-	index = dbindex(idxHndl->map);
+	atomicAdd32(index->status, 1);
 
-	spec = getObj(idxHndl->map, index->keySpec);
-	keyLen = keyGenerator(key, doc + 1, doc->size, spec + 1, spec->size);
+	dbIndex = dbindex(index->map);
+
+	spec = getObj(index->map, dbIndex->keySpec);
+	keyLen = keyGenerator(key, doc, spec);
 
 	keyLen = store64(key, keyLen, doc->docId.bits);
 
-	if (idxHndl->map->arenaDef->useTxn)
+	if (index->map->arenaDef->useTxn)
 		keyLen = store64(key, keyLen, doc->version);
 
-	verPtr = arrayAdd(versions, doc->verKeys->nslot++, *entry->key);
+	//	add the version for the indexId
+	//	to the verKeys skiplist
+
+	verPtr = skipAdd(hndl->map, doc->verKeys, *entry->key);
 	*verPtr = doc->version;
 
-	switch (*idxHndl->map->arena->type) {
+	switch (*index->map->arena->type) {
 	case ARTreeIndexType:
-		stat = artInsertKey(idxHndl, key, keyLen);
+		stat = artInsertKey(index, key, keyLen);
 		break;
 
 	case Btree1IndexType:
-		stat = btree1InsertKey(idxHndl, key, keyLen, 0, Btree1_indexed);
+		stat = btree1InsertKey(index, key, keyLen, 0, Btree1_indexed);
 		break;
 	}
 
-	releaseHandle(idxHndl);
+	atomicAdd32(index->status, -1);
 	return stat;
 }
 
@@ -140,41 +162,39 @@ int keyLen;
 //	call with docStore handle
 
 Status installIndexKeys(Handle *hndl, Document *doc) {
-SkipList *skipList;
-ArrayEntry *array;
-DocHndl *docHndl;
+SkipNode *skipNode;
+DocStore *docStore;
 DbAddr *next;
 Status stat;
 int idx;
 
-	docHndl = (DocHndl *)(hndl + 1);
+	docStore = (DocStore *)(hndl + 1);
 
-	next = docHndl->indexes->head;
-	readLock2 (docHndl->indexes->lock);
+	readLock2 (docStore->indexes->lock);
+	next = docStore->indexes->head;
 
-	//	install keys for document
-
-	doc->verKeys->bits = allocBlk (hndl->map, docHndl->idxCnt * sizeof(ArrayEntry), true);
+	//	scan indexes skiplist of index handles
+	//	and install keys for document
 
 	while (next->addr) {
-	  skipList = getObj(hndl->map, *next);
+	  skipNode = getObj(hndl->map, *next);
 	  idx = next->nslot;
 
 	  while (idx--) {
-		if (~*skipList->array[idx].key & CHILDID_DROP)
-		  if ((stat = installIndexKey(hndl, &skipList->array[idx], doc)))
+		if (~*skipNode->array[idx].key & CHILDID_DROP)
+		  if ((stat = installIndexKey(hndl, &skipNode->array[idx], doc)))
 			return stat;
 	  }
 
-	  next = skipList->next;
+	  next = skipNode->next;
 	}
 
-	readUnlock2 (docHndl->indexes->lock);
+	readUnlock2 (docStore->indexes->lock);
 	return OK;
 }
 
 Status storeDoc(Handle *hndl, void *obj, uint32_t objSize, ObjId *result, ObjId txnId) {
-DocStore *docStore;
+DocArena *docArena;
 ArenaDef *arenaDef;
 Txn *txn = NULL;
 Document *doc;
@@ -183,7 +203,7 @@ ObjId docId;
 DbAddr addr;
 int idx;
 
-	docStore = docstore(hndl->map);
+	docArena = docarena(hndl->map);
 
 	if (txnId.bits)
 		txn = fetchIdSlot(hndl->map->db, txnId);
@@ -193,7 +213,7 @@ int idx;
 	else
 		return ERROR_outofmemory;
 
-	docId.bits = allocObjId(hndl->map, hndl->list, docStore->docIdx);
+	docId.bits = allocObjId(hndl->map, hndl->list, docArena->docIdx);
 
 	memset (doc, 0, sizeof(Document));
 
