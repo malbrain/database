@@ -56,7 +56,7 @@ uint8_t ch;
 				*slot.latch = KeyEnd | ALIVE_BIT;
 				stack->addr->bits = slot.bits;
 
-				if (!addSlotToFrame(index->map, index->list[newSlot.type].tail, newSlot))
+				if (!addSlotToFrame(index->map, index->list[newSlot.type].head, index->list[newSlot.type].tail, newSlot))
 					rt = ErrorSearch;
 				else
 					rt = EndSearch;
@@ -71,7 +71,7 @@ uint8_t ch;
 			case SpanNode: {
 				stack->addr->bits = 0;
 
-				if (!addSlotToFrame(index->map, index->list[newSlot.type].tail, newSlot))
+				if (!addSlotToFrame(index->map, index->list[newSlot.type].head, index->list[newSlot.type].tail, newSlot))
 					rt = ErrorSearch;
 				else
 					continue;
@@ -103,7 +103,7 @@ uint8_t ch;
 
 				stack->addr->bits = 0;
 
-				if (addSlotToFrame(index->map, index->list[newSlot.type].tail, newSlot))
+				if (addSlotToFrame(index->map, index->list[newSlot.type].head, index->list[newSlot.type].tail, newSlot))
 					continue;
 
 				rt = ErrorSearch;
@@ -135,7 +135,7 @@ uint8_t ch;
 
 				stack->addr->bits = 0;
 
-				if (addSlotToFrame(index->map, index->list[newSlot.type].tail, newSlot))
+				if (addSlotToFrame(index->map, index->list[newSlot.type].head, index->list[newSlot.type].tail, newSlot))
 					continue;
 
 				rt = ErrorSearch;
@@ -161,7 +161,7 @@ uint8_t ch;
 
 				stack->addr->bits = 0;
 
-				if (addSlotToFrame(index->map, index->list[newSlot.type].tail, newSlot))
+				if (addSlotToFrame(index->map, index->list[newSlot.type].head, index->list[newSlot.type].tail, newSlot))
 					continue;
 
 				rt = ErrorSearch;
@@ -187,7 +187,7 @@ uint8_t ch;
 				// remove the slot
 				stack->addr->bits = 0;
 
-				if (addSlotToFrame(index->map, index->list[newSlot.type].tail, newSlot))
+				if (addSlotToFrame(index->map, index->list[newSlot.type].head, index->list[newSlot.type].tail, newSlot))
 					continue;
 
 				rt = ErrorSearch;

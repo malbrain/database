@@ -27,8 +27,8 @@ DbAddr slot;
 		return false;
 
 	if (!free->addr)
-		if (!(free->addr = allocFrame(map)))
-			return false;
+	  if (!(free->addr = allocFrame(map)))
+		return false;
 
 	free->type = FrameType;
 	free->nslot = dup;
@@ -99,40 +99,43 @@ DbAddr slot;
 	frame->next.bits = 0;
 	frame->prev.bits = 0;
 
+	slot.fill = 0;
 	slot.type = FrameType;
 	return slot.bits;
 }
 
-//  Add empty frame to free-list
+//  Add empty frame to frame free-list
 
-void returnFreeFrame(DbMap *map, DbAddr slot) {
+void returnFreeFrame(DbMap *map, DbAddr free) {
 Frame *frame;
 
 	lockLatch(map->arena->freeFrame->latch);
 
 	// space in current free-list frame?
 
-	if (map->arena->freeFrame->addr && map->arena->freeFrame->nslot < FrameSlots) {
+	if (map->arena->freeFrame->addr)
+	  if (map->arena->freeFrame->nslot < FrameSlots) {
 		frame = getObj(map, *map->arena->freeFrame);
-		frame->slots[map->arena->freeFrame->nslot++].bits = slot.bits;
+		frame->slots[map->arena->freeFrame->nslot++].bits = free.bits;
 		unlockLatch(map->arena->freeFrame->latch);
 		return;
-	}
+	  }
 
-	// otherwise turn slot into new freeFrame
+	// otherwise turn free into new freeFrame frame
 
-	frame = getObj(map, slot);
+	frame = getObj(map, free);
 	frame->next.bits = map->arena->freeFrame->bits;
 	frame->prev.bits = 0;
 
-	slot.nslot = 0;
-	slot.mutex = 0;
-	map->arena->freeFrame->bits = slot.bits;
+	//	add free frame to freeFrame list
+	//	and remove mutex
+
+	map->arena->freeFrame->bits = free.addr;
 }
 
 //  Add node to free frame
 
-bool addSlotToFrame(DbMap *map, DbAddr *head, uint64_t addr) {
+bool addSlotToFrame(DbMap *map, DbAddr *head, DbAddr *tail, uint64_t addr) {
 DbAddr slot2;
 Frame *frame;
 
@@ -148,7 +151,8 @@ Frame *frame;
 		return true;
 	}
 
-	//  otherwise add slot to new frame
+	//	allocate new frame and
+	//  push frame onto list head
 
 	if (!(slot2.bits = allocFrame(map)) )
 		return false;
@@ -157,13 +161,18 @@ Frame *frame;
 	frame->slots->bits = addr;  // install in slot zero
 	frame->prev.bits = 0;
 
-	if ( (frame->next.bits = head->addr) ) {
-		Frame *frame2 = getObj(map, *head);
-		frame2->timestamp = map->arena->delTs;
-		frame2->prev.bits = slot2.bits;
-	}
+	//	link new frame onto tail of wait chain
 
-	// install new head, with lock cleared
+	if ((frame->next.bits = head->addr)) {
+		frame = getObj(map, *head);
+		frame->timestamp = map->arena->nxtTs;
+		frame->prev.bits = slot2.bits;
+	
+		if (tail && !tail->addr)
+			tail->bits = head->bits & ~ADDR_MUTEX_SET;
+	}	
+
+	// install new frame at list head, with lock cleared
 
 	slot2.nslot = 1;
 	head->bits = slot2.bits;
@@ -201,69 +210,91 @@ Frame *frame;
 }
 
 //  pull available node from free object frame
-//   call with free object frame locked.
+//   call with free frame list head locked.
 
 uint64_t getNodeFromFrame(DbMap *map, DbAddr* free) {
-	if (free->addr) 
-		do {
-			Frame *frame = getObj(map, *free);
-			DbAddr slot;
-			//  are there available free objects?
+	while (free->addr) {
+		Frame *frame = getObj(map, *free);
+		DbAddr slot;
 
-			if (free->nslot)
-				return frame->slots[--free->nslot].addr;
+		//  are there available free objects?
+
+		if (free->nslot)
+			return frame->slots[--free->nslot].addr;
 	
-			//  is there another frame of free objects after the empty frame?
+		//  leave empty frame in place to collect
+		//  new nodes
 
-			if (!frame->next.bits)
-				return 0;
-	
-			slot.bits = free->bits;
-			free->addr = frame->next.addr;
-			free->nslot = FrameSlots;
-			returnFreeFrame(map, slot);
-		} while (true);
+		if (frame->next.addr)
+			returnFreeFrame(map, *free);
+		else
+			return 0;
 
-	return 0;
+		//	move the head of the free list
+		//	to the next frame
+
+		free->bits = frame->next.addr | ADDR_MUTEX_SET;
+		free->nslot = FrameSlots;
+	}
+
+  return 0;
 }
 
-//	pull frame from wait queue to free list
-//	call with free latched
+//	pull frame from tail of wait queue to free list
+//	call with free list empty and latched
 
 bool getNodeWait(DbMap *map, DbAddr* free, DbAddr* tail) {
 Frame *frame, *frame2;
+bool result = false;
+DbAddr prev;
 
 	if (!tail || !tail->addr)
 		return false;
 
+	lockLatch(tail->latch);
 	frame = getObj(map, *tail);
 
-	if (!frame->prev.addr)
-		return false;
-
-	//	is the frame timestamp greater than the lowest handle timestamp?
-
 	if (frame->timestamp >= map->arena->lowTs)
-		return false;
+		map->arena->lowTs = scanHandleTs(map);
 
-	// wait time has expired, so we can
-	// pull frame from tail of wait queue
-	// to the empty free list
+	//	move waiting frames to free list
+	//	after the frame timestamp is
+	//	less than the lowest handle timestamp
 
-	if (free->addr)
-		returnFreeFrame(map, *free);
+	while (frame->timestamp < map->arena->lowTs) {
+		Frame *prevFrame = getObj(map, frame->prev);
 
-	tail->mutex = 1;
-	free->bits = tail->bits;
+		// the tail frame previous must be already filled for it to
+		// be installed as the new tail
 
-	//  is this the last frame in the prev chain?
+		if (!prevFrame->prev.addr)
+			break;
 
-	tail->bits = frame->prev.addr;
-	tail->nslot = FrameSlots;
+		//	return empty free frame
 
-	frame2 = getObj(map, frame->prev);
-	frame2->next.bits = 0;
-	return true;
+		if (free->addr && !free->nslot)
+			returnFreeFrame(map, *free);
+
+		// pull the frame from tail of wait queue
+		// and place at the head of the free list
+
+		free->bits = tail->bits | ADDR_MUTEX_SET;
+		free->nslot = FrameSlots;
+		result = true;
+
+		//  install new tail node
+		//	and zero its next
+
+		tail->bits = frame->prev.addr | ADDR_MUTEX_SET;
+		prevFrame->next.bits = 0;
+
+		// advance to next candidate
+
+		frame = prevFrame;
+	}
+
+	unlockLatch(tail->latch);
+	return result;
 }
 
 //	initialize frame of available ObjId

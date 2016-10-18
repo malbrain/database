@@ -10,8 +10,8 @@ enum ObjType {
 };
 
 typedef struct {
-	DbAddr tail[1];		// location of newest frame to be recycled
-	DbAddr head[1];		// oldest frame waiting to be recycled
+	DbAddr tail[1];		// frame of oldest nodes waiting to be recycled
+	DbAddr head[1];		// frame of newest nodes waiting to be recycled
 	DbAddr free[1];		// frames of available free objects
 } FreeList;
 
@@ -19,9 +19,10 @@ typedef struct {
 //	for array list of handles
 
 typedef struct {
-	uint64_t entryCnt[1];	// count of running api calls
-	uint64_t entryTs;	// time stamp on first api entry
-} HandleCalls;
+	uint64_t entryTs;		// time stamp on first api entry
+	uint32_t entryCnt[1];	// count of running api calls
+	uint16_t entryIdx;		// entry Array index
+} HndlCall;
 
 //	Local Handle for an arena
 
@@ -30,27 +31,14 @@ struct Handle_ {
 #ifdef ENFORCE_CLONING
 	DbHandle *addr;		// user's DbHandle location address
 #endif
-	FreeList *list;		// list of free blocks
-	int32_t status[1];	// active entry in use count
+	FreeList *list;		// list of objects waiting to be recycled in frames
+	HndlCall *calls;	// in-use & garbage collection counters
 	uint16_t arenaIdx;	// arena handle table entry index
 	uint16_t listIdx;	// arena handle table entry index
 	uint16_t xtraSize;	// size of following structure
 	uint8_t hndlType;	// type of handle
 	uint8_t maxType;	// number of arena list entries
 };
-
-//	types of handles/arenas
-
-typedef enum {
-	NotSetYet = 0,
-	DatabaseType,
-	DocStoreType,
-	Btree1IndexType,
-	Btree2IndexType,
-	ARTreeIndexType,
-	IteratorType,
-	CursorType
-} HandleType;
 
 /**
  * even =>  reader timestamp
@@ -85,8 +73,7 @@ typedef struct {
 } SkipNode;
 
 #define skipSize(addr) (((1ULL << addr->type) - sizeof(SkipNode)) / sizeof(SkipEntry))
-#define SKIP_first 15
-#define SKIP_max 10
+#define SKIP_node 15
 
 //	Child Id bits
 
@@ -107,6 +94,7 @@ void releaseHandle(Handle *hndl);
 
 void *arrayElement(DbMap *map, DbAddr *array, uint16_t idx, size_t size);
 uint16_t arrayAlloc(DbMap *map, DbAddr *array, size_t size);
+uint64_t scanHandleTs(DbMap *map);
 
 SkipEntry *skipSearch(SkipEntry *array, int high, uint64_t key);
 uint64_t skipDel(DbMap *map, DbAddr *skip, uint64_t key);
@@ -114,3 +102,4 @@ void *skipFind(DbMap *map, DbAddr *skip, uint64_t key);
 void *skipPush(DbMap *map, DbAddr *skip, uint64_t key);
 void *skipAdd(DbMap *map, DbAddr *skip, uint64_t key);
 uint64_t skipInit(DbMap *map, int numEntries);
+

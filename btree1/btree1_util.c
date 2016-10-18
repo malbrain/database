@@ -1,6 +1,7 @@
 #include "../db.h"
 #include "../db_object.h"
 #include "../db_arena.h"
+#include "../db_frame.h"
 #include "../db_index.h"
 #include "../db_map.h"
 #include "btree1.h"
@@ -36,8 +37,8 @@ uint32_t Splits;
 // split the root and raise the height of the btree1
 // call with key for smaller half and right page addr.
 
-Status btree1SplitRoot(Handle *hndl, Btree1Set *root, DbAddr right, uint8_t *leftKey) {
-Btree1Index *btree1 = btree1index(hndl->map);
+Status btree1SplitRoot(Handle *index, Btree1Set *root, DbAddr right, uint8_t *leftKey) {
+Btree1Index *btree1 = btree1index(index->map);
 uint32_t keyLen, nxt = btree1->pageSize;
 Btree1Page *leftPage, *rightPage;
 Btree1Slot *slot;
@@ -49,8 +50,8 @@ DbAddr left;
 	//  Obtain an empty page to use, and copy the current
 	//  root contents into it, e.g. lower keys
 
-	if( (left.bits = btree1NewPage(hndl, root->page->lvl)) )
-		leftPage = getObj(hndl->map, left);
+	if( (left.bits = btree1NewPage(index, root->page->lvl)) )
+		leftPage = getObj(index->map, left);
 	else
 		return ERROR_outofmemory;
 
@@ -58,7 +59,7 @@ DbAddr left;
 	//	(clear the latches)
 
 	memcpy (leftPage->latch + 1, root->page->latch + 1, btree1->pageSize - sizeof(*leftPage->latch));
-	rightPage = getObj(hndl->map, right);
+	rightPage = getObj(index->map, right);
 	rightPage->left.bits = left.bits;
 
 	// preserve the page info at the bottom
@@ -120,9 +121,9 @@ DbAddr left;
 //  split already locked full node
 //	return unlocked.
 
-Status btree1SplitPage (Handle *hndl, Btree1Set *set) {
+Status btree1SplitPage (Handle *index, Btree1Set *set) {
 uint8_t leftKey[Btree1_maxkey], rightKey[Btree1_maxkey];
-Btree1Index *btree1 = btree1index(hndl->map);
+Btree1Index *btree1 = btree1index(index->map);
 uint32_t cnt = 0, idx = 0, max, nxt, off;
 Btree1Slot librarian, *source, *dest;
 Btree1PageType type = Btree1_leafPage;
@@ -150,8 +151,8 @@ Status stat;
 
 	//	get new page and write higher keys to it.
 
-	if( (right.bits = btree1NewPage(hndl, lvl)) )
-		rightPage = getObj(hndl->map, right);
+	if( (right.bits = btree1NewPage(index, lvl)) )
+		rightPage = getObj(index->map, right);
 	else
 		return ERROR_outofmemory;
 
@@ -226,7 +227,7 @@ Status stat;
 		rightPage->left.bits = set->pageNo.bits;
 
 		if( !lvl && rightPage->right.bits ) {
-			Btree1Page *farRight = getObj(hndl->map, rightPage->right);
+			Btree1Page *farRight = getObj(index->map, rightPage->right);
 			btree1LockPage (farRight, Btree1_lockLink);
 			farRight->left.bits = right.bits;
 			btree1UnlockPage (farRight, Btree1_lockLink);
@@ -235,8 +236,8 @@ Status stat;
 
 	//	copy lower keys from temporary frame back into old page
 
-	if( (addr.bits = btree1NewPage(hndl, lvl)) )
-		frame = getObj(hndl->map, addr);
+	if( (addr.bits = btree1NewPage(index, lvl)) )
+		frame = getObj(index->map, addr);
 	else
 		return ERROR_outofmemory;
 
@@ -322,12 +323,12 @@ Status stat;
 
 	//  return temporary frame
 
-	addSlotToFrame(hndl->map, hndl->list[addr.type].free, addr);
+	addSlotToFrame(index->map, index->list[addr.type].free, index->list[addr.type].tail, addr.bits);
 
 	// if current page is the root page, split it
 
 	if( set->pageNo.type == Btree1_rootPage )
-		return btree1SplitRoot (hndl, set, right, leftKey);
+		return btree1SplitRoot (index, set, right, leftKey);
 
 	// insert new fences in their parent pages
 
@@ -337,12 +338,12 @@ Status stat;
 
 	// insert new fence for reformulated left block of smaller keys
 
-	if( (stat = btree1InsertKey(hndl, leftKey + keypre(leftKey), keylen(leftKey), lvl+1, Btree1_indexed) ))
+	if( (stat = btree1InsertKey(index, leftKey + keypre(leftKey), keylen(leftKey), lvl+1, Btree1_indexed) ))
 		return stat;
 
 	// switch fence for right block of larger keys to new right page
 
-	if( (stat = btree1FixKey(hndl, rightKey, lvl+1, stopper) ))
+	if( (stat = btree1FixKey(index, rightKey, lvl+1, stopper) ))
 		return stat;
 
 	btree1UnlockPage (set->page, Btree1_lockParent);
@@ -355,8 +356,8 @@ Status stat;
 //	false - page needs splitting
 //	true  - ok to insert
 
-Status btree1CleanPage(Handle *hndl, Btree1Set *set, uint32_t totKeyLen) {
-Btree1Index *btree1 = btree1index(hndl->map);
+Status btree1CleanPage(Handle *index, Btree1Set *set, uint32_t totKeyLen) {
+Btree1Index *btree1 = btree1index(index->map);
 Btree1Slot librarian, *source, *dest;
 uint32_t size = btree1->pageSize;
 Btree1Page *page = set->page;
@@ -389,8 +390,8 @@ DbAddr addr;
 	if( page->garbage < size / 5 )
 		return BTREE_needssplit;
 
-	if( (addr.bits = allocObj(hndl->map, hndl->list[type].free, hndl->list[type].tail, type, size, false)) )
-		frame = getObj(hndl->map, addr);
+	if( (addr.bits = allocObj(index->map, index->list[type].free, index->list[type].tail, type, size, false)) )
+		frame = getObj(index->map, addr);
 	else
 		return ERROR_outofmemory;
 
@@ -447,7 +448,7 @@ DbAddr addr;
 
 	//  return temporary frame
 
-	addSlotToFrame(hndl->map, hndl->list[addr.type].free, addr);
+	addSlotToFrame(index->map, index->list[addr.type].free, index->list[addr.type].tail, addr.bits);
 
 	//	see if page has enough space now, or does it still need splitting?
 
@@ -523,8 +524,8 @@ uint32_t good = 0;
 //  find and load page at given level for given key
 //	leave page rd or wr locked as requested
 
-Status btree1LoadPage(Handle *hndl, Btree1Set *set, uint8_t *key, uint32_t keyLen, uint8_t lvl, Btree1Lock lock, bool stopper) {
-Btree1Index *btree1 = btree1index(hndl->map);
+Status btree1LoadPage(Handle *index, Btree1Set *set, uint8_t *key, uint32_t keyLen, uint8_t lvl, Btree1Lock lock, bool stopper) {
+Btree1Index *btree1 = btree1index(index->map);
 uint8_t drill = 0xff, *ptr;
 Btree1Page *prevPage = NULL;
 Btree1Lock mode, prevMode;
@@ -539,7 +540,7 @@ DbAddr prevPageNo;
 	// determine lock mode of drill level
 
 	mode = (drill == lvl) ? lock : Btree1_lockRead; 
-	set->page = getObj(hndl->map, set->pageNo);
+	set->page = getObj(index->map, set->pageNo);
 
 	//	release parent or left sibling page
 

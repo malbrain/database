@@ -2,7 +2,6 @@
 #include <string.h>
 
 #include "db.h"
-#include "db_map.h"
 #include "db_api.h"
 
 #ifdef _WIN32
@@ -132,10 +131,10 @@ void *index_file (void *arg)
 unsigned __stdcall index_file (void *arg)
 #endif
 {
-int ch, len = 0, slot, type = 0;
 uint64_t line = 0, cnt = 0;
 Params params[MaxParam];
 unsigned char key[4096];
+int ch, len = 0, slot;
 ThreadArg *args = arg;
 KeySpec keySpec[1];
 HandleType idxType;
@@ -496,14 +495,14 @@ DbHandle index[1];
 	fprintf(stderr, "PageSize: %d, # Processors: %d, Allocation Granularity: %d\n\n", info->dwPageSize, info->dwNumberOfProcessors, info->dwAllocationGranularity);
 #endif
 	if( argc < 3 ) {
-		fprintf (stderr, "Usage: %s db_name -cmds=[crwsdf]... -type=[012] -bits=# -xtra=# -onDisk -txns -noDocs -keyLen=# -minKey=abcd -maxKey=abce src_file1 src_file2 ... ]\n", argv[0]);
+		fprintf (stderr, "Usage: %s db_name -cmds=[crwsdf]... -idxType=[012] -bits=# -xtra=# -inMem -txns -noDocs -keyLen=# -minKey=abcd -maxKey=abce src_file1 src_file2 ... ]\n", argv[0]);
 		fprintf (stderr, "  where db_name is the prefix name of the database file\n");
 		fprintf (stderr, "  cmds is a string of (c)ount/(r)ev scan/(w)rite/(s)can/(d)elete/(f)ind, with a one character command for each input src_file, or a no-input command.\n");
-		fprintf (stderr, "  type is the type of index: 0 = ART, 1 = btree1, 2 = btree2\n");
+		fprintf (stderr, "  idxType is the type of index: 0 = ART, 1 = btree1, 2 = btree2\n");
 		fprintf (stderr, "  keyLen is key size, zero for whole line\n");
 		fprintf (stderr, "  bits is the btree page size in bits\n");
 		fprintf (stderr, "  xtra is the btree leaf page extra bits\n");
-		fprintf (stderr, "  onDisk specifies resides in disk file\n");
+		fprintf (stderr, "  inMem specifies no disk files\n");
 		fprintf (stderr, "  noDocs specifies keys only\n");
 		fprintf (stderr, "  txns indicates use of transactions\n");
 		fprintf (stderr, "  minKey specifies beginning cursor key\n");
@@ -528,10 +527,10 @@ DbHandle index[1];
 			bits = atoi(argv[0] + 6);
 	  else if (!memcmp(argv[0], "-cmds=", 6))
 			cmds = argv[0] + 6;
-	  else if (!memcmp(argv[0], "-type=", 6))
-			idxType = atoi(argv[0] + 6);
-	  else if (!memcmp(argv[0], "-onDisk", 7))
-			onDisk = 1;
+	  else if (!memcmp(argv[0], "-idxType=", 9))
+			idxType = atoi(argv[0] + 9);
+	  else if (!memcmp(argv[0], "-inMem", 6))
+			onDisk = 0;
 	  else if (!memcmp(argv[0], "-txns", 5))
 			useTxn = 1;
 	  else if (!memcmp(argv[0], "-noDocs", 7))

@@ -8,8 +8,8 @@
 #include "btree1/btree1.h"
 #include "artree/artree.h"
 
-int cursorSize[8] = {0, 0, 0, 0, 0, sizeof(ArtCursor), sizeof(Btree1Cursor), 0};
-int maxType[8] = {0, 0, 0, 0, 0, MaxARTType, MAXBtree1Type, 0};
+int cursorSize[8] = {0, 0, 0, sizeof(ArtCursor), sizeof(Btree1Cursor), 0};
+int maxType[8] = {0, 0, 0, MaxARTType, MAXBtree1Type, 0};
 
 extern DbMap memMap[1];
 

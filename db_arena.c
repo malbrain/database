@@ -342,13 +342,14 @@ DbAddr slot;
 
 	size += 7;
 	size &= -8;
-#ifdef _WIN32
-	_BitScanReverse((unsigned long *)&bits, size - 1);
-	bits++;
-#else
-	bits = 32 - (__builtin_clz (size - 1));
-#endif
+
 	if (type < 0) {
+#ifdef _WIN32
+		_BitScanReverse((unsigned long *)&bits, size - 1);
+		bits++;
+#else
+		bits = 32 - (__builtin_clz (size - 1));
+#endif
 		amt = size;
 		type = bits * 2;
 		size = 1 << bits;
@@ -382,20 +383,12 @@ DbAddr slot;
 	if (zeroit)
 		memset (getObj(map, slot), 0, amt);
 
-	{
-		uint64_t max = map->arena->segs[slot.segment].size
-		  - map->arena->segs[slot.segment].nextId.index * sizeof(DbAddr);
-
-		if (slot.offset * 8ULL + size > max)
-			fprintf(stderr, "allocObj segment overrun\n"), exit(1);
-	}
-
 	*slot.latch = type | ALIVE_BIT;
 	return slot.bits;
 }
 
 void freeBlk(DbMap *map, DbAddr *addr) {
-	addSlotToFrame(map, &map->arena->freeBlk[addr->type], addr->bits);
+	addSlotToFrame(map, &map->arena->freeBlk[addr->type], NULL, addr->bits);
 }
 
 uint64_t allocBlk(DbMap *map, uint32_t size, bool zeroit) {

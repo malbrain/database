@@ -1,20 +1,13 @@
 #pragma once
 
-typedef struct ArenaDef_ ArenaDef;
-typedef struct PathStk_ PathStk;
-
 #include "db_malloc.h"
 #include "db_object.h"
-#include "db_redblack.h"
 
 /**
  * open/create arenas
  */
 
 DbMap *createMap(DbMap *parent, HandleType arenaType, char *name, uint32_t nameLen, uint32_t localSize, uint32_t baseSize, uint32_t objSize, Params *params);
-DbMap *openMap(DbMap *parent, char *name, uint32_t nameLen, ArenaDef *arena);
-DbMap *arenaRbMap(DbMap *parent, RedBlack *entry);
-DbMap *initMap(DbMap *map, ArenaDef *arenaDef);
 void closeMap(DbMap *map);
 
 /**

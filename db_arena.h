@@ -5,6 +5,8 @@
 #include <windows.h>
 #endif
 
+#include "db_redblack.h"
+
 #define MAX_segs  1000
 #define MIN_segbits	 17
 #define MIN_segsize  (1ULL << MIN_segbits)
@@ -22,9 +24,9 @@ typedef struct {
 	ObjId nextId;		// highest object ID in use
 } DbSeg;
 
-//  arena specifications
+//  arena creation specification
 
-typedef struct ArenaDef_ {
+typedef struct {
 	DbAddr node;				// database redblack node
 	uint64_t id;				// child arena id in parent
 	uint64_t childId;			// highest child Id issued
@@ -42,20 +44,20 @@ typedef struct ArenaDef_ {
 //  arena at beginning of seg zero
 
 struct DbArena_ {
-	DbSeg segs[MAX_segs]; 		// segment meta-data
-	uint64_t lowTs, delTs;		// low hndl ts, Incr on delete
-	DbAddr freeBlk[MAX_blk];	// free blocks in frames
-	DbAddr hndlCalls[1];		// array of open handle call cnts
-	DbAddr listArray[1];		// free lists array for handles
-	DbAddr freeFrame[1];		// free frames in frames
-	uint64_t objCount;			// overall number of objects
-	uint64_t objSpace;			// overall size of objects
-	uint32_t objSize;			// size of object array element
-	uint16_t currSeg;			// index of highest segment
-	uint16_t objSeg;			// current segment index for ObjIds
-	char UseTxn[1];				// Transactions are used for arena
-	char mutex[1];				// arena allocation lock/drop flag
-	char type[1];				// arena type
+	DbSeg segs[MAX_segs]; 			// segment meta-data
+	uint64_t lowTs, delTs, nxtTs;	// low hndl ts, Incr on delete
+	DbAddr freeBlk[MAX_blk];		// free blocks in frames
+	DbAddr hndlCalls[1];			// array of open handle call cnts
+	DbAddr listArray[1];			// free lists array for handles
+	DbAddr freeFrame[1];			// free frames in frames
+	uint64_t objCount;				// overall number of objects
+	uint64_t objSpace;				// overall size of objects
+	uint32_t objSize;				// size of object array element
+	uint16_t currSeg;				// index of highest segment
+	uint16_t objSeg;				// current segment index for ObjIds
+	char UseTxn[1];					// Transactions are used for arena
+	char mutex[1];					// arena allocation lock/drop flag
+	char type[1];					// arena type
 };
 
 //	per instance arena structure
@@ -97,6 +99,10 @@ typedef struct {
 } DocArena;
 
 #define docarena(map) ((DocArena *)(map->arena + 1))
+
+DbMap *openMap(DbMap *parent, char *name, uint32_t nameLen, ArenaDef *arena);
+DbMap *arenaRbMap(DbMap *parent, RedBlack *entry);
+DbMap *initMap(DbMap *map, ArenaDef *arenaDef);
 
 /**
  *  memory mapping

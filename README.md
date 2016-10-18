@@ -1,20 +1,20 @@
 malbrain/database
 ==========================
 
-A working project for High-concurrency B-tree/Database source code in C.
+A working project for High-concurrency B-tree/ARTree Database source code in C.
 
 Compile with ./build or build.bat
 
 The runtime options are:
 
-    Usage: dbtest db_name -cmds=[crwsdf]... -type=[012] -bits=# -xtra=# -onDisk -txns -noDocs -keyLen=# src_file1 src_file2 ... ]
+    Usage: dbtest db_name -cmds=[crwsdf]... -idxType=[012] -bits=# -xtra=# -inMem -txns -noDocs -keyLen=# src_file1 src_file2 ... ]
       where db_name is the prefix name of the database file
       cmds is a string of (c)ount/(r)ev scan/(w)rite/(s)can/(d)elete/(f)ind, with a one character command for each input src_file, or a no-input command.
-      type is the type of index: 0 = ART, 1 = btree1, 2 = btree2
+      idxType is the type of index: 0 = ART, 1 = btree1, 2 = btree2
       keyLen is key size, zero for whole line
       bits is the btree page size in bits
       xtra is the btree leaf page extra bits
-      onDisk specifies resides in disk file
+      inMem specifies no disk files
       noDocs specifies keys only
       txns indicates use of transactions
       src_file1 thru src_filen are files of keys/documents separated by newline
@@ -27,11 +27,13 @@ Sample single thread output from indexing 40M pennysort keys:
 
     [karl@test7x64 xlink]# ./dbtest tstdb -cmds=w -noDocs -keyLen=10 pennykey0-3
     started indexing for pennykey0-3
+     Total keys indexed 40000000
      real 0m35.022s
      user 0m31.067s
      sys  0m4.048s
 
-    -rw-r--r-- 1 karl engr 4294967296 Sep 16 22:22 ARTreeIdx
+    -rw-rw-r-- 1 karl engr    1048576 Oct 18 09:16 tstdb
+    -rw-rw-r-- 1 karl engr 2147483648 Oct 18 09:16 tstdb.ARTreeIdx
 
 Sample four thread output from indexing 40M pennysort keys:
 
@@ -40,17 +42,22 @@ Sample four thread output from indexing 40M pennysort keys:
     started indexing for pennykey1
     started indexing for pennykey2
     started indexing for pennykey3
-     real 0m14.716s
-     user 0m41.705s
-     sys  0m12.839s
+     Total keys indexed 10000000
+     Total keys indexed 10000000
+     Total keys indexed 10000000
+     Total keys indexed 10000000
+     real 0m12.176s
+     user 0m41.103s
+     sys  0m4.849s
 
 Sample single thread output from indexing 80M pennysort keys:
 
     [karl@test7x64 xlink]# ./dbtest tstdb -cmds=w -noDocs -keyLen=10 pennykey0-7
     started indexing for pennykey0-7
-     real 1m29.627s
-     user 1m10.717s
-     sys  0m10.965s
+     Total keys indexed 80000000
+     real 1m26.262s
+     user 1m15.104s
+     sys  0m10.763s
 
 Sample eight thread output from indexing 80M pennysort keys:
 
@@ -63,9 +70,20 @@ Sample eight thread output from indexing 80M pennysort keys:
     started indexing for pennykey5
     started indexing for pennykey6
     started indexing for pennykey7
-     real 0m46.590s
-     user 1m51.374s
-     sys  1m3.939s
+     Total keys indexed 10000000
+     Total keys indexed 10000000
+     Total keys indexed 10000000
+     Total keys indexed 10000000
+     Total keys indexed 10000000
+     Total keys indexed 10000000
+     Total keys indexed 10000000
+     Total keys indexed 10000000
+     real 0m21.129s
+     user 1m37.937s
+     sys  0m19.619s
+
+    -rw-rw-r-- 1 karl engr    1048576 Oct 18 06:22 tstdb
+    -rw-rw-r-- 1 karl engr 4294967296 Oct 18 06:22 tstdb.ARTreeIdx
 
 Sample output from finding 80M pennysort records:
 
@@ -86,25 +104,26 @@ Sample output from finding 80M pennysort records:
     finished pennykey1 for 10000000 keys, found 10000000
     finished pennykey6 for 10000000 keys, found 10000000
     finished pennykey7 for 10000000 keys, found 10000000
-     real 0m7.387s
-     user 0m55.924s
-     sys  0m2.237s
+     real 0m12.355s
+     user 1m32.415s
+     sys  0m1.861s
 
 Sample output from storing/indexing/persisting 40M pennysort records (4GB):
 
     [karl@test7x64 xlink]# ./dbtest tstdb -cmds=w -keyLen=10 penny0-3
     started indexing for penny0-3
-     real 3m52.100s
-     user 1m5.810s
-     sys  0m23.550s
+     Total keys indexed 40000000
+     real 4m38.547s
+     user 1m6.353s
+     sys  0m19.409s
 
-    -rw-rw-r-- 1 karl engr    4194304 Oct  5 06:41 tstdb
-    -rw-rw-r-- 1 karl engr 8589934592 Oct  5 06:43 tstdb.documents
-    -rw-rw-r-- 1 karl engr 4294967296 Oct  5 06:43 tstdb.documents.ARTreeIdx
+    -rw-rw-r-- 1 karl karl     1048576 Oct 18 06:57 tstdb
+    -rw-rw-r-- 1 karl karl 17179869184 Oct 18 07:01 tstdb.documents
+    -rw-rw-r-- 1 karl karl  4294967296 Oct 18 07:01 tstdb.documents.ARTreeIdx
 
 Sample output with four concurrent threads each storing 10M pennysort records:
 
-    [karl@test7x64 xlink]# ./dbtest tstdb -cmds=w -keyLen=10 penny[0123]
+    [karl@test7x64 xlink]# ./dbtest tstdb -cmds=w -keyLen=10 -idxType=1 penny[0123]
     started pennysort insert for penny0
     started pennysort insert for penny1
     started pennysort insert for penny2

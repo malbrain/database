@@ -2,6 +2,7 @@
 #include "../db_object.h"
 #include "../db_arena.h"
 #include "../db_index.h"
+#include "../db_frame.h"
 #include "../db_map.h"
 #include "btree1.h"
 
@@ -40,7 +41,7 @@ Btree1Cursor *cursor = (Btree1Cursor *)dbCursor;
 
 	// return cursor page buffer
 
-	addSlotToFrame(index->map, &index->list[cursor->pageAddr.type], cursor->pageAddr);
+	addSlotToFrame(index->map, index->list[cursor->pageAddr.type].free, index->list[cursor->pageAddr.type].tail, cursor->pageAddr.bits);
 	return OK;
 }
 

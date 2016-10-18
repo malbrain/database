@@ -97,11 +97,7 @@ uint64_t next;
 	if (!skip->addr || skip->nslot == skipSize(skip)) {
 	  next = skip->bits;
 
-	  if (!skip->addr)
-		skip->bits = allocBlk(map, SKIP_first * sizeof(SkipEntry) + sizeof(SkipNode), true);
-	  else
-		skip->bits = allocBlk(map, 1ULL << (skip->type < SKIP_max ? skip->type * 2 : skip->type), true);
-
+	  skip->bits = allocBlk(map, SKIP_node * sizeof(SkipEntry) + sizeof(SkipNode), true);
 	  skipNode = getObj(map, *skip);
 	  skipNode->next->bits = next;
 	}
@@ -147,7 +143,7 @@ int min, max;
 
 	if (next->nslot == skipSize(next)) {
 	  prevBits = skipNode->next->bits;
-	  skipNode->next->bits = allocBlk(map, 1ULL << (next->type < SKIP_max ? next->type * 2 : next->type), true);
+	  skipNode->next->bits = allocBlk(map, SKIP_node * sizeof(SkipEntry) + sizeof(SkipNode), true);
 
 	  nextNode = getObj(map, *skipNode->next);
 	  nextNode->next->bits = prevBits;
@@ -173,7 +169,7 @@ int min, max;
 
   // initialize empty list
 
-  skip->bits = allocBlk(map, SKIP_first * sizeof(SkipEntry) + sizeof(SkipNode), true);
+  skip->bits = allocBlk(map, SKIP_node * sizeof(SkipEntry) + sizeof(SkipNode), true);
   skipNode = getObj(map, *skip);
 
   *skipNode->array->key = key;

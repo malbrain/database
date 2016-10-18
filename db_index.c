@@ -91,12 +91,15 @@ int idx;
 			maxId = *skipNode->array[next->nslot - 1].key;
 
 		while (idx--)
-		  if (*skipNode->array[idx].key > docStore->childId)
-			if (*skipNode->array[idx].key & CHILDID_DROP)
-			  installIdx(hndl, &skipNode->array[idx]);
-			else
+		  if (*skipNode->array[idx].key > docStore->childId) {
+			if (*skipNode->array[idx].key & CHILDID_DROP) {
 			  removeIdx(hndl, &skipNode->array[idx]);
-		  else
+			  docStore->idxCnt--;
+			} else {
+			  installIdx(hndl, &skipNode->array[idx]);
+			  docStore->idxCnt++;
+			}
+		  } else
 			break;
 
 		next = skipNode->next;
@@ -125,8 +128,11 @@ int keyLen;
 	index = getObj(memMap, addr);
 
 	//  bind the dbIndex handle
+	//	and capture timestamp if
+	//	this is the first bind
 
-	atomicAdd32(index->status, 1);
+	if (atomicAdd32(index->calls->entryCnt, 1) == 1)
+		index->calls->entryTs = atomicAdd64(&index->map->arena->nxtTs, 1);
 
 	dbIndex = dbindex(index->map);
 
@@ -154,7 +160,7 @@ int keyLen;
 		break;
 	}
 
-	atomicAdd32(index->status, -1);
+	atomicAdd32(index->calls->entryCnt, -1);
 	return stat;
 }
 
@@ -172,6 +178,8 @@ int idx;
 
 	readLock2 (docStore->indexes->lock);
 	next = docStore->indexes->head;
+
+	doc->verKeys->bits = skipInit(hndl->map, docStore->idxCnt);
 
 	//	scan indexes skiplist of index handles
 	//	and install keys for document

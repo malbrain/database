@@ -85,9 +85,7 @@ uint32_t len;
 
 	// mark the end of the key
 
-	next->type = KeyEnd;
-	next->alive = 1;
-
+	*next->latch = KeyEnd | ALIVE_BIT;
 	slot->bits = fill->bits;
 	return true;
 }
@@ -211,7 +209,7 @@ DbAddr slot;
 				// add old slot to free/wait list
 
 				if (slot.type && slot.type != KeyEnd)
-				  if (!addSlotToFrame(index->map, index->list[slot.type].tail, slot))
+				  if (!addSlotToFrame(index->map, index->list[slot.type].head, index->list[slot.type].tail, slot))
 					return ERROR_outofmemory;
 
 				return OK;
@@ -617,6 +615,7 @@ ReturnState insertKeyNode256(volatile ARTNode256 *node, ParamStruct *p) {
 
 ReturnState insertKeySpan(volatile ARTSpan *node, ParamStruct *p) {
 uint32_t len = p->oldSlot->nbyte + 1;
+ARTSpan *overflowSpanNode;
 uint32_t max = len, idx;
 DbAddr *contSlot = NULL;
 DbAddr *nxtSlot = NULL;
@@ -714,8 +713,6 @@ ARTNode4 *radix4Node;
 	// i.e. fill in nxtSlot.
 
 	if (max - idx) {
-		ARTSpan *overflowSpanNode;
-
 		if ((nxtSlot->bits = allocSpanNode(p, max - idx)))
 			nxtSlot->nbyte = max - idx - 1;
 		else

@@ -7,7 +7,7 @@
 void addIdToTxn(DbMap *database, Txn *txn, ObjId docId, TxnCmd cmd) {
 
 	docId.cmd = cmd;
-	addSlotToFrame (database, txn->frame, docId.bits);
+	addSlotToFrame (database, txn->frame, NULL, docId.bits);
 }
 
 uint64_t beginTxn (Handle *database) {

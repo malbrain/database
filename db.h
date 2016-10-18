@@ -10,6 +10,21 @@
 
 #include "db_error.h"
 
+//	types of handles/arenas
+
+typedef enum {
+	NotSetYet = 0,
+	DatabaseType,
+	DocStoreType,
+	ARTreeIndexType,
+	Btree1IndexType,
+	Btree2IndexType,
+	IteratorType,
+	CursorType
+} HandleType;
+
+//	general object pointer
+
 typedef union {
 	struct {
 		uint32_t offset;	// offset in the segment

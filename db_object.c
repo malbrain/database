@@ -108,6 +108,8 @@ int idx, max;
 	return array->maxidx * 64 + 1;
 }
 
+//	make handle from map pointer
+
 uint64_t makeHandle(DbMap *map, uint32_t xtraSize, uint32_t listMax, HandleType type) {
 DbAddr *array = map->handleArray;
 uint64_t *inUse;
@@ -126,6 +128,8 @@ uint16_t idx;
 		return 0;
 
 	memset (hndl, 0, amt);
+	hndl->xtraSize = xtraSize;	// size of following structure
+	hndl->maxType = listMax;	// number of list entries
 	hndl->hndlType = type;
 	hndl->arenaIdx = idx;
 	hndl->map = map;
@@ -137,8 +141,9 @@ uint16_t idx;
 		hndl->listIdx = idx;
 	}
 
-	hndl->xtraSize = xtraSize;	// size of following structure
-	hndl->maxType = listMax;	// number of list entries
+	idx = arrayAlloc(map, map->arena->hndlCalls, sizeof(HndlCall));
+	hndl->calls = arrayElement(map, map->arena->hndlCalls, idx, sizeof(HndlCall));
+	hndl->calls->entryIdx = idx;
 	return addr->bits;
 }
 
@@ -178,8 +183,11 @@ Status bindHandle(DbHandle *dbHndl, Handle **hndl) {
 	*hndl = getObj(memMap, dbHndl->handle);
 
 	//	increment count of active binds
+	//	and capture timestamp if we are the
+	//	first handle bind
 
-	atomicAdd32((*hndl)->status, 1);
+	if (atomicAdd32((*hndl)->calls->entryCnt, 1) == 1)
+		(*hndl)->calls->entryTs = atomicAdd64(&(*hndl)->map->arena->nxtTs, 1);
 
 	//	is there a DROP request active?
 
@@ -196,7 +204,7 @@ Status bindHandle(DbHandle *dbHndl, Handle **hndl) {
 //	release handle binding
 
 void releaseHandle(Handle *hndl) {
-	atomicAdd32(hndl->status, -1);
+	atomicAdd32(hndl->calls->entryCnt, -1);
 }
 
 //	peel off 64 bit suffix value from key
@@ -291,5 +299,37 @@ bool isWriter(uint64_t ts) {
 
 bool isCommitted(uint64_t ts) {
 	return (ts & 1);
+}
+
+//	find arena's earliest bound handle
+//	by scanning HndlCall array
+
+uint64_t scanHandleTs(DbMap *map) {
+uint64_t lowTs = map->arena->nxtTs + 1;
+DbAddr *array = map->arena->hndlCalls;
+DbAddr *addr;
+int idx;
+
+  if (array->addr) {
+	addr = getObj(map, *array);
+
+	for (idx = 0; idx <= array->maxidx; idx++) {
+	  uint64_t *inUse = getObj(map, addr[idx]);
+	  HndlCall *call = (HndlCall *)(inUse + 1);
+	  uint64_t bits = *inUse;
+	  int bit = 0;
+
+	  while (bit++, bits /= 2) {
+		if (bits & 1) {
+		  if (!call[bit].entryCnt[0])
+			continue;
+		  else
+			lowTs = call[bit].entryTs;
+		}
+	  }
+	}
+  }
+
+  return lowTs;
 }
 

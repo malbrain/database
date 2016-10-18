@@ -4,10 +4,10 @@
 
 #define RB_bits		24
 
-struct PathStk_ {
+typedef struct {
 	uint64_t lvl;			// height of the stack
 	DbAddr entry[RB_bits];	// stacked tree nodes
-};
+} PathStk;
 
 typedef struct RedBlack_ {
 	uint32_t keyLen;		// length of key after entry
