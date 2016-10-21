@@ -57,14 +57,16 @@ uint8_t *buff;
 
 	//	initial btree1 root & leaf pages
 
-	if ((btree1->leaf.bits = btree1NewPage(hndl, 0)))
-		page = getObj(hndl->map, btree1->leaf);
+	if ((btree1->left.bits = btree1NewPage(hndl, 0)))
+		page = getObj(hndl->map, btree1->left);
 	else
 		return ERROR_outofmemory;
 
 	//  set up new leaf page with stopper key
 
-	btree1->leaf.type = Btree1_leafPage;
+	btree1->left.type = Btree1_leafPage;
+	btree1->right.bits = btree1->left.bits;
+
 	page->min -= 1;
 	page->cnt = 1;
 	page->act = 1;
@@ -95,7 +97,7 @@ uint8_t *buff;
 	//  set up stopper key
 
 	buff = keyaddr(page, page->min);
-	btree1PutPageNo(buff + 1, 0, btree1->leaf.bits);
+	btree1PutPageNo(buff + 1, 0, btree1->left.bits);
 	buff[0] = sizeof(uint64_t);
 
 	//  set up slot

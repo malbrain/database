@@ -7,20 +7,33 @@
 typedef struct {
 	uint64_t numEntries[1];	// number of keys in index
 	DbAddr keySpec;			// key construction document
+	char noDocs;			// no document ID's on keys
 } DbIndex;
 
 // database index cursor
+
+typedef enum {
+	CursorNone,
+	CursorLeftEof,
+	CursorRightEof,
+	CursorPosAt,
+	CursorOne
+} PosState;
 
 typedef struct {
 	uint64_t ver;			// cursor doc version
     uint64_t ts;            // cursor timestamp
     ObjId txnId;            // cursor transaction
     ObjId docId;            // current doc ID
+	uint8_t *key;
     Document *doc;          // current document
     DbHandle idx[1];        // index handle
-	uint32_t keyLen;
-	uint8_t *key;
-	bool foundKey;			// cursor position found the key
+	uint32_t keyLen;		// raw key length
+	uint32_t userLen;		// user's key length
+	PosState state:8;		// cursor position state enum
+	char foundKey;			// cursor position found the key
+	char useTxn;			// txn being used
+	char noDocs;			// no document ID's on keys
 } DbCursor;
 
 typedef struct {
@@ -35,8 +48,11 @@ typedef struct {
 Status storeDoc(Handle *docHndl, void *obj, uint32_t objSize, ObjId *result, ObjId txnId);
 Status installIndexes(Handle *docHndl);
 
-Status dbPositionCursor(DbMap *index, DbCursor *cursor, uint8_t *key, uint32_t keyLen);
-Status dbNextKey(DbMap *index, DbCursor *cursor, uint8_t *maxKey, uint32_t maxLen);
-Status dbPrevKey(DbMap *index, DbCursor *cursor, uint8_t *maxKey, uint32_t maxLen);
-Status dbNextDoc(DbMap *index, DbCursor *cursor, uint8_t *maxKey, uint32_t maxLen);
-Status dbPrevDoc(DbMap *index, DbCursor *cursor, uint8_t *maxKey, uint32_t maxLen);
+Status dbFindKey(DbCursor *cursor, DbMap *map, uint8_t *key, uint32_t keyLen, bool onlyOne);
+Status dbNextKey(DbCursor *cursor, DbMap *map, uint8_t *maxKey, uint32_t maxLen);
+Status dbPrevKey(DbCursor *cursor, DbMap *map, uint8_t *minKey, uint32_t minLen);
+
+Status dbNextDoc(DbCursor *cursor, DbMap *map, uint8_t *maxKey, uint32_t maxLen);
+Status dbPrevDoc(DbCursor *cursor, DbMap *map, uint8_t *maxKey, uint32_t maxLen);
+Status dbRightKey(DbCursor *cursor, DbMap *map);
+Status dbLeftKey(DbCursor *cursor, DbMap *map);

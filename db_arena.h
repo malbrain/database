@@ -79,6 +79,7 @@ struct DbMap_ {
 	uint16_t pathLen;		// length of path in buffer
 	uint16_t maxSeg;		// maximum mapped segment array index
 	char mapMutex[1];		// segment mapping mutex
+	char created;			// we created the arena
 };
 
 //	database variables

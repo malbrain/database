@@ -36,7 +36,8 @@ typedef struct {
 	uint32_t pageBits;
 	uint32_t leafXtra;
 	DbAddr root;
-	DbAddr leaf;
+	DbAddr left;
+	DbAddr right;
 } Btree1Index;
 
 //	Btree page layout
@@ -107,16 +108,15 @@ typedef struct {
 
 #define btree1index(map) ((Btree1Index *)(map->arena + 1))
 
-Status btree1NewCursor(Handle *idx, Btree1Cursor *cursor, uint64_t timestamp, ObjId txnId, char type);
+Status btree1NewCursor(Handle *idx, Btree1Cursor *cursor);
 Status btree1ReturnCursor(Handle *index, DbCursor *dbCursor);
 
-uint8_t *btree1CursorKey(DbCursor *dbCursor, uint32_t *len);
+Status btree1LeftKey(DbCursor *cursor, DbMap *map);
+Status btree1RightKey(DbCursor *cursor, DbMap *map);
 
-uint64_t btree1NewPage (Handle *hndl, uint8_t lvl);
-bool btree1FindKey(DbCursor *dbCursor, DbMap *index, uint8_t *key, uint32_t keylen);
-bool btree1SeekKey (DbCursor *dbCursor, uint8_t *key, uint32_t keylen);
-Status btree1NextKey (DbCursor *cursor, DbMap *index);
-Status btree1PrevKey (DbCursor *cursor, DbMap *index);
+Status btree1FindKey(DbCursor *dbCursor, DbMap *map, uint8_t *key, uint32_t keylen, bool onlyOne);
+Status btree1NextKey (DbCursor *cursor, DbMap *map);
+Status btree1PrevKey (DbCursor *cursor, DbMap *map);
 
 #define slotptr(page, slot) (((Btree1Slot *)(page+1)) + (((int)slot)-1))
 
@@ -129,7 +129,10 @@ Status btree1PrevKey (DbCursor *cursor, DbMap *index);
 Status btree1Init(Handle *hndl, Params *params);
 Status btree1InsertKey(Handle *hndl, uint8_t *key, uint32_t keyLen, uint8_t lvl, Btree1SlotType type);
 
-Status btree1LoadPage(Handle *hndl, Btree1Set *set, uint8_t *key, uint32_t keyLen, uint8_t lvl, Btree1Lock lock, bool stopper);
+Status btree1LoadPage(DbMap *map, Btree1Set *set, uint8_t *key, uint32_t keyLen, uint8_t lvl, Btree1Lock lock, bool stopper);
+
+uint64_t btree1NewPage (Handle *hndl, uint8_t lvl);
+
 Status btree1CleanPage(Handle *hndl, Btree1Set *set, uint32_t totKeyLen);
 Status btree1SplitPage (Handle *hndl, Btree1Set *set);
 Status btree1FixKey (Handle *hndl, uint8_t *fenceKey, uint8_t lvl, bool stopper);

@@ -5,39 +5,33 @@
 #include "../db_map.h"
 #include "artree.h"
 
-bool artFindKey( DbCursor *dbCursor, DbMap *index, uint8_t *key, uint32_t keyLen) {
+Status artFindKey( DbCursor *dbCursor, DbMap *map, uint8_t *key, uint32_t keyLen) {
 ArtCursor *cursor = (ArtCursor *)dbCursor;
 uint32_t idx, offset = 0, spanMax;
 volatile DbAddr *slot;
 CursorStack* stack;
 
-	if (cursor) {
-		cursor->atLeftEOF = false;
-		cursor->base->keyLen = 0;
-		cursor->depth = 0;
-	}
+	cursor->base->keyLen = 0;
+	cursor->depth = 0;
 
 	// loop through the key bytes
 
-	slot = artIndexAddr(index)->root;
+	slot = artIndexAddr(map)->root;
 
 	while (offset < keyLen) {
-		if (cursor)
-		  if (cursor->depth < MAX_cursor)
+		if (cursor->depth < MAX_cursor)
 			stack = cursor->stack + cursor->depth++;
-		  else
-			return false;
+		else
+			return ERROR_cursoroverflow;
 
-		if (cursor) {
-			stack->off = cursor->base->keyLen;
-			stack->slot->bits = slot->bits;;
-			stack->ch = key[offset];
-			stack->addr = slot;
-		}
+		stack->off = cursor->base->keyLen;
+		stack->slot->bits = slot->bits;;
+		stack->ch = key[offset];
+		stack->addr = slot;
 
 		switch (slot->type < SpanNode ? slot->type : SpanNode) {
 		  case KeyPass: {
-		   	ARTSplice* splice = getObj(index, *slot);
+		   	ARTSplice* splice = getObj(map, *slot);
 
 			slot = splice->next;
 
@@ -48,12 +42,11 @@ CursorStack* stack;
 		  }
 
 		  case KeyEnd: {
-			memcpy (cursor->key, key, cursor->base->keyLen);
-			return false;
+			return artNextKey(dbCursor, map);
 		  }
 
 		  case SpanNode: {
-			ARTSpan* spanNode = getObj(index, *slot);
+			ARTSpan* spanNode = getObj(map, *slot);
 			uint32_t amt = keyLen - offset;
 			int diff;
 
@@ -66,16 +59,8 @@ CursorStack* stack;
 
 			//  does the key end inside the span?
 
-			if (spanMax > amt || diff) {
-			  if (cursor) {
-				if (diff <= 0)
-					stack->ch = -1;
-				else
-					stack->ch = 256;
-			  }
-
-			  break;
-			}
+			if (spanMax > amt || diff)
+				break;
 
 			//  continue to the next slot
 
@@ -86,7 +71,7 @@ CursorStack* stack;
 		  }
 
 		  case Array4: {
-			ARTNode4 *node = getObj(index, *slot);
+			ARTNode4 *node = getObj(map, *slot);
 
 			// simple loop comparing bytes
 
@@ -108,7 +93,7 @@ CursorStack* stack;
 		  }
 
 		  case Array14: {
-			ARTNode14 *node = getObj(index, *slot);
+			ARTNode14 *node = getObj(map, *slot);
 
 			// simple loop comparing bytes
 
@@ -130,7 +115,7 @@ CursorStack* stack;
 		  }
 
 		  case Array64: {
-			ARTNode64* node = getObj(index, *slot);
+			ARTNode64* node = getObj(map, *slot);
 			idx = node->keys[key[offset]];
 
 			if (idx < 0xff && (node->alloc & (1ULL << idx))) {
@@ -146,7 +131,7 @@ CursorStack* stack;
 		  }
 
 		  case Array256: {
-			ARTNode256* node = getObj(index, *slot);
+			ARTNode256* node = getObj(map, *slot);
 			idx = key[offset];
 
 			if (node->radix[idx].type) {
@@ -162,8 +147,8 @@ CursorStack* stack;
 		  }
 
 		  case UnusedSlot: {
-			cursor->atRightEOF = true;
-			break;
+			cursor->base->state = CursorRightEof;
+			return OK;
 		  }
 		}  // end switch
 
@@ -171,21 +156,25 @@ CursorStack* stack;
 	}  // end while (offset < keylen)
 
 	memcpy (cursor->key, key, cursor->base->keyLen);
+	cursor->base->state = CursorPosAt;
 
 	if (slot->type == KeyEnd)
-		return true;
+		return OK;
 
 	if (slot->type == KeyPass)
-		return true;
+		return OK;
 
-	if (cursor)
-	  if (cursor->depth < MAX_cursor) {
+	if (cursor->depth < MAX_cursor)
 		stack = cursor->stack + cursor->depth++;
-		stack->off = cursor->base->keyLen;
-		stack->slot->bits = slot->bits;;
-		stack->addr = slot;
-		stack->ch = -1;
-	  }
+	else
+		return ERROR_cursoroverflow;
 
-	return false;
+	stack->off = cursor->base->keyLen;
+	stack->slot->bits = slot->bits;;
+	stack->addr = slot;
+	stack->ch = -1;
+
+	//  complete the key
+
+	return artNextKey(dbCursor, map);
 }

@@ -6,32 +6,12 @@
 #include "../db_map.h"
 #include "btree1.h"
 
-uint64_t btree1ObjId(Btree1Cursor *cursor) {
-uint8_t *ptr = keyptr(cursor->page, cursor->slotIdx);
-uint64_t result;
-
-	get64(ptr + keypre(ptr), keylen(ptr), &result);
-	return result;
-}
-
-Status btree1NewCursor(Handle *index, Btree1Cursor *cursor, uint64_t timestamp, ObjId txnId, char type) {
-Btree1Index *btree1;
+Status btree1NewCursor(Handle *index, Btree1Cursor *cursor) {
+Btree1Index *btree1 = btree1index(index->map);
 Btree1Page *first;
-
-    btree1 = btree1index(index->map);
 
 	cursor->pageAddr.bits = btree1NewPage(index, 0);
 	cursor->page = getObj(index->map, cursor->pageAddr);
-
-	//  TODO: reverse cursor
-
-	first = getObj(index->map, btree1->leaf);
-	btree1LockPage (first, Btree1_lockRead);
-	memcpy(cursor->page, first, btree1->pageSize);
-	btree1UnlockPage (first, Btree1_lockRead);
-
-	cursor->base->txnId.bits = txnId.bits;
-	cursor->base->ts = timestamp;
 	cursor->slotIdx = 0;
 	return OK;
 }
@@ -45,22 +25,48 @@ Btree1Cursor *cursor = (Btree1Cursor *)dbCursor;
 	return OK;
 }
 
-uint8_t *btree1CursorKey(DbCursor *dbCursor, uint32_t *len) {
+Status btree1LeftKey(DbCursor *dbCursor, DbMap *map) {
 Btree1Cursor *cursor = (Btree1Cursor *)dbCursor;
-uint8_t *key = keyptr(cursor->page, cursor->slotIdx);
+Btree1Index *btree1 = btree1index(map);
+Btree1Page *left;
 
-	*len = keylen(key);
-	return key;
+	left = getObj(map, btree1->left);
+	btree1LockPage (left, Btree1_lockRead);
+
+	memcpy (cursor->page, left, btree1->pageSize);
+	btree1UnlockPage (left, Btree1_lockRead);
+
+	cursor->slotIdx = 0;
+	return OK;
 }
 
-bool btree1SeekKey (DbCursor *dbCursor, uint8_t *key, uint32_t keylen) {
+Status btree1RightKey(DbCursor *dbCursor, DbMap *map) {
 Btree1Cursor *cursor = (Btree1Cursor *)dbCursor;
-	return true;
+Btree1Index *btree1 = btree1index(map);
+Btree1Page *right;
+
+	right = getObj(map, btree1->right);
+	btree1LockPage (right, Btree1_lockRead);
+
+	memcpy (cursor->page, right, btree1->pageSize);
+	btree1UnlockPage (right, Btree1_lockRead);
+
+	cursor->slotIdx = cursor->page->cnt;
+	return OK;
 }
 
-Status btree1NextKey (DbCursor *dbCursor, DbMap *index) {
+Status btree1NextKey (DbCursor *dbCursor, DbMap *map) {
 Btree1Cursor *cursor = (Btree1Cursor *)dbCursor;
 uint8_t *key;
+
+	switch (cursor->base->state) {
+	  case CursorNone:
+		btree1LeftKey(dbCursor, map);
+		break;
+
+	  case CursorRightEof:
+		return CURSOR_eof;
+	}
 
 	while (true) {
 	  uint32_t max = cursor->page->cnt;
@@ -68,8 +74,8 @@ uint8_t *key;
 	  if (!cursor->page->right.bits)
 		max--;
 
-	  while (cursor->slotIdx < max) {
-		Btree1Slot *slot = slotptr(cursor->page, ++cursor->slotIdx);
+	  while (++cursor->slotIdx <= max) {
+		Btree1Slot *slot = slotptr(cursor->page, cursor->slotIdx);
 
 		if (slot->dead)
 		  continue;
@@ -77,24 +83,37 @@ uint8_t *key;
 		key = keyaddr(cursor->page, slot->off);
 		cursor->base->key = key + keypre(key);
 		cursor->base->keyLen = keylen(key);
+		cursor->base->state = CursorPosAt;
 		return OK;
 	  }
 
 	  if (cursor->page->right.bits)
-		cursor->page = getObj(index, cursor->page->right);
+		cursor->page = getObj(map, cursor->page->right);
 	  else
-		return ERROR_endoffile;
+		break;
 
 	  cursor->slotIdx = 0;
 	}
+
+	cursor->base->state = CursorRightEof;
+	return CURSOR_eof;
 }
 
-Status btree1PrevKey (DbCursor *dbCursor, DbMap *index) {
+Status btree1PrevKey (DbCursor *dbCursor, DbMap *map) {
 Btree1Cursor *cursor = (Btree1Cursor *)dbCursor;
 uint8_t *key;
 
+	switch (cursor->base->state) {
+	  case CursorNone:
+		btree1RightKey(dbCursor, map);
+		break;
+
+	  case CursorLeftEof:
+		return CURSOR_eof;
+	}
+
 	while (true) {
-	  if (cursor->slotIdx) {
+	  if (cursor->slotIdx > 1) {
 		Btree1Slot *slot = slotptr(cursor->page, --cursor->slotIdx);
 
 		if (slot->dead)
@@ -103,14 +122,18 @@ uint8_t *key;
 		key = keyaddr(cursor->page, slot->off);
 		cursor->base->key = key + keypre(key);
 		cursor->base->keyLen = keylen(key);
+		cursor->base->state = CursorPosAt;
 		return OK;
 	  }
 
 	  if (cursor->page->left.bits)
-		cursor->page = getObj(index, cursor->page->left);
+		cursor->page = getObj(map, cursor->page->left);
 	  else
-		return ERROR_endoffile;
+		break;
 
-	  cursor->slotIdx = cursor->page->cnt;
+	  cursor->slotIdx = cursor->page->cnt + 1;
 	}
+
+	cursor->base->state = CursorLeftEof;
+	return CURSOR_eof;
 }

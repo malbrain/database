@@ -9,94 +9,204 @@
 
 //	position cursor
 
-Status dbPositionCursor(DbMap *index, DbCursor *cursor, uint8_t *key, uint32_t keyLen) {
+Status dbFindKey(DbCursor *cursor, DbMap *map, uint8_t *key, uint32_t keyLen, bool onlyOne) {
+Status stat;
 
-	switch (*index->arena->type) {
+	switch (*map->arena->type) {
 	  case ARTreeIndexType: {
-		cursor->foundKey = artFindKey(cursor, index, key, keyLen);
+		stat = artFindKey(cursor, map, key, keyLen);
 		break;
 	  }
 
 	  case Btree1IndexType: {
-		cursor->foundKey = btree1FindKey(cursor, index, key, keyLen);
+		stat = btree1FindKey(cursor, map, key, keyLen, onlyOne);
 		break;
 	  }
+	}
+
+	if (stat)
+		return stat;
+
+	cursor->userLen = cursor->keyLen;
+
+	if (cursor->noDocs)
+		return OK;
+
+	if (cursor->useTxn)
+		cursor->userLen = get64(cursor->key, cursor->userLen, &cursor->ver);
+
+	cursor->userLen = get64(cursor->key, cursor->userLen, &cursor->docId.bits);
+	return OK;
+}
+
+//	position cursor before first key
+
+Status dbLeftKey(DbCursor *cursor, DbMap *map) {
+Status stat;
+
+	switch (*map->arena->type) {
+	  case ARTreeIndexType: {
+		stat = artLeftKey(cursor, map);
+		break;
+	  }
+
+	  case Btree1IndexType: {
+		stat = btree1LeftKey(cursor, map);
+		break;
+	  }
+	}
+
+	if (stat)
+		return stat;
+
+	cursor->state = CursorLeftEof;
+	return OK;
+}
+
+//	position cursor after last key
+
+Status dbRightKey(DbCursor *cursor, DbMap *map) {
+Status stat;
+
+	switch (*map->arena->type) {
+	  case ARTreeIndexType: {
+		stat = artRightKey(cursor, map);
+		break;
+	  }
+
+	  case Btree1IndexType: {
+		stat = btree1RightKey(cursor, map);
+		break;
+	  }
+	}
+
+	if (stat)
+		return stat;
+
+	cursor->state = CursorRightEof;
+	return OK;
+}
+
+//  position cursor at next doc visible under MVCC
+
+Status dbNextDoc(DbCursor *cursor, DbMap *map, uint8_t *maxKey, uint32_t maxLen) {
+Txn *txn = NULL;
+uint64_t *ver;
+Status stat;
+
+  while (true) {
+	if ((stat = dbNextKey(cursor, map, maxKey, maxLen)))
+		return stat;
+
+	if (!txn && cursor->txnId.bits)
+		txn = fetchIdSlot(map->db, cursor->txnId);
+
+	if (!(cursor->doc = findDocVer(map->parent, cursor->docId, txn)))
+		continue;
+
+	//  find version in verKeys skip list
+
+	if ((ver = skipFind(map->parent, cursor->doc->verKeys, map->arenaDef->id)))
+	  if (*ver == cursor->ver)
+		return OK;
+  }
+}
+
+//  position cursor at prev doc visible under MVCC
+
+Status dbPrevDoc(DbCursor *cursor, DbMap *map, uint8_t *minKey, uint32_t minLen) {
+Txn *txn = NULL;
+uint64_t *ver;
+Status stat;
+
+  while (true) {
+	if ((stat = dbPrevKey(cursor, map, minKey, minLen)))
+		return stat;
+
+	if (minKey) {
+		int len = cursor->userLen;
+
+		if (len > minLen)
+			len = minLen;
+
+		if (memcmp(cursor->key, minKey, len) <= 0)
+			return CURSOR_eof;
+	}
+
+	if (!txn && cursor->txnId.bits)
+		txn = fetchIdSlot(map->db, cursor->txnId);
+
+	if (!(cursor->doc = findDocVer(map->parent, cursor->docId, txn)))
+		continue;
+
+	//  find version in verKeys skip list
+
+	if ((ver = skipFind(map->parent, cursor->doc->verKeys, map->arenaDef->id)))
+	  if (*ver == cursor->ver)
+		return OK;
+  }
+}
+
+Status dbNextKey(DbCursor *cursor, DbMap *map, uint8_t *maxKey, uint32_t maxLen) {
+uint32_t len;
+Status stat;
+
+	if (cursor->state == CursorOne)
+		return ERROR_nocursorposition;
+
+	switch(*map->arena->type) {
+	case ARTreeIndexType:
+		stat = artNextKey (cursor, map);
+		break;
+
+	case Btree1IndexType:
+		stat = btree1NextKey (cursor, map);
+		break;
+
+	default:
+		stat = ERROR_indextype;
+		break;
+	}
+
+	if (stat)
+		return stat;
+
+	cursor->userLen = cursor->keyLen;
+
+	if (!cursor->noDocs) {
+	  if (cursor->useTxn)
+		cursor->userLen = get64(cursor->key, cursor->userLen, &cursor->ver);
+
+	  cursor->userLen = get64(cursor->key, cursor->userLen, &cursor->docId.bits);
+	}
+
+	if (maxKey) {
+		int len = cursor->userLen;
+
+		if (len > maxLen)
+			len = maxLen;
+
+		if (memcmp(cursor->key, maxKey, len) >= 0)
+			return CURSOR_eof;
 	}
 
 	return OK;
 }
 
-Status dbNextDoc(DbMap *index, DbCursor *cursor, uint8_t *maxKey, uint32_t maxLen) {
-Txn *txn = NULL;
-uint64_t *ver;
-Status stat;
-
-	while (true) {
-	  if ((stat = dbNextKey(index, cursor, maxKey, maxLen)))
-		break;
-
-	  if (index->arenaDef->useTxn)
-	  	cursor->keyLen = get64(cursor->key, cursor->keyLen, &cursor->ver);
-
-	  cursor->keyLen = get64(cursor->key, cursor->keyLen, &cursor->docId.bits);
-
-	  if (!txn && cursor->txnId.bits)
-		txn = fetchIdSlot(index->db, cursor->txnId);
-
-	  if (!(cursor->doc = findDocVer(index->parent, cursor->docId, txn)))
-		continue;
-
-	  //  find version in verKeys skip list
-
-	  if ((ver = skipFind(index->parent, cursor->doc->verKeys, index->arenaDef->id)))
-		if (*ver == cursor->ver)
-		  break;
-	}
-
-	return stat;
-}
-
-Status dbPrevDoc(DbMap *index, DbCursor *cursor, uint8_t *maxKey, uint32_t maxLen) {
-Txn *txn = NULL;
-uint64_t *ver;
-Status stat;
-
-	while (true) {
-	  if ((stat = dbPrevKey(index, cursor, maxKey, maxLen)))
-		break;
-
-	  if (index->arenaDef->useTxn)
-	  	cursor->keyLen = get64(cursor->key, cursor->keyLen, &cursor->ver);
-
-	  cursor->keyLen = get64(cursor->key, cursor->keyLen, &cursor->docId.bits);
-
-	  if (!txn && cursor->txnId.bits)
-		txn = fetchIdSlot(index->db, cursor->txnId);
-
-	  if (!(cursor->doc = findDocVer(index->parent, cursor->docId, txn)))
-		continue;
-
-	  //  find version in verKeys skip list
-
-	  if ((ver = skipFind(index->parent, cursor->doc->verKeys, index->arenaDef->id)))
-		if (*ver == cursor->ver)
-		  break;
-	}
-
-	return stat;
-}
-
-Status dbNextKey(DbMap *index, DbCursor *cursor, uint8_t *maxKey, uint32_t maxLen) {
+Status dbPrevKey(DbCursor *cursor, DbMap *map, uint8_t *minKey, uint32_t minLen) {
 uint32_t len;
 Status stat;
 
-	switch(*index->arena->type) {
+	if (cursor->state == CursorOne)
+		return ERROR_nocursorposition;
+
+	switch(*map->arena->type) {
 	case ARTreeIndexType:
-		stat = artNextKey (cursor, index);
+		stat = artPrevKey (cursor, map);
 		break;
 
 	case Btree1IndexType:
-		stat = btree1NextKey (cursor, index);
+		stat = btree1PrevKey (cursor, map);
 		break;
 
 	default:
@@ -107,49 +217,24 @@ Status stat;
 	if (stat)
 		return stat;
 
-	if (maxKey) {
-		len = cursor->keyLen;
+	cursor->userLen = cursor->keyLen;
 
-		if (len > maxLen)
-			len = maxLen;
+	if (!cursor->noDocs) {
+	  if (cursor->useTxn)
+		cursor->userLen = get64(cursor->key, cursor->userLen, &cursor->ver);
 
-		if (memcmp (cursor->key, maxKey, len) >= 0)
-			stat = ERROR_endoffile;
+	  cursor->userLen = get64(cursor->key, cursor->userLen, &cursor->docId.bits);
 	}
 
-	return stat;
-}
+	if (minKey) {
+		int len = cursor->userLen;
 
-Status dbPrevKey(DbMap *index, DbCursor *cursor, uint8_t *maxKey, uint32_t maxLen) {
-uint32_t len;
-Status stat;
+		if (len > minLen)
+			len = minLen;
 
-	switch(*index->arena->type) {
-	case ARTreeIndexType:
-		stat = artPrevKey (cursor, index);
-		break;
-
-	case Btree1IndexType:
-		stat = btree1PrevKey (cursor, index);
-		break;
-
-	default:
-		stat = ERROR_indextype;
-		break;
+		if (memcmp(cursor->key, minKey, len) < 0)
+			return CURSOR_eof;
 	}
 
-	if (stat)
-		return stat;
-
-	if (maxKey) {
-		len = cursor->keyLen;
-
-		if (len > maxLen)
-			len = maxLen;
-
-		if (memcmp (cursor->key, maxKey, len) <= 0)
-			stat = ERROR_endoffile;
-	}
-
-	return stat;
+	return OK;
 }

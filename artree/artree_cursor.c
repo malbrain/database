@@ -7,26 +7,8 @@
 
 //	TODO: lock record
 
-Status artNewCursor(Handle *index, ArtCursor *cursor, uint64_t timestamp, ObjId txnId, char type) {
-CursorStack* stack;
-DbAddr *base;
-
-	base = artIndexAddr(index->map)->root;
-
-	cursor->base->txnId.bits = txnId.bits;
+Status artNewCursor(Handle *index, ArtCursor *cursor) {
 	cursor->base->key = cursor->key;
-	cursor->base->ts = timestamp;
-
-    stack = &cursor->stack[cursor->depth++];
-    stack->slot->bits = base->bits;
-    stack->addr = base;
-    stack->off = 0;
-
-	if (type == 'f')
-    	stack->ch = -1;
-	else
-    	stack->ch = 256;
-
 	return OK;
 }
 
@@ -34,12 +16,36 @@ Status artReturnCursor(Handle *index, DbCursor *dbCursor) {
 	return OK;
 }
 
-uint8_t *artCursorKey(DbCursor *dbCursor, uint32_t *len) {
+Status artLeftKey(DbCursor *dbCursor, DbMap *map) {
+ArtCursor *cursor = (ArtCursor *)dbCursor;
+CursorStack* stack;
+DbAddr *base;
 
-	if (len)
-		*len = dbCursor->keyLen;
+	base = artIndexAddr(map)->root;
+	cursor->depth = 0;
 
-	return dbCursor->key;
+	stack = &cursor->stack[cursor->depth++];
+	stack->slot->bits = base->bits;
+	stack->addr = base;
+	stack->off = 0;
+	stack->ch = -1;
+	return OK;
+}
+
+Status artRightKey(DbCursor *dbCursor, DbMap *map) {
+ArtCursor *cursor = (ArtCursor *)dbCursor;
+CursorStack* stack;
+DbAddr *base;
+
+	base = artIndexAddr(map)->root;
+	cursor->depth = 0;
+
+	stack = &cursor->stack[cursor->depth++];
+	stack->slot->bits = base->bits;
+	stack->addr = base;
+	stack->off = 0;
+	stack->ch = 256;
+	return OK;
 }
 
 /**
@@ -115,144 +121,153 @@ int slot64(int ch, uint64_t alloc, volatile uint8_t* keys) {
  *
  */
 
-Status artNextKey(DbCursor *dbCursor, DbMap *index) {
+Status artNextKey(DbCursor *dbCursor, DbMap *map) {
 ArtCursor *cursor = (ArtCursor *)dbCursor;
 int slot, prev, len;
 
-  if (cursor->atRightEOF)
-	return ERROR_endoffile;
+  switch (cursor->base->state) {
+	case CursorNone:
+	  artLeftKey(dbCursor, map);
+	  break;
+
+	case CursorRightEof:
+	  return CURSOR_eof;
+  }
 
   while (cursor->depth < MAX_cursor) {
 	CursorStack* stack = &cursor->stack[cursor->depth - 1];
 	cursor->base->keyLen = stack->off;
 
 	switch (stack->slot->type < SpanNode ? stack->slot->type : SpanNode) {
-		case KeyPass: {
-			ARTSplice* splice = getObj(index, *stack->slot);
+	  case KeyPass: {
+		ARTSplice* splice = getObj(map, *stack->slot);
 
-			if (stack->ch < 0) {
-				cursor->stack[cursor->depth].slot->bits = splice->next->bits;
-				cursor->stack[cursor->depth].addr = splice->next;
-				cursor->stack[cursor->depth].ch = -1;
-				cursor->stack[cursor->depth++].off = cursor->base->keyLen;
-				stack->ch = 0;
-				return OK;
-			}
-
-			break;
-		}
-
-		case KeyEnd: {
-			if (stack->ch < 0) {
-				stack->ch = 0;
-				return OK;
-			}
-
-			break;
-		}
-
-		case SpanNode: {
-			ARTSpan* spanNode = getObj(index, *stack->slot);
-			len = stack->slot->nbyte + 1;
-
-			if (spanNode->timestamp > cursor->base->ts)
-				break;
-
-			//  continue into our next slot
-
-			if (stack->ch < 0) {
-				memcpy(cursor->key + cursor->base->keyLen, spanNode->bytes, len);
-				cursor->base->keyLen += len;
-				cursor->stack[cursor->depth].slot->bits = spanNode->next->bits;
-				cursor->stack[cursor->depth].addr = spanNode->next;
-				cursor->stack[cursor->depth].ch = -1;
-				cursor->stack[cursor->depth++].off = cursor->base->keyLen;
-				stack->ch = 0;
-				continue;
-			}
-
-			break;
-		}
-
-		case Array4: {
-			ARTNode4* radix4Node = getObj(index, *stack->slot);
-
-			if (radix4Node->timestamp > cursor->base->ts)
-				break;
-
-			slot = slot4x14(stack->ch, 4, radix4Node->alloc, radix4Node->keys);
-			if (slot >= 4)
-				break;
-
-			stack->ch = radix4Node->keys[slot];
-			cursor->key[cursor->base->keyLen++] = radix4Node->keys[slot];
-
-			cursor->stack[cursor->depth].slot->bits = radix4Node->radix[slot].bits;
-			cursor->stack[cursor->depth].addr = &radix4Node->radix[slot];
-			cursor->stack[cursor->depth].off = cursor->base->keyLen;
-			cursor->stack[cursor->depth++].ch = -1;
-			continue;
-		}
-
-		case Array14: {
-			ARTNode14* radix14Node = getObj(index, *stack->slot);
-
-			if (radix14Node->timestamp > cursor->base->ts)
-				break;
-
-			slot = slot4x14(stack->ch, 14, radix14Node->alloc, radix14Node->keys);
-			if (slot >= 14)
-				break;
-
-			stack->ch = radix14Node->keys[slot];
-			cursor->key[cursor->base->keyLen++] = radix14Node->keys[slot];
-			cursor->stack[cursor->depth].slot->bits = radix14Node->radix[slot].bits;
-			cursor->stack[cursor->depth].addr = &radix14Node->radix[slot];
+		if (stack->ch < 0) {
+			cursor->stack[cursor->depth].slot->bits = splice->next->bits;
+			cursor->stack[cursor->depth].addr = splice->next;
 			cursor->stack[cursor->depth].ch = -1;
 			cursor->stack[cursor->depth++].off = cursor->base->keyLen;
-			continue;
+
+  			cursor->base->state = CursorPosAt;
+			stack->ch = 0;
+			return OK;
 		}
 
-		case Array64: {
-			ARTNode64* radix64Node = getObj(index, *stack->slot);
+		break;
+	  }
 
-			if (radix64Node->timestamp > cursor->base->ts)
-				break;
+	  case KeyEnd: {
+		if (stack->ch < 0) {
+  			cursor->base->state = CursorPosAt;
+			stack->ch = 0;
+			return OK;
+		}
 
-			stack->ch = slot64(stack->ch, radix64Node->alloc, radix64Node->keys);
-			if (stack->ch == 256)
-				break;
+		break;
+	  }
 
-			cursor->key[cursor->base->keyLen++] = stack->ch;
-			cursor->stack[cursor->depth].slot->bits = radix64Node->radix[radix64Node->keys[stack->ch]].bits;
-			cursor->stack[cursor->depth].addr = &radix64Node->radix[radix64Node->keys[stack->ch]];
+	  case SpanNode: {
+		ARTSpan* spanNode = getObj(map, *stack->slot);
+		len = stack->slot->nbyte + 1;
+
+		if (spanNode->timestamp > cursor->base->ts)
+			break;
+
+		//  continue into our next slot
+
+		if (stack->ch < 0) {
+			memcpy(cursor->key + cursor->base->keyLen, spanNode->bytes, len);
+			cursor->base->keyLen += len;
+			cursor->stack[cursor->depth].slot->bits = spanNode->next->bits;
+			cursor->stack[cursor->depth].addr = spanNode->next;
 			cursor->stack[cursor->depth].ch = -1;
 			cursor->stack[cursor->depth++].off = cursor->base->keyLen;
+			stack->ch = 0;
 			continue;
 		}
 
-		case Array256: {
-			ARTNode256* radix256Node = getObj(index, *stack->slot);
+		break;
+	  }
 
-			if (radix256Node->timestamp > cursor->base->ts)
+	  case Array4: {
+		ARTNode4* radix4Node = getObj(map, *stack->slot);
+
+		if (radix4Node->timestamp > cursor->base->ts)
+			break;
+
+		slot = slot4x14(stack->ch, 4, radix4Node->alloc, radix4Node->keys);
+		if (slot >= 4)
+			break;
+
+		stack->ch = radix4Node->keys[slot];
+		cursor->key[cursor->base->keyLen++] = radix4Node->keys[slot];
+
+		cursor->stack[cursor->depth].slot->bits = radix4Node->radix[slot].bits;
+		cursor->stack[cursor->depth].addr = &radix4Node->radix[slot];
+		cursor->stack[cursor->depth].off = cursor->base->keyLen;
+		cursor->stack[cursor->depth++].ch = -1;
+		continue;
+	  }
+
+	  case Array14: {
+		ARTNode14* radix14Node = getObj(map, *stack->slot);
+
+		if (radix14Node->timestamp > cursor->base->ts)
+			break;
+
+		slot = slot4x14(stack->ch, 14, radix14Node->alloc, radix14Node->keys);
+		if (slot >= 14)
+			break;
+
+		stack->ch = radix14Node->keys[slot];
+		cursor->key[cursor->base->keyLen++] = radix14Node->keys[slot];
+		cursor->stack[cursor->depth].slot->bits = radix14Node->radix[slot].bits;
+		cursor->stack[cursor->depth].addr = &radix14Node->radix[slot];
+		cursor->stack[cursor->depth].ch = -1;
+		cursor->stack[cursor->depth++].off = cursor->base->keyLen;
+		continue;
+	  }
+
+	  case Array64: {
+		ARTNode64* radix64Node = getObj(map, *stack->slot);
+
+		if (radix64Node->timestamp > cursor->base->ts)
+			break;
+
+		stack->ch = slot64(stack->ch, radix64Node->alloc, radix64Node->keys);
+		if (stack->ch == 256)
+			break;
+
+		cursor->key[cursor->base->keyLen++] = stack->ch;
+		cursor->stack[cursor->depth].slot->bits = radix64Node->radix[radix64Node->keys[stack->ch]].bits;
+		cursor->stack[cursor->depth].addr = &radix64Node->radix[radix64Node->keys[stack->ch]];
+		cursor->stack[cursor->depth].ch = -1;
+		cursor->stack[cursor->depth++].off = cursor->base->keyLen;
+		continue;
+	  }
+
+	  case Array256: {
+		ARTNode256* radix256Node = getObj(map, *stack->slot);
+
+		if (radix256Node->timestamp > cursor->base->ts)
+			break;
+
+		while (stack->ch < 256) {
+			uint32_t idx = ++stack->ch;
+			if (idx < 256 && radix256Node->radix[idx].type)
 				break;
-
-			while (stack->ch < 256) {
-				uint32_t idx = ++stack->ch;
-				if (idx < 256 && radix256Node->radix[idx].type)
-					break;
-			}
-
-			if (stack->ch == 256)
-				break;
-
-			cursor->key[cursor->base->keyLen++] = stack->ch;
-			cursor->stack[cursor->depth].slot->bits = radix256Node->radix[stack->ch].bits;
-			cursor->stack[cursor->depth].addr = &radix256Node->radix[stack->ch];
-			cursor->stack[cursor->depth].ch = -1;
-			cursor->stack[cursor->depth++].off = cursor->base->keyLen;
-			continue;
 		}
+
+		if (stack->ch == 256)
+			break;
+
+		cursor->key[cursor->base->keyLen++] = stack->ch;
+		cursor->stack[cursor->depth].slot->bits = radix256Node->radix[stack->ch].bits;
+		cursor->stack[cursor->depth].addr = &radix256Node->radix[stack->ch];
+		cursor->stack[cursor->depth].ch = -1;
+		cursor->stack[cursor->depth++].off = cursor->base->keyLen;
+		continue;
+	  }
 	}  // end switch
 
 	if (--cursor->depth) {
@@ -261,183 +276,183 @@ int slot, prev, len;
 		continue;
 	}
 
-	cursor->atRightEOF = true;
 	break;
   }  // end while
-  return ERROR_endoffile;
+
+  cursor->base->state = CursorRightEof;
+  return CURSOR_eof;
 }
 
 /**
  * retrieve previous key from the cursor
  */
 
-Status artPrevKey(DbCursor *dbCursor, DbMap *index) {
+Status artPrevKey(DbCursor *dbCursor, DbMap *map) {
 ArtCursor *cursor = (ArtCursor *)dbCursor;
+CursorStack *stack;
 int slot, len;
 
-	if (cursor->atLeftEOF)
-		return ERROR_endoffile;
+  switch (cursor->base->state) {
+	case CursorNone:
+	  artRightKey(dbCursor, map);
+	  break;
 
-	if (!cursor->depth || cursor->atRightEOF) {
-		CursorStack* stack = &cursor->stack[cursor->depth++];
-		cursor->atRightEOF = false;
-		cursor->depth = 0;
-		stack->slot->bits = artIndexAddr(index)->root->bits;
-		stack->addr = artIndexAddr(index)->root;
-		stack->off = 0;
-		stack->ch = 256;
-	}
+	case CursorLeftEof:
+	  return CURSOR_eof;
+  }
 
-	while (cursor->depth) {
-		CursorStack* stack = &cursor->stack[cursor->depth - 1];
-		cursor->base->keyLen = stack->off;
+  while (cursor->depth) {
+	stack = &cursor->stack[cursor->depth - 1];
+	cursor->base->keyLen = stack->off;
 
-		switch (stack->slot->type < SpanNode ? stack->slot->type : SpanNode) {
-			case UnusedSlot: {
-				break;
-			}
+	switch (stack->slot->type < SpanNode ? stack->slot->type : SpanNode) {
+	  case UnusedSlot: {
+			break;
+	  }
 
-			case KeyPass: {
-				ARTSplice* splice = getObj(index, *stack->slot);
+	  case KeyPass: {
+		ARTSplice* splice = getObj(map, *stack->slot);
 
-				if (stack->ch > 255) {
-					cursor->stack[cursor->depth].slot->bits = splice->next->bits;
-					cursor->stack[cursor->depth].addr = splice->next;
-					cursor->stack[cursor->depth].ch = 256;
-					cursor->stack[cursor->depth++].off = cursor->base->keyLen;
-					stack->ch = 0;
-					continue;
-				}
-
-				stack->ch = -1;
-				return OK;
-			}
-
-			case KeyEnd: {
-				if (stack->ch == 256) {
-					stack->ch = -1;
-					return OK;
-				}
-
-				break;
-			}
-
-			case SpanNode: {
-				ARTSpan* spanNode = getObj(index, *stack->slot);
-				len = stack->slot->nbyte + 1;
-
-				if (spanNode->timestamp > cursor->base->ts)
-					break;
-
-				// examine next node under slot
-
-				if (stack->ch > 255) {
-					memcpy(cursor->key + cursor->base->keyLen, spanNode->bytes, len);
-					cursor->base->keyLen += len;
-					cursor->stack[cursor->depth].slot->bits = spanNode->next->bits;
-					cursor->stack[cursor->depth].addr = spanNode->next;
-					cursor->stack[cursor->depth].ch = 256;
-					cursor->stack[cursor->depth++].off = cursor->base->keyLen;
-					stack->ch = 0;
-					continue;
-				}
-				break;
-			}
-
-			case Array4: {
-				ARTNode4* radix4Node = getObj(index, *stack->slot);
-
-				if (radix4Node->timestamp > cursor->base->ts)
-					break;
-
-				slot = slotrev4x14(stack->ch, 4, radix4Node->alloc, radix4Node->keys);
-				if (slot < 0)
-					break;
-
-				stack->ch = radix4Node->keys[slot];
-				cursor->key[cursor->base->keyLen++] = stack->ch;
-
-				cursor->stack[cursor->depth].slot->bits = radix4Node->radix[slot].bits;
-				cursor->stack[cursor->depth].addr = &radix4Node->radix[slot];
-				cursor->stack[cursor->depth].off = cursor->base->keyLen;
-				cursor->stack[cursor->depth++].ch = 256;
-				continue;
-			}
-
-			case Array14: {
-				ARTNode14* radix14Node = getObj(index, *stack->slot);
-
-				if (radix14Node->timestamp > cursor->base->ts)
-					break;
-
-				slot = slotrev4x14(stack->ch, 14, radix14Node->alloc, radix14Node->keys);
-				if (slot < 0)
-					break;
-
-				stack->ch = radix14Node->keys[slot];
-				cursor->key[cursor->base->keyLen++] = stack->ch;
-
-				cursor->stack[cursor->depth].slot->bits = radix14Node->radix[slot].bits;
-				cursor->stack[cursor->depth].addr = &radix14Node->radix[slot];
-				cursor->stack[cursor->depth].off = cursor->base->keyLen;
-				cursor->stack[cursor->depth++].ch = 256;
-				continue;
-			}
-
-			case Array64: {
-				ARTNode64* radix64Node = getObj(index, *stack->slot);
-
-				if (radix64Node->timestamp > cursor->base->ts)
-					break;
-
-				stack->ch = slotrev64(stack->ch, radix64Node->alloc, radix64Node->keys);
-				if (stack->ch < 0)
-					break;
-
-				slot = radix64Node->keys[stack->ch];
-				cursor->key[cursor->base->keyLen++] = stack->ch;
-
-				cursor->stack[cursor->depth].slot->bits = radix64Node->radix[slot].bits;
-				cursor->stack[cursor->depth].addr = &radix64Node->radix[slot];
-				cursor->stack[cursor->depth].off = cursor->base->keyLen;
-				cursor->stack[cursor->depth++].ch = 256;
-				continue;
-			}
-
-			case Array256: {
-				ARTNode256* radix256Node = getObj(index, *stack->slot);
-
-				if (radix256Node->timestamp > cursor->base->ts)
-					break;
-
-				while (--stack->ch >= 0) {
-					uint32_t idx = stack->ch;
-					if (radix256Node->radix[idx].type)
-						break;
-				}
-
-				if (stack->ch < 0)
-					break;
-
-				slot = stack->ch;
-				cursor->key[cursor->base->keyLen++] = stack->ch;
-
-				cursor->stack[cursor->depth].slot->bits = radix256Node->radix[slot].bits;
-				cursor->stack[cursor->depth].addr = &radix256Node->radix[slot];
-				cursor->stack[cursor->depth].off = cursor->base->keyLen;
-				cursor->stack[cursor->depth++].ch = 256;
-				continue;
-			}
-		}  // end switch
-
-		if (--cursor->depth) {
-			cursor->base->keyLen = stack[-1].off;
+		if (stack->ch > 255) {
+			cursor->stack[cursor->depth].slot->bits = splice->next->bits;
+			cursor->stack[cursor->depth].addr = splice->next;
+			cursor->stack[cursor->depth].ch = 256;
+			cursor->stack[cursor->depth++].off = cursor->base->keyLen;
+			stack->ch = 0;
 			continue;
 		}
 
-		break;
-	}  // end while
+  		cursor->base->state = CursorPosAt;
+		stack->ch = -1;
+		return OK;
+	  }
 
-	cursor->atLeftEOF = true;
-	return ERROR_endoffile;
+	  case KeyEnd: {
+		if (stack->ch == 256) {
+  			cursor->base->state = CursorPosAt;
+			stack->ch = -1;
+			return OK;
+		}
+
+		break;
+	  }
+
+	  case SpanNode: {
+		ARTSpan* spanNode = getObj(map, *stack->slot);
+		len = stack->slot->nbyte + 1;
+
+		if (spanNode->timestamp > cursor->base->ts)
+			break;
+
+		// examine next node under slot
+
+		if (stack->ch > 255) {
+			memcpy(cursor->key + cursor->base->keyLen, spanNode->bytes, len);
+			cursor->base->keyLen += len;
+			cursor->stack[cursor->depth].slot->bits = spanNode->next->bits;
+			cursor->stack[cursor->depth].addr = spanNode->next;
+			cursor->stack[cursor->depth].ch = 256;
+			cursor->stack[cursor->depth++].off = cursor->base->keyLen;
+			stack->ch = 0;
+			continue;
+		}
+		break;
+	  }
+
+	  case Array4: {
+		ARTNode4* radix4Node = getObj(map, *stack->slot);
+
+		if (radix4Node->timestamp > cursor->base->ts)
+			break;
+
+		slot = slotrev4x14(stack->ch, 4, radix4Node->alloc, radix4Node->keys);
+		if (slot < 0)
+			break;
+
+		stack->ch = radix4Node->keys[slot];
+		cursor->key[cursor->base->keyLen++] = stack->ch;
+
+		cursor->stack[cursor->depth].slot->bits = radix4Node->radix[slot].bits;
+		cursor->stack[cursor->depth].addr = &radix4Node->radix[slot];
+		cursor->stack[cursor->depth].off = cursor->base->keyLen;
+		cursor->stack[cursor->depth++].ch = 256;
+		continue;
+	  }
+
+	  case Array14: {
+		ARTNode14* radix14Node = getObj(map, *stack->slot);
+
+		if (radix14Node->timestamp > cursor->base->ts)
+			break;
+
+		slot = slotrev4x14(stack->ch, 14, radix14Node->alloc, radix14Node->keys);
+		if (slot < 0)
+			break;
+
+		stack->ch = radix14Node->keys[slot];
+		cursor->key[cursor->base->keyLen++] = stack->ch;
+
+		cursor->stack[cursor->depth].slot->bits = radix14Node->radix[slot].bits;
+		cursor->stack[cursor->depth].addr = &radix14Node->radix[slot];
+		cursor->stack[cursor->depth].off = cursor->base->keyLen;
+		cursor->stack[cursor->depth++].ch = 256;
+		continue;
+	  }
+
+	  case Array64: {
+	  	ARTNode64* radix64Node = getObj(map, *stack->slot);
+
+	  	if (radix64Node->timestamp > cursor->base->ts)
+	  		break;
+
+	  	stack->ch = slotrev64(stack->ch, radix64Node->alloc, radix64Node->keys);
+	  	if (stack->ch < 0)
+	  		break;
+
+	  	slot = radix64Node->keys[stack->ch];
+	  	cursor->key[cursor->base->keyLen++] = stack->ch;
+
+	  	cursor->stack[cursor->depth].slot->bits = radix64Node->radix[slot].bits;
+	  	cursor->stack[cursor->depth].addr = &radix64Node->radix[slot];
+	  	cursor->stack[cursor->depth].off = cursor->base->keyLen;
+	  	cursor->stack[cursor->depth++].ch = 256;
+	  	continue;
+	  }
+
+	  case Array256: {
+	  	ARTNode256* radix256Node = getObj(map, *stack->slot);
+
+	  	if (radix256Node->timestamp > cursor->base->ts)
+	  		break;
+
+	  	while (--stack->ch >= 0) {
+	  		uint32_t idx = stack->ch;
+	  		if (radix256Node->radix[idx].type)
+	  			break;
+	  	}
+
+	  	if (stack->ch < 0)
+	  		break;
+
+	  	slot = stack->ch;
+	  	cursor->key[cursor->base->keyLen++] = stack->ch;
+
+	  	cursor->stack[cursor->depth].slot->bits = radix256Node->radix[slot].bits;
+	  	cursor->stack[cursor->depth].addr = &radix256Node->radix[slot];
+	  	cursor->stack[cursor->depth].off = cursor->base->keyLen;
+	  	cursor->stack[cursor->depth++].ch = 256;
+	  	continue;
+	  }
+	}  // end switch
+
+	if (--cursor->depth) {
+		cursor->base->keyLen = stack[-1].off;
+		continue;
+	}
+
+	break;
+  }  // end while
+
+  cursor->base->state = CursorLeftEof;
+  return CURSOR_eof;
 }

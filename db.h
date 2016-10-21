@@ -78,11 +78,12 @@ typedef enum {
 	OnDisk = 0,		// base set
 	InitSize,		// arena size
 	UseTxn,			// txn used
+	NoDocs,			// no documents
 
-	Btree1Bits = 3,	// Btree1 set
+	Btree1Bits = 10,	// Btree1 set
 	Btree1Xtra,
 
-	MaxParam = 5	// param array size
+	MaxParam = 15	// param array size
 } ParamSlot;
 
 typedef union {
@@ -113,3 +114,13 @@ typedef struct {
 #endif
 } DbHandle;
 
+// cursor positioning operations
+
+typedef enum {
+	OpLeft	= 'l',
+	OpRight = 'r',
+	OpNext	= 'n',
+	OpPrev	= 'p',
+	OpFind	= 'f',
+	OpOne	= 'o'
+} CursorOp;

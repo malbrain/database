@@ -4,9 +4,9 @@
 #include "../db_map.h"
 #include "btree1.h"
 
-Status btree1InsertSlot (Handle *hndl,Btree1Set *set, uint8_t *key, uint32_t keyLen, Btree1SlotType type);
+Status btree1InsertSlot (Btree1Set *set, uint8_t *key, uint32_t keyLen, Btree1SlotType type);
 
-Status btree1InsertKey(Handle *hndl, uint8_t *key, uint32_t keyLen, uint8_t lvl, Btree1SlotType type) {
+Status btree1InsertKey(Handle *index, uint8_t *key, uint32_t keyLen, uint8_t lvl, Btree1SlotType type) {
 uint32_t totKeyLen = keyLen;
 Btree1Set set[1];
 Status stat;
@@ -17,12 +17,12 @@ Status stat;
 		totKeyLen += 2;
 
 	while (true) {
-	  if ((stat = btree1LoadPage(hndl, set, key, keyLen - (lvl ? sizeof(uint64_t) : 0), lvl, Btree1_lockWrite, false)))
+	  if ((stat = btree1LoadPage(index->map, set, key, keyLen - (lvl ? sizeof(uint64_t) : 0), lvl, Btree1_lockWrite, false)))
 		return stat;
 
-	  if ((stat = btree1CleanPage(hndl, set, totKeyLen))) {
+	  if ((stat = btree1CleanPage(index, set, totKeyLen))) {
 		if (stat == BTREE_needssplit) {
-		  if ((stat = btree1SplitPage(hndl, set)))
+		  if ((stat = btree1SplitPage(index, set)))
 			return stat;
 		  else
 			continue;
@@ -32,7 +32,7 @@ Status stat;
 
 	  // add the key to the page
 
-	  return btree1InsertSlot (hndl, set, key, keyLen, type);
+	  return btree1InsertSlot (set, key, keyLen, type);
 	}
 
 	return OK;
@@ -40,14 +40,14 @@ Status stat;
 
 //	update page's fence key in its parent
 
-Status btree1FixKey (Handle *hndl, uint8_t *fenceKey, uint8_t lvl, bool stopper) {
+Status btree1FixKey (Handle *index, uint8_t *fenceKey, uint8_t lvl, bool stopper) {
 uint32_t keyLen = keylen(fenceKey);
 Btree1Set set[1];
 Btree1Slot *slot;
 uint8_t *ptr;
 Status stat;
 
-	if ((stat = btree1LoadPage(hndl, set, fenceKey + keypre(fenceKey), keyLen - sizeof(uint64_t), lvl, Btree1_lockWrite, stopper)))
+	if ((stat = btree1LoadPage(index->map, set, fenceKey + keypre(fenceKey), keyLen - sizeof(uint64_t), lvl, Btree1_lockWrite, stopper)))
 		return stat;
 
 	slot = slotptr(set->page, set->slotIdx);
@@ -77,7 +77,7 @@ Status stat;
 //	page must already be checked for
 //	adequate space
 
-Status btree1InsertSlot (Handle *hndl, Btree1Set *set, uint8_t *key, uint32_t keyLen, Btree1SlotType type) {
+Status btree1InsertSlot (Btree1Set *set, uint8_t *key, uint32_t keyLen, Btree1SlotType type) {
 uint32_t idx, prefixLen;
 Btree1Slot *slot;
 uint8_t *ptr;

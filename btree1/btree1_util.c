@@ -84,11 +84,7 @@ DbAddr left;
 	// first key and reserve space for the key.
 
 	keyLen = keylen(leftKey);
-
-	if (keyLen < 128)
-		off = 1;
-	else
-		off = 2;
+	off = keypre(leftKey);
 
 	nxt -= keyLen + off;
 	slot = slotptr(root->page, 1);
@@ -524,8 +520,8 @@ uint32_t good = 0;
 //  find and load page at given level for given key
 //	leave page rd or wr locked as requested
 
-Status btree1LoadPage(Handle *index, Btree1Set *set, uint8_t *key, uint32_t keyLen, uint8_t lvl, Btree1Lock lock, bool stopper) {
-Btree1Index *btree1 = btree1index(index->map);
+Status btree1LoadPage(DbMap *map, Btree1Set *set, uint8_t *key, uint32_t keyLen, uint8_t lvl, Btree1Lock lock, bool stopper) {
+Btree1Index *btree1 = btree1index(map);
 uint8_t drill = 0xff, *ptr;
 Btree1Page *prevPage = NULL;
 Btree1Lock mode, prevMode;
@@ -540,7 +536,7 @@ DbAddr prevPageNo;
 	// determine lock mode of drill level
 
 	mode = (drill == lvl) ? lock : Btree1_lockRead; 
-	set->page = getObj(index->map, set->pageNo);
+	set->page = getObj(map, set->pageNo);
 
 	//	release parent or left sibling page
 

@@ -98,8 +98,6 @@ typedef struct {
 
 typedef struct {
 	DbCursor base[1];				// common cursor header (must be first)
-	bool atRightEOF;				// needed to support 'atEOF()'
-	bool atLeftEOF;					// needed to support 'atEOF()'
 	uint32_t depth;					// current depth of cursor
 	uint8_t key[MAX_key];			// current cursor key
 	CursorStack stack[MAX_cursor];	// cursor stack
@@ -107,17 +105,18 @@ typedef struct {
 
 #define artIndexAddr(map)((ArtIndex *)(map->arena + 1))
 
-Status artNewCursor(Handle *index, ArtCursor *cursor, uint64_t timestamp, ObjId txnId, char type);
+Status artNewCursor(Handle *index, ArtCursor *cursor);
 Status artReturnCursor(Handle *index, DbCursor *dbCursor);
 
-Status artNextKey(DbCursor *dbCursor, DbMap *index);
-Status artPrevKey(DbCursor *dbCursor, DbMap *index);
-Status artSeekKey(DbCursor *cursor, uint8_t *key, uint32_t keylen);
+Status artLeftKey(DbCursor *cursor, DbMap *map);
+Status artRightKey(DbCursor *cursor, DbMap *map);
+
+Status artFindKey( DbCursor *dbCursor, DbMap *map, uint8_t *key, uint32_t keyLen);
+Status artNextKey(DbCursor *dbCursor, DbMap *map);
+Status artPrevKey(DbCursor *dbCursor, DbMap *map);
 
 Status artInit(Handle *hndl, Params *params);
 Status artInsertKey (Handle *hndl, uint8_t *key, uint32_t keyLen);
 
 uint64_t artAllocateNode(Handle *index, int type, uint32_t size);
 
-bool artFindKey( DbCursor *dbCursor, DbMap *index, uint8_t *key, uint32_t keyLen);
-uint8_t *artCursorKey(DbCursor *dbCursor, uint32_t *len);

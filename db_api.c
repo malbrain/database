@@ -69,12 +69,9 @@ Status stat;
 
 	//	allocate a map index for use in TXN document steps
 
-	if (!docArena->init) {
+	if (map->created)
 	  if (parent)
 		docArena->docIdx = arrayAlloc(parent, db->txnIdx, sizeof(uint64_t));
-
-	  docArena->init = 1;
-	}
 
 	if (database)
 		releaseHandle(database);
@@ -122,28 +119,34 @@ Status stat;
 	}
 
 	hndl->handle.bits = makeHandle(map, 0, maxType[type], type);
+
+	if (!map->created)
+		goto createXit;
+
 	index = getObj(memMap, hndl->handle);
+
 	dbIndex = dbindex(map);
+	dbIndex->noDocs = params[NoDocs].boolVal;
 
-	if (!dbIndex->keySpec.addr) {
-		dbIndex->keySpec.bits = allocBlk(map, specSize + sizeof(Object), false);
-		obj = getObj(map, dbIndex->keySpec);
+	dbIndex->keySpec.bits = allocBlk(map, specSize + sizeof(Object), false);
+	obj = getObj(map, dbIndex->keySpec);
 
-		memcpy(obj + 1, keySpec, specSize);
-		obj->size = specSize;
+	memcpy(obj + 1, keySpec, specSize);
+	obj->size = specSize;
 
-		switch (type) {
-		case ARTreeIndexType:
-			artInit(index, params);
-			break;
+	switch (type) {
+	  case ARTreeIndexType:
+		artInit(index, params);
+		break;
 
-		case Btree1IndexType:
-			btree1Init(index, params);
-			break;
-		}
+	  case Btree1IndexType:
+		btree1Init(index, params);
+		break;
 	}
 
 	*map->arena->type = type;
+
+createXit:
 	unlockLatch(parent->arenaDef->nameTree->latch);
 
 	if (parentHndl)
@@ -154,7 +157,7 @@ Status stat;
 
 //	create new cursor
 
-Status createCursor(DbHandle hndl[1], DbHandle idxHndl[1], ObjId txnId, char type) {
+Status createCursor(DbHandle hndl[1], DbHandle idxHndl[1], ObjId txnId, Params *params) {
 uint64_t timestamp;
 DbCursor *cursor;
 Handle *index;
@@ -174,14 +177,17 @@ Txn *txn;
 
 	hndl->handle.bits = makeHandle(index->map, cursorSize[*index->map->arena->type], 0, CursorType);
 	cursor = (DbCursor *)((Handle *)getObj(memMap, hndl->handle) + 1);
+	cursor->noDocs = params[NoDocs].boolVal;
+	cursor->txnId.bits = txnId.bits;
+	cursor->ts = timestamp;
 
 	switch (*index->map->arena->type) {
 	case ARTreeIndexType:
-		stat = artNewCursor(index, (ArtCursor *)cursor, timestamp, txnId, type);
+		stat = artNewCursor(index, (ArtCursor *)cursor);
 		break;
 
 	case Btree1IndexType:
-		stat = btree1NewCursor(index, (Btree1Cursor *)cursor, timestamp, txnId, type);
+		stat = btree1NewCursor(index, (Btree1Cursor *)cursor);
 		break;
 	}
 
@@ -219,7 +225,7 @@ Handle *index;
 
 //	position cursor on a key
 
-Status positionCursor(DbHandle hndl[1], uint8_t *key, uint32_t keyLen) {
+Status positionCursor(DbHandle hndl[1], CursorOp op, uint8_t *key, uint32_t keyLen) {
 DbCursor *cursor;
 Handle *index;
 Status stat;
@@ -229,59 +235,72 @@ Status stat;
 
 	cursor = (DbCursor *)((Handle *)getObj(memMap, hndl->handle) + 1);
 
-	if ((stat = dbPositionCursor(index->map, cursor, key, keyLen)))
-		cursor->foundKey = false;
-
-	releaseHandle(index);
-	return cursor->foundKey ? OK : CURSOR_notfound;
-}
-
-//	iterate cursor to next key
-//	return zero on Eof
-
-Status nextKey(DbHandle hndl[1], uint8_t **key, uint32_t *keyLen, uint8_t *maxKey, uint32_t maxLen) {
-DbCursor *cursor;
-Handle *index;
-Status stat;
-
-	if ((stat = bindHandle(hndl, &index)))
-		return stat;
-
-	cursor = (DbCursor *)((Handle *)getObj(memMap, hndl->handle) + 1);
-
-	stat = dbNextKey(index->map, cursor, maxKey, maxLen);
-
-	if (key)
-		*key = cursor->key;
-	if (keyLen)
-		*keyLen = cursor->keyLen;
+	switch (op) {
+	  case OpLeft:
+		stat = dbLeftKey(cursor, index->map);
+		break;
+	  case OpRight:
+		stat = dbRightKey(cursor, index->map);
+		break;
+	  case OpNext:
+		stat = dbNextKey(cursor, index->map, key, keyLen);
+		break;
+	  case OpPrev:
+		stat = dbPrevKey(cursor, index->map, key, keyLen);
+		break;
+	  case OpFind:
+		stat = dbFindKey(cursor, index->map, key, keyLen, false);
+		break;
+	  case OpOne:
+		stat = dbFindKey(cursor, index->map, key, keyLen, true);
+		break;
+	}
 
 	releaseHandle(index);
 	return stat;
 }
 
-//	iterate cursor to prev key
-//	return zero on Bof
+//	return cursor key
 
-Status prevKey(DbHandle hndl[1], uint8_t **key, uint32_t *keyLen, uint8_t *maxKey, uint32_t maxLen) {
+Status keyAtCursor(DbHandle *hndl, uint8_t **key, uint32_t *keyLen) {
 DbCursor *cursor;
-Handle *index;
 Status stat;
-
-	if ((stat = bindHandle(hndl, &index)))
-		return stat;
 
 	cursor = (DbCursor *)((Handle *)getObj(memMap, hndl->handle) + 1);
 
-	stat = dbPrevKey(index->map, cursor, maxKey, maxLen);
+	switch (cursor->state) {
+	case CursorPosAt:
+	case CursorOne:
+		if (key)
+			*key = cursor->key;
 
-	if (key)
-		*key = cursor->key;
-	if (keyLen)
-		*keyLen = cursor->keyLen;
+		if (keyLen)
+			*keyLen = cursor->userLen;
 
-	releaseHandle(index);
-	return stat;
+		return OK;
+	}
+
+	return ERROR_nocursorposition;
+}
+
+Status docAtCursor(DbHandle *hndl, Document **doc) {
+DbCursor *cursor;
+uint32_t keyLen;
+Status stat;
+
+	cursor = (DbCursor *)((Handle *)getObj(memMap, hndl->handle) + 1);
+	keyLen = cursor->keyLen;
+
+	switch (cursor->state) {
+	case CursorPosAt:
+	case CursorOne:
+		if (doc)
+			*doc = cursor->doc;
+
+		return OK;
+	}
+
+	return ERROR_nocursorposition;
 }
 
 //	iterate cursor to next document
@@ -296,9 +315,9 @@ Status stat;
 
 	cursor = (DbCursor *)((Handle *)getObj(memMap, hndl->handle) + 1);
 
-	stat = dbNextDoc(index->map, cursor, maxKey, maxLen);
+	stat = dbNextDoc(cursor, index->map, maxKey, maxLen);
 
-	if (!stat)
+	if (!stat && doc)
 		*doc = cursor->doc;
 
 	releaseHandle(index);
@@ -317,9 +336,9 @@ Status stat;
 
 	cursor = (DbCursor *)((Handle *)getObj(memMap, hndl->handle) + 1);
 
-	stat = dbPrevDoc(index->map, cursor, maxKey, maxLen);
+	stat = dbPrevDoc(cursor, index->map, maxKey, maxLen);
 
-	if (!stat)
+	if (!stat && doc)
 		*doc = cursor->doc;
 
 	releaseHandle(index);

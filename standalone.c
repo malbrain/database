@@ -104,9 +104,8 @@ typedef struct {
 	char *inFile;
 	char *maxKey;
 	char *minKey;
+	Params *params;
 	DbHandle *database;
-	int useTxn, noDocs;
-	int bits, xtra, onDisk;
 	int num, idxType, keyLen;
 } ThreadArg;
 
@@ -132,7 +131,6 @@ unsigned __stdcall index_file (void *arg)
 #endif
 {
 uint64_t line = 0, cnt = 0;
-Params params[MaxParam];
 unsigned char key[4096];
 int ch, len = 0, slot;
 ThreadArg *args = arg;
@@ -146,9 +144,10 @@ DbHandle *parent;
 char *idxName;
 bool found;
 
-uint32_t maxLen = 0;
-uint32_t keyLen = 0;
-uint8_t *keyPtr;
+uint32_t maxKeyLen = 0;
+uint32_t minKeyLen = 0;
+uint32_t foundLen = 0;
+uint8_t *foundKey;
 Document *doc;
 int idx, stat;
 ObjId objId;
@@ -158,18 +157,16 @@ FILE *in;
 	cloneHandle(database, args->database);
 
 	if (args->maxKey)
-		maxLen = strlen(args->maxKey);
+		maxKeyLen = strlen(args->maxKey);
+	
+	if (args->minKey)
+		minKeyLen = strlen(args->minKey);
 	
 	idxType = indexType[args->idxType];
 	idxName = indexNames[args->idxType];
 	docHndl->handle.bits = 0;
 
 	txnId.bits = 0;
-
-	memset (params, 0, sizeof(params));
-	params[OnDisk].boolVal = args->onDisk;
-	params[Btree1Bits].intVal = args->bits;
-	params[Btree1Xtra].intVal = args->xtra;
 
 	if( args->idx < strlen (args->cmds) )
 		ch = args->cmds[args->idx];
@@ -184,14 +181,14 @@ FILE *in;
 
 		keySpec->keyLen = args->keyLen;
 
-		if (args->noDocs)
+		if (args->params[NoDocs].boolVal)
 			parent = database;
 		else {
-			openDocStore(docHndl, database, "documents", strlen("documents"), params);
+			openDocStore(docHndl, database, "documents", strlen("documents"), args->params);
 			parent = docHndl;
 		}
 
-		if ((stat = createIndex(index, parent, idxType, idxName, strlen(idxName), keySpec, sizeof(keySpec), params)))
+		if ((stat = createIndex(index, parent, idxType, idxName, strlen(idxName), keySpec, sizeof(keySpec), args->params)))
 		  fprintf(stderr, "createIndex Error %d name: %s\n", stat, idxName), exit(0);
 
 		if (docHndl->handle->bits)
@@ -225,14 +222,14 @@ FILE *in;
 
 		keySpec->keyLen = args->keyLen;
 
-		if (args->noDocs)
+		if (args->params[NoDocs].boolVal)
 			parent = database;
 		else {
-			openDocStore(docHndl, database, "documents", strlen("documents"), params);
+			openDocStore(docHndl, database, "documents", strlen("documents"), args->params);
 			parent = docHndl;
 		}
 
-		if ((stat = createIndex(index, parent, idxType, idxName, strlen(idxName), keySpec, sizeof(keySpec), params)))
+		if ((stat = createIndex(index, parent, idxType, idxName, strlen(idxName), keySpec, sizeof(keySpec), args->params)))
 		  fprintf(stderr, "createIndex Error %d name: %s\n", stat, idxName), exit(0);
 
 		if (docHndl->handle.bits)
@@ -267,20 +264,20 @@ FILE *in;
 
 		keySpec->keyLen = args->keyLen;
 
-		if (args->noDocs)
+		if (args->params[NoDocs].boolVal)
 			parent = database;
 		else {
-			openDocStore(docHndl, database, "documents", strlen("documents"), params);
+			openDocStore(docHndl, database, "documents", strlen("documents"), args->params);
 			parent = docHndl;
 		}
 
-		if ((stat = createIndex(index, parent, idxType, idxName, strlen(idxName), keySpec, sizeof(keySpec), params)))
+		if ((stat = createIndex(index, parent, idxType, idxName, strlen(idxName), keySpec, sizeof(keySpec), args->params)))
 		  fprintf(stderr, "createIndex Error %d name: %s\n", stat, idxName), exit(0);
 
 		if (docHndl->handle.bits)
 			addIndexKeys(docHndl);
 
-		createCursor (cursor, index, txnId, 'f');
+		createCursor (cursor, index, txnId, args->params);
 
 		if( in = fopen (args->inFile, "rb") )
 		  while( ch = getc(in), ch != EOF )
@@ -295,17 +292,17 @@ FILE *in;
 			  if (keySpec->keyLen)
 				len = keySpec->keyLen;
 
-			  stat = positionCursor (cursor, key, len);
+			  if ((stat = positionCursor (cursor, OpOne, key, len)))
+				fprintf(stderr, "findKey Error %d Syserr %d Line: %lld\n", stat, errno, line), exit(0);
 
-			  if (args->noDocs) {
-				if (stat == CURSOR_notfound)
-				  fprintf(stderr, "findKey not Found: line: %lld expected: %.*s \n", line, len, key), exit(0);
-			  } else {
-				if ((stat = nextDoc (cursor, &doc, args->maxKey, maxLen)))
-				  fprintf(stderr, "findDocument Error %d Syserr %d Line: %lld\n", stat, errno, line), exit(0);
-				if (memcmp(doc + 1, key, len))
-				  fprintf(stderr, "findDoc Error: line: %lld expected: %.*s found: %.*s.\n", line, len, key, doc->size, (char *)(doc + 1)), exit(0);
-			  }
+			  if ((stat = keyAtCursor (cursor, &foundKey, &foundLen)))
+				fprintf(stderr, "findKey Error %d Syserr %d Line: %lld\n", stat, errno, line), exit(0);
+
+			  if (foundLen != len)
+				fprintf(stderr, "findKey Error len mismatch: Line: %lld keyLen: %d, foundLen: %d\n", line, len, foundLen), exit(0);
+
+			  if (memcmp(foundKey, key, foundLen))
+				fprintf(stderr, "findKey not Found: line: %lld expected: %.*s \n", line, len, key), exit(0);
 
 			  cnt++;
 			  len = 0;
@@ -327,14 +324,14 @@ FILE *in;
 
 		fprintf(stderr, "\n");
 
-		if (args->noDocs)
+		if (args->params[NoDocs].boolVal)
 			parent = database;
 		else {
-			openDocStore(docHndl, database, "documents", strlen("documents"), params);
+			openDocStore(docHndl, database, "documents", strlen("documents"), args->params);
 			parent = docHndl;
 		}
 
-		if ((stat = createIndex(index, parent, idxType, idxName, strlen(idxName), keySpec, sizeof(keySpec), params)))
+		if ((stat = createIndex(index, parent, idxType, idxName, strlen(idxName), keySpec, sizeof(keySpec), args->params)))
 		  fprintf(stderr, "createIndex Error %d name: %s\n", stat, idxName), exit(0);
 
 		if (docHndl->handle.bits)
@@ -342,25 +339,32 @@ FILE *in;
 
 		// create forward cursor
 
-		createCursor (cursor, index, txnId, 'f');
+		createCursor (cursor, index, txnId, args->params);
 
-		if (args->minKey)
-			positionCursor (cursor, args->minKey, strlen(args->minKey));
+		if (args->minKey) {
+		  if ((stat == positionCursor (cursor, OpFind, args->minKey, minKeyLen)))
+			fprintf(stderr, "positionCursor OpFind Error %d\n", stat), exit(0);
+		} else {
+		  if ((stat = positionCursor (cursor, OpLeft, NULL, 0)))
+			fprintf(stderr, "positionCursor OpLeft Error %d\n", stat), exit(0);
+		}
 
-		if (args->noDocs)
-		  while (!(stat = nextKey (cursor, &keyPtr, &keyLen, args->maxKey, maxLen))) {
-			fwrite (keyPtr, keyLen, 1, stdout);
+		if (args->params[NoDocs].boolVal)
+		  while (!(stat = positionCursor(cursor, OpNext, args->maxKey, maxKeyLen))) {
+			if ((stat = keyAtCursor (cursor, &foundKey, &foundLen)))
+			  fprintf(stderr, "keyAtCursor Error %d\n", stat), exit(0);
+			fwrite (foundKey, foundLen, 1, stdout);
 			fputc ('\n', stdout);
 			cnt++;
 		  }
 		else
-		  while (!(stat = nextDoc(cursor, &doc, args->maxKey, maxLen))) {
+		  while (!(stat = nextDoc(cursor, &doc, args->maxKey, maxKeyLen))) {
             fwrite (doc + 1, doc->size, 1, stdout);
             fputc ('\n', stdout);
             cnt++;
 		  }
 
-		if (stat != ERROR_endoffile)
+		if (stat != CURSOR_eof)
 		  fprintf(stderr, "fwdScan: Error %d Syserr %d Line: %lld\n", stat, errno, cnt), exit(0);
 
 		fprintf(stderr, " Total keys read %lld\n", cnt);
@@ -377,14 +381,14 @@ FILE *in;
 
 		fprintf(stderr, "\n");
 
-		if (args->noDocs)
+		if (args->params[NoDocs].boolVal)
 			parent = database;
 		else {
-			openDocStore(docHndl, database, "documents", strlen("documents"), params);
+			openDocStore(docHndl, database, "documents", strlen("documents"), args->params);
 			parent = docHndl;
 		}
 
-		if ((stat = createIndex(index, parent, idxType, idxName, strlen(idxName), keySpec, sizeof(keySpec), params)))
+		if ((stat = createIndex(index, parent, idxType, idxName, strlen(idxName), keySpec, sizeof(keySpec), args->params)))
 		  fprintf(stderr, "createIndex Error %d name: %s\n", stat, idxName), exit(0);
 
 		if (docHndl->handle.bits)
@@ -392,25 +396,32 @@ FILE *in;
 
 		// create reverse cursor
 
-		createCursor (cursor, index, txnId, 'r');
+		createCursor (cursor, index, txnId, args->params);
 
-		if (args->minKey)
-			positionCursor (cursor, args->minKey, strlen(args->minKey));
+		if (args->maxKey) {
+		  if ((stat = positionCursor (cursor, OpFind, args->maxKey, maxKeyLen)))
+			fprintf(stderr, "positionCursor OpFind Error %d\n", stat), exit(0);
+		} else {
+		  if ((stat = positionCursor (cursor, OpRight, NULL, 0)))
+			fprintf(stderr, "positionCursor OpRight Error %d\n", stat), exit(0);
+		}
 
-		if (args->noDocs)
-		  while (!(stat = prevKey (cursor, &keyPtr, &keyLen, args->maxKey, maxLen))) {
-			fwrite (keyPtr, keyLen, 1, stdout);
+		if (args->params[NoDocs].boolVal)
+		  while (!(stat = positionCursor(cursor, OpPrev, args->minKey, minKeyLen))) {
+			if ((stat = keyAtCursor (cursor, &foundKey, &foundLen)))
+			  fprintf(stderr, "keyAtCursor Error %d\n", stat), exit(0);
+			fwrite (foundKey, foundLen, 1, stdout);
 			fputc ('\n', stdout);
 			cnt++;
 		  }
 		else
-		  while (!(stat = prevDoc(cursor, &doc, args->maxKey, maxLen))) {
+		  while (!(stat = prevDoc(cursor, &doc, args->minKey, minKeyLen))) {
             fwrite (doc + 1, doc->size, 1, stdout);
             fputc ('\n', stdout);
             cnt++;
 		  }
 
-		if (stat != ERROR_endoffile)
+		if (stat != CURSOR_eof)
 		  fprintf(stderr, "revScan: Error %d Syserr %d Line: %lld\n", stat, errno, cnt), exit(0);
 
 		fprintf(stderr, " Total keys read %lld\n", cnt);
@@ -427,25 +438,33 @@ FILE *in;
 
 		fprintf(stderr, "\n");
 
-		if (args->noDocs)
+		if (args->params[NoDocs].boolVal)
 			parent = database;
 		else {
-			openDocStore(docHndl, database, "documents", strlen("documents"), params);
+			openDocStore(docHndl, database, "documents", strlen("documents"), args->params);
 			parent = docHndl;
 		}
 
-		if ((stat = createIndex(index, parent, idxType, idxName, strlen(idxName), keySpec, sizeof(keySpec), params)))
+		if ((stat = createIndex(index, parent, idxType, idxName, strlen(idxName), keySpec, sizeof(keySpec), args->params)))
 		  fprintf(stderr, "createIndex Error %d name: %s\n", stat, idxName), exit(0);
 
 		//  create forward cursor
 
-		createCursor (cursor, index, txnId, 'f');
+		createCursor (cursor, index, txnId, args->params);
 
-		if (args->noDocs)
-	  	  while (!(stat = nextKey(cursor, NULL, NULL, args->maxKey, maxLen)))
+		if (args->minKey) {
+		  if ((stat = positionCursor (cursor, OpFind, args->minKey, minKeyLen)))
+			fprintf(stderr, "positionCursor OpFind Error %d\n", stat), exit(0);
+		} else {
+		  if ((stat = positionCursor (cursor, OpLeft, NULL, 0)))
+			fprintf(stderr, "positionCursor OpLeft Error %d\n", stat), exit(0);
+		}
+
+		if (args->params[NoDocs].boolVal)
+	  	  while (!(stat = positionCursor(cursor, OpNext, args->maxKey, maxKeyLen)))
 			cnt++;
 		else
-	  	  while (!(stat = nextDoc(cursor, &doc, args->maxKey, maxLen)))
+	  	  while (!(stat = nextDoc(cursor, &doc, args->maxKey, maxKeyLen)))
 			cnt++;
 
 		fprintf(stderr, " Total keys counted %lld\n", cnt);
@@ -464,8 +483,7 @@ typedef struct timeval timer;
 int main (int argc, char **argv)
 {
 int idx, cnt, len, slot, err;
-int useTxn = 0, noDocs = 0;
-int xtra = 0, bits = 16;
+Params params[MaxParam];
 char *minKey = NULL;
 char *maxKey = NULL;
 int keyLen = 10;
@@ -484,7 +502,6 @@ ThreadArg *args;
 float elapsed;
 int num = 0;
 char key[1];
-Params params[MaxParam];
 bool onDisk = true;
 DbHandle database[1];
 DbHandle docHndl[1];
@@ -516,25 +533,31 @@ DbHandle index[1];
 	dbName = (++argv)[0];
 	argc--;
 
+	//	set default values
+
+	memset (params, 0, sizeof(params));
+	params[Btree1Bits].intVal = 14;
+	params[OnDisk].boolVal = true;
+
 	// process configuration arguments
 
 	while (--argc > 0 && (++argv)[0][0] == '-')
 	  if (!memcmp(argv[0], "-xtra=", 6))
-			xtra = atoi(argv[0] + 6);
+			params[Btree1Xtra].intVal = atoi(argv[0] + 6);
 	  else if (!memcmp(argv[0], "-keyLen=", 8))
 			keyLen = atoi(argv[0] + 8);
 	  else if (!memcmp(argv[0], "-bits=", 6))
-			bits = atoi(argv[0] + 6);
+			params[Btree1Bits].intVal = atoi(argv[0] + 6);
 	  else if (!memcmp(argv[0], "-cmds=", 6))
 			cmds = argv[0] + 6;
 	  else if (!memcmp(argv[0], "-idxType=", 9))
 			idxType = atoi(argv[0] + 9);
 	  else if (!memcmp(argv[0], "-inMem", 6))
-			onDisk = 0;
+			params[OnDisk].boolVal = false;
 	  else if (!memcmp(argv[0], "-txns", 5))
-			useTxn = 1;
+			params[UseTxn].boolVal = true;
 	  else if (!memcmp(argv[0], "-noDocs", 7))
-			noDocs = 1;
+			params[NoDocs].boolVal = true;
 	  else if (!memcmp(argv[0], "-minKey=", 8))
 			minKey = argv[0] + 8;
 	  else if (!memcmp(argv[0], "-maxKey=", 8))
@@ -543,6 +566,7 @@ DbHandle index[1];
 			fprintf(stderr, "Unknown option %s ignored\n", argv[0]);
 
 	cnt = argc;
+
 	initialize();
 
 	start = getCpuTime(0);
@@ -554,7 +578,6 @@ DbHandle index[1];
 #endif
 	args = malloc ((cnt ? cnt : 1) * sizeof(ThreadArg));
 
-	params[OnDisk].boolVal = onDisk;
 	openDatabase(database, dbName, strlen(dbName), params);
 
 	//	fire off threads
@@ -565,15 +588,11 @@ DbHandle index[1];
 	  args[idx].database = database;
 	  args[idx].inFile = argv[idx];
 	  args[idx].idxType = idxType;
+	  args[idx].params = params;
 	  args[idx].minKey = minKey;
 	  args[idx].maxKey = maxKey;
 	  args[idx].keyLen = keyLen;
-	  args[idx].noDocs = noDocs;
-	  args[idx].useTxn = useTxn;
-	  args[idx].onDisk = onDisk;
 	  args[idx].cmds = cmds;
-	  args[idx].bits = bits;
-	  args[idx].xtra = xtra;
 	  args[idx].num = num;
 	  args[idx].idx = idx;
 

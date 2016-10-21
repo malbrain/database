@@ -173,6 +173,11 @@ int32_t amt = 0;
 	if (amt < sizeof(DbArena)) {
 		if ((map = initMap(map, arenaDef)))
 			unlockArena(map);
+#ifdef _WIN32
+		VirtualFree(segZero, 0, MEM_RELEASE);
+#else
+		free(segZero);
+#endif
 		return map;
 	}
 
@@ -258,7 +263,7 @@ uint32_t bits;
 	*map->arena->mutex = ALIVE_BIT;
 	map->arena->delTs = 1;
 
-	//	are we creating the database?
+	//	are we creating a database?
 
 	if (arenaDef->arenaType == DatabaseType) {
 		DataBase *db = database(map);
@@ -267,6 +272,7 @@ uint32_t bits;
 	} else
 		map->arenaDef = arenaDef;
 
+	map->created = true;
 	return map;
 }
 
