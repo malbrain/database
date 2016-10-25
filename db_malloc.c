@@ -33,7 +33,7 @@ ArenaDef arenaDef[1];
 #endif
 
 	memset (arenaDef, 0, sizeof(arenaDef));
-	initMap(memMap, arenaDef);
+	initArena(memMap, arenaDef);
 }
 
 void db_free (void *obj) {

@@ -55,7 +55,7 @@ enum ReaderWriterEnum {
 
 typedef struct {
 	DbAddr head[1];		// list head
-	RWLock2 lock[1];	// reader/writer lock
+	RWLock lock[1];		// reader/writer lock
 } SkipHead;
 
 //	Skip list entry

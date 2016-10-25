@@ -115,7 +115,7 @@ DbAddr left;
 }
 
 //  split already locked full node
-//	return unlocked.
+//	return with pages unlocked.
 
 Status btree1SplitPage (Handle *index, Btree1Set *set) {
 uint8_t leftKey[Btree1_maxkey], rightKey[Btree1_maxkey];
@@ -319,7 +319,7 @@ Status stat;
 
 	//  return temporary frame
 
-	addSlotToFrame(index->map, index->list[addr.type].free, index->list[addr.type].tail, addr.bits);
+	addSlotToFrame(index->map, index->list[addr.type].free, NULL, addr.bits);
 
 	// if current page is the root page, split it
 
@@ -386,7 +386,7 @@ DbAddr addr;
 	if( page->garbage < size / 5 )
 		return BTREE_needssplit;
 
-	if( (addr.bits = allocObj(index->map, index->list[type].free, index->list[type].tail, type, size, false)) )
+	if( (addr.bits = allocObj(index->map, index->list[type].free, NULL, type, size, false)) )
 		frame = getObj(index->map, addr);
 	else
 		return ERROR_outofmemory;
@@ -444,7 +444,7 @@ DbAddr addr;
 
 	//  return temporary frame
 
-	addSlotToFrame(index->map, index->list[addr.type].free, index->list[addr.type].tail, addr.bits);
+	addSlotToFrame(index->map, index->list[addr.type].free, NULL, addr.bits);
 
 	//	see if page has enough space now, or does it still need splitting?
 

@@ -27,17 +27,16 @@ DbMap **catalog, *map;
 ArenaDef *arenaDef;
 
 	arenaDef = rbPayload(rbEntry);
+	writeLock(parent->childMaps->lock);
 
-	writeLock2(parent->childMaps->lock);
 	catalog = skipAdd(parent->db, parent->childMaps->head, arenaDef->id);
 
-	// open the arena using the rbEntry name
+	if ((map = *catalog))
+		waitNonZero(map->arena->type);
+	else
+		map = *catalog = openMap(parent, (char *)(rbEntry + 1), rbEntry->keyLen, arenaDef);
 
-	if (!*catalog)
-		*catalog = openMap(parent, (char *)(rbEntry + 1), rbEntry->keyLen, arenaDef);
-
-	map = *catalog;
-	writeUnlock2(parent->childMaps->lock);
+	writeUnlock(parent->childMaps->lock);
 	return map;
 }
 
@@ -75,6 +74,8 @@ DbMap *map;
 	arenaDef->baseSize = baseSize;
 	arenaDef->objSize = objSize;
 
+	initLock(arenaDef->idList->lock);
+
 	map = arenaRbMap(parent, rbEntry);
 
 	//	add arena to parent child arenaDef tree
@@ -83,10 +84,10 @@ DbMap *map;
 
 	//	add new rbEntry to parent's child id array
 
-	writeLock2(parent->arenaDef->idList->lock);
+	writeLock(parent->arenaDef->idList->lock);
 	skipPayload = skipAdd (parent->db, parent->arenaDef->idList->head, arenaDef->id);
 	skipPayload->bits = rbEntry->addr.bits;
-	writeUnlock2(parent->arenaDef->idList->lock);
+	writeUnlock(parent->arenaDef->idList->lock);
 	return map;
 }
 
@@ -118,7 +119,7 @@ int32_t amt = 0;
 #else
 		map->hndl = -1;
 #endif
-		return initMap(map, arenaDef);
+		return initArena(map, arenaDef);
 	}
 
 	//	open the onDisk arena file
@@ -170,8 +171,10 @@ int32_t amt = 0;
 		return NULL;
 	}
 #endif
+	//	did we create the arena?
+
 	if (amt < sizeof(DbArena)) {
-		if ((map = initMap(map, arenaDef)))
+		if ((map = initArena(map, arenaDef)))
 			unlockArena(map);
 #ifdef _WIN32
 		VirtualFree(segZero, 0, MEM_RELEASE);
@@ -181,8 +184,11 @@ int32_t amt = 0;
 		return map;
 	}
 
-	//  since segment zero exists, map the arena
+	//  since segment zero exists,
+	//	initialize the map
+	//	and map seg zero
 
+	initLock(map->childMaps->lock);
 	assert(segZero->segs->size > 0);
 
 	mapZero(map, segZero->segs->size);
@@ -211,7 +217,7 @@ int32_t amt = 0;
 //	finish creating new arena
 //	call with arena locked
 
-DbMap *initMap (DbMap *map, ArenaDef *arenaDef) {
+DbMap *initArena (DbMap *map, ArenaDef *arenaDef) {
 uint64_t initSize = arenaDef->initSize;
 uint32_t segOffset;
 uint32_t bits;
@@ -268,11 +274,11 @@ uint32_t bits;
 	if (arenaDef->arenaType == DatabaseType) {
 		DataBase *db = database(map);
 		memcpy(db->arenaDef, arenaDef, sizeof(ArenaDef));
+		initLock(db->arenaDef->idList->lock);
 		map->arenaDef = db->arenaDef;
 	} else
 		map->arenaDef = arenaDef;
 
-	map->created = true;
 	return map;
 }
 

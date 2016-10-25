@@ -5,6 +5,12 @@
 #include "../db_map.h"
 #include "btree1.h"
 
+void btree1InitPage (Btree1Page *page) {
+	initLock(page->latch->readwr);
+	initLock(page->latch->parent);
+	initLock(page->latch->link);
+}
+
 //	create an empty page
 
 uint64_t btree1NewPage (Handle *hndl, uint8_t lvl) {
@@ -23,11 +29,12 @@ DbAddr addr;
 		size <<= btree1->leafXtra;
 	}
 
-	if ((addr.bits = allocObj(hndl->map, hndl->list[type].free, hndl->list[type].tail, type, size, true)))
+	if ((addr.bits = allocObj(hndl->map, hndl->list[type].free, NULL, type, size, true)))
 		page = getObj(hndl->map, addr);
 	else
 		return 0;
 
+	btree1InitPage(page);
 	page->lvl = lvl;
 	page->min = size;
 	return addr.bits;
@@ -115,16 +122,16 @@ uint8_t *buff;
 void btree1LockPage(Btree1Page *page, Btree1Lock mode) {
 	switch( mode ) {
 	case Btree1_lockRead:
-		readLock2 (page->latch->readwr);
+		readLock (page->latch->readwr);
 		break;
 	case Btree1_lockWrite:
-		writeLock2 (page->latch->readwr);
+		writeLock (page->latch->readwr);
 		break;
 	case Btree1_lockParent:
-		writeLock2 (page->latch->parent);
+		writeLock (page->latch->parent);
 		break;
 	case Btree1_lockLink:
-		writeLock2 (page->latch->link);
+		writeLock (page->latch->link);
 		break;
 	}
 }
@@ -133,16 +140,16 @@ void btree1UnlockPage(Btree1Page *page, Btree1Lock mode)
 {
 	switch( mode ) {
 	case Btree1_lockWrite:
-		writeUnlock2 (page->latch->readwr);
+		writeUnlock (page->latch->readwr);
 		break;
 	case Btree1_lockRead:
-		readUnlock2 (page->latch->readwr);
+		readUnlock (page->latch->readwr);
 		break;
 	case Btree1_lockParent:
-		writeUnlock2 (page->latch->parent);
+		writeUnlock (page->latch->parent);
 		break;
 	case Btree1_lockLink:
-		writeUnlock2 (page->latch->link);
+		writeUnlock (page->latch->link);
 		break;
 	}
 }

@@ -46,9 +46,9 @@ typedef struct {
 //	followed by the key slots
 
 typedef struct {
-	RWLock2 readwr[1];	// read/write access lock
-	RWLock2 parent[1];	// posting of fence key
-	RWLock2 link[1];	// left link update
+	RWLock readwr[1];	// read/write access lock
+	RWLock parent[1];	// posting of fence key
+	RWLock link[1];	// left link update
 } LatchSet;
 
 typedef struct {

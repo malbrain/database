@@ -79,7 +79,6 @@ struct DbMap_ {
 	uint16_t pathLen;		// length of path in buffer
 	uint16_t maxSeg;		// maximum mapped segment array index
 	char mapMutex[1];		// segment mapping mutex
-	char created;			// we created the arena
 };
 
 //	database variables
@@ -103,7 +102,8 @@ typedef struct {
 
 DbMap *openMap(DbMap *parent, char *name, uint32_t nameLen, ArenaDef *arena);
 DbMap *arenaRbMap(DbMap *parent, RedBlack *entry);
-DbMap *initMap(DbMap *map, ArenaDef *arenaDef);
+DbMap *initArena (DbMap *map, ArenaDef *arenaDef);
+
 
 /**
  *  memory mapping

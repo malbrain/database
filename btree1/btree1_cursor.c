@@ -21,7 +21,7 @@ Btree1Cursor *cursor = (Btree1Cursor *)dbCursor;
 
 	// return cursor page buffer
 
-	addSlotToFrame(index->map, index->list[cursor->pageAddr.type].free, index->list[cursor->pageAddr.type].tail, cursor->pageAddr.bits);
+	addSlotToFrame(index->map, index->list[cursor->pageAddr.type].free, NULL, cursor->pageAddr.bits);
 	return OK;
 }
 

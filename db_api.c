@@ -42,12 +42,14 @@ DbMap *map;
 Status openDocStore(DbHandle hndl[1], DbHandle dbHndl[1], char *name, uint32_t nameLen, Params *params) {
 DbMap *map, *parent = NULL;
 Handle *database = NULL;
+DocStore *docStore;
 DocArena *docArena;
 uint64_t *inUse;
 DataBase *db;
 DbAddr *addr;
 int idx, jdx;
 Status stat;
+Handle *ds;
 
 	memset (hndl, 0, sizeof(DbHandle));
 
@@ -69,7 +71,7 @@ Status stat;
 
 	//	allocate a map index for use in TXN document steps
 
-	if (map->created)
+	if (!*map->arena->type)
 	  if (parent)
 		docArena->docIdx = arrayAlloc(parent, db->txnIdx, sizeof(uint64_t));
 
@@ -78,6 +80,10 @@ Status stat;
 
 	map->arena->type[0] = DocStoreType;
 	hndl->handle.bits = makeHandle(map, sizeof(DocStore), MAX_blk, DocStoreType);
+
+	ds = getObj(memMap, hndl->handle);
+	docStore = (DocStore *)(ds + 1);
+	initLock(docStore->indexes->lock);
 
 	if (parent)
 		unlockLatch(parent->arenaDef->nameTree->latch);
@@ -120,7 +126,7 @@ Status stat;
 
 	hndl->handle.bits = makeHandle(map, 0, maxType[type], type);
 
-	if (!map->created)
+	if (*map->arena->type)
 		goto createXit;
 
 	index = getObj(memMap, hndl->handle);

@@ -72,8 +72,8 @@ int idx;
 	if (docStore->childId >= arenaDef->childId)
 		return OK;
 
-	readLock2 (arenaDef->idList->lock);
-	writeLock2 (docStore->indexes->lock);
+	readLock (arenaDef->idList->lock);
+	writeLock (docStore->indexes->lock);
 
 	next = arenaDef->idList->head;
 
@@ -106,8 +106,8 @@ int idx;
 	}
 
 	docStore->childId = maxId;
-	writeUnlock2 (docStore->indexes->lock);
-	readUnlock2 (arenaDef->idList->lock);
+	writeUnlock (docStore->indexes->lock);
+	readUnlock (arenaDef->idList->lock);
 	return OK;
 }
 
@@ -176,7 +176,7 @@ int idx;
 
 	docStore = (DocStore *)(hndl + 1);
 
-	readLock2 (docStore->indexes->lock);
+	readLock (docStore->indexes->lock);
 	next = docStore->indexes->head;
 
 	doc->verKeys->bits = skipInit(hndl->map, docStore->idxCnt);
@@ -197,7 +197,7 @@ int idx;
 	  next = skipNode->next;
 	}
 
-	readUnlock2 (docStore->indexes->lock);
+	readUnlock (docStore->indexes->lock);
 	return OK;
 }
 
