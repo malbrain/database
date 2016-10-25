@@ -16,8 +16,7 @@ typedef enum {
 	CursorNone,
 	CursorLeftEof,
 	CursorRightEof,
-	CursorPosAt,
-	CursorOne
+	CursorPosAt
 } PosState;
 
 typedef struct {

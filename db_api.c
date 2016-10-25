@@ -276,7 +276,6 @@ Status stat;
 
 	switch (cursor->state) {
 	case CursorPosAt:
-	case CursorOne:
 		if (key)
 			*key = cursor->key;
 
@@ -299,7 +298,6 @@ Status stat;
 
 	switch (cursor->state) {
 	case CursorPosAt:
-	case CursorOne:
 		if (doc)
 			*doc = cursor->doc;
 

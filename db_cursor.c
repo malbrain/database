@@ -151,9 +151,6 @@ Status dbNextKey(DbCursor *cursor, DbMap *map, uint8_t *maxKey, uint32_t maxLen)
 uint32_t len;
 Status stat;
 
-	if (cursor->state == CursorOne)
-		return ERROR_nocursorposition;
-
 	switch(*map->arena->type) {
 	case ARTreeIndexType:
 		stat = artNextKey (cursor, map);
@@ -196,9 +193,6 @@ Status stat;
 Status dbPrevKey(DbCursor *cursor, DbMap *map, uint8_t *minKey, uint32_t minLen) {
 uint32_t len;
 Status stat;
-
-	if (cursor->state == CursorOne)
-		return ERROR_nocursorposition;
 
 	switch(*map->arena->type) {
 	case ARTreeIndexType:

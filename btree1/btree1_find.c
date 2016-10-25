@@ -18,15 +18,29 @@ Status stat;
 		return stat;
 
 	foundKey = keyptr(set->page, set->slotIdx);
+	cursor->base->state = CursorPosAt;
 
 	if (onlyOne) {
 		int rawLen = keylen(foundKey) + keypre(foundKey);
 		memset (cursor->page, 0, sizeof(Btree1Page));
-		memcpy ((uint8_t *)cursor->page + btree1->pageSize - rawLen, foundKey + keypre(foundKey), keylen(foundKey));
-		slotptr(cursor->page, 1)->bits = btree1->pageSize - rawLen;
+		cursor->page->cnt = 2;
+		cursor->page->act = 2;
+
+		cursor->page->min = btree1->pageSize;
+		cursor->page->min <<= btree1->leafXtra;
+		cursor->page->min -= 1;
+		((uint8_t *)cursor->page)[cursor->page->min] = 0;
+
+		slotptr(cursor->page, 2)->bits = cursor->page->min;
+		slotptr(cursor->page, 2)->type = Btree1_stopper;
+
+		cursor->page->min -= rawLen;
+		slotptr(cursor->page, 1)->bits = cursor->page->min;
+
+		memcpy (keyptr(cursor->page,1), foundKey + keypre(foundKey), keylen(foundKey));
+
 		cursor->base->key = keyptr(cursor->page, 1);
 		cursor->base->keyLen = keylen(foundKey);
-		cursor->base->state = CursorOne;
 		cursor->slotIdx = 1;
 		return OK;
 	}
@@ -36,7 +50,6 @@ Status stat;
 
 	cursor->base->key = foundKey + keypre(foundKey);
 	cursor->base->keyLen = keylen(foundKey);
-	cursor->base->state = CursorPosAt;
 	cursor->slotIdx = set->slotIdx;
 	return OK;
 }

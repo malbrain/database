@@ -174,4 +174,32 @@ Sample cursor scan with min and max values:
      user 0m0.000s
      sys  0m0.001s
 
+Sample indexing and finding of 40M keys into btree index:
+
+    [karl@test7x64 xlink]$ ./dbtest tstdb -cmds=w -keyLen=10 -idxType=1 -noDocs pennykey[0123]
+    started indexing for pennykey0
+    started indexing for pennykey1
+    started indexing for pennykey2
+    started indexing for pennykey3
+     Total keys indexed 10000000
+     Total keys indexed 10000000
+     Total keys indexed 10000000
+     Total keys indexed 10000000
+     real 0m26.707s
+     user 1m38.649s
+     sys  0m1.701s
+
+    [karl@test7x64 xlink]$ ./dbtest tstdb -cmds=f -keyLen=10 -idxType=1 -noDocs pennykey[0123]
+    started finding keys for pennykey0
+    started finding keys for pennykey1
+    started finding keys for pennykey2
+    started finding keys for pennykey3
+    finished pennykey1 for 10000000 keys, found 10000000
+    finished pennykey2 for 10000000 keys, found 10000000
+    finished pennykey3 for 10000000 keys, found 10000000
+    finished pennykey0 for 10000000 keys, found 10000000
+     real 0m25.969s
+     user 1m38.494s
+     sys  0m0.694s
+
 Please address any concerns problems, or suggestions to the program author, Karl Malbrain, malbrain@cal.berkeley.edu
