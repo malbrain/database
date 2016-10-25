@@ -1,10 +1,13 @@
 #pragma once
 
-void *db_realloc(void *old, uint32_t size, bool zero);
-uint64_t db_rawalloc(uint32_t amt, bool zeroit);
+/**
+ *	memory allocation
+ */
+
+uint64_t db_rawAlloc(uint32_t amt, bool zero);
 void *db_malloc(uint32_t amt, bool zero);
-void *db_rawaddr(uint64_t rawAddr);
-void db_rawfree(uint64_t rawAddr);
-uint32_t db_size (void *obj);
+uint32_t db_rawSize(uint64_t bits);
+void db_memFree (uint64_t bits);
+void *db_memObj(uint64_t bits);
 void db_free (void *obj);
 

@@ -13,9 +13,9 @@
 // Raw object wrapper
 //
 
-typedef struct RawObj {
+typedef struct {
 	DbAddr addr[1];
-} rawobj_t;
+} dbobj_t;
 
 DbArena memArena[1];
 DbMap memMap[1];
@@ -36,8 +36,29 @@ ArenaDef arenaDef[1];
 	initArena(memMap, arenaDef);
 }
 
+uint32_t db_rawSize (uint64_t address) {
+DbAddr addr;
+
+	addr.bits = address;
+	return 1 << addr.type;
+}
+
+void *db_memObj(uint64_t bits) {
+DbAddr addr;
+
+	addr.bits = bits;
+	return getObj (memMap, addr);
+}
+
+void db_memFree (uint64_t bits) {
+DbAddr addr[1];
+
+	addr->bits = bits;
+	freeBlk(memMap, addr);
+}
+
 void db_free (void *obj) {
-rawobj_t *raw = obj;
+dbobj_t *raw = obj;
 
 	if (!raw[-1].addr->alive) {
 		fprintf(stderr, "Duplicate db_free\n");
@@ -50,70 +71,24 @@ rawobj_t *raw = obj;
 
 //	raw memory allocator
 
-uint64_t db_rawalloc(uint32_t amt, bool zeroit) {
-uint64_t addr;
+uint64_t db_rawAlloc(uint32_t amt, bool zeroit) {
+uint64_t bits;
 
-	if ((addr = allocBlk(memMap, amt, zeroit)))
-		return addr;
+	if ((bits = allocBlk(memMap, amt, zeroit)))
+		return bits;
 
-	fprintf (stderr, "out of memory!\n");
+	fprintf (stderr, "db_rawAlloc: out of memory!\n");
 	exit(1);
 }
 
 //	allocate object
 
 void *db_malloc(uint32_t len, bool zeroit) {
-rawobj_t *mem;
+dbobj_t *mem;
 DbAddr addr;
 
-	addr.bits = db_rawalloc(len + sizeof(rawobj_t), zeroit);
+	addr.bits = db_rawAlloc(len + sizeof(dbobj_t), zeroit);
 	mem = getObj(memMap, addr);
 	mem->addr->bits = addr.bits;
 	return mem + 1;
 }
-
-uint32_t db_size (void *obj) {
-rawobj_t *raw = obj;
-
-	return (1 << raw[-1].addr->type) - sizeof(rawobj_t);
-}
-
-void *db_realloc(void *old, uint32_t size, bool zeroit) {
-uint32_t amt = size + sizeof(rawobj_t);
-rawobj_t *raw = old, *mem;
-uint32_t oldSize, newSize;
-DbAddr addr[1];
-
-	if (!raw[-1].addr->alive) {
-		fprintf(stderr, "Duplicate db_realloc\n");
-		exit (1);
-	}
-
-	//  is the new size within the same power of two?
-
-	oldSize = 1ULL << raw[-1].addr->type;
-
-	if (oldSize >= amt)
-		return old;
-
-	if ((addr->bits = allocBlk(memMap, amt, zeroit)))
-		mem = getObj(memMap, *addr);
-	else {
-		fprintf (stderr, "out of memory!\n");
-		exit(1);
-	}
-
-	//  copy contents and release old allocation
-
-	newSize = 1UL << addr->type;
-
-	memcpy(mem, raw - 1, oldSize);
-
-	if (zeroit)
-		memset((char *)mem + oldSize, 0, newSize - oldSize);
-
-	freeBlk (memMap, raw[-1].addr);
-	mem->addr->bits = addr->bits;
-	return mem + 1;
-}
-

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "db_malloc.h"
 #include "db_object.h"
+#include "db_malloc.h"
 
 /**
  * open/create arenas
