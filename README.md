@@ -50,6 +50,20 @@ Sample four thread output from indexing 40M pennysort keys:
      user 0m41.103s
      sys  0m4.849s
 
+Sample four thread output from finding 40M pennysort keys:
+    [karl@test7x64 xlink]$ ./dbtest tstdb -cmds=f -keyLen=10 -idxType=0 -noDocs pennykey[0123]
+    started finding keys for pennykey2
+    started finding keys for pennykey0
+    started finding keys for pennykey3
+    started finding keys for pennykey1
+    finished pennykey0 for 10000000 keys, found 10000000
+    finished pennykey2 for 10000000 keys, found 10000000
+    finished pennykey1 for 10000000 keys, found 10000000
+    finished pennykey3 for 10000000 keys, found 10000000
+     real 0m9.049s
+     user 0m35.146s
+     sys  0m0.905s
+
 Sample single thread output from indexing 80M pennysort keys:
 
     [karl@test7x64 xlink]# ./dbtest tstdb -cmds=w -noDocs -keyLen=10 pennykey0-7
@@ -174,7 +188,7 @@ Sample cursor scan with min and max values:
      user 0m0.000s
      sys  0m0.001s
 
-Sample indexing and finding of 40M keys into btree index:
+Sample 4 thread indexing and finding of 40M keys into a btree index:
 
     [karl@test7x64 xlink]$ ./dbtest tstdb -cmds=w -keyLen=10 -idxType=1 -noDocs pennykey[0123]
     started indexing for pennykey0
