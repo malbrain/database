@@ -16,12 +16,12 @@ typedef enum {
 	Hndl_newarena = 0,
 	Hndl_database,
 	Hndl_docStore,
-	Hndl_btreeIndex,
 	Hndl_artIndex,
+	Hndl_btree1Index,
+	Hndl_btree2Index,
 	Hndl_colIndex,
 	Hndl_iterator,
-	Hndl_btreeCursor,
-	Hndl_artCursor,
+	Hndl_cursor,
 	Hndl_docVersion
 } HandleType;
 

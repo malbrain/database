@@ -63,9 +63,9 @@ char *indexNames[] = {
 };
 
 HandleType indexType[] = {
-ARTreeIndexType,
-Btree1IndexType,
-Btree2IndexType
+Hndl_artIndex,
+Hndl_btree1Index,
+Hndl_btree2Index
 };
 
 //  standalone program to index file of keys

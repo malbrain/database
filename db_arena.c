@@ -198,7 +198,7 @@ int32_t amt = 0;
 
 	//	are we opening an existing database?
 
-	if (arenaDef->arenaType == DatabaseType) {
+	if (arenaDef->arenaType == Hndl_database) {
 		DataBase *db = database(map);
 		map->arenaDef = db->arenaDef;
 	} else
@@ -269,7 +269,7 @@ uint32_t bits;
 
 	//	are we creating a database?
 
-	if (arenaDef->arenaType == DatabaseType) {
+	if (arenaDef->arenaType == Hndl_database) {
 		DataBase *db = database(map);
 		memcpy(db->arenaDef, arenaDef, sizeof(ArenaDef));
 		initLock(db->arenaDef->idList->lock);

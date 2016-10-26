@@ -9,7 +9,7 @@
 
 DbStatus artInit(Handle *hndl, Params *params) {
 
-	hndl->map->arena->type[0] = ARTreeIndexType;
+	hndl->map->arena->type[0] = Hndl_artIndex;
 	return DB_OK;
 }
 

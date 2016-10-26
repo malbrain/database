@@ -25,7 +25,7 @@ DbMap *map;
 	memset (arenaDef, 0, sizeof(ArenaDef));
 	arenaDef->baseSize = sizeof(DataBase);
 	arenaDef->onDisk = params[OnDisk].boolVal;
-	arenaDef->arenaType = DatabaseType;
+	arenaDef->arenaType = Hndl_database;
 	arenaDef->objSize = sizeof(Txn);
 
 	map = openMap(NULL, name, nameLen, arenaDef);
@@ -33,8 +33,8 @@ DbMap *map;
 	if (!map)
 		return DB_ERROR_createdatabase;
 
-	*map->arena->type = DatabaseType;
-	*hndl->handle = makeHandle(map, 0, 0, DatabaseType);
+	*map->arena->type = Hndl_database;
+	*hndl->handle = makeHandle(map, 0, 0, Hndl_database);
 	return DB_OK;
 }
 
@@ -63,7 +63,7 @@ Handle *ds;
 	if (parent)
 		lockLatch(parent->arenaDef->nameTree->latch);
 
-	if ((map = createMap(parent, DocStoreType, name, nameLen, 0, sizeof(DocArena), sizeof(ObjId), params)))
+	if ((map = createMap(parent, Hndl_docStore, name, nameLen, 0, sizeof(DocArena), sizeof(ObjId), params)))
 		docArena = docarena(map);
 	else
 		return DB_ERROR_arenadropped;
@@ -77,8 +77,8 @@ Handle *ds;
 	if (database)
 		releaseHandle(database);
 
-	map->arena->type[0] = DocStoreType;
-	*hndl->handle = makeHandle(map, sizeof(DocStore), MAX_blk, DocStoreType);
+	map->arena->type[0] = Hndl_docStore;
+	*hndl->handle = makeHandle(map, sizeof(DocStore), MAX_blk, Hndl_docStore);
 
 	ds = db_memObj(*hndl->handle);
 	docStore = (DocStore *)(ds + 1);
@@ -108,10 +108,10 @@ DbStatus stat;
 	lockLatch(parent->arenaDef->nameTree->latch);
 
 	switch (type) {
-	case ARTreeIndexType:
+	case Hndl_artIndex:
 		baseSize = sizeof(ArtIndex);
 		break;
-	case Btree1IndexType:
+	case Hndl_btree1Index:
 		baseSize = sizeof(Btree1Index);
 		break;
 	}
@@ -140,11 +140,11 @@ DbStatus stat;
 	obj->size = specSize;
 
 	switch (type) {
-	  case ARTreeIndexType:
+	  case Hndl_artIndex:
 		artInit(index, params);
 		break;
 
-	  case Btree1IndexType:
+	  case Hndl_btree1Index:
 		btree1Init(index, params);
 		break;
 	}
@@ -180,18 +180,18 @@ Txn *txn;
 	} else
 		timestamp = allocateTimestamp(index->map->db, en_reader);
 
-	*hndl->handle = makeHandle(index->map, cursorSize[*index->map->arena->type], 0, CursorType);
+	*hndl->handle = makeHandle(index->map, cursorSize[*index->map->arena->type], 0, Hndl_cursor);
 	cursor = (DbCursor *)((Handle *)db_memObj(*hndl->handle) + 1);
 	cursor->noDocs = params[NoDocs].boolVal;
 	cursor->txnId.bits = txnId.bits;
 	cursor->ts = timestamp;
 
 	switch (*index->map->arena->type) {
-	case ARTreeIndexType:
+	case Hndl_artIndex:
 		stat = artNewCursor(index, (ArtCursor *)cursor);
 		break;
 
-	case Btree1IndexType:
+	case Hndl_btree1Index:
 		stat = btree1NewCursor(index, (Btree1Cursor *)cursor);
 		break;
 	}
@@ -212,11 +212,11 @@ Handle *index;
 	cursor = (DbCursor *)((Handle *)db_memObj(*hndl->handle) + 1);
 
 	switch (*index->map->arena->type) {
-	case ARTreeIndexType:
+	case Hndl_artIndex:
 		stat = artReturnCursor(index, cursor);
 		break;
 
-	case Btree1IndexType:
+	case Hndl_btree1Index:
 		stat = btree1ReturnCursor(index, cursor);
 		break;
 	}
@@ -395,11 +395,11 @@ DbStatus stat;
 		return stat;
 
 	switch (*index->map->arena->type) {
-	case ARTreeIndexType:
+	case Hndl_artIndex:
 		stat = artInsertKey(index, key, len);
 		break;
 
-	case Btree1IndexType:
+	case Hndl_btree1Index:
 		stat = btree1InsertKey(index, key, len, 0, Btree1_indexed);
 		break;
 	}

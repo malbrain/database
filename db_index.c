@@ -148,11 +148,11 @@ int keyLen;
 	*verPtr = doc->version;
 
 	switch (*index->map->arena->type) {
-	case ARTreeIndexType:
+	case Hndl_artIndex:
 		stat = artInsertKey(index, key, keyLen);
 		break;
 
-	case Btree1IndexType:
+	case Hndl_btree1Index:
 		stat = btree1InsertKey(index, key, keyLen, 0, Btree1_indexed);
 		break;
 	}

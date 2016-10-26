@@ -13,12 +13,12 @@ DbStatus dbFindKey(DbCursor *cursor, DbMap *map, uint8_t *key, uint32_t keyLen, 
 DbStatus stat;
 
 	switch (*map->arena->type) {
-	  case ARTreeIndexType: {
+	  case Hndl_artIndex: {
 		stat = artFindKey(cursor, map, key, keyLen);
 		break;
 	  }
 
-	  case Btree1IndexType: {
+	  case Hndl_btree1Index: {
 		stat = btree1FindKey(cursor, map, key, keyLen, onlyOne);
 		break;
 	  }
@@ -45,12 +45,12 @@ DbStatus dbLeftKey(DbCursor *cursor, DbMap *map) {
 DbStatus stat;
 
 	switch (*map->arena->type) {
-	  case ARTreeIndexType: {
+	  case Hndl_artIndex: {
 		stat = artLeftKey(cursor, map);
 		break;
 	  }
 
-	  case Btree1IndexType: {
+	  case Hndl_btree1Index: {
 		stat = btree1LeftKey(cursor, map);
 		break;
 	  }
@@ -69,12 +69,12 @@ DbStatus dbRightKey(DbCursor *cursor, DbMap *map) {
 DbStatus stat;
 
 	switch (*map->arena->type) {
-	  case ARTreeIndexType: {
+	  case Hndl_artIndex: {
 		stat = artRightKey(cursor, map);
 		break;
 	  }
 
-	  case Btree1IndexType: {
+	  case Hndl_btree1Index: {
 		stat = btree1RightKey(cursor, map);
 		break;
 	  }
@@ -152,11 +152,11 @@ uint32_t len;
 DbStatus stat;
 
 	switch(*map->arena->type) {
-	case ARTreeIndexType:
+	case Hndl_artIndex:
 		stat = artNextKey (cursor, map);
 		break;
 
-	case Btree1IndexType:
+	case Hndl_btree1Index:
 		stat = btree1NextKey (cursor, map);
 		break;
 
@@ -195,11 +195,11 @@ uint32_t len;
 DbStatus stat;
 
 	switch(*map->arena->type) {
-	case ARTreeIndexType:
+	case Hndl_artIndex:
 		stat = artPrevKey (cursor, map);
 		break;
 
-	case Btree1IndexType:
+	case Hndl_btree1Index:
 		stat = btree1PrevKey (cursor, map);
 		break;
 

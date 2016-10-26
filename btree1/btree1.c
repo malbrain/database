@@ -113,7 +113,7 @@ uint8_t *buff;
 	slot->type = Btree1_stopper;
 	slot->off = page->min;
 
-	hndl->map->arena->type[0] = Btree1IndexType;
+	hndl->map->arena->type[0] = Hndl_btree1Index;
 	return DB_OK;
 }
 
