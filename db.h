@@ -13,14 +13,16 @@
 //	types of handles/arenas
 
 typedef enum {
-	NotSetYet = 0,
-	DatabaseType,
-	DocStoreType,
-	ARTreeIndexType,
-	Btree1IndexType,
-	Btree2IndexType,
-	IteratorType,
-	CursorType
+	Hndl_newarena = 0,
+	Hndl_database,
+	Hndl_docStore,
+	Hndl_btreeIndex,
+	Hndl_artIndex,
+	Hndl_colIndex,
+	Hndl_iterator,
+	Hndl_btreeCursor,
+	Hndl_artCursor,
+	Hndl_docVersion
 } HandleType;
 
 //	general object pointer
