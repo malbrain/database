@@ -44,14 +44,14 @@ typedef struct {
 
 #define dbindex(map) ((DbIndex *)(map->arena + 1))
 
-Status storeDoc(Handle *docHndl, void *obj, uint32_t objSize, ObjId *result, ObjId txnId);
-Status installIndexes(Handle *docHndl);
+DbStatus storeDoc(Handle *docHndl, void *obj, uint32_t objSize, ObjId *result, ObjId txnId);
+DbStatus installIndexes(Handle *docHndl);
 
-Status dbFindKey(DbCursor *cursor, DbMap *map, uint8_t *key, uint32_t keyLen, bool onlyOne);
-Status dbNextKey(DbCursor *cursor, DbMap *map, uint8_t *maxKey, uint32_t maxLen);
-Status dbPrevKey(DbCursor *cursor, DbMap *map, uint8_t *minKey, uint32_t minLen);
+DbStatus dbFindKey(DbCursor *cursor, DbMap *map, uint8_t *key, uint32_t keyLen, bool onlyOne);
+DbStatus dbNextKey(DbCursor *cursor, DbMap *map, uint8_t *maxKey, uint32_t maxLen);
+DbStatus dbPrevKey(DbCursor *cursor, DbMap *map, uint8_t *minKey, uint32_t minLen);
 
-Status dbNextDoc(DbCursor *cursor, DbMap *map, uint8_t *maxKey, uint32_t maxLen);
-Status dbPrevDoc(DbCursor *cursor, DbMap *map, uint8_t *maxKey, uint32_t maxLen);
-Status dbRightKey(DbCursor *cursor, DbMap *map);
-Status dbLeftKey(DbCursor *cursor, DbMap *map);
+DbStatus dbNextDoc(DbCursor *cursor, DbMap *map, uint8_t *maxKey, uint32_t maxLen);
+DbStatus dbPrevDoc(DbCursor *cursor, DbMap *map, uint8_t *maxKey, uint32_t maxLen);
+DbStatus dbRightKey(DbCursor *cursor, DbMap *map);
+DbStatus dbLeftKey(DbCursor *cursor, DbMap *map);

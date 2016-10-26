@@ -37,14 +37,14 @@ uint32_t Splits;
 // split the root and raise the height of the btree1
 // call with key for smaller half and right page addr.
 
-Status btree1SplitRoot(Handle *index, Btree1Set *root, DbAddr right, uint8_t *leftKey) {
+DbStatus btree1SplitRoot(Handle *index, Btree1Set *root, DbAddr right, uint8_t *leftKey) {
 Btree1Index *btree1 = btree1index(index->map);
 uint32_t keyLen, nxt = btree1->pageSize;
 Btree1Page *leftPage, *rightPage;
 Btree1Slot *slot;
 uint8_t *ptr;
 uint32_t off;
-Status stat;
+DbStatus stat;
 DbAddr left;
 
 	//  Obtain an empty page to use, and copy the current
@@ -53,7 +53,7 @@ DbAddr left;
 	if( (left.bits = btree1NewPage(index, root->page->lvl)) )
 		leftPage = getObj(index->map, left);
 	else
-		return ERROR_outofmemory;
+		return DB_ERROR_outofmemory;
 
 	//	copy in new smaller keys into left page
 	//	(clear the latches)
@@ -111,13 +111,13 @@ DbAddr left;
 	// release root page
 
 	btree1UnlockPage(root->page, Btree1_lockWrite);
-	return OK;
+	return DB_OK;
 }
 
 //  split already locked full node
 //	return with pages unlocked.
 
-Status btree1SplitPage (Handle *index, Btree1Set *set) {
+DbStatus btree1SplitPage (Handle *index, Btree1Set *set) {
 uint8_t leftKey[Btree1_maxkey], rightKey[Btree1_maxkey];
 Btree1Index *btree1 = btree1index(index->map);
 uint32_t cnt = 0, idx = 0, max, nxt, off;
@@ -130,7 +130,7 @@ uint32_t totLen, keyLen;
 DbAddr right, addr;
 uint8_t *key;
 bool stopper;
-Status stat;
+DbStatus stat;
 
 #ifdef DEBUG
 	atomicAdd32(&Splits, 1);
@@ -150,7 +150,7 @@ Status stat;
 	if( (right.bits = btree1NewPage(index, lvl)) )
 		rightPage = getObj(index->map, right);
 	else
-		return ERROR_outofmemory;
+		return DB_ERROR_outofmemory;
 
 	max = set->page->cnt;
 	cnt = max / 2;
@@ -235,7 +235,7 @@ Status stat;
 	if( (addr.bits = btree1NewPage(index, lvl)) )
 		frame = getObj(index->map, addr);
 	else
-		return ERROR_outofmemory;
+		return DB_ERROR_outofmemory;
 
 	memcpy (frame, set->page, size);
 	memset (set->page+1, 0, size - sizeof(*set->page));
@@ -344,7 +344,7 @@ Status stat;
 
 	btree1UnlockPage (set->page, Btree1_lockParent);
 	btree1UnlockPage (rightPage, Btree1_lockParent);
-	return OK;
+	return DB_OK;
 }
 
 //	check page for space available,
@@ -352,7 +352,7 @@ Status stat;
 //	false - page needs splitting
 //	true  - ok to insert
 
-Status btree1CleanPage(Handle *index, Btree1Set *set, uint32_t totKeyLen) {
+DbStatus btree1CleanPage(Handle *index, Btree1Set *set, uint32_t totKeyLen) {
 Btree1Index *btree1 = btree1index(index->map);
 Btree1Slot librarian, *source, *dest;
 uint32_t size = btree1->pageSize;
@@ -377,19 +377,19 @@ DbAddr addr;
 	}
 
 	if( page->min >= (max+1) * sizeof(Btree1Slot) + sizeof(*page) + totKeyLen )
-		return OK;
+		return DB_OK;
 
 	//	skip cleanup and proceed directly to split
 	//	if there's not enough garbage
 	//	to bother with.
 
 	if( page->garbage < size / 5 )
-		return BTREE_needssplit;
+		return DB_BTREE_needssplit;
 
 	if( (addr.bits = allocObj(index->map, index->list[type].free, NULL, type, size, false)) )
 		frame = getObj(index->map, addr);
 	else
-		return ERROR_outofmemory;
+		return DB_ERROR_outofmemory;
 
 	memcpy (frame, page, size);
 
@@ -449,9 +449,9 @@ DbAddr addr;
 	//	see if page has enough space now, or does it still need splitting?
 
 	if( page->min >= (idx+1) * sizeof(Btree1Slot) + sizeof(*page) + totKeyLen )
-		return OK;
+		return DB_OK;
 
-	return BTREE_needssplit;
+	return DB_BTREE_needssplit;
 }
 
 //  compare two keys, return > 0, = 0, or < 0
@@ -520,7 +520,7 @@ uint32_t good = 0;
 //  find and load page at given level for given key
 //	leave page rd or wr locked as requested
 
-Status btree1LoadPage(DbMap *map, Btree1Set *set, uint8_t *key, uint32_t keyLen, uint8_t lvl, Btree1Lock lock, bool stopper) {
+DbStatus btree1LoadPage(DbMap *map, Btree1Set *set, uint8_t *key, uint32_t keyLen, uint8_t lvl, Btree1Lock lock, bool stopper) {
 Btree1Index *btree1 = btree1index(map);
 uint8_t drill = 0xff, *ptr;
 Btree1Page *prevPage = NULL;
@@ -550,7 +550,7 @@ DbAddr prevPageNo;
 	btree1LockPage(set->page, mode);
 
 	if( set->page->free )
-		return ERROR_btreestruct;
+		return DB_BTREE_error;
 
 	// re-read and re-lock root after determining actual level of root
 
@@ -576,7 +576,7 @@ DbAddr prevPageNo;
 	if( !set->page->kill )
 	 if( (set->slotIdx = btree1FindSlot (set->page, key, keyLen, stopper)) ) {
 	  if( drill == lvl )
-		return OK;
+		return DB_OK;
 
 	  // find next non-dead slot -- the fence key if nothing else
 
@@ -584,7 +584,7 @@ DbAddr prevPageNo;
 		if( set->slotIdx++ < set->page->cnt )
 		  continue;
 		else
-  		  return ERROR_btreestruct;
+		  return DB_BTREE_error;
 
 	  // get next page down
 
@@ -603,5 +603,5 @@ DbAddr prevPageNo;
 
   // return error on end of right chain
 
-  return ERROR_btreestruct;
+  return DB_BTREE_error;
 }

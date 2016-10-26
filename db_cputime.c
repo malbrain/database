@@ -4,8 +4,8 @@
 #include <stdlib.h>
 
 double getCpuTime(int type) {
-	struct rusage used[1];
-	struct timeval tv[1];
+struct rusage used[1];
+struct timeval tv[1];
 
 	switch( type ) {
 	case 0:
@@ -31,12 +31,12 @@ double getCpuTime(int type) {
 #include <process.h>
 
 double getCpuTime(int type) {
-	FILETIME crtime[1];
-	FILETIME xittime[1];
-	FILETIME systime[1];
-	FILETIME usrtime[1];
-	SYSTEMTIME timeconv[1];
-	double ans = 0;
+FILETIME crtime[1];
+FILETIME xittime[1];
+FILETIME systime[1];
+FILETIME usrtime[1];
+SYSTEMTIME timeconv[1];
+double ans = 0;
 
 	memset (timeconv, 0, sizeof(SYSTEMTIME));
 

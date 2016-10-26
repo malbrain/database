@@ -90,7 +90,7 @@ uint32_t len;
 	return true;
 }
 
-Status artInsertKey( Handle *index, uint8_t *key, uint32_t keylen) {
+DbStatus artInsertKey( Handle *index, uint8_t *key, uint32_t keylen) {
 bool restart, pass = false;
 ARTSplice *splice;
 ParamStruct p[1];
@@ -180,7 +180,7 @@ DbAddr slot;
 
 			switch (rt) {
 			case ErrorSearch:		//	out of memory error
-				return ERROR_outofmemory;
+				return DB_ERROR_outofmemory;
 
 			case RetrySearch:
 				continue;
@@ -198,7 +198,7 @@ DbAddr slot;
 
 				if (!p->newSlot->bits) {
 					unlockLatch(p->prev->latch);
-					return OK;
+					return DB_OK;
 				}
 
 				// install new node value
@@ -210,9 +210,9 @@ DbAddr slot;
 
 				if (slot.type && slot.type != KeyEnd)
 				  if (!addSlotToFrame(index->map, index->list[slot.type].head, index->list[slot.type].tail, slot))
-					return ERROR_outofmemory;
+					return DB_ERROR_outofmemory;
 
-				return OK;
+				return DB_OK;
 
 			}  // end switch
 
@@ -229,7 +229,7 @@ DbAddr slot;
 		//	return if not
 
 		if (p->slot->type == KeyEnd || p->slot->type == KeyPass)
-			return OK;
+			return DB_OK;
 
 		// if so, splice in a KeyPass node to end our key
 		//	and continue with another existing key
@@ -238,7 +238,7 @@ DbAddr slot;
 
 		if (p->slot->type == KeyEnd || p->slot->type == KeyPass) {
     		unlockLatch(p->slot->latch);
-			return OK;
+			return DB_OK;
 		}
 
 		if ((slot.bits = artAllocateNode(p->index, KeyPass, sizeof(ARTSplice)))) {
@@ -246,12 +246,12 @@ DbAddr slot;
 			splice->next->bits = p->slot->bits & ~ADDR_MUTEX_SET;
 			p->slot->bits = slot.bits;
 	  	} else
-			return ERROR_outofmemory;
+			return DB_ERROR_outofmemory;
 
-		return OK;
+		return DB_OK;
 	} while (restart);
 
-	return OK;
+	return DB_OK;
 }
 
 //  splice in a KeyPass node to continue the key past a KeyEnd

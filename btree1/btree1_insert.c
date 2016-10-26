@@ -4,12 +4,12 @@
 #include "../db_map.h"
 #include "btree1.h"
 
-Status btree1InsertSlot (Btree1Set *set, uint8_t *key, uint32_t keyLen, Btree1SlotType type);
+DbStatus btree1InsertSlot (Btree1Set *set, uint8_t *key, uint32_t keyLen, Btree1SlotType type);
 
-Status btree1InsertKey(Handle *index, uint8_t *key, uint32_t keyLen, uint8_t lvl, Btree1SlotType type) {
+DbStatus btree1InsertKey(Handle *index, uint8_t *key, uint32_t keyLen, uint8_t lvl, Btree1SlotType type) {
 uint32_t totKeyLen = keyLen;
 Btree1Set set[1];
-Status stat;
+DbStatus stat;
 
 	if (keyLen < 128)
 		totKeyLen += 1;
@@ -21,7 +21,7 @@ Status stat;
 		return stat;
 
 	  if ((stat = btree1CleanPage(index, set, totKeyLen))) {
-		if (stat == BTREE_needssplit) {
+		if (stat == DB_BTREE_needssplit) {
 		  if ((stat = btree1SplitPage(index, set)))
 			return stat;
 		  else
@@ -35,17 +35,17 @@ Status stat;
 	  return btree1InsertSlot (set, key, keyLen, type);
 	}
 
-	return OK;
+	return DB_OK;
 }
 
 //	update page's fence key in its parent
 
-Status btree1FixKey (Handle *index, uint8_t *fenceKey, uint8_t lvl, bool stopper) {
+DbStatus btree1FixKey (Handle *index, uint8_t *fenceKey, uint8_t lvl, bool stopper) {
 uint32_t keyLen = keylen(fenceKey);
 Btree1Set set[1];
 Btree1Slot *slot;
 uint8_t *ptr;
-Status stat;
+DbStatus stat;
 
 	if ((stat = btree1LoadPage(index->map, set, fenceKey + keypre(fenceKey), keyLen - sizeof(uint64_t), lvl, Btree1_lockWrite, stopper)))
 		return stat;
@@ -70,14 +70,14 @@ Status stat;
 	// release write lock
 
 	btree1UnlockPage (set->page, Btree1_lockWrite);
-	return OK;
+	return DB_OK;
 }
 
 //	install new key onto page
 //	page must already be checked for
 //	adequate space
 
-Status btree1InsertSlot (Btree1Set *set, uint8_t *key, uint32_t keyLen, Btree1SlotType type) {
+DbStatus btree1InsertSlot (Btree1Set *set, uint8_t *key, uint32_t keyLen, Btree1SlotType type) {
 uint32_t idx, prefixLen;
 Btree1Slot *slot;
 uint8_t *ptr;
@@ -126,6 +126,6 @@ uint8_t *ptr;
 	slot->type = type;
 
 	btree1UnlockPage (set->page, Btree1_lockWrite);
-	return OK;
+	return DB_OK;
 }
 

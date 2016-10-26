@@ -4,6 +4,16 @@
 #include "db.h"
 #include "db_api.h"
 
+#ifndef _WIN32
+#include <sys/time.h>
+#include <sys/resource.h>
+#include <stdlib.h>
+#else
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <process.h>
+#endif
+
 #ifdef _WIN32
 #define fwrite	_fwrite_nolock
 #define fputc	_fputc_nolock
@@ -14,6 +24,8 @@
 #define fwrite	fwrite_unlocked
 #define getc	getc_unlocked
 #endif
+
+double getCpuTime(int type);
 
 //  Interface function to create a document key
 //	from a document and a key length
@@ -299,7 +311,7 @@ FILE *in;
             cnt++;
 		  }
 
-		if (stat != CURSOR_eof)
+		if (stat != DB_CURSOR_eof)
 		  fprintf(stderr, "fwdScan: Error %d Syserr %d Line: %lld\n", stat, errno, cnt), exit(0);
 
 		fprintf(stderr, " Total keys read %lld\n", cnt);
@@ -356,7 +368,7 @@ FILE *in;
             cnt++;
 		  }
 
-		if (stat != CURSOR_eof)
+		if (stat != DB_CURSOR_eof)
 		  fprintf(stderr, "revScan: Error %d Syserr %d Line: %lld\n", stat, errno, cnt), exit(0);
 
 		fprintf(stderr, " Total keys read %lld\n", cnt);

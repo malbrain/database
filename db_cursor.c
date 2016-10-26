@@ -9,8 +9,8 @@
 
 //	position cursor
 
-Status dbFindKey(DbCursor *cursor, DbMap *map, uint8_t *key, uint32_t keyLen, bool onlyOne) {
-Status stat;
+DbStatus dbFindKey(DbCursor *cursor, DbMap *map, uint8_t *key, uint32_t keyLen, bool onlyOne) {
+DbStatus stat;
 
 	switch (*map->arena->type) {
 	  case ARTreeIndexType: {
@@ -30,19 +30,19 @@ Status stat;
 	cursor->userLen = cursor->keyLen;
 
 	if (cursor->noDocs)
-		return OK;
+		return DB_OK;
 
 	if (cursor->useTxn)
 		cursor->userLen = get64(cursor->key, cursor->userLen, &cursor->ver);
 
 	cursor->userLen = get64(cursor->key, cursor->userLen, &cursor->docId.bits);
-	return OK;
+	return DB_OK;
 }
 
 //	position cursor before first key
 
-Status dbLeftKey(DbCursor *cursor, DbMap *map) {
-Status stat;
+DbStatus dbLeftKey(DbCursor *cursor, DbMap *map) {
+DbStatus stat;
 
 	switch (*map->arena->type) {
 	  case ARTreeIndexType: {
@@ -60,13 +60,13 @@ Status stat;
 		return stat;
 
 	cursor->state = CursorLeftEof;
-	return OK;
+	return DB_OK;
 }
 
 //	position cursor after last key
 
-Status dbRightKey(DbCursor *cursor, DbMap *map) {
-Status stat;
+DbStatus dbRightKey(DbCursor *cursor, DbMap *map) {
+DbStatus stat;
 
 	switch (*map->arena->type) {
 	  case ARTreeIndexType: {
@@ -84,15 +84,15 @@ Status stat;
 		return stat;
 
 	cursor->state = CursorRightEof;
-	return OK;
+	return DB_OK;
 }
 
 //  position cursor at next doc visible under MVCC
 
-Status dbNextDoc(DbCursor *cursor, DbMap *map, uint8_t *maxKey, uint32_t maxLen) {
+DbStatus dbNextDoc(DbCursor *cursor, DbMap *map, uint8_t *maxKey, uint32_t maxLen) {
 Txn *txn = NULL;
 uint64_t *ver;
-Status stat;
+DbStatus stat;
 
   while (true) {
 	if ((stat = dbNextKey(cursor, map, maxKey, maxLen)))
@@ -108,16 +108,16 @@ Status stat;
 
 	if ((ver = skipFind(map->parent, cursor->doc->verKeys, map->arenaDef->id)))
 	  if (*ver == cursor->ver)
-		return OK;
+		return DB_OK;
   }
 }
 
 //  position cursor at prev doc visible under MVCC
 
-Status dbPrevDoc(DbCursor *cursor, DbMap *map, uint8_t *minKey, uint32_t minLen) {
+DbStatus dbPrevDoc(DbCursor *cursor, DbMap *map, uint8_t *minKey, uint32_t minLen) {
 Txn *txn = NULL;
 uint64_t *ver;
-Status stat;
+DbStatus stat;
 
   while (true) {
 	if ((stat = dbPrevKey(cursor, map, minKey, minLen)))
@@ -130,7 +130,7 @@ Status stat;
 			len = minLen;
 
 		if (memcmp(cursor->key, minKey, len) <= 0)
-			return CURSOR_eof;
+			return DB_CURSOR_eof;
 	}
 
 	if (!txn && cursor->txnId.bits)
@@ -143,13 +143,13 @@ Status stat;
 
 	if ((ver = skipFind(map->parent, cursor->doc->verKeys, map->arenaDef->id)))
 	  if (*ver == cursor->ver)
-		return OK;
+		return DB_OK;
   }
 }
 
-Status dbNextKey(DbCursor *cursor, DbMap *map, uint8_t *maxKey, uint32_t maxLen) {
+DbStatus dbNextKey(DbCursor *cursor, DbMap *map, uint8_t *maxKey, uint32_t maxLen) {
 uint32_t len;
-Status stat;
+DbStatus stat;
 
 	switch(*map->arena->type) {
 	case ARTreeIndexType:
@@ -161,7 +161,7 @@ Status stat;
 		break;
 
 	default:
-		stat = ERROR_indextype;
+		stat = DB_ERROR_indextype;
 		break;
 	}
 
@@ -184,15 +184,15 @@ Status stat;
 			len = maxLen;
 
 		if (memcmp(cursor->key, maxKey, len) >= 0)
-			return CURSOR_eof;
+			return DB_CURSOR_eof;
 	}
 
-	return OK;
+	return DB_OK;
 }
 
-Status dbPrevKey(DbCursor *cursor, DbMap *map, uint8_t *minKey, uint32_t minLen) {
+DbStatus dbPrevKey(DbCursor *cursor, DbMap *map, uint8_t *minKey, uint32_t minLen) {
 uint32_t len;
-Status stat;
+DbStatus stat;
 
 	switch(*map->arena->type) {
 	case ARTreeIndexType:
@@ -204,7 +204,7 @@ Status stat;
 		break;
 
 	default:
-		stat = ERROR_indextype;
+		stat = DB_ERROR_indextype;
 		break;
 	}
 
@@ -227,8 +227,8 @@ Status stat;
 			len = minLen;
 
 		if (memcmp(cursor->key, minKey, len) < 0)
-			return CURSOR_eof;
+			return DB_CURSOR_eof;
 	}
 
-	return OK;
+	return DB_OK;
 }

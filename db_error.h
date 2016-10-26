@@ -26,7 +26,9 @@ typedef enum {
 	DB_ERROR_indextype,
 	DB_CURSOR_eof,
 	DB_CURSOR_notfound,
+	DB_CURSOR_notpositioned,
 	DB_BTREE_needssplit,
+	DB_BTREE_error,
 	DB_ARTREE_error,
 } DbStatus;
 

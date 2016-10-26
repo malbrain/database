@@ -108,15 +108,15 @@ typedef struct {
 
 #define btree1index(map) ((Btree1Index *)(map->arena + 1))
 
-Status btree1NewCursor(Handle *idx, Btree1Cursor *cursor);
-Status btree1ReturnCursor(Handle *index, DbCursor *dbCursor);
+DbStatus btree1NewCursor(Handle *idx, Btree1Cursor *cursor);
+DbStatus btree1ReturnCursor(Handle *index, DbCursor *dbCursor);
 
-Status btree1LeftKey(DbCursor *cursor, DbMap *map);
-Status btree1RightKey(DbCursor *cursor, DbMap *map);
+DbStatus btree1LeftKey(DbCursor *cursor, DbMap *map);
+DbStatus btree1RightKey(DbCursor *cursor, DbMap *map);
 
-Status btree1FindKey(DbCursor *dbCursor, DbMap *map, uint8_t *key, uint32_t keylen, bool onlyOne);
-Status btree1NextKey (DbCursor *cursor, DbMap *map);
-Status btree1PrevKey (DbCursor *cursor, DbMap *map);
+DbStatus btree1FindKey(DbCursor *dbCursor, DbMap *map, uint8_t *key, uint32_t keylen, bool onlyOne);
+DbStatus btree1NextKey (DbCursor *cursor, DbMap *map);
+DbStatus btree1PrevKey (DbCursor *cursor, DbMap *map);
 
 #define slotptr(page, slot) (((Btree1Slot *)(page+1)) + (((int)slot)-1))
 
@@ -126,16 +126,16 @@ Status btree1PrevKey (DbCursor *cursor, DbMap *map);
 #define keystr(key) ((key[0] & 0x80) ? (key + 2) : (key + 1))
 #define keypre(key) ((key[0] & 0x80) ? 2 : 1)
 
-Status btree1Init(Handle *hndl, Params *params);
-Status btree1InsertKey(Handle *hndl, uint8_t *key, uint32_t keyLen, uint8_t lvl, Btree1SlotType type);
+DbStatus btree1Init(Handle *hndl, Params *params);
+DbStatus btree1InsertKey(Handle *hndl, uint8_t *key, uint32_t keyLen, uint8_t lvl, Btree1SlotType type);
 
-Status btree1LoadPage(DbMap *map, Btree1Set *set, uint8_t *key, uint32_t keyLen, uint8_t lvl, Btree1Lock lock, bool stopper);
+DbStatus btree1LoadPage(DbMap *map, Btree1Set *set, uint8_t *key, uint32_t keyLen, uint8_t lvl, Btree1Lock lock, bool stopper);
 
 uint64_t btree1NewPage (Handle *hndl, uint8_t lvl);
 
-Status btree1CleanPage(Handle *hndl, Btree1Set *set, uint32_t totKeyLen);
-Status btree1SplitPage (Handle *hndl, Btree1Set *set);
-Status btree1FixKey (Handle *hndl, uint8_t *fenceKey, uint8_t lvl, bool stopper);
+DbStatus btree1CleanPage(Handle *hndl, Btree1Set *set, uint32_t totKeyLen);
+DbStatus btree1SplitPage (Handle *hndl, Btree1Set *set);
+DbStatus btree1FixKey (Handle *hndl, uint8_t *fenceKey, uint8_t lvl, bool stopper);
 
 void btree1LockPage(Btree1Page *page, Btree1Lock mode);
 void btree1UnlockPage(Btree1Page *page, Btree1Lock mode);

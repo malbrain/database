@@ -58,7 +58,7 @@ DbAddr addr;
 //	create new index handles based on children of the docStore.
 //	call with docStore handle.
 
-Status installIndexes(Handle *hndl) {
+DbStatus installIndexes(Handle *hndl) {
 ArenaDef *arenaDef = hndl->map->arenaDef;
 DocStore *docStore;
 uint64_t maxId = 0;
@@ -70,7 +70,7 @@ int idx;
 	docStore = (DocStore *)(hndl + 1);
 
 	if (docStore->childId >= arenaDef->childId)
-		return OK;
+		return DB_OK;
 
 	readLock (arenaDef->idList->lock);
 	writeLock (docStore->indexes->lock);
@@ -108,19 +108,19 @@ int idx;
 	docStore->childId = maxId;
 	writeUnlock (docStore->indexes->lock);
 	readUnlock (arenaDef->idList->lock);
-	return OK;
+	return DB_OK;
 }
 
 //	install index key for a document
 //	call with docStore handle
 
-Status installIndexKey(Handle *hndl, SkipEntry *entry, Document *doc) {
+DbStatus installIndexKey(Handle *hndl, SkipEntry *entry, Document *doc) {
 uint8_t key[MAX_key];
 DbIndex *dbIndex;
 uint64_t *verPtr;
 Handle *index;
 Object *spec;
-Status stat;
+DbStatus stat;
 DbAddr addr;
 int keyLen;
 
@@ -167,11 +167,11 @@ int keyLen;
 //	install keys for a document insert
 //	call with docStore handle
 
-Status installIndexKeys(Handle *hndl, Document *doc) {
+DbStatus installIndexKeys(Handle *hndl, Document *doc) {
 SkipNode *skipNode;
 DocStore *docStore;
 DbAddr *next;
-Status stat;
+DbStatus stat;
 int idx;
 
 	docStore = (DocStore *)(hndl + 1);
@@ -198,10 +198,10 @@ int idx;
 	}
 
 	readUnlock (docStore->indexes->lock);
-	return OK;
+	return DB_OK;
 }
 
-Status storeDoc(Handle *hndl, void *obj, uint32_t objSize, ObjId *result, ObjId txnId) {
+DbStatus storeDoc(Handle *hndl, void *obj, uint32_t objSize, ObjId *result, ObjId txnId) {
 DocArena *docArena;
 ArenaDef *arenaDef;
 Txn *txn = NULL;
@@ -219,7 +219,7 @@ int idx;
 	if ((addr.bits = allocObj(hndl->map, hndl->list->free, hndl->list->tail, -1, objSize + sizeof(Document), false)))
 		doc = getObj(hndl->map, addr);
 	else
-		return ERROR_outofmemory;
+		return DB_ERROR_outofmemory;
 
 	docId.bits = allocObjId(hndl->map, hndl->list, docArena->docIdx);
 
@@ -249,5 +249,5 @@ int idx;
 	if (txn)
 		addIdToTxn(hndl->map->db, txn, docId, addDoc); 
 
-	return OK;
+	return DB_OK;
 }

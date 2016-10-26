@@ -173,12 +173,12 @@ uint64_t *inUse;
 //	bind handle for use in API call
 //	return false if arena dropped
 
-Status bindHandle(DbHandle *dbHndl, Handle **hndl) {
+DbStatus bindHandle(DbHandle *dbHndl, Handle **hndl) {
 
 	lockLatch(dbHndl->handle.latch);
 
 	if (!dbHndl->handle.addr)
-		return ERROR_handleclosed;
+		return DB_ERROR_handleclosed;
 
 	*hndl = getObj(memMap, dbHndl->handle);
 
@@ -194,11 +194,11 @@ Status bindHandle(DbHandle *dbHndl, Handle **hndl) {
 	if (~(*hndl)->map->arena->mutex[0] & ALIVE_BIT) {
 		(*hndl)->map = NULL;
 		releaseHandle((*hndl));
-		return ERROR_arenadropped;
+		return DB_ERROR_arenadropped;
 	}
 
 	unlockLatch(dbHndl->handle.latch);
-	return OK;
+	return DB_OK;
 }
 
 //	release handle binding

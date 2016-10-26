@@ -6,26 +6,26 @@
 #include "../db_map.h"
 #include "btree1.h"
 
-Status btree1NewCursor(Handle *index, Btree1Cursor *cursor) {
+DbStatus btree1NewCursor(Handle *index, Btree1Cursor *cursor) {
 Btree1Index *btree1 = btree1index(index->map);
 Btree1Page *first;
 
 	cursor->pageAddr.bits = btree1NewPage(index, 0);
 	cursor->page = getObj(index->map, cursor->pageAddr);
 	cursor->slotIdx = 0;
-	return OK;
+	return DB_OK;
 }
 
-Status btree1ReturnCursor(Handle *index, DbCursor *dbCursor) {
+DbStatus btree1ReturnCursor(Handle *index, DbCursor *dbCursor) {
 Btree1Cursor *cursor = (Btree1Cursor *)dbCursor;
 
 	// return cursor page buffer
 
 	addSlotToFrame(index->map, index->list[cursor->pageAddr.type].free, NULL, cursor->pageAddr.bits);
-	return OK;
+	return DB_OK;
 }
 
-Status btree1LeftKey(DbCursor *dbCursor, DbMap *map) {
+DbStatus btree1LeftKey(DbCursor *dbCursor, DbMap *map) {
 Btree1Cursor *cursor = (Btree1Cursor *)dbCursor;
 Btree1Index *btree1 = btree1index(map);
 Btree1Page *left;
@@ -37,10 +37,10 @@ Btree1Page *left;
 	btree1UnlockPage (left, Btree1_lockRead);
 
 	cursor->slotIdx = 0;
-	return OK;
+	return DB_OK;
 }
 
-Status btree1RightKey(DbCursor *dbCursor, DbMap *map) {
+DbStatus btree1RightKey(DbCursor *dbCursor, DbMap *map) {
 Btree1Cursor *cursor = (Btree1Cursor *)dbCursor;
 Btree1Index *btree1 = btree1index(map);
 Btree1Page *right;
@@ -52,10 +52,10 @@ Btree1Page *right;
 	btree1UnlockPage (right, Btree1_lockRead);
 
 	cursor->slotIdx = cursor->page->cnt;
-	return OK;
+	return DB_OK;
 }
 
-Status btree1NextKey (DbCursor *dbCursor, DbMap *map) {
+DbStatus btree1NextKey (DbCursor *dbCursor, DbMap *map) {
 Btree1Cursor *cursor = (Btree1Cursor *)dbCursor;
 uint8_t *key;
 
@@ -65,7 +65,7 @@ uint8_t *key;
 		break;
 
 	  case CursorRightEof:
-		return CURSOR_eof;
+		return DB_CURSOR_eof;
 	}
 
 	while (true) {
@@ -84,7 +84,7 @@ uint8_t *key;
 		cursor->base->key = key + keypre(key);
 		cursor->base->keyLen = keylen(key);
 		cursor->base->state = CursorPosAt;
-		return OK;
+		return DB_OK;
 	  }
 
 	  if (cursor->page->right.bits)
@@ -96,10 +96,10 @@ uint8_t *key;
 	}
 
 	cursor->base->state = CursorRightEof;
-	return CURSOR_eof;
+	return DB_CURSOR_eof;
 }
 
-Status btree1PrevKey (DbCursor *dbCursor, DbMap *map) {
+DbStatus btree1PrevKey (DbCursor *dbCursor, DbMap *map) {
 Btree1Cursor *cursor = (Btree1Cursor *)dbCursor;
 uint8_t *key;
 
@@ -109,7 +109,7 @@ uint8_t *key;
 		break;
 
 	  case CursorLeftEof:
-		return CURSOR_eof;
+		return DB_CURSOR_eof;
 	}
 
 	while (true) {
@@ -123,7 +123,7 @@ uint8_t *key;
 		cursor->base->key = key + keypre(key);
 		cursor->base->keyLen = keylen(key);
 		cursor->base->state = CursorPosAt;
-		return OK;
+		return DB_OK;
 	  }
 
 	  if (cursor->page->left.bits)
@@ -135,5 +135,5 @@ uint8_t *key;
 	}
 
 	cursor->base->state = CursorLeftEof;
-	return CURSOR_eof;
+	return DB_CURSOR_eof;
 }

@@ -7,16 +7,16 @@
 
 //	TODO: lock record
 
-Status artNewCursor(Handle *index, ArtCursor *cursor) {
+DbStatus artNewCursor(Handle *index, ArtCursor *cursor) {
 	cursor->base->key = cursor->key;
-	return OK;
+	return DB_OK;
 }
 
-Status artReturnCursor(Handle *index, DbCursor *dbCursor) {
-	return OK;
+DbStatus artReturnCursor(Handle *index, DbCursor *dbCursor) {
+	return DB_OK;
 }
 
-Status artLeftKey(DbCursor *dbCursor, DbMap *map) {
+DbStatus artLeftKey(DbCursor *dbCursor, DbMap *map) {
 ArtCursor *cursor = (ArtCursor *)dbCursor;
 CursorStack* stack;
 DbAddr *base;
@@ -29,10 +29,10 @@ DbAddr *base;
 	stack->addr = base;
 	stack->off = 0;
 	stack->ch = -1;
-	return OK;
+	return DB_OK;
 }
 
-Status artRightKey(DbCursor *dbCursor, DbMap *map) {
+DbStatus artRightKey(DbCursor *dbCursor, DbMap *map) {
 ArtCursor *cursor = (ArtCursor *)dbCursor;
 CursorStack* stack;
 DbAddr *base;
@@ -45,7 +45,7 @@ DbAddr *base;
 	stack->addr = base;
 	stack->off = 0;
 	stack->ch = 256;
-	return OK;
+	return DB_OK;
 }
 
 /**
@@ -121,7 +121,7 @@ int slot64(int ch, uint64_t alloc, volatile uint8_t* keys) {
  *
  */
 
-Status artNextKey(DbCursor *dbCursor, DbMap *map) {
+DbStatus artNextKey(DbCursor *dbCursor, DbMap *map) {
 ArtCursor *cursor = (ArtCursor *)dbCursor;
 int slot, prev, len;
 
@@ -131,7 +131,7 @@ int slot, prev, len;
 	  break;
 
 	case CursorRightEof:
-	  return CURSOR_eof;
+	  return DB_CURSOR_eof;
   }
 
   while (cursor->depth < MAX_cursor) {
@@ -150,7 +150,7 @@ int slot, prev, len;
 
   			cursor->base->state = CursorPosAt;
 			stack->ch = 0;
-			return OK;
+			return DB_OK;
 		}
 
 		break;
@@ -160,7 +160,7 @@ int slot, prev, len;
 		if (stack->ch < 0) {
   			cursor->base->state = CursorPosAt;
 			stack->ch = 0;
-			return OK;
+			return DB_OK;
 		}
 
 		break;
@@ -280,14 +280,14 @@ int slot, prev, len;
   }  // end while
 
   cursor->base->state = CursorRightEof;
-  return CURSOR_eof;
+  return DB_CURSOR_eof;
 }
 
 /**
  * retrieve previous key from the cursor
  */
 
-Status artPrevKey(DbCursor *dbCursor, DbMap *map) {
+DbStatus artPrevKey(DbCursor *dbCursor, DbMap *map) {
 ArtCursor *cursor = (ArtCursor *)dbCursor;
 CursorStack *stack;
 int slot, len;
@@ -298,7 +298,7 @@ int slot, len;
 	  break;
 
 	case CursorLeftEof:
-	  return CURSOR_eof;
+	  return DB_CURSOR_eof;
   }
 
   while (cursor->depth) {
@@ -324,14 +324,14 @@ int slot, len;
 
   		cursor->base->state = CursorPosAt;
 		stack->ch = -1;
-		return OK;
+		return DB_OK;
 	  }
 
 	  case KeyEnd: {
 		if (stack->ch == 256) {
   			cursor->base->state = CursorPosAt;
 			stack->ch = -1;
-			return OK;
+			return DB_OK;
 		}
 
 		break;
@@ -454,5 +454,5 @@ int slot, len;
   }  // end while
 
   cursor->base->state = CursorLeftEof;
-  return CURSOR_eof;
+  return DB_CURSOR_eof;
 }

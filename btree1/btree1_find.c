@@ -5,12 +5,12 @@
 #include "../db_map.h"
 #include "btree1.h"
 
-Status btree1FindKey( DbCursor *dbCursor, DbMap *map, uint8_t *key, uint32_t keyLen, bool onlyOne) {
+DbStatus btree1FindKey( DbCursor *dbCursor, DbMap *map, uint8_t *key, uint32_t keyLen, bool onlyOne) {
 Btree1Cursor *cursor = (Btree1Cursor *)dbCursor;
 Btree1Index *btree1 = btree1index(map);
 uint8_t *foundKey;
 Btree1Set set[1];
-Status stat;
+DbStatus stat;
 
 	// find the level 0 page containing the key
 
@@ -42,7 +42,7 @@ Status stat;
 		cursor->base->key = keyptr(cursor->page, 1);
 		cursor->base->keyLen = keylen(foundKey);
 		cursor->slotIdx = 1;
-		return OK;
+		return DB_OK;
 	}
 
 	memcpy(cursor->page, set->page, btree1->pageSize);
@@ -51,5 +51,5 @@ Status stat;
 	cursor->base->key = foundKey + keypre(foundKey);
 	cursor->base->keyLen = keylen(foundKey);
 	cursor->slotIdx = set->slotIdx;
-	return OK;
+	return DB_OK;
 }

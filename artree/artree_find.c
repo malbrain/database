@@ -5,7 +5,7 @@
 #include "../db_map.h"
 #include "artree.h"
 
-Status artFindKey( DbCursor *dbCursor, DbMap *map, uint8_t *key, uint32_t keyLen) {
+DbStatus artFindKey( DbCursor *dbCursor, DbMap *map, uint8_t *key, uint32_t keyLen) {
 ArtCursor *cursor = (ArtCursor *)dbCursor;
 uint32_t idx, offset = 0, spanMax;
 volatile DbAddr *slot;
@@ -22,7 +22,7 @@ CursorStack* stack;
 		if (cursor->depth < MAX_cursor)
 			stack = cursor->stack + cursor->depth++;
 		else
-			return ERROR_cursoroverflow;
+			return DB_ERROR_cursoroverflow;
 
 		stack->off = cursor->base->keyLen;
 		stack->slot->bits = slot->bits;;
@@ -148,7 +148,7 @@ CursorStack* stack;
 
 		  case UnusedSlot: {
 			cursor->base->state = CursorRightEof;
-			return OK;
+			return DB_OK;
 		  }
 		}  // end switch
 
@@ -159,15 +159,15 @@ CursorStack* stack;
 	cursor->base->state = CursorPosAt;
 
 	if (slot->type == KeyEnd)
-		return OK;
+		return DB_OK;
 
 	if (slot->type == KeyPass)
-		return OK;
+		return DB_OK;
 
 	if (cursor->depth < MAX_cursor)
 		stack = cursor->stack + cursor->depth++;
 	else
-		return ERROR_cursoroverflow;
+		return DB_ERROR_cursoroverflow;
 
 	stack->off = cursor->base->keyLen;
 	stack->slot->bits = slot->bits;;

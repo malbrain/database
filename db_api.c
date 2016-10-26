@@ -17,7 +17,7 @@ void initialize() {
 	memInit();
 }
 
-Status openDatabase(DbHandle hndl[1], char *name, uint32_t nameLen, Params *params) {
+DbStatus openDatabase(DbHandle hndl[1], char *name, uint32_t nameLen, Params *params) {
 ArenaDef arenaDef[1];
 DbMap *map;
 
@@ -32,14 +32,14 @@ DbMap *map;
 	map = openMap(NULL, name, nameLen, arenaDef);
 
 	if (!map)
-		return ERROR_createdatabase;
+		return DB_ERROR_createdatabase;
 
 	*map->arena->type = DatabaseType;
 	hndl->handle.bits = makeHandle(map, 0, 0, DatabaseType);
-	return OK;
+	return DB_OK;
 }
 
-Status openDocStore(DbHandle hndl[1], DbHandle dbHndl[1], char *name, uint32_t nameLen, Params *params) {
+DbStatus openDocStore(DbHandle hndl[1], DbHandle dbHndl[1], char *name, uint32_t nameLen, Params *params) {
 DbMap *map, *parent = NULL;
 Handle *database = NULL;
 DocStore *docStore;
@@ -48,7 +48,7 @@ uint64_t *inUse;
 DataBase *db;
 DbAddr *addr;
 int idx, jdx;
-Status stat;
+DbStatus stat;
 Handle *ds;
 
 	memset (hndl, 0, sizeof(DbHandle));
@@ -67,7 +67,7 @@ Handle *ds;
 	if ((map = createMap(parent, DocStoreType, name, nameLen, 0, sizeof(DocArena), sizeof(ObjId), params)))
 		docArena = docarena(map);
 	else
-		return ERROR_arenadropped;
+		return DB_ERROR_arenadropped;
 
 	//	allocate a map index for use in TXN document steps
 
@@ -88,17 +88,17 @@ Handle *ds;
 	if (parent)
 		unlockLatch(parent->arenaDef->nameTree->latch);
 
-	return OK;
+	return DB_OK;
 }
 
-Status createIndex(DbHandle hndl[1], DbHandle docStore[1], HandleType type, char *name, uint32_t nameLen, void *keySpec, uint16_t specSize, Params *params) {
+DbStatus createIndex(DbHandle hndl[1], DbHandle docStore[1], HandleType type, char *name, uint32_t nameLen, void *keySpec, uint16_t specSize, Params *params) {
 Handle *parentHndl = NULL;
 uint32_t baseSize = 0;
 DbMap *map, *parent;
 DbIndex *dbIndex;
 Handle *index;
 Object *obj;
-Status stat;
+DbStatus stat;
 
 	memset (hndl, 0, sizeof(DbHandle));
 
@@ -121,7 +121,7 @@ Status stat;
 
 	if (!map) {
 	  unlockLatch(parent->arenaDef->nameTree->latch);
-	  return ERROR_createindex;
+	  return DB_ERROR_createindex;
 	}
 
 	hndl->handle.bits = makeHandle(map, 0, maxType[type], type);
@@ -158,16 +158,16 @@ createXit:
 	if (parentHndl)
 		releaseHandle(parentHndl);
 
-	return OK;
+	return DB_OK;
 }
 
 //	create new cursor
 
-Status createCursor(DbHandle hndl[1], DbHandle idxHndl[1], ObjId txnId, Params *params) {
+DbStatus createCursor(DbHandle hndl[1], DbHandle idxHndl[1], ObjId txnId, Params *params) {
 uint64_t timestamp;
 DbCursor *cursor;
 Handle *index;
-Status stat;
+DbStatus stat;
 Txn *txn;
 
 	memset (hndl, 0, sizeof(DbHandle));
@@ -201,9 +201,9 @@ Txn *txn;
 	return stat;
 }
 
-Status returnCursor(DbHandle hndl[1]) {
+DbStatus returnCursor(DbHandle hndl[1]) {
+DbStatus stat = DB_OK;
 DbCursor *cursor;
-Status stat = OK;
 Handle *index;
 
 	if ((stat = bindHandle(hndl, &index)))
@@ -231,10 +231,10 @@ Handle *index;
 
 //	position cursor on a key
 
-Status positionCursor(DbHandle hndl[1], CursorOp op, uint8_t *key, uint32_t keyLen) {
+DbStatus positionCursor(DbHandle hndl[1], CursorOp op, uint8_t *key, uint32_t keyLen) {
 DbCursor *cursor;
 Handle *index;
-Status stat;
+DbStatus stat;
 
 	if ((stat = bindHandle(hndl, &index)))
 		return stat;
@@ -268,9 +268,9 @@ Status stat;
 
 //	return cursor key
 
-Status keyAtCursor(DbHandle *hndl, uint8_t **key, uint32_t *keyLen) {
+DbStatus keyAtCursor(DbHandle *hndl, uint8_t **key, uint32_t *keyLen) {
 DbCursor *cursor;
-Status stat;
+DbStatus stat;
 
 	cursor = (DbCursor *)((Handle *)getObj(memMap, hndl->handle) + 1);
 
@@ -282,16 +282,16 @@ Status stat;
 		if (keyLen)
 			*keyLen = cursor->userLen;
 
-		return OK;
+		return DB_OK;
 	}
 
-	return ERROR_nocursorposition;
+	return DB_CURSOR_notpositioned;
 }
 
-Status docAtCursor(DbHandle *hndl, Document **doc) {
+DbStatus docAtCursor(DbHandle *hndl, Document **doc) {
 DbCursor *cursor;
 uint32_t keyLen;
-Status stat;
+DbStatus stat;
 
 	cursor = (DbCursor *)((Handle *)getObj(memMap, hndl->handle) + 1);
 	keyLen = cursor->keyLen;
@@ -301,18 +301,18 @@ Status stat;
 		if (doc)
 			*doc = cursor->doc;
 
-		return OK;
+		return DB_OK;
 	}
 
-	return ERROR_nocursorposition;
+	return DB_CURSOR_notpositioned;
 }
 
 //	iterate cursor to next document
 
-Status nextDoc(DbHandle hndl[1], Document **doc, uint8_t *maxKey, uint32_t maxLen) {
+DbStatus nextDoc(DbHandle hndl[1], Document **doc, uint8_t *maxKey, uint32_t maxLen) {
 DbCursor *cursor;
 Handle *index;
-Status stat;
+DbStatus stat;
 
 	if ((stat = bindHandle(hndl, &index)))
 		return stat;
@@ -330,10 +330,10 @@ Status stat;
 
 //	iterate cursor to previous document
 
-Status prevDoc(DbHandle hndl[1], Document **doc, uint8_t *maxKey, uint32_t maxLen) {
+DbStatus prevDoc(DbHandle hndl[1], Document **doc, uint8_t *maxKey, uint32_t maxLen) {
 DbCursor *cursor;
 Handle *index;
-Status stat;
+DbStatus stat;
 
 	if ((stat = bindHandle(hndl, &index)))
 		return stat;
@@ -349,24 +349,24 @@ Status stat;
 	return stat;
 }
 
-Status cloneHandle(DbHandle newHndl[1], DbHandle oldHndl[1]) {
+DbStatus cloneHandle(DbHandle newHndl[1], DbHandle oldHndl[1]) {
 Handle *hndl;
-Status stat;
+DbStatus stat;
 
 	if ((stat = bindHandle(oldHndl, &hndl)))
 		return stat;
 
 	newHndl->handle.bits = makeHandle(hndl->map, hndl->xtraSize, hndl->maxType, hndl->hndlType);
-	return OK;
+	return DB_OK;
 }
 
-Status rollbackTxn(DbHandle hndl[1], ObjId txnId);
+DbStatus rollbackTxn(DbHandle hndl[1], ObjId txnId);
 
-Status commitTxn(DbHandle hndl[1], ObjId txnId);
+DbStatus commitTxn(DbHandle hndl[1], ObjId txnId);
 
-Status addIndexKeys(DbHandle hndl[1]) {
+DbStatus addIndexKeys(DbHandle hndl[1]) {
 Handle *docHndl;
-Status stat;
+DbStatus stat;
 
 	if ((stat = bindHandle(hndl, &docHndl)))
 		return stat;
@@ -376,9 +376,9 @@ Status stat;
 	return stat;
 }
 
-Status addDocument(DbHandle hndl[1], void *obj, uint32_t objSize, ObjId *result, ObjId txnId) {
+DbStatus addDocument(DbHandle hndl[1], void *obj, uint32_t objSize, ObjId *result, ObjId txnId) {
 Handle *docHndl;
-Status stat;
+DbStatus stat;
 
 	if ((stat = bindHandle(hndl, &docHndl)))
 		return stat;
@@ -388,9 +388,9 @@ Status stat;
 	return stat;
 }
 
-Status insertKey(DbHandle hndl[1], uint8_t *key, uint32_t len) {
+DbStatus insertKey(DbHandle hndl[1], uint8_t *key, uint32_t len) {
 Handle *index;
-Status stat;
+DbStatus stat;
 
 	if ((stat = bindHandle(hndl, &index)))
 		return stat;

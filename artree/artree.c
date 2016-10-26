@@ -7,9 +7,9 @@
 
 //	initialize ARTree
 
-Status artInit(Handle *hndl, Params *params) {
+DbStatus artInit(Handle *hndl, Params *params) {
 
 	hndl->map->arena->type[0] = ARTreeIndexType;
-	return OK;
+	return DB_OK;
 }
 

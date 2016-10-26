@@ -89,7 +89,7 @@ uint32_t store64(uint8_t *key, uint32_t keylen, uint64_t what);
 uint64_t makeHandle(DbMap *map, uint32_t xtraSize, uint32_t listMax, HandleType type);
 void closeHandle(Handle  *hndl);
 
-Status bindHandle(DbHandle *dbHndl, Handle **hndl);
+DbStatus bindHandle(DbHandle *dbHndl, Handle **hndl);
 void releaseHandle(Handle *hndl);
 
 void *arrayElement(DbMap *map, DbAddr *array, uint16_t idx, size_t size);

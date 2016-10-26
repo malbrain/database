@@ -382,10 +382,10 @@ RedBlack *entry;
 
 //	enumerate red/black tree node addresses
 
-Status rbList(DbMap *map, DbAddr *root, RbFcnPtr fcn, void *key, uint32_t keyLen, void *params) {
+DbStatus rbList(DbMap *map, DbAddr *root, RbFcnPtr fcn, void *key, uint32_t keyLen, void *params) {
 PathStk path[1];
 RedBlack *entry;
-Status stat;
+DbStatus stat;
 
 	rbFind(map, root, key, keyLen, path);
 
@@ -393,5 +393,5 @@ Status stat;
 	  if ((stat = fcn(map, entry, params)))
 		return stat;
 
-	return OK;
+	return DB_OK;
 }

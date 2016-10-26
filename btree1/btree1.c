@@ -42,7 +42,7 @@ DbAddr addr;
 
 //	initialize btree1 root page
 
-Status btree1Init(Handle *hndl, Params *params) {
+DbStatus btree1Init(Handle *hndl, Params *params) {
 Btree1Index *btree1 = btree1index(hndl->map);
 Btree1Page *page;
 Btree1Slot *slot;
@@ -67,7 +67,7 @@ uint8_t *buff;
 	if ((btree1->left.bits = btree1NewPage(hndl, 0)))
 		page = getObj(hndl->map, btree1->left);
 	else
-		return ERROR_outofmemory;
+		return DB_ERROR_outofmemory;
 
 	//  set up new leaf page with stopper key
 
@@ -92,7 +92,7 @@ uint8_t *buff;
 	if ((btree1->root.bits = btree1NewPage(hndl, 1)))
 		page = getObj(hndl->map, btree1->root);
 	else
-		return ERROR_outofmemory;
+		return DB_ERROR_outofmemory;
 
 	//  set up new root page with stopper key
 
@@ -114,7 +114,7 @@ uint8_t *buff;
 	slot->off = page->min;
 
 	hndl->map->arena->type[0] = Btree1IndexType;
-	return OK;
+	return DB_OK;
 }
 
 // place write, read, or parent lock on requested page_no.

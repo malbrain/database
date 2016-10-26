@@ -105,18 +105,18 @@ typedef struct {
 
 #define artIndexAddr(map)((ArtIndex *)(map->arena + 1))
 
-Status artNewCursor(Handle *index, ArtCursor *cursor);
-Status artReturnCursor(Handle *index, DbCursor *dbCursor);
+DbStatus artNewCursor(Handle *index, ArtCursor *cursor);
+DbStatus artReturnCursor(Handle *index, DbCursor *dbCursor);
 
-Status artLeftKey(DbCursor *cursor, DbMap *map);
-Status artRightKey(DbCursor *cursor, DbMap *map);
+DbStatus artLeftKey(DbCursor *cursor, DbMap *map);
+DbStatus artRightKey(DbCursor *cursor, DbMap *map);
 
-Status artFindKey( DbCursor *dbCursor, DbMap *map, uint8_t *key, uint32_t keyLen);
-Status artNextKey(DbCursor *dbCursor, DbMap *map);
-Status artPrevKey(DbCursor *dbCursor, DbMap *map);
+DbStatus artFindKey( DbCursor *dbCursor, DbMap *map, uint8_t *key, uint32_t keyLen);
+DbStatus artNextKey(DbCursor *dbCursor, DbMap *map);
+DbStatus artPrevKey(DbCursor *dbCursor, DbMap *map);
 
-Status artInit(Handle *hndl, Params *params);
-Status artInsertKey (Handle *hndl, uint8_t *key, uint32_t keyLen);
+DbStatus artInit(Handle *hndl, Params *params);
+DbStatus artInsertKey (Handle *hndl, uint8_t *key, uint32_t keyLen);
 
 uint64_t artAllocateNode(Handle *index, int type, uint32_t size);
 
