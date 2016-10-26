@@ -134,6 +134,26 @@ void unlockLatch(volatile char* latch) {
 	*latch = *latch & ~MUTEX_BIT;
 }
 
+void lockAddr(volatile uint64_t* bits) {
+#ifndef _WIN32
+	while (__sync_fetch_and_or(bits, ADDR_MUTEX_SET) & ADDR_MUTEX_SET) {
+#else
+	while (_InterlockedOr64(bits, ADDR_MUTEX_SET) & ADDR_MUTEX_SET) {
+#endif
+		do
+#ifndef _WIN32
+			pause();
+#else
+			Yield();
+#endif
+		while (*bits & ADDR_MUTEX_SET);
+	}
+}
+
+void unlockAddr(volatile uint64_t* bits) {
+	*bits = *bits & ~ADDR_MUTEX_SET;
+}
+
 int8_t atomicAdd8(volatile int8_t *value, int8_t amt) {
 #ifndef _WIN32
 	return __sync_add_and_fetch(value, amt);

@@ -30,6 +30,8 @@ uint64_t allocFrame(DbMap *map);
  * spin latches
  */
 
+void lockAddr(volatile uint64_t* bits);
+void unlockAddr(volatile uint64_t* bits);
 void lockLatch(volatile char* latch);
 void unlockLatch(volatile char* latch);
 void waitNonZero(volatile char *zero);

@@ -8,7 +8,6 @@
 #include "btree1/btree1.h"
 #include "artree/artree.h"
 
-extern DbMap memMap[1];
 extern int maxType[8];
 
 //	remove a dropped index from the docStore indexes skiplist
@@ -17,15 +16,15 @@ extern int maxType[8];
 void removeIdx(Handle *hndl, SkipEntry *entry) {
 DocStore *docStore;
 Handle *index;
-DbAddr addr;
+uint64_t bits;
 
 	docStore = (DocStore *)(hndl + 1);
 
 	//	find the childId in our indexes skiplist
 	//	and return the handle
 
-	if ((addr.bits = skipDel(hndl->map, docStore->indexes->head, *entry->key)))
-		index = getObj(memMap, addr);
+	if ((bits = skipDel(hndl->map, docStore->indexes->head, *entry->key)))
+		index = db_memObj(bits);
 	else
 		return;
 
@@ -121,11 +120,9 @@ uint64_t *verPtr;
 Handle *index;
 Object *spec;
 DbStatus stat;
-DbAddr addr;
 int keyLen;
 
-	addr.bits = *entry->val;
-	index = getObj(memMap, addr);
+	index = db_memObj(*entry->val);
 
 	//  bind the dbIndex handle
 	//	and capture timestamp if

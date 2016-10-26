@@ -111,7 +111,7 @@ FILE *in;
 	
 	idxType = indexType[args->idxType];
 	idxName = indexNames[args->idxType];
-	docHndl->handle.bits = 0;
+	*docHndl->handle = 0;
 
 	txnId.bits = 0;
 
@@ -179,7 +179,7 @@ FILE *in;
 		if ((stat = createIndex(index, parent, idxType, idxName, strlen(idxName), keySpec, sizeof(keySpec), args->params)))
 		  fprintf(stderr, "createIndex Error %d name: %s\n", stat, idxName), exit(0);
 
-		if (docHndl->handle.bits)
+		if (*docHndl->handle)
 			addIndexKeys(docHndl);
 
 		if( in = fopen (args->inFile, "r") )
@@ -192,7 +192,7 @@ FILE *in;
 #endif
 			  line++;
 
-			  if (docHndl->handle.bits) {
+			  if (*docHndl->handle) {
 				if ((stat = addDocument (docHndl, key, len, &objId, txnId)))
 				  fprintf(stderr, "Add Document Error %d Line: %lld\n", stat, line), exit(0);
 			  } else
@@ -221,7 +221,7 @@ FILE *in;
 		if ((stat = createIndex(index, parent, idxType, idxName, strlen(idxName), keySpec, sizeof(keySpec), args->params)))
 		  fprintf(stderr, "createIndex Error %d name: %s\n", stat, idxName), exit(0);
 
-		if (docHndl->handle.bits)
+		if (*docHndl->handle)
 			addIndexKeys(docHndl);
 
 		createCursor (cursor, index, txnId, args->params);
@@ -281,7 +281,7 @@ FILE *in;
 		if ((stat = createIndex(index, parent, idxType, idxName, strlen(idxName), keySpec, sizeof(keySpec), args->params)))
 		  fprintf(stderr, "createIndex Error %d name: %s\n", stat, idxName), exit(0);
 
-		if (docHndl->handle.bits)
+		if (*docHndl->handle)
 			addIndexKeys(docHndl);
 
 		// create forward cursor
@@ -338,7 +338,7 @@ FILE *in;
 		if ((stat = createIndex(index, parent, idxType, idxName, strlen(idxName), keySpec, sizeof(keySpec), args->params)))
 		  fprintf(stderr, "createIndex Error %d name: %s\n", stat, idxName), exit(0);
 
-		if (docHndl->handle.bits)
+		if (*docHndl->handle)
 			addIndexKeys(docHndl);
 
 		// create reverse cursor

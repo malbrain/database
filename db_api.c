@@ -1,5 +1,6 @@
 #include "db.h"
 #include "db_txn.h"
+#include "db_malloc.h"
 #include "db_object.h"
 #include "db_arena.h"
 #include "db_index.h"
@@ -10,8 +11,6 @@
 
 int cursorSize[8] = {0, 0, 0, sizeof(ArtCursor), sizeof(Btree1Cursor), 0};
 int maxType[8] = {0, 0, 0, MaxARTType, MAXBtree1Type, 0};
-
-extern DbMap memMap[1];
 
 void initialize() {
 	memInit();
@@ -35,7 +34,7 @@ DbMap *map;
 		return DB_ERROR_createdatabase;
 
 	*map->arena->type = DatabaseType;
-	hndl->handle.bits = makeHandle(map, 0, 0, DatabaseType);
+	*hndl->handle = makeHandle(map, 0, 0, DatabaseType);
 	return DB_OK;
 }
 
@@ -79,9 +78,9 @@ Handle *ds;
 		releaseHandle(database);
 
 	map->arena->type[0] = DocStoreType;
-	hndl->handle.bits = makeHandle(map, sizeof(DocStore), MAX_blk, DocStoreType);
+	*hndl->handle = makeHandle(map, sizeof(DocStore), MAX_blk, DocStoreType);
 
-	ds = getObj(memMap, hndl->handle);
+	ds = db_memObj(*hndl->handle);
 	docStore = (DocStore *)(ds + 1);
 	initLock(docStore->indexes->lock);
 
@@ -124,12 +123,12 @@ DbStatus stat;
 	  return DB_ERROR_createindex;
 	}
 
-	hndl->handle.bits = makeHandle(map, 0, maxType[type], type);
+	*hndl->handle = makeHandle(map, 0, maxType[type], type);
 
 	if (*map->arena->type)
 		goto createXit;
 
-	index = getObj(memMap, hndl->handle);
+	index = db_memObj(*hndl->handle);
 
 	dbIndex = dbindex(map);
 	dbIndex->noDocs = params[NoDocs].boolVal;
@@ -181,8 +180,8 @@ Txn *txn;
 	} else
 		timestamp = allocateTimestamp(index->map->db, en_reader);
 
-	hndl->handle.bits = makeHandle(index->map, cursorSize[*index->map->arena->type], 0, CursorType);
-	cursor = (DbCursor *)((Handle *)getObj(memMap, hndl->handle) + 1);
+	*hndl->handle = makeHandle(index->map, cursorSize[*index->map->arena->type], 0, CursorType);
+	cursor = (DbCursor *)((Handle *)db_memObj(*hndl->handle) + 1);
 	cursor->noDocs = params[NoDocs].boolVal;
 	cursor->txnId.bits = txnId.bits;
 	cursor->ts = timestamp;
@@ -209,8 +208,8 @@ Handle *index;
 	if ((stat = bindHandle(hndl, &index)))
 		return stat;
 
-	lockLatch (hndl->handle.latch);
-	cursor = (DbCursor *)((Handle *)getObj(memMap, hndl->handle) + 1);
+	lockAddr (hndl->handle);
+	cursor = (DbCursor *)((Handle *)db_memObj(*hndl->handle) + 1);
 
 	switch (*index->map->arena->type) {
 	case ARTreeIndexType:
@@ -225,7 +224,7 @@ Handle *index;
 	releaseHandle(index);
 	returnHandle(index);
 
-	hndl->handle.bits = 0;
+	*hndl->handle = 0;
 	return stat;
 }
 
@@ -239,7 +238,7 @@ DbStatus stat;
 	if ((stat = bindHandle(hndl, &index)))
 		return stat;
 
-	cursor = (DbCursor *)((Handle *)getObj(memMap, hndl->handle) + 1);
+	cursor = (DbCursor *)((Handle *)db_memObj(*hndl->handle) + 1);
 
 	switch (op) {
 	  case OpLeft:
@@ -272,7 +271,7 @@ DbStatus keyAtCursor(DbHandle *hndl, uint8_t **key, uint32_t *keyLen) {
 DbCursor *cursor;
 DbStatus stat;
 
-	cursor = (DbCursor *)((Handle *)getObj(memMap, hndl->handle) + 1);
+	cursor = (DbCursor *)((Handle *)db_memObj(*hndl->handle) + 1);
 
 	switch (cursor->state) {
 	case CursorPosAt:
@@ -293,7 +292,7 @@ DbCursor *cursor;
 uint32_t keyLen;
 DbStatus stat;
 
-	cursor = (DbCursor *)((Handle *)getObj(memMap, hndl->handle) + 1);
+	cursor = (DbCursor *)((Handle *)db_memObj(*hndl->handle) + 1);
 	keyLen = cursor->keyLen;
 
 	switch (cursor->state) {
@@ -317,7 +316,7 @@ DbStatus stat;
 	if ((stat = bindHandle(hndl, &index)))
 		return stat;
 
-	cursor = (DbCursor *)((Handle *)getObj(memMap, hndl->handle) + 1);
+	cursor = (DbCursor *)((Handle *)db_memObj(*hndl->handle) + 1);
 
 	stat = dbNextDoc(cursor, index->map, maxKey, maxLen);
 
@@ -338,7 +337,7 @@ DbStatus stat;
 	if ((stat = bindHandle(hndl, &index)))
 		return stat;
 
-	cursor = (DbCursor *)((Handle *)getObj(memMap, hndl->handle) + 1);
+	cursor = (DbCursor *)((Handle *)db_memObj(*hndl->handle) + 1);
 
 	stat = dbPrevDoc(cursor, index->map, maxKey, maxLen);
 
@@ -356,7 +355,7 @@ DbStatus stat;
 	if ((stat = bindHandle(oldHndl, &hndl)))
 		return stat;
 
-	newHndl->handle.bits = makeHandle(hndl->map, hndl->xtraSize, hndl->maxType, hndl->hndlType);
+	*newHndl->handle = makeHandle(hndl->map, hndl->xtraSize, hndl->maxType, hndl->hndlType);
 	return DB_OK;
 }
 

@@ -14,8 +14,6 @@
 #include "db_arena.h"
 #include "db_frame.h"
 
-extern DbMap memMap[1];
-
 bool mapSeg (DbMap *map, uint32_t currSeg);
 void mapZero(DbMap *map, uint64_t size);
 void mapAll (DbMap *map);

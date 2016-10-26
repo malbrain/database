@@ -108,7 +108,7 @@ typedef struct {
 } Object;
 
 typedef struct {
-	DbAddr handle;
+	uint64_t handle[1];
 #ifdef ENFORCE_CLONING
 	void *addr;
 #endif

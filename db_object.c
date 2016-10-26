@@ -3,8 +3,6 @@
 #include "db_arena.h"
 #include "db_map.h"
 
-extern DbMap memMap[1];
-
 //	find array block for existing idx
 
 uint64_t *arrayBlk(DbMap *map, DbAddr *array, uint32_t idx) {
@@ -122,8 +120,8 @@ uint16_t idx;
 	idx = arrayAlloc(map, array, sizeof(DbAddr));
 	addr = arrayElement(map, array, idx, sizeof(DbAddr));
 
-	if ((addr->bits = allocBlk(memMap, amt, false)))
-		hndl = getObj(memMap, *addr);
+	if ((addr->bits = db_rawAlloc(amt, false)))
+		hndl = db_memObj(addr->bits);
 	else
 		return 0;
 
@@ -175,12 +173,12 @@ uint64_t *inUse;
 
 DbStatus bindHandle(DbHandle *dbHndl, Handle **hndl) {
 
-	lockLatch(dbHndl->handle.latch);
+	lockAddr(dbHndl->handle);
 
-	if (!dbHndl->handle.addr)
+	if (!*dbHndl->handle)
 		return DB_ERROR_handleclosed;
 
-	*hndl = getObj(memMap, dbHndl->handle);
+	*hndl = db_memObj(*dbHndl->handle);
 
 	//	increment count of active binds
 	//	and capture timestamp if we are the
@@ -197,7 +195,7 @@ DbStatus bindHandle(DbHandle *dbHndl, Handle **hndl) {
 		return DB_ERROR_arenadropped;
 	}
 
-	unlockLatch(dbHndl->handle.latch);
+	unlockAddr(dbHndl->handle);
 	return DB_OK;
 }
 
