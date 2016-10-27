@@ -130,7 +130,7 @@ Handle *ds;
 	return DB_OK;
 }
 
-DbStatus createIndex(DbHandle hndl[1], DbHandle docStore[1], HandleType type, char *name, uint32_t nameLen, Params *params) {
+DbStatus createIndex(DbHandle hndl[1], DbHandle docHndl[1], HandleType type, char *name, uint32_t nameLen, Params *params) {
 Handle *parentHndl = NULL;
 uint32_t baseSize = 0;
 DbMap *map, *parent;
@@ -141,7 +141,7 @@ Object *obj;
 
 	memset (hndl, 0, sizeof(DbHandle));
 
-	if ((stat = bindHandle(docStore, &parentHndl)))
+	if ((stat = bindHandle(docHndl, &parentHndl)))
 		return stat;
 
 	parent = parentHndl->map;
@@ -218,7 +218,7 @@ Txn *txn;
 		timestamp = allocateTimestamp(index->map->db, en_reader);
 
 	*hndl->handle = makeHandle(index->map, cursorSize[*index->map->arena->type], 0, Hndl_cursor);
-	cursor = (DbCursor *)((Handle *)db_memObj(*hndl->handle) + 1);
+	cursor = (DbCursor *)(index + 1);
 	cursor->noDocs = params[NoDocs].boolVal;
 	cursor->txnId.bits = txnId.bits;
 	cursor->ts = timestamp;
@@ -237,16 +237,16 @@ Txn *txn;
 	return stat;
 }
 
-DbStatus returnCursor(DbHandle hndl[1]) {
-DbStatus stat = DB_OK;
+DbStatus destoryCursor(DbHandle hndl[1]) {
 DbCursor *cursor;
+DbStatus stat;
 Handle *index;
 
 	if ((stat = bindHandle(hndl, &index)))
 		return stat;
 
 	lockAddr (hndl->handle);
-	cursor = (DbCursor *)((Handle *)db_memObj(*hndl->handle) + 1);
+	cursor = (DbCursor *)(index + 1);
 
 	switch (*index->map->arena->type) {
 	case Hndl_artIndex:
@@ -262,7 +262,7 @@ Handle *index;
 	returnHandle(index);
 
 	*hndl->handle = 0;
-	return stat;
+	return DB_OK;
 }
 
 //	position cursor on a key
@@ -275,7 +275,7 @@ DbStatus stat;
 	if ((stat = bindHandle(hndl, &index)))
 		return stat;
 
-	cursor = (DbCursor *)((Handle *)db_memObj(*hndl->handle) + 1);
+	cursor = (DbCursor *)(index + 1);
 
 	switch (op) {
 	  case OpFind:
@@ -300,7 +300,7 @@ DbStatus stat;
 	if ((stat = bindHandle(hndl, &index)))
 		return stat;
 
-	cursor = (DbCursor *)((Handle *)db_memObj(*hndl->handle) + 1);
+	cursor = (DbCursor *)(index + 1);
 
 	switch (op) {
 	  case OpLeft:
@@ -378,7 +378,7 @@ DbStatus stat;
 	if ((stat = bindHandle(hndl, &index)))
 		return stat;
 
-	cursor = (DbCursor *)((Handle *)db_memObj(*hndl->handle) + 1);
+	cursor = (DbCursor *)(index + 1);
 
 	stat = dbNextDoc(cursor, index->map);
 
@@ -399,7 +399,7 @@ DbStatus stat;
 	if ((stat = bindHandle(hndl, &index)))
 		return stat;
 
-	cursor = (DbCursor *)((Handle *)db_memObj(*hndl->handle) + 1);
+	cursor = (DbCursor *)(index + 1);
 
 	stat = dbPrevDoc(cursor, index->map);
 

@@ -2,47 +2,69 @@
 #include "db_object.h"
 #include "db_arena.h"
 #include "db_map.h"
+#include "db_txn.h"
 #include "db_iterator.h"
 
 //
 // create and position the start of an iterator
 //
 
-void *createIterator(Handle *hndl, bool fromMin) {
-Iterator *it = db_malloc(sizeof(Iterator), true);
+DbStatus createIterator(DbHandle hndl[1], DbHandle docHndl[1], ObjId txnId) {
+Handle *docStore;
+DbStatus stat;
+Iterator *it;
+Txn *txn;
 
-	it->objMap = hndl->map;
+	memset (hndl, 0, sizeof(DbHandle));
 
-	if (fromMin) {
-		it->objId.bits = 0;
-	} else {
-		it->objId = hndl->map->arena->segs[hndl->map->arena->objSeg].nextId;
-		it->objId.index++;
-	}
+	if ((stat = bindHandle(docHndl, &docStore)))
+		return stat;
 
-	return it;
+	*hndl->handle = makeHandle(docStore->map, sizeof(Iterator), 0, Hndl_iterator);
+
+	it = (Iterator *)((Handle *)db_memObj(*hndl->handle) + 1);
+
+	if (txnId.bits) {
+		txn = fetchIdSlot(docStore->map->db, txnId);
+		it->ts = txn->timestamp;
+	} else
+		it->ts = allocateTimestamp(docStore->map->db, en_reader);
+
+	it->txnId.bits = txnId.bits;
+	releaseHandle(docStore);
+	return DB_OK;
 }
 
-void destroyIterator(Iterator *it) {
-	db_free(it);
+DbStatus destroyIterator(DbHandle hndl[1]) {
+Handle *docStore;
+DbStatus stat;
+Iterator *it;
+
+	if ((stat = bindHandle(hndl, &docStore)))
+		return stat;
+
+	releaseHandle(docStore);
+	returnHandle(docStore);
+	*hndl->handle = 0;
+	return DB_OK;
 }
 
 //
 // increment a segmented ObjId
 //
 
-bool incrObjId(Iterator *it) {
-ObjId start = it->objId;
+bool incrObjId(Iterator *it, DbMap *map) {
+ObjId start = it->docId;
 
-	while (it->objId.seg <= it->objMap->arena->objSeg) {
-		if (++it->objId.index <= it->objMap->arena->segs[it->objId.seg].nextId.index)
+	while (it->docId.seg <= map->arena->objSeg) {
+		if (++it->docId.index <= map->arena->segs[it->docId.seg].nextId.index)
 			return true;
 
-		it->objId.index = 0;
-		it->objId.seg++;
+		it->docId.index = 0;
+		it->docId.seg++;
 	}
 
-	it->objId = start;
+	it->docId = start;
 	return false;
 }
 
@@ -50,20 +72,20 @@ ObjId start = it->objId;
 // decrement a segmented recordId
 //
 
-bool decrObjId(Iterator *it) {
-ObjId start = it->objId;
+bool decrObjId(Iterator *it, DbMap *map) {
+ObjId start = it->docId;
 
-	while (it->objId.index) {
-		if (--it->objId.index)
+	while (it->docId.index) {
+		if (--it->docId.index)
 			return true;
-		if (!it->objId.seg)
+		if (!it->docId.seg)
 			break;
 
-		it->objId.seg--;
-		it->objId.index = it->objMap->arena->segs[it->objId.seg].nextId.index + 1;
+		it->docId.seg--;
+		it->docId.index = map->arena->segs[it->docId.seg].nextId.index + 1;
 	}
 
-	it->objId = start;
+	it->docId = start;
 	return false;
 }
 
@@ -73,16 +95,27 @@ ObjId start = it->objId;
 
 //  TODO:  lock the record
 
-void *iteratorNext(Iterator *it) {
+Doc *iteratorNext(DbHandle hndl[1]) {
+Handle *docStore;
+Doc *doc = NULL;
+DbStatus stat;
+Iterator *it;
 DbAddr *addr;
 
-	while (incrObjId(it)) {
-		addr = fetchIdSlot(it->objMap, it->objId);
-		if (addr->bits)
-			return getObj(it->objMap, *addr);
+	if ((stat = bindHandle(hndl, &docStore)))
+		return NULL;
+
+	it = (Iterator *)(docStore + 1);
+
+	while (incrObjId(it, docStore->map)) {
+		addr = fetchIdSlot(docStore->map, it->docId);
+		if (addr->bits) {
+			doc = getObj(docStore->map, *addr);
+			break;
+		}
 	}
 
-	return NULL;
+	return doc;
 }
 
 //
@@ -91,16 +124,27 @@ DbAddr *addr;
 
 //  TODO:  lock the record
 
-void *iteratorPrev(Iterator *it) {
+Doc *iteratorPrev(DbHandle hndl[1]) {
+Handle *docStore;
+Doc *doc = NULL;
+DbStatus stat;
+Iterator *it;
 DbAddr *addr;
 
-	while (decrObjId(it)) {
-		addr = fetchIdSlot(it->objMap, it->objId);
-		if (addr->bits)
-			return getObj(it->objMap, *addr);
+	if ((stat = bindHandle(hndl, &docStore)))
+		return NULL;
+
+	it = (Iterator *)(docStore + 1);
+
+	while (decrObjId(it, docStore->map)) {
+		addr = fetchIdSlot(docStore->map, it->docId);
+		if (addr->bits) {
+			doc = getObj(docStore->map, *addr);
+			break;
+		}
 	}
 
-	return NULL;
+	return doc;
 }
 
 //
@@ -109,16 +153,24 @@ DbAddr *addr;
 
 //  TODO:  lock the record
 
-void *iteratorSeek(Iterator *it, uint64_t objBits) {
+Doc *iteratorSeek(DbHandle hndl[1], uint64_t objBits) {
+Handle *docStore;
+DbStatus stat;
+Iterator *it;
 DbAddr *addr;
-ObjId objId;
+ObjId docId;
 
-	objId.bits = objBits;
+	if ((stat = bindHandle(hndl, &docStore)))
+		return NULL;
 
-	addr = fetchIdSlot(it->objMap, objId);
+	it = (Iterator *)(docStore + 1);
+
+	docId.bits = objBits;
+
+	addr = fetchIdSlot(docStore->map, docId);
 
 	if (addr->bits)
-		return getObj(it->objMap, *addr);
+		return getObj(docStore->map, *addr);
 
 	return NULL;
 }

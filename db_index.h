@@ -25,7 +25,6 @@ typedef struct {
 	ObjId docId;		// current doc ID
 	uint8_t *key;
 	Doc *doc;			// current document
-	DbHandle idx[1];	// index handle
 	uint32_t keyLen;	// raw key length
 	uint32_t userLen;	// user's key length
 	uint8_t *minKey;	// minimum key value

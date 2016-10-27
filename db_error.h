@@ -31,5 +31,6 @@ typedef enum {
 	DB_BTREE_needssplit,
 	DB_BTREE_error,
 	DB_ARTREE_error,
+	DB_ITER_eof,
 } DbStatus;
 

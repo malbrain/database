@@ -2,13 +2,18 @@
 
 //	iterator object
 
+typedef enum {
+	IterNone,
+	IterLeftEof,
+	IterRightEof,
+	IterPosAt
+} IterState;
+
 typedef struct {
-	DbMap *objMap;		// Object map
-	ObjId objId;		// current ObjID
+	uint64_t ts;		// iterator timestamp
+	uint64_t ver;		// curent doc version
+	ObjId txnId;
+	ObjId docId;		// current ObjID
+	Doc *doc;			// current doc version
+	IterState state:8;
 } Iterator;
-
-void *createIterator(Handle *hndl, bool atEnd);
-
-void *iteratorSeek(Iterator *it, uint64_t objBits);
-void *iteratorNext(Iterator *it);
-void *iteratorPrev(Iterator *it);
