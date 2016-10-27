@@ -220,6 +220,10 @@ Txn *txn;
 	*hndl->handle = makeHandle(index->map, cursorSize[*index->map->arena->type], 0, Hndl_cursor);
 	cursor = (DbCursor *)((Handle *)db_memObj(*hndl->handle) + 1);
 	cursor->noDocs = params[NoDocs].boolVal;
+	cursor->minKey = params[CursorMinKey].strVal;
+	cursor->maxKey = params[CursorMaxKey].strVal;
+	cursor->minKeyLen = params[CursorMinKeyLen].intVal;
+	cursor->maxKeyLen = params[CursorMaxKeyLen].intVal;
 	cursor->txnId.bits = txnId.bits;
 	cursor->ts = timestamp;
 
@@ -278,23 +282,48 @@ DbStatus stat;
 	cursor = (DbCursor *)((Handle *)db_memObj(*hndl->handle) + 1);
 
 	switch (op) {
-	  case OpLeft:
-		stat = dbLeftKey(cursor, index->map);
-		break;
-	  case OpRight:
-		stat = dbRightKey(cursor, index->map);
-		break;
-	  case OpNext:
-		stat = dbNextKey(cursor, index->map, key, keyLen);
-		break;
-	  case OpPrev:
-		stat = dbPrevKey(cursor, index->map, key, keyLen);
-		break;
 	  case OpFind:
 		stat = dbFindKey(cursor, index->map, key, keyLen, false);
 		break;
 	  case OpOne:
 		stat = dbFindKey(cursor, index->map, key, keyLen, true);
+		break;
+	}
+
+	releaseHandle(index);
+	return stat;
+}
+
+//	move cursor
+
+DbStatus moveCursor(DbHandle hndl[1], CursorOp op) {
+DbCursor *cursor;
+Handle *index;
+DbStatus stat;
+
+	if ((stat = bindHandle(hndl, &index)))
+		return stat;
+
+	cursor = (DbCursor *)((Handle *)db_memObj(*hndl->handle) + 1);
+
+	switch (op) {
+	  case OpLeft:
+		if (cursor->minKeyLen)
+			stat = dbFindKey(cursor, index->map, cursor->minKey, cursor->minKeyLen, false);
+		else
+			stat = dbLeftKey(cursor, index->map);
+		break;
+	  case OpRight:
+		if (cursor->maxKeyLen)
+			stat = dbFindKey(cursor, index->map, cursor->maxKey, cursor->maxKeyLen, false);
+		else
+			stat = dbRightKey(cursor, index->map);
+		break;
+	  case OpNext:
+		stat = dbNextKey(cursor, index->map);
+		break;
+	  case OpPrev:
+		stat = dbPrevKey(cursor, index->map);
 		break;
 	}
 
@@ -345,7 +374,7 @@ DbStatus stat;
 
 //	iterate cursor to next document
 
-DbStatus nextDoc(DbHandle hndl[1], Document **doc, uint8_t *maxKey, uint32_t maxLen) {
+DbStatus nextDoc(DbHandle hndl[1], Document **doc) {
 DbCursor *cursor;
 Handle *index;
 DbStatus stat;
@@ -355,7 +384,7 @@ DbStatus stat;
 
 	cursor = (DbCursor *)((Handle *)db_memObj(*hndl->handle) + 1);
 
-	stat = dbNextDoc(cursor, index->map, maxKey, maxLen);
+	stat = dbNextDoc(cursor, index->map);
 
 	if (!stat && doc)
 		*doc = cursor->doc;
@@ -366,7 +395,7 @@ DbStatus stat;
 
 //	iterate cursor to previous document
 
-DbStatus prevDoc(DbHandle hndl[1], Document **doc, uint8_t *maxKey, uint32_t maxLen) {
+DbStatus prevDoc(DbHandle hndl[1], Document **doc) {
 DbCursor *cursor;
 Handle *index;
 DbStatus stat;
@@ -376,7 +405,7 @@ DbStatus stat;
 
 	cursor = (DbCursor *)((Handle *)db_memObj(*hndl->handle) + 1);
 
-	stat = dbPrevDoc(cursor, index->map, maxKey, maxLen);
+	stat = dbPrevDoc(cursor, index->map);
 
 	if (!stat && doc)
 		*doc = cursor->doc;

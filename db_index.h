@@ -28,6 +28,10 @@ typedef struct {
     DbHandle idx[1];        // index handle
 	uint32_t keyLen;		// raw key length
 	uint32_t userLen;		// user's key length
+	uint8_t *minKey;		// minimum key value
+	uint8_t *maxKey;		// maximum key value
+	uint32_t minKeyLen;
+	uint32_t maxKeyLen;
 	PosState state:8;		// cursor position state enum
 	char foundKey;			// cursor position found the key
 	char useTxn;			// txn being used
@@ -47,10 +51,10 @@ DbStatus storeDoc(Handle *docHndl, void *obj, uint32_t objSize, ObjId *result, O
 DbStatus installIndexes(Handle *docHndl);
 
 DbStatus dbFindKey(DbCursor *cursor, DbMap *map, uint8_t *key, uint32_t keyLen, bool onlyOne);
-DbStatus dbNextKey(DbCursor *cursor, DbMap *map, uint8_t *maxKey, uint32_t maxLen);
-DbStatus dbPrevKey(DbCursor *cursor, DbMap *map, uint8_t *minKey, uint32_t minLen);
+DbStatus dbNextKey(DbCursor *cursor, DbMap *map);
+DbStatus dbPrevKey(DbCursor *cursor, DbMap *map);
 
-DbStatus dbNextDoc(DbCursor *cursor, DbMap *map, uint8_t *maxKey, uint32_t maxLen);
-DbStatus dbPrevDoc(DbCursor *cursor, DbMap *map, uint8_t *maxKey, uint32_t maxLen);
+DbStatus dbNextDoc(DbCursor *cursor, DbMap *map);
+DbStatus dbPrevDoc(DbCursor *cursor, DbMap *map);
 DbStatus dbRightKey(DbCursor *cursor, DbMap *map);
 DbStatus dbLeftKey(DbCursor *cursor, DbMap *map);

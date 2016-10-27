@@ -90,7 +90,12 @@ typedef enum {
 	Btree1Bits = 20,	// Btree1 set
 	Btree1Xtra,
 
-	MaxParam = 25	// param array size
+	CursorMinKey = 25,
+	CursorMaxKey,
+	CursorMinKeyLen,
+	CursorMaxKeyLen,
+
+	MaxParam = 30	// param array size
 } ParamSlot;
 
 typedef union {

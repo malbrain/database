@@ -17,8 +17,12 @@ DbStatus addIndexes(DbHandle docHndl[1]);
 
 DbStatus createCursor(DbHandle hndl[1], DbHandle idxHndl[1], ObjId txnId, Params *params);
 DbStatus positionCursor(DbHandle hndl[1], CursorOp op, uint8_t *key, uint32_t keyLen);
+DbStatus moveCursor(DbHandle hndl[1], CursorOp op);
+
 DbStatus keyAtCursor(DbHandle cursor[1], uint8_t **key, uint32_t *keyLen);
 DbStatus docAtCursor(DbHandle cursor[1], Document **doc);
+DbStatus nextDoc(DbHandle cursor[1], Document **doc);
+DbStatus prevDoc(DbHandle cursor[1], Document **doc);
 
 uint64_t beginTxn(DbHandle dbHndl[1]);
 DbStatus rollbackTxn(DbHandle dbHndl[1], uint64_t txnBits);

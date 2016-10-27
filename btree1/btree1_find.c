@@ -9,6 +9,7 @@ DbStatus btree1FindKey( DbCursor *dbCursor, DbMap *map, uint8_t *key, uint32_t k
 Btree1Cursor *cursor = (Btree1Cursor *)dbCursor;
 Btree1Index *btree1 = btree1index(map);
 uint8_t *foundKey;
+Btree1Slot *slot;
 Btree1Set set[1];
 DbStatus stat;
 
@@ -17,7 +18,14 @@ DbStatus stat;
 	if ((stat = btree1LoadPage(map, set, key, keyLen, 0, Btree1_lockRead, false)))
 		return stat;
 
-	foundKey = keyptr(set->page, set->slotIdx);
+	slot = slotptr(set->page, set->slotIdx);
+
+	if (slot->type == Btree1_stopper) {
+		btree1UnlockPage (set->page, Btree1_lockRead);
+		return DB_CURSOR_eof;
+	}
+
+	foundKey = keyaddr(set->page, slot->off);
 	cursor->base->state = CursorPosAt;
 
 	if (onlyOne) {

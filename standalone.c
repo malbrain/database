@@ -287,16 +287,11 @@ FILE *in;
 
 		createCursor (cursor, index, txnId, args->params);
 
-		if (args->minKey) {
-		  if ((stat == positionCursor (cursor, OpFind, args->minKey, minKeyLen)))
-			fprintf(stderr, "positionCursor OpFind Error %d\n", stat), exit(0);
-		} else {
-		  if ((stat = positionCursor (cursor, OpLeft, NULL, 0)))
+		if ((stat = moveCursor (cursor, OpLeft)))
 			fprintf(stderr, "positionCursor OpLeft Error %d\n", stat), exit(0);
-		}
 
 		if (args->params[NoDocs].boolVal)
-		  while (!(stat = positionCursor(cursor, OpNext, args->maxKey, maxKeyLen))) {
+		  while (!(stat = moveCursor(cursor, OpNext))) {
 			if ((stat = keyAtCursor (cursor, &foundKey, &foundLen)))
 			  fprintf(stderr, "keyAtCursor Error %d\n", stat), exit(0);
 			fwrite (foundKey, foundLen, 1, stdout);
@@ -304,7 +299,7 @@ FILE *in;
 			cnt++;
 		  }
 		else
-		  while (!(stat = nextDoc(cursor, &doc, args->maxKey, maxKeyLen))) {
+		  while (!(stat = nextDoc(cursor, &doc))) {
             fwrite (doc + 1, doc->size, 1, stdout);
             fputc ('\n', stdout);
             cnt++;
@@ -344,16 +339,11 @@ FILE *in;
 
 		createCursor (cursor, index, txnId, args->params);
 
-		if (args->maxKey) {
-		  if ((stat = positionCursor (cursor, OpFind, args->maxKey, maxKeyLen)))
-			fprintf(stderr, "positionCursor OpFind Error %d\n", stat), exit(0);
-		} else {
-		  if ((stat = positionCursor (cursor, OpRight, NULL, 0)))
+		if ((stat = moveCursor (cursor, OpRight)))
 			fprintf(stderr, "positionCursor OpRight Error %d\n", stat), exit(0);
-		}
 
 		if (args->params[NoDocs].boolVal)
-		  while (!(stat = positionCursor(cursor, OpPrev, args->minKey, minKeyLen))) {
+		  while (!(stat = moveCursor(cursor, OpPrev))) {
 			if ((stat = keyAtCursor (cursor, &foundKey, &foundLen)))
 			  fprintf(stderr, "keyAtCursor Error %d\n", stat), exit(0);
 			fwrite (foundKey, foundLen, 1, stdout);
@@ -361,7 +351,7 @@ FILE *in;
 			cnt++;
 		  }
 		else
-		  while (!(stat = prevDoc(cursor, &doc, args->minKey, minKeyLen))) {
+		  while (!(stat = prevDoc(cursor, &doc))) {
             fwrite (doc + 1, doc->size, 1, stdout);
             fputc ('\n', stdout);
             cnt++;
@@ -398,19 +388,14 @@ FILE *in;
 
 		createCursor (cursor, index, txnId, args->params);
 
-		if (args->minKey) {
-		  if ((stat = positionCursor (cursor, OpFind, args->minKey, minKeyLen)))
-			fprintf(stderr, "positionCursor OpFind Error %d\n", stat), exit(0);
-		} else {
-		  if ((stat = positionCursor (cursor, OpLeft, NULL, 0)))
+		if ((stat = moveCursor (cursor, OpLeft)))
 			fprintf(stderr, "positionCursor OpLeft Error %d\n", stat), exit(0);
-		}
 
 		if (args->params[NoDocs].boolVal)
-	  	  while (!(stat = positionCursor(cursor, OpNext, args->maxKey, maxKeyLen)))
+	  	  while (!(stat = moveCursor(cursor, OpNext)))
 			cnt++;
 		else
-	  	  while (!(stat = nextDoc(cursor, &doc, args->maxKey, maxKeyLen)))
+	  	  while (!(stat = nextDoc(cursor, &doc)))
 			cnt++;
 
 		fprintf(stderr, " Total keys counted %lld\n", cnt);
