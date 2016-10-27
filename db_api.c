@@ -359,9 +359,12 @@ DbStatus stat;
 	return DB_OK;
 }
 
-DbStatus rollbackTxn(DbHandle hndl[1], ObjId txnId);
+uint64_t beginTxn(DbHandle hndl[1], ObjId txnId) {
+}
 
-DbStatus commitTxn(DbHandle hndl[1], ObjId txnId);
+DbStatus rollbackTxn(DbHandle hndl[1], uint64_t txnBits);
+
+DbStatus commitTxn(DbHandle hndl[1], uint64_t txnBits);
 
 DbStatus addIndexKeys(DbHandle hndl[1]) {
 Handle *docHndl;

@@ -20,8 +20,8 @@ DbStatus keyAtCursor(DbHandle cursor[1], uint8_t **key, uint32_t *keyLen);
 DbStatus docAtCursor(DbHandle cursor[1], Document **doc);
 
 uint64_t beginTxn(DbHandle dbHndl[1]);
-DbStatus rollbackTxn(DbHandle dbHndl[1], ObjId txnId);
-DbStatus commitTxn(DbHandle dbHnd[1], ObjId txnId);
+DbStatus rollbackTxn(DbHandle dbHndl[1], uint64_t txnBits);
+DbStatus commitTxn(DbHandle dbHnd[1], uint64_t txnBits);
 
 DbStatus insertKey(DbHandle index[1], uint8_t *key, uint32_t len);
 
