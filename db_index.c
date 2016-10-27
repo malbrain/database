@@ -131,7 +131,7 @@ int keyLen;
 	if (atomicAdd32(index->calls->entryCnt, 1) == 1)
 		index->calls->entryTs = atomicAdd64(&index->map->arena->nxtTs, 1);
 
-	addr.bits = hndl->map->arenaDef->specAddr;
+	addr.bits = index->map->arenaDef->specAddr;
 	spec = getObj(index->map->db, addr);
 
 	keyLen = keyGenerator(key, doc, spec);

@@ -52,7 +52,6 @@ typedef struct {
 	char *maxKey;
 	char *minKey;
 	Params *params;
-	uint64_t keyAddr;
 	DbHandle *database;
 	int num, idxType, keyLen;
 } ThreadArg;
@@ -524,9 +523,10 @@ DbHandle index[1];
 	openDatabase(database, dbName, strlen(dbName), params);
 
 	keyAddr = arenaAlloc(database, sizeof(KeySpec), true);
+	params[IdxKeySpec].int64Val = keyAddr;
+
 	keySpec = (KeySpec *)(arenaObj(database, keyAddr) + 1);
 	keySpec->keyLen = keyLen;
-
 
 	//	fire off threads
 
@@ -536,7 +536,6 @@ DbHandle index[1];
 	  args[idx].database = database;
 	  args[idx].inFile = argv[idx];
 	  args[idx].idxType = idxType;
-	  args[idx].keyAddr = keyAddr;
 	  args[idx].params = params;
 	  args[idx].minKey = minKey;
 	  args[idx].maxKey = maxKey;
