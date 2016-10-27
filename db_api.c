@@ -383,7 +383,18 @@ DbStatus stat;
 }
 
 uint64_t beginTxn(DbHandle hndl[1]) {
-	return 0;
+Handle *database;
+DbStatus stat;
+ObjId txnId;
+Txn *txn;
+
+	if ((stat = bindHandle(hndl, &database)))
+		return stat;
+
+	txnId.bits = allocObjId(database->map, database->list, 0);
+	txn = fetchIdSlot(database->map, txnId);
+	txn->timestamp = allocateTimestamp(database->map, en_reader);
+	return txnId.bits;
 }
 
 DbStatus rollbackTxn(DbHandle hndl[1], uint64_t txnBits) {

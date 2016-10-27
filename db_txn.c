@@ -10,16 +10,6 @@ void addIdToTxn(DbMap *database, Txn *txn, ObjId docId, TxnCmd cmd) {
 	addSlotToFrame (database, txn->frame, NULL, docId.bits);
 }
 
-uint64_t beginTxn (Handle *database) {
-ObjId txnId;
-Txn *txn;
-
-	txnId.bits = allocObjId(database->map, database->list, 0);
-	txn = fetchIdSlot(database->map, txnId);
-	txn->timestamp = allocateTimestamp(database->map, en_reader);
-	return txnId.bits;
-}
-
 //  find appropriate document version per txn beginning timestamp
 
 Document *findDocVer(DbMap *docStore, ObjId docId, Txn *txn) {
