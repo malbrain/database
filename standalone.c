@@ -522,10 +522,10 @@ DbHandle index[1];
 
 	openDatabase(database, dbName, strlen(dbName), params);
 
-	keyAddr = arenaAlloc(database, sizeof(KeySpec), true);
+	keyAddr = arenaAlloc(database, sizeof(KeySpec), true, true);
 	params[IdxKeySpec].int64Val = keyAddr;
 
-	keySpec = (KeySpec *)(arenaObj(database, keyAddr) + 1);
+	keySpec = (KeySpec *)(arenaObj(database, keyAddr, true) + 1);
 	keySpec->keyLen = keyLen;
 
 	//	fire off threads

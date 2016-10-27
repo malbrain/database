@@ -16,30 +16,42 @@ void initialize() {
 	memInit();
 }
 
-uint64_t arenaAlloc(DbHandle arenaHndl[1], uint32_t size, bool zeroit) {
+uint64_t arenaAlloc(DbHandle arenaHndl[1], uint32_t size, bool zeroit, bool dbArena) {
 Handle *arena;
 uint64_t bits;
 DbStatus stat;
+DbMap *map;
 
 	if ((stat = bindHandle(arenaHndl, &arena)))
 		return 0;
 
-	bits = allocBlk(arena->map, size, zeroit);
+	map = arena->map;
+
+	if (dbArena)
+		map = map->db;
+
+	bits = allocBlk(map, size, zeroit);
 	releaseHandle(arena);
 	return bits;
 }
 
-Object *arenaObj(DbHandle arenaHndl[1], uint64_t bits) {
+Object *arenaObj(DbHandle arenaHndl[1], uint64_t bits, bool dbArena) {
 Handle *arena;
 DbStatus stat;
 Object *obj;
 DbAddr addr;
+DbMap *map;
 
 	if ((stat = bindHandle(arenaHndl, &arena)))
 		return NULL;
 
+	map = arena->map;
+
+	if (dbArena)
+		map = map->db;
+
 	addr.bits = bits;
-	obj = getObj(arena->map, addr);
+	obj = getObj(map, addr);
 	releaseHandle(arena);
 	return obj;
 }
