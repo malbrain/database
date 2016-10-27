@@ -55,8 +55,6 @@ typedef struct {
 	char idx;
 	char *cmds;
 	char *inFile;
-	char *maxKey;
-	char *minKey;
 	Params *params;
 	DbHandle *database;
 	int num, idxType, keyLen;
@@ -96,8 +94,6 @@ DbHandle *parent;
 char *idxName;
 bool found;
 
-uint32_t maxKeyLen = 0;
-uint32_t minKeyLen = 0;
 uint32_t foundLen = 0;
 uint8_t *foundKey;
 Document *doc;
@@ -108,12 +104,6 @@ FILE *in;
 
 	cloneHandle(database, args->database);
 
-	if (args->maxKey)
-		maxKeyLen = strlen(args->maxKey);
-	
-	if (args->minKey)
-		minKeyLen = strlen(args->minKey);
-	
 	idxType = indexType[args->idxType];
 	idxName = indexNames[args->idxType];
 	*docHndl->handle = 0;
@@ -262,11 +252,11 @@ FILE *in;
 	case 's':
 		fprintf(stderr, "started scanning");
 
-		if (args->minKey)
-			fprintf(stderr, " min key: %s", args->minKey);
+		if (args->params[CursorMinKeyLen].intVal)
+			fprintf(stderr, " min key: %s", args->params[CursorMinKey].strVal);
 
-		if (args->maxKey)
-			fprintf(stderr, " max key: %s", args->maxKey);
+		if (args->params[CursorMaxKeyLen].intVal)
+			fprintf(stderr, " min key: %s", args->params[CursorMaxKey].strVal);
 
 		fprintf(stderr, "\n");
 
@@ -314,11 +304,11 @@ FILE *in;
 	case 'r':
 		fprintf(stderr, "started reverse scanning");
 
-		if (args->minKey)
-			fprintf(stderr, " min key: %s", args->minKey);
+		if (args->params[CursorMinKeyLen].intVal)
+			fprintf(stderr, " min key: %s", args->params[CursorMinKey].strVal);
 
-		if (args->maxKey)
-			fprintf(stderr, " max key: %s", args->maxKey);
+		if (args->params[CursorMaxKeyLen].intVal)
+			fprintf(stderr, " min key: %s", args->params[CursorMaxKey].strVal);
 
 		fprintf(stderr, "\n");
 
@@ -366,11 +356,11 @@ FILE *in;
 	case 'c':
 		fprintf(stderr, "started counting");
 
-		if (args->minKey)
-			fprintf(stderr, " min key: %s", args->minKey);
+		if (args->params[CursorMinKeyLen].intVal)
+			fprintf(stderr, " min key: %s", args->params[CursorMinKey].strVal);
 
-		if (args->maxKey)
-			fprintf(stderr, " max key: %s", args->maxKey);
+		if (args->params[CursorMaxKeyLen].intVal)
+			fprintf(stderr, " min key: %s", args->params[CursorMaxKey].strVal);
 
 		fprintf(stderr, "\n");
 
@@ -415,8 +405,6 @@ int main (int argc, char **argv)
 {
 int idx, cnt, len, slot, err;
 Params params[MaxParam];
-char *minKey = NULL;
-char *maxKey = NULL;
 KeySpec *keySpec;
 uint64_t keyAddr;
 int keyLen = 10;
@@ -492,11 +480,17 @@ DbHandle index[1];
 	  else if (!memcmp(argv[0], "-noDocs", 7))
 			params[NoDocs].boolVal = true;
 	  else if (!memcmp(argv[0], "-minKey=", 8))
-			minKey = argv[0] + 8;
+			params[CursorMinKey].strVal = argv[0] + 8;
 	  else if (!memcmp(argv[0], "-maxKey=", 8))
-			maxKey = argv[0] + 8;
+			params[CursorMaxKey].strVal = argv[0] + 8;
 	  else
 			fprintf(stderr, "Unknown option %s ignored\n", argv[0]);
+
+	if (params[CursorMinKey].strVal)
+		params[CursorMinKeyLen].intVal = strlen(params[CursorMinKey].strVal);
+
+	if (params[CursorMaxKey].strVal)
+		params[CursorMaxKeyLen].intVal = strlen(params[CursorMaxKey].strVal);
 
 	cnt = argc;
 
@@ -528,8 +522,6 @@ DbHandle index[1];
 	  args[idx].inFile = argv[idx];
 	  args[idx].idxType = idxType;
 	  args[idx].params = params;
-	  args[idx].minKey = minKey;
-	  args[idx].maxKey = maxKey;
 	  args[idx].keyLen = keyLen;
 	  args[idx].cmds = cmds;
 	  args[idx].num = num;
