@@ -11,10 +11,10 @@ typedef struct {
 //  txn command enum:
 
 typedef enum {
-	addDoc,
-	delDoc,
-	updDoc
+	TxnAddDoc,
+	TxnDelDoc,
+	TxnUpdDoc
 } TxnCmd;
 	
 void addIdToTxn(DbMap *database, Txn *txn, ObjId docId, TxnCmd cmd);
-Document *findDocVer(DbMap *docStore, ObjId docId, Txn *txn);
+Doc *findDocVer(DbMap *docStore, ObjId docId, Txn *txn);

@@ -113,7 +113,7 @@ int idx;
 //	install index key for a document
 //	call with docStore handle
 
-DbStatus installIndexKey(Handle *hndl, SkipEntry *entry, Document *doc) {
+DbStatus installIndexKey(Handle *hndl, SkipEntry *entry, Doc *doc) {
 uint8_t key[MAX_key];
 uint64_t *verPtr;
 Handle *index;
@@ -169,7 +169,7 @@ int keyLen;
 //	install keys for a document insert
 //	call with docStore handle
 
-DbStatus installIndexKeys(Handle *hndl, Document *doc) {
+DbStatus installIndexKeys(Handle *hndl, Doc *doc) {
 SkipNode *skipNode;
 DocStore *docStore;
 DbAddr *next;
@@ -207,10 +207,10 @@ DbStatus storeDoc(Handle *hndl, void *obj, uint32_t objSize, ObjId *result, ObjI
 DocArena *docArena;
 ArenaDef *arenaDef;
 Txn *txn = NULL;
-Document *doc;
 DbAddr *slot;
 ObjId docId;
 DbAddr addr;
+Doc *doc;
 int idx;
 
 	docArena = docarena(hndl->map);
@@ -218,14 +218,14 @@ int idx;
 	if (txnId.bits)
 		txn = fetchIdSlot(hndl->map->db, txnId);
 
-	if ((addr.bits = allocObj(hndl->map, hndl->list->free, hndl->list->tail, -1, objSize + sizeof(Document), false)))
+	if ((addr.bits = allocObj(hndl->map, hndl->list->free, hndl->list->tail, -1, objSize + sizeof(Doc), false)))
 		doc = getObj(hndl->map, addr);
 	else
 		return DB_ERROR_outofmemory;
 
 	docId.bits = allocObjId(hndl->map, hndl->list, docArena->docIdx);
 
-	memset (doc, 0, sizeof(Document));
+	memset (doc, 0, sizeof(Doc));
 
 	if (txn)
 		doc->txnId.bits = txnId.bits;
@@ -249,7 +249,7 @@ int idx;
 	installIndexKeys(hndl, doc);
 
 	if (txn)
-		addIdToTxn(hndl->map->db, txn, docId, addDoc); 
+		addIdToTxn(hndl->map->db, txn, docId, TxnAddDoc); 
 
 	return DB_OK;
 }

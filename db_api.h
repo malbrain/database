@@ -22,9 +22,9 @@ DbStatus setCursorMax(DbHandle hndl[1], uint8_t *max, uint32_t maxLen);
 DbStatus setCursorMin(DbHandle hndl[1], uint8_t *max, uint32_t minLen);
 
 DbStatus keyAtCursor(DbHandle cursor[1], uint8_t **key, uint32_t *keyLen);
-DbStatus docAtCursor(DbHandle cursor[1], Document **doc);
-DbStatus nextDoc(DbHandle cursor[1], Document **doc);
-DbStatus prevDoc(DbHandle cursor[1], Document **doc);
+DbStatus docAtCursor(DbHandle cursor[1], Doc **doc);
+DbStatus nextDoc(DbHandle cursor[1], Doc **doc);
+DbStatus prevDoc(DbHandle cursor[1], Doc **doc);
 
 uint64_t beginTxn(DbHandle dbHndl[1]);
 DbStatus rollbackTxn(DbHandle dbHndl[1], uint64_t txnBits);
@@ -32,10 +32,14 @@ DbStatus commitTxn(DbHandle dbHnd[1], uint64_t txnBits);
 
 DbStatus insertKey(DbHandle index[1], uint8_t *key, uint32_t len);
 
-DbStatus addDocument(DbHandle hndl[1], void *obj, uint32_t objSize, ObjId *objId, ObjId txnId);
+DbStatus addDoc(DbHandle hndl[1], void *obj, uint32_t objSize, ObjId *objId, ObjId txnId);
 
 uint64_t arenaAlloc(DbHandle arenaHndl[1], uint32_t size, bool zeroit, bool dbArena);
 Object *arenaObj(DbHandle arenaHndl[1], uint64_t addr, bool dbArena);
 
-uint16_t keyGenerator(uint8_t *key, Document *doc, Object *spec);
-bool evalPartial(Document *doc, Object *spec);
+uint16_t keyGenerator(uint8_t *key, Doc *doc, Object *spec);
+bool evalPartial(Doc *doc, Object *spec);
+
+DbStatus createIterator(DbHandle hndl[1], DbHandle docHnd[1]);
+Doc *iteratorNext(DbHandle hndl[1]);
+Doc *iteratorPrev(DbHandle hndl[1]);

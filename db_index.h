@@ -19,23 +19,23 @@ typedef enum {
 } PosState;
 
 typedef struct {
-	uint64_t ver;			// cursor doc version
-    uint64_t ts;            // cursor timestamp
-    ObjId txnId;            // cursor transaction
-    ObjId docId;            // current doc ID
+	uint64_t ver;		// cursor doc version
+	uint64_t ts;		// cursor timestamp
+	ObjId txnId;		// cursor transaction
+	ObjId docId;		// current doc ID
 	uint8_t *key;
-    Document *doc;          // current document
-    DbHandle idx[1];        // index handle
-	uint32_t keyLen;		// raw key length
-	uint32_t userLen;		// user's key length
-	uint8_t *minKey;		// minimum key value
-	uint8_t *maxKey;		// maximum key value
+	Doc *doc;			// current document
+	DbHandle idx[1];	// index handle
+	uint32_t keyLen;	// raw key length
+	uint32_t userLen;	// user's key length
+	uint8_t *minKey;	// minimum key value
+	uint8_t *maxKey;	// maximum key value
 	uint32_t minKeyLen;
 	uint32_t maxKeyLen;
-	PosState state:8;		// cursor position state enum
-	char foundKey;			// cursor position found the key
-	char useTxn;			// txn being used
-	char noDocs;			// no document ID's on keys
+	PosState state:8;	// cursor position state enum
+	char foundKey;		// cursor position found the key
+	char useTxn;		// txn being used
+	char noDocs;		// no document ID's on keys
 } DbCursor;
 
 typedef struct {

@@ -349,7 +349,7 @@ DbStatus stat;
 	return DB_CURSOR_notpositioned;
 }
 
-DbStatus docAtCursor(DbHandle *hndl, Document **doc) {
+DbStatus docAtCursor(DbHandle *hndl, Doc **doc) {
 DbCursor *cursor;
 uint32_t keyLen;
 DbStatus stat;
@@ -370,7 +370,7 @@ DbStatus stat;
 
 //	iterate cursor to next document
 
-DbStatus nextDoc(DbHandle hndl[1], Document **doc) {
+DbStatus nextDoc(DbHandle hndl[1], Doc **doc) {
 DbCursor *cursor;
 Handle *index;
 DbStatus stat;
@@ -391,7 +391,7 @@ DbStatus stat;
 
 //	iterate cursor to previous document
 
-DbStatus prevDoc(DbHandle hndl[1], Document **doc) {
+DbStatus prevDoc(DbHandle hndl[1], Doc **doc) {
 DbCursor *cursor;
 Handle *index;
 DbStatus stat;
@@ -456,7 +456,7 @@ DbStatus stat;
 	return stat;
 }
 
-DbStatus addDocument(DbHandle hndl[1], void *obj, uint32_t objSize, ObjId *result, ObjId txnId) {
+DbStatus addDoc(DbHandle hndl[1], void *obj, uint32_t objSize, ObjId *result, ObjId txnId) {
 Handle *docHndl;
 DbStatus stat;
 

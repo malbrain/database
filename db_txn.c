@@ -12,10 +12,10 @@ void addIdToTxn(DbMap *database, Txn *txn, ObjId docId, TxnCmd cmd) {
 
 //  find appropriate document version per txn beginning timestamp
 
-Document *findDocVer(DbMap *docStore, ObjId docId, Txn *txn) {
+Doc *findDocVer(DbMap *docStore, ObjId docId, Txn *txn) {
 DbAddr *addr = fetchIdSlot(docStore, docId);
 DbMap *db = docStore->db;
-Document *doc = NULL;
+Doc *doc = NULL;
 uint64_t txnTs;
 Txn *docTxn;
 

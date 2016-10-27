@@ -29,7 +29,7 @@ double getCpuTime(int type);
 
 //  Interface function to evaluate a partial document
 
-bool partialEval(Document *doc, Object *spec) {
+bool partialEval(Doc *doc, Object *spec) {
 	return true;
 }
 
@@ -40,7 +40,7 @@ typedef struct {
 	int keyLen;
 } KeySpec;
 
-uint16_t keyGenerator (uint8_t *key, Document *doc, Object *spec) {
+uint16_t keyGenerator (uint8_t *key, Doc *doc, Object *spec) {
 KeySpec *keySpec = (KeySpec *)(spec + 1);
 uint16_t keyLen = 0;
 
@@ -98,10 +98,10 @@ bool found;
 
 uint32_t foundLen = 0;
 uint8_t *foundKey;
-Document *doc;
 int idx, stat;
 ObjId objId;
 ObjId txnId;
+Doc *doc;
 FILE *in;
 
 	cloneHandle(database, args->database);
@@ -146,8 +146,8 @@ FILE *in;
 #endif
 			  line++;
 
-			  if ((stat = delDocument (docHndl, key, len, &objId, txnId)))
-				  fprintf(stderr, "Del Document Error %d Line: %lld\n", stat, line), exit(0);
+			  if ((stat = delDoc (docHndl, key, len, &objId, txnId)))
+				  fprintf(stderr, "Del Doc Error %d Line: %lld\n", stat, line), exit(0);
 			  len = 0;
 			  continue;
 			}
@@ -186,8 +186,8 @@ FILE *in;
 			  line++;
 
 			  if (*docHndl->handle) {
-				if ((stat = addDocument (docHndl, key, len, &objId, txnId)))
-				  fprintf(stderr, "Add Document Error %d Line: %lld\n", stat, line), exit(0);
+				if ((stat = addDoc (docHndl, key, len, &objId, txnId)))
+				  fprintf(stderr, "Add Doc Error %d Line: %lld\n", stat, line), exit(0);
 			  } else
 				if ((stat = insertKey(index, key, len)))
 				  fprintf(stderr, "Insert Key Error %d Line: %lld\n", stat, line), exit(0);

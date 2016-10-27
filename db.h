@@ -108,7 +108,7 @@ typedef struct {
 	ObjId txnId;		// insert/update txn ID
 	ObjId delId;		// delete txn ID
 	uint32_t size;		// object size
-} Document;
+} Doc;
 
 typedef struct {
 	uint32_t size;
