@@ -220,10 +220,6 @@ Txn *txn;
 	*hndl->handle = makeHandle(index->map, cursorSize[*index->map->arena->type], 0, Hndl_cursor);
 	cursor = (DbCursor *)((Handle *)db_memObj(*hndl->handle) + 1);
 	cursor->noDocs = params[NoDocs].boolVal;
-	cursor->minKey = params[CursorMinKey].strVal;
-	cursor->maxKey = params[CursorMaxKey].strVal;
-	cursor->minKeyLen = params[CursorMinKeyLen].intVal;
-	cursor->maxKeyLen = params[CursorMaxKeyLen].intVal;
 	cursor->txnId.bits = txnId.bits;
 	cursor->ts = timestamp;
 
@@ -491,4 +487,22 @@ DbStatus stat;
 
 	releaseHandle(index);
 	return stat;
+}
+
+DbStatus setCursorMax(DbHandle hndl[1], uint8_t *max, uint32_t maxLen) {
+DbCursor *cursor;
+
+	cursor = (DbCursor *)((Handle *)db_memObj(*hndl->handle) + 1);
+	cursor->maxKey = max;
+	cursor->maxKeyLen = maxLen;
+	return DB_OK;
+}
+
+DbStatus setCursorMin(DbHandle hndl[1], uint8_t *min, uint32_t minLen) {
+DbCursor *cursor;
+
+	cursor = (DbCursor *)((Handle *)db_memObj(*hndl->handle) + 1);
+	cursor->minKey = min;
+	cursor->minKeyLen = minLen;
+	return DB_OK;
 }
