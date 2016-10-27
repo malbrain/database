@@ -83,6 +83,9 @@ typedef enum {
 	NoDocs,			// no documents
 
 	IdxKeySpec = 10,	// index key spec document
+	IdxKeyUnique,
+	IdxKeySparse,
+	IdxKeyPartial,
 
 	Btree1Bits = 20,	// Btree1 set
 	Btree1Xtra,

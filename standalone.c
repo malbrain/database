@@ -27,6 +27,12 @@
 
 double getCpuTime(int type);
 
+//  Interface function to evaluate a partial document
+
+bool partialEval(Document *doc, Object *spec) {
+	return true;
+}
+
 //  Interface function to create a document key
 //	from a document and a key length
 

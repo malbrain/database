@@ -131,6 +131,12 @@ int keyLen;
 	if (atomicAdd32(index->calls->entryCnt, 1) == 1)
 		index->calls->entryTs = atomicAdd64(&index->map->arena->nxtTs, 1);
 
+	if ((addr.bits = index->map->arenaDef->partialAddr)) {
+		spec = getObj(index->map->db, addr);
+		if (!partialEval(doc, spec))
+			return DB_OK;
+	}
+
 	addr.bits = index->map->arenaDef->specAddr;
 	spec = getObj(index->map->db, addr);
 

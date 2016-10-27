@@ -170,6 +170,8 @@ Object *obj;
 
 	dbIndex = dbindex(map);
 	dbIndex->noDocs = params[NoDocs].boolVal;
+
+	map->arenaDef->partialAddr = params[IdxKeyPartial].int64Val;
 	map->arenaDef->specAddr = params[IdxKeySpec].int64Val;
 
 	index = db_memObj(*hndl->handle);

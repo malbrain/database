@@ -13,6 +13,7 @@ DbStatus openDatabase(DbHandle hndl[1], char *filePath, uint32_t pathLen, Params
 DbStatus openDocStore(DbHandle hndl[1], DbHandle dbHndl[1], char *name, uint32_t nameLen, Params *params);
 DbStatus createIndex(DbHandle hndl[1], DbHandle docHndl[1], HandleType type, char *idxName, uint32_t nameLen, Params *params);
 DbStatus cloneHandle(DbHandle hndl[1], DbHandle fromHndl[1]);
+DbStatus addIndexes(DbHandle docHndl[1]);
 
 DbStatus createCursor(DbHandle hndl[1], DbHandle idxHndl[1], ObjId txnId, Params *params);
 DbStatus positionCursor(DbHandle hndl[1], CursorOp op, uint8_t *key, uint32_t keyLen);
@@ -31,4 +32,4 @@ uint64_t arenaAlloc(DbHandle arenaHndl[1], uint32_t size, bool zeroit, bool dbAr
 Object *arenaObj(DbHandle arenaHndl[1], uint64_t addr, bool dbArena);
 
 uint16_t keyGenerator(uint8_t *key, Document *doc, Object *spec);
-DbStatus addIndexes(DbHandle docHndl[1]);
+bool evalPartial(Document *doc, Object *spec);
