@@ -6,7 +6,6 @@
 
 typedef struct {
 	uint64_t numEntries[1];	// number of keys in index
-	DbAddr keySpec;			// key construction document
 	char noDocs;			// no document ID's on keys
 } DbIndex;
 

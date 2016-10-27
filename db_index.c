@@ -115,11 +115,11 @@ int idx;
 
 DbStatus installIndexKey(Handle *hndl, SkipEntry *entry, Document *doc) {
 uint8_t key[MAX_key];
-DbIndex *dbIndex;
 uint64_t *verPtr;
 Handle *index;
-Object *spec;
 DbStatus stat;
+Object *spec;
+DbAddr addr;
 int keyLen;
 
 	index = db_memObj(*entry->val);
@@ -131,11 +131,10 @@ int keyLen;
 	if (atomicAdd32(index->calls->entryCnt, 1) == 1)
 		index->calls->entryTs = atomicAdd64(&index->map->arena->nxtTs, 1);
 
-	dbIndex = dbindex(index->map);
+	addr.bits = hndl->map->arenaDef->specAddr;
+	spec = getObj(index->map->db, addr);
 
-	spec = getObj(index->map, dbIndex->keySpec);
 	keyLen = keyGenerator(key, doc, spec);
-
 	keyLen = store64(key, keyLen, doc->docId.bits);
 
 	if (index->map->arenaDef->useTxn)

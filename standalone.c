@@ -52,6 +52,7 @@ typedef struct {
 	char *maxKey;
 	char *minKey;
 	Params *params;
+	uint64_t keyAddr;
 	DbHandle *database;
 	int num, idxType, keyLen;
 } ThreadArg;
@@ -81,7 +82,6 @@ uint64_t line = 0, cnt = 0;
 unsigned char key[4096];
 int ch, len = 0, slot;
 ThreadArg *args = arg;
-KeySpec keySpec[1];
 HandleType idxType;
 DbHandle database[1];
 DbHandle docHndl[1];
@@ -126,8 +126,6 @@ FILE *in;
 	case 'd':
 		fprintf(stderr, "started delete for %s\n", args->inFile);
 
-		keySpec->keyLen = args->keyLen;
-
 		if (args->params[NoDocs].boolVal)
 			parent = database;
 		else {
@@ -135,11 +133,11 @@ FILE *in;
 			parent = docHndl;
 		}
 
-		if ((stat = createIndex(index, parent, idxType, idxName, strlen(idxName), keySpec, sizeof(keySpec), args->params)))
+		if ((stat = createIndex(index, parent, idxType, idxName, strlen(idxName), args->params)))
 		  fprintf(stderr, "createIndex Error %d name: %s\n", stat, idxName), exit(0);
 
 		if (docHndl->handle->bits)
-			addIndexKeys(docHndl);
+			addIndexes(docHndl);
 
 		if( in = fopen (args->inFile, "rb") )
 		  while( ch = getc(in), ch != EOF )
@@ -167,8 +165,6 @@ FILE *in;
 	case 'w':
 		fprintf(stderr, "started indexing for %s\n", args->inFile);
 
-		keySpec->keyLen = args->keyLen;
-
 		if (args->params[NoDocs].boolVal)
 			parent = database;
 		else {
@@ -176,11 +172,11 @@ FILE *in;
 			parent = docHndl;
 		}
 
-		if ((stat = createIndex(index, parent, idxType, idxName, strlen(idxName), keySpec, sizeof(keySpec), args->params)))
+		if ((stat = createIndex(index, parent, idxType, idxName, strlen(idxName), args->params)))
 		  fprintf(stderr, "createIndex Error %d name: %s\n", stat, idxName), exit(0);
 
 		if (*docHndl->handle)
-			addIndexKeys(docHndl);
+			addIndexes(docHndl);
 
 		if( in = fopen (args->inFile, "r") )
 		  while( ch = getc(in), ch != EOF )
@@ -209,8 +205,6 @@ FILE *in;
 	case 'f':
 		fprintf(stderr, "started finding keys for %s\n", args->inFile);
 
-		keySpec->keyLen = args->keyLen;
-
 		if (args->params[NoDocs].boolVal)
 			parent = database;
 		else {
@@ -218,11 +212,11 @@ FILE *in;
 			parent = docHndl;
 		}
 
-		if ((stat = createIndex(index, parent, idxType, idxName, strlen(idxName), keySpec, sizeof(keySpec), args->params)))
+		if ((stat = createIndex(index, parent, idxType, idxName, strlen(idxName), args->params)))
 		  fprintf(stderr, "createIndex Error %d name: %s\n", stat, idxName), exit(0);
 
 		if (*docHndl->handle)
-			addIndexKeys(docHndl);
+			addIndexes(docHndl);
 
 		createCursor (cursor, index, txnId, args->params);
 
@@ -236,8 +230,8 @@ FILE *in;
 #endif
 			  line++;
 
-			  if (keySpec->keyLen)
-				len = keySpec->keyLen;
+			  if (args->keyLen)
+				len = args->keyLen;
 
 			  if ((stat = positionCursor (cursor, OpOne, key, len)))
 				fprintf(stderr, "findKey Error %d Syserr %d Line: %lld\n", stat, errno, line), exit(0);
@@ -278,11 +272,11 @@ FILE *in;
 			parent = docHndl;
 		}
 
-		if ((stat = createIndex(index, parent, idxType, idxName, strlen(idxName), keySpec, sizeof(keySpec), args->params)))
+		if ((stat = createIndex(index, parent, idxType, idxName, strlen(idxName), args->params)))
 		  fprintf(stderr, "createIndex Error %d name: %s\n", stat, idxName), exit(0);
 
 		if (*docHndl->handle)
-			addIndexKeys(docHndl);
+			addIndexes(docHndl);
 
 		// create forward cursor
 
@@ -335,11 +329,11 @@ FILE *in;
 			parent = docHndl;
 		}
 
-		if ((stat = createIndex(index, parent, idxType, idxName, strlen(idxName), keySpec, sizeof(keySpec), args->params)))
+		if ((stat = createIndex(index, parent, idxType, idxName, strlen(idxName), args->params)))
 		  fprintf(stderr, "createIndex Error %d name: %s\n", stat, idxName), exit(0);
 
 		if (*docHndl->handle)
-			addIndexKeys(docHndl);
+			addIndexes(docHndl);
 
 		// create reverse cursor
 
@@ -392,7 +386,7 @@ FILE *in;
 			parent = docHndl;
 		}
 
-		if ((stat = createIndex(index, parent, idxType, idxName, strlen(idxName), keySpec, sizeof(keySpec), args->params)))
+		if ((stat = createIndex(index, parent, idxType, idxName, strlen(idxName), args->params)))
 		  fprintf(stderr, "createIndex Error %d name: %s\n", stat, idxName), exit(0);
 
 		//  create forward cursor
@@ -433,6 +427,8 @@ int idx, cnt, len, slot, err;
 Params params[MaxParam];
 char *minKey = NULL;
 char *maxKey = NULL;
+KeySpec *keySpec;
+uint64_t keyAddr;
 int keyLen = 10;
 int idxType = 0;
 char *dbName;
@@ -527,6 +523,11 @@ DbHandle index[1];
 
 	openDatabase(database, dbName, strlen(dbName), params);
 
+	keyAddr = arenaAlloc(database, sizeof(KeySpec), true);
+	keySpec = (KeySpec *)(arenaObj(database, keyAddr) + 1);
+	keySpec->keyLen = keyLen;
+
+
 	//	fire off threads
 
 	idx = 0;
@@ -535,6 +536,7 @@ DbHandle index[1];
 	  args[idx].database = database;
 	  args[idx].inFile = argv[idx];
 	  args[idx].idxType = idxType;
+	  args[idx].keyAddr = keyAddr;
 	  args[idx].params = params;
 	  args[idx].minKey = minKey;
 	  args[idx].maxKey = maxKey;

@@ -11,8 +11,8 @@ void initialize();
 
 DbStatus openDatabase(DbHandle hndl[1], char *filePath, uint32_t pathLen, Params *params);
 DbStatus openDocStore(DbHandle hndl[1], DbHandle dbHndl[1], char *name, uint32_t nameLen, Params *params);
-DbStatus createIndex(DbHandle hndl[1], DbHandle docHndl[1], HandleType type, char *idxName, uint32_t nameLen, void *keySpec, uint16_t specSize, Params *params);
-DbStatus cloneHandle(DbHandle hndl[1], DbHandle fromhndl[1]);
+DbStatus createIndex(DbHandle hndl[1], DbHandle docHndl[1], HandleType type, char *idxName, uint32_t nameLen, Params *params);
+DbStatus cloneHandle(DbHandle hndl[1], DbHandle fromHndl[1]);
 
 DbStatus createCursor(DbHandle hndl[1], DbHandle idxHndl[1], ObjId txnId, Params *params);
 DbStatus positionCursor(DbHandle hndl[1], CursorOp op, uint8_t *key, uint32_t keyLen);
@@ -27,5 +27,8 @@ DbStatus insertKey(DbHandle index[1], uint8_t *key, uint32_t len);
 
 DbStatus addDocument(DbHandle hndl[1], void *obj, uint32_t objSize, ObjId *objId, ObjId txnId);
 
+uint64_t arenaAlloc(DbHandle arenaHndl[1], uint32_t size, bool zeroit);
+Object *arenaObj(DbHandle arenaHndl[1], uint64_t addr);
+
 uint16_t keyGenerator(uint8_t *key, Document *doc, Object *spec);
-DbStatus addIndexKeys(DbHandle dochndl[1]);
+DbStatus addIndexes(DbHandle docHndl[1]);

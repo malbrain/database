@@ -82,10 +82,12 @@ typedef enum {
 	UseTxn,			// txn used
 	NoDocs,			// no documents
 
-	Btree1Bits = 10,	// Btree1 set
+	IdxKeySpec = 10,	// index key spec document
+
+	Btree1Bits = 20,	// Btree1 set
 	Btree1Xtra,
 
-	MaxParam = 15	// param array size
+	MaxParam = 25	// param array size
 } ParamSlot;
 
 typedef union {

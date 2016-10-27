@@ -16,6 +16,34 @@ void initialize() {
 	memInit();
 }
 
+uint64_t arenaAlloc(DbHandle arenaHndl[1], uint32_t size, bool zeroit) {
+Handle *arena;
+uint64_t bits;
+DbStatus stat;
+
+	if ((stat = bindHandle(arenaHndl, &arena)))
+		return 0;
+
+	bits = allocBlk(arena->map, size, zeroit);
+	releaseHandle(arena);
+	return bits;
+}
+
+Object *arenaObj(DbHandle arenaHndl[1], uint64_t bits) {
+Handle *arena;
+DbStatus stat;
+Object *obj;
+DbAddr addr;
+
+	if ((stat = bindHandle(arenaHndl, &arena)))
+		return NULL;
+
+	addr.bits = bits;
+	obj = getObj(arena->map, addr);
+	releaseHandle(arena);
+	return obj;
+}
+
 DbStatus openDatabase(DbHandle hndl[1], char *name, uint32_t nameLen, Params *params) {
 ArenaDef arenaDef[1];
 DbMap *map;
@@ -90,14 +118,14 @@ Handle *ds;
 	return DB_OK;
 }
 
-DbStatus createIndex(DbHandle hndl[1], DbHandle docStore[1], HandleType type, char *name, uint32_t nameLen, void *keySpec, uint16_t specSize, Params *params) {
+DbStatus createIndex(DbHandle hndl[1], DbHandle docStore[1], HandleType type, char *name, uint32_t nameLen, Params *params) {
 Handle *parentHndl = NULL;
 uint32_t baseSize = 0;
 DbMap *map, *parent;
 DbIndex *dbIndex;
 Handle *index;
-Object *obj;
 DbStatus stat;
+Object *obj;
 
 	memset (hndl, 0, sizeof(DbHandle));
 
@@ -128,16 +156,11 @@ DbStatus stat;
 	if (*map->arena->type)
 		goto createXit;
 
-	index = db_memObj(*hndl->handle);
-
 	dbIndex = dbindex(map);
 	dbIndex->noDocs = params[NoDocs].boolVal;
+	map->arenaDef->specAddr = params[IdxKeySpec].int64Val;
 
-	dbIndex->keySpec.bits = allocBlk(map, specSize + sizeof(Object), false);
-	obj = getObj(map, dbIndex->keySpec);
-
-	memcpy(obj + 1, keySpec, specSize);
-	obj->size = specSize;
+	index = db_memObj(*hndl->handle);
 
 	switch (type) {
 	  case Hndl_artIndex:
@@ -359,14 +382,19 @@ DbStatus stat;
 	return DB_OK;
 }
 
-uint64_t beginTxn(DbHandle hndl[1], ObjId txnId) {
+uint64_t beginTxn(DbHandle hndl[1]) {
+	return 0;
 }
 
-DbStatus rollbackTxn(DbHandle hndl[1], uint64_t txnBits);
+DbStatus rollbackTxn(DbHandle hndl[1], uint64_t txnBits) {
+	return DB_OK;
+}
 
-DbStatus commitTxn(DbHandle hndl[1], uint64_t txnBits);
+DbStatus commitTxn(DbHandle hndl[1], uint64_t txnBits) {
+	return DB_OK;
+}
 
-DbStatus addIndexKeys(DbHandle hndl[1]) {
+DbStatus addIndexes(DbHandle hndl[1]) {
 Handle *docHndl;
 DbStatus stat;
 

@@ -31,6 +31,7 @@ typedef struct {
 	uint64_t id;				// child arena id in parent
 	uint64_t childId;			// highest child Id issued
 	uint64_t initSize;			// initial arena size
+	uint64_t specAddr;			// database addr of spec object
 	uint32_t localSize;			// extra space after DbMap
 	uint32_t baseSize;			// extra space after DbArena
 	uint32_t objSize;			// size of ObjectId array slot
