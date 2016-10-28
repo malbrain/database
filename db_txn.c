@@ -4,7 +4,7 @@
 #include "db_arena.h"
 #include "db_map.h"
 
-void addIdToTxn(DbMap *database, Txn *txn, ObjId docId, TxnCmd cmd) {
+void addDocToTxn(DbMap *database, Txn *txn, ObjId docId, TxnCmd cmd) {
 
 	docId.cmd = cmd;
 	addSlotToFrame (database, txn->frame, NULL, docId.bits);

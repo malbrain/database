@@ -186,7 +186,7 @@ FILE *in;
 			  line++;
 
 			  if (*docHndl->handle) {
-				if ((stat = addDoc (docHndl, key, len, &objId, txnId)))
+				if ((stat = storeDoc (docHndl, key, len, &objId, txnId.bits)))
 				  fprintf(stderr, "Add Doc Error %d Line: %lld\n", stat, line), exit(0);
 			  } else
 				if ((stat = insertKey(index, key, len)))

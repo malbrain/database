@@ -104,6 +104,7 @@ typedef struct {
 	DbAddr verKeys[1];	// skiplist of versions with Id key
 	DbAddr prevDoc[1];	// previous version of doc
 	uint64_t version;	// version of the document
+	DbAddr addr;		// docStore arena address
 	ObjId docId;		// ObjId of the document
 	ObjId txnId;		// insert/update txn ID
 	ObjId delId;		// delete txn ID

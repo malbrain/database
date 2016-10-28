@@ -97,23 +97,22 @@ ObjId start = it->docId;
 
 Doc *iteratorNext(DbHandle hndl[1]) {
 Handle *docStore;
+Txn *txn = NULL;
 Doc *doc = NULL;
 DbStatus stat;
 Iterator *it;
-DbAddr *addr;
 
 	if ((stat = bindHandle(hndl, &docStore)))
 		return NULL;
 
 	it = (Iterator *)(docStore + 1);
 
-	while (incrObjId(it, docStore->map)) {
-		addr = fetchIdSlot(docStore->map, it->docId);
-		if (addr->bits) {
-			doc = getObj(docStore->map, *addr);
+	if (it->txnId.bits)
+		txn = fetchIdSlot(docStore->map->db, it->txnId);
+
+	while (incrObjId(it, docStore->map))
+		if ((doc = findDocVer(docStore->map, it->docId, txn)))
 			break;
-		}
-	}
 
 	return doc;
 }
@@ -126,23 +125,22 @@ DbAddr *addr;
 
 Doc *iteratorPrev(DbHandle hndl[1]) {
 Handle *docStore;
+Txn *txn = NULL;
 Doc *doc = NULL;
 DbStatus stat;
 Iterator *it;
-DbAddr *addr;
 
 	if ((stat = bindHandle(hndl, &docStore)))
 		return NULL;
 
 	it = (Iterator *)(docStore + 1);
 
-	while (decrObjId(it, docStore->map)) {
-		addr = fetchIdSlot(docStore->map, it->docId);
-		if (addr->bits) {
-			doc = getObj(docStore->map, *addr);
+	if (it->txnId.bits)
+		txn = fetchIdSlot(docStore->map->db, it->txnId);
+
+	while (decrObjId(it, docStore->map))
+		if ((doc = findDocVer(docStore->map, it->docId, txn)))
 			break;
-		}
-	}
 
 	return doc;
 }
@@ -155,22 +153,24 @@ DbAddr *addr;
 
 Doc *iteratorSeek(DbHandle hndl[1], uint64_t objBits) {
 Handle *docStore;
+Txn *txn = NULL;
 DbStatus stat;
 Iterator *it;
-DbAddr *addr;
 ObjId docId;
+Doc *doc;
 
 	if ((stat = bindHandle(hndl, &docStore)))
 		return NULL;
 
 	it = (Iterator *)(docStore + 1);
 
-	docId.bits = objBits;
+	if (it->txnId.bits)
+		txn = fetchIdSlot(docStore->map->db, it->txnId);
 
-	addr = fetchIdSlot(docStore->map, docId);
+	it->docId.bits = objBits;
 
-	if (addr->bits)
-		return getObj(docStore->map, *addr);
+	doc = findDocVer(docStore->map, it->docId, txn);
 
-	return NULL;
+	releaseHandle(docStore);
+	return doc;
 }

@@ -32,10 +32,12 @@ DbStatus commitTxn(DbHandle dbHnd[1], uint64_t txnBits);
 
 DbStatus insertKey(DbHandle index[1], uint8_t *key, uint32_t len);
 
-DbStatus addDoc(DbHandle hndl[1], void *obj, uint32_t objSize, ObjId *objId, ObjId txnId);
-
 uint64_t arenaAlloc(DbHandle arenaHndl[1], uint32_t size, bool zeroit, bool dbArena);
 Object *arenaObj(DbHandle arenaHndl[1], uint64_t addr, bool dbArena);
+
+DbStatus allocDoc(DbHandle hndl[1], Doc **doc, uint32_t objSize);
+DbStatus assignDoc(DbHandle hndl[1], Doc *doc, uint64_t txnBits);
+DbStatus storeDoc(DbHandle hndl[1], void *obj, uint32_t objSize, ObjId *docId, uint64_t txnBits);
 
 uint16_t keyGenerator(uint8_t *key, Doc *doc, Object *spec);
 bool evalPartial(Doc *doc, Object *spec);

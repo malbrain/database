@@ -200,9 +200,9 @@ createXit:
 //	create new cursor
 
 DbStatus createCursor(DbHandle hndl[1], DbHandle idxHndl[1], ObjId txnId, Params *params) {
+Handle *index, *newIdx;
 uint64_t timestamp;
 DbCursor *cursor;
-Handle *index;
 DbStatus stat;
 Txn *txn;
 
@@ -218,7 +218,9 @@ Txn *txn;
 		timestamp = allocateTimestamp(index->map->db, en_reader);
 
 	*hndl->handle = makeHandle(index->map, cursorSize[*index->map->arena->type], 0, Hndl_cursor);
-	cursor = (DbCursor *)(index + 1);
+
+	newIdx = db_memObj(*hndl->handle);
+	cursor = (DbCursor *)(newIdx + 1);
 	cursor->noDocs = params[NoDocs].boolVal;
 	cursor->txnId.bits = txnId.bits;
 	cursor->ts = timestamp;
@@ -456,16 +458,85 @@ DbStatus stat;
 	return stat;
 }
 
-DbStatus addDoc(DbHandle hndl[1], void *obj, uint32_t objSize, ObjId *result, ObjId txnId) {
+// install document in docId slot
+
+DbStatus installDoc(Handle *hndl, Doc *doc, Txn *txn) {
+DbAddr *slot;
+
+	slot = fetchIdSlot(hndl->map, doc->docId);
+	slot->bits = doc->addr.bits;
+
+	//	add keys for the document
+	//	enumerate children (e.g. indexes)
+
+	installIndexKeys(hndl, doc);
+
+	if (txn)
+		addDocToTxn(hndl->map->db, txn, doc->docId, TxnAddDoc); 
+
+	return DB_OK;
+}
+
+DbStatus assignDoc(DbHandle hndl[1], Doc *doc, uint64_t txnBits) {
+DocArena *docArena;
 Handle *docHndl;
+Txn *txn = NULL;
 DbStatus stat;
+ObjId docId;
 
 	if ((stat = bindHandle(hndl, &docHndl)))
 		return stat;
 
-	stat = storeDoc(docHndl, obj, objSize, result, txnId);
+	docArena = docarena(docHndl->map);
+
+	if ((doc->txnId.bits = txnBits))
+		txn = fetchIdSlot(docHndl->map->db, doc->txnId);
+
+	doc->docId.bits = allocObjId(docHndl->map, docHndl->list, docArena->docIdx);
+
+	stat = installDoc(docHndl, doc, txn);
 	releaseHandle(docHndl);
+
 	return stat;
+}
+
+DbStatus allocDoc(DbHandle hndl[1], Doc **doc, uint32_t objSize) {
+Handle *docHndl;
+DbStatus stat;
+DbAddr addr;
+
+	if ((stat = bindHandle(hndl, &docHndl)))
+		return stat;
+
+	if ((addr.bits = allocObj(docHndl->map, docHndl->list->free, docHndl->list->tail, -1, objSize + sizeof(Doc), false)))
+		*doc = getObj(docHndl->map, addr);
+	else
+		return DB_ERROR_outofmemory;
+
+	memset (*doc, 0, sizeof(Doc));
+	(*doc)->addr.bits = addr.bits;
+	(*doc)->size = objSize;
+
+	releaseHandle(docHndl);
+	return DB_OK;
+}
+
+DbStatus storeDoc(DbHandle hndl[1], void *obj, uint32_t objSize, ObjId *docId, uint64_t txnBits) {
+DbStatus stat;
+Doc *doc;
+
+	if ((stat = allocDoc(hndl, &doc, objSize)))
+		return stat;
+
+	memcpy(doc + 1, obj, objSize);
+
+	if ((stat = assignDoc (hndl, doc, txnBits)))
+		return stat;
+
+	if (docId)
+		docId->bits = doc->docId.bits;
+
+	return DB_OK;
 }
 
 DbStatus insertKey(DbHandle hndl[1], uint8_t *key, uint32_t len) {
