@@ -74,7 +74,7 @@ DbMap *map;
 		return DB_ERROR_createdatabase;
 
 	*map->arena->type = Hndl_database;
-	*hndl->handle = makeHandle(map, 0, 0, Hndl_database);
+	*hndl->handle = makeHandle(map, sizeof(Txn), ObjIdType, Hndl_database);
 	return DB_OK;
 }
 
