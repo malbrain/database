@@ -43,6 +43,6 @@ DbStatus deleteDoc(DbHandle hndl[1], uint64_t docBits, uint64_t txnBits);
 uint16_t keyGenerator(uint8_t *key, Doc *doc, DbObject *spec);
 bool evalPartial(Doc *doc, DbObject *spec);
 
-DbStatus createIterator(DbHandle hndl[1], DbHandle docHnd[1]);
+DbStatus createIterator(DbHandle hndl[1], DbHandle docHndl[1], ObjId txnId);
 Doc *iteratorNext(DbHandle hndl[1]);
 Doc *iteratorPrev(DbHandle hndl[1]);
