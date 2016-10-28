@@ -1,7 +1,7 @@
 malbrain/database
 ==========================
 
-A working project for High-concurrency B-tree/ARTree Database source code in C.
+A working project for High-concurrency B-tree/ARTree Database source code in C.  This project was created as a sub-module for the /www.github.com/malbrain/javascript-database project, but it can also be used by itself as a database/indexing library.
 
 Compile with ./build or build.bat
 

@@ -19,7 +19,7 @@ DbStatus createCursor(DbHandle hndl[1], DbHandle idxHndl[1], ObjId txnId, Params
 DbStatus positionCursor(DbHandle hndl[1], CursorOp op, uint8_t *key, uint32_t keyLen);
 DbStatus moveCursor(DbHandle hndl[1], CursorOp op);
 DbStatus setCursorMax(DbHandle hndl[1], uint8_t *max, uint32_t maxLen);
-DbStatus setCursorMin(DbHandle hndl[1], uint8_t *max, uint32_t minLen);
+DbStatus setCursorMin(DbHandle hndl[1], uint8_t *min, uint32_t minLen);
 
 DbStatus keyAtCursor(DbHandle cursor[1], uint8_t **key, uint32_t *keyLen);
 DbStatus docAtCursor(DbHandle cursor[1], Doc **doc);

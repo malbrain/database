@@ -37,10 +37,21 @@ ArenaDef arenaDef[1];
 }
 
 uint32_t db_rawSize (uint64_t address) {
+uint32_t size;
 DbAddr addr;
+int bits;
 
 	addr.bits = address;
-	return 1 << addr.type;
+	bits = addr.type / 2;
+
+	size = 1 << bits;
+
+	// implement half-bit sizing
+
+	if (addr.type & 1)
+		size -= size / 4;
+
+	return size;
 }
 
 void *db_memObj(uint64_t bits) {
