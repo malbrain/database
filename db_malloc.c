@@ -47,8 +47,9 @@ int bits;
 	size = 1 << bits;
 
 	// implement half-bit sizing
+	//	if type is even.
 
-	if (addr.type & 1)
+	if (~addr.type & 1)
 		size -= size / 4;
 
 	return size;
