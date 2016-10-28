@@ -9,10 +9,11 @@
 // create and position the start of an iterator
 //
 
-DbStatus createIterator(DbHandle hndl[1], DbHandle docHndl[1], ObjId txnId) {
+DbStatus createIterator(DbHandle hndl[1], DbHandle docHndl[1], uint64_t txnBits) {
 Handle *docStore;
 DbStatus stat;
 Iterator *it;
+ObjId txnId;
 Txn *txn;
 
 	memset (hndl, 0, sizeof(DbHandle));
@@ -24,7 +25,7 @@ Txn *txn;
 
 	it = (Iterator *)((Handle *)db_memObj(*hndl->handle) + 1);
 
-	if (txnId.bits) {
+	if ((txnId.bits = txnBits)) {
 		txn = fetchIdSlot(docStore->map->db, txnId);
 		it->ts = txn->timestamp;
 	} else
