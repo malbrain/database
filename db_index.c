@@ -116,9 +116,9 @@ int idx;
 DbStatus installIndexKey(Handle *hndl, SkipEntry *entry, Doc *doc) {
 uint8_t key[MAX_key];
 uint64_t *verPtr;
+DbObject *spec;
 Handle *index;
 DbStatus stat;
-Object *spec;
 DbAddr addr;
 int keyLen;
 

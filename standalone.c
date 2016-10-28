@@ -29,7 +29,7 @@ double getCpuTime(int type);
 
 //  Interface function to evaluate a partial document
 
-bool partialEval(Doc *doc, Object *spec) {
+bool partialEval(Doc *doc, DbObject *spec) {
 	return true;
 }
 
@@ -40,7 +40,7 @@ typedef struct {
 	int keyLen;
 } KeySpec;
 
-uint16_t keyGenerator (uint8_t *key, Doc *doc, Object *spec) {
+uint16_t keyGenerator (uint8_t *key, Doc *doc, DbObject *spec) {
 KeySpec *keySpec = (KeySpec *)(spec + 1);
 uint16_t keyLen = 0;
 

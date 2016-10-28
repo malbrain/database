@@ -35,10 +35,10 @@ DbMap *map;
 	return bits;
 }
 
-Object *arenaObj(DbHandle arenaHndl[1], uint64_t bits, bool dbArena) {
+DbObject *arenaObj(DbHandle arenaHndl[1], uint64_t bits, bool dbArena) {
 Handle *arena;
 DbStatus stat;
-Object *obj;
+DbObject *obj;
 DbAddr addr;
 DbMap *map;
 
@@ -137,7 +137,7 @@ DbMap *map, *parent;
 DbIndex *dbIndex;
 Handle *index;
 DbStatus stat;
-Object *obj;
+DbObject *obj;
 
 	memset (hndl, 0, sizeof(DbHandle));
 
@@ -518,6 +518,29 @@ DbAddr addr;
 	(*doc)->size = objSize;
 
 	releaseHandle(docHndl);
+	return DB_OK;
+}
+
+DbStatus deleteDoc(DbHandle hndl[1], uint64_t docBits, uint64_t txnBits) {
+Handle *docHndl;
+Txn *txn = NULL;
+DbStatus stat;
+DbAddr *slot;
+ObjId docId;
+Doc *doc;
+
+	if ((stat = bindHandle(hndl, &docHndl)))
+		return stat;
+
+	docId.bits = docBits;
+
+	slot = fetchIdSlot(docHndl->map, docId);
+	doc = getObj(docHndl->map, *slot);
+
+	if ((doc->delId.bits = txnBits))
+		txn = fetchIdSlot(docHndl->map->db, doc->delId);
+
+	doc->state = DocDeleted;
 	return DB_OK;
 }
 

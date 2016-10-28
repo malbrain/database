@@ -100,6 +100,14 @@ typedef union {
 	int intVal;
 } Params;
 
+typedef enum {
+	DocUnused = 0,
+	DocActive,
+	DocInsert,
+	DocDelete,
+	DocDeleted
+} DocState;
+
 typedef struct {
 	DbAddr verKeys[1];	// skiplist of versions with Id key
 	DbAddr prevDoc[1];	// previous version of doc
@@ -108,12 +116,13 @@ typedef struct {
 	ObjId docId;		// ObjId of the document
 	ObjId txnId;		// insert/update txn ID
 	ObjId delId;		// delete txn ID
-	uint32_t size;		// object size
+	uint32_t size;		// document size
+	DocState state;		// document state
 } Doc;
 
 typedef struct {
 	uint32_t size;
-} Object;
+} DbObject;
 
 typedef struct {
 	uint64_t handle[1];
