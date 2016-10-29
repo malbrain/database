@@ -1,7 +1,5 @@
 #pragma once
 
-#define MAX_key		4096	// maximum key size in bytes
-
 //	Index data structure after DbArena object
 
 typedef struct {

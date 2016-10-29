@@ -10,6 +10,8 @@
 
 #include "db_error.h"
 
+#define MAX_key		4096	// maximum key size in bytes
+
 //	types of handles/arenas
 
 typedef enum {
