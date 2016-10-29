@@ -84,8 +84,6 @@ bool isReader(uint64_t ts);
 bool isWriter(uint64_t ts);
 bool isCommitted(uint64_t ts);
 
-uint32_t get64(uint8_t *key, uint32_t len, uint64_t *result);
-uint32_t store64(uint8_t *key, uint32_t keylen, uint64_t what);
 uint64_t makeHandle(DbMap *map, uint32_t xtraSize, uint32_t listMax, HandleType type);
 void closeHandle(Handle  *hndl);
 

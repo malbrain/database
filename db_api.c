@@ -460,19 +460,23 @@ DbStatus stat;
 
 // install document in docId slot
 
-DbStatus installDoc(Handle *hndl, Doc *doc, Txn *txn) {
+DbStatus installDoc(Handle *docHndl, Doc *doc, Txn *txn) {
+DbStatus stat;
 DbAddr *slot;
 
-	slot = fetchIdSlot(hndl->map, doc->docId);
+	slot = fetchIdSlot(docHndl->map, doc->docId);
 	slot->bits = doc->addr.bits;
+
+	if ((stat = installIndexes(docHndl)))
+		return stat;
 
 	//	add keys for the document
 	//	enumerate children (e.g. indexes)
 
-	installIndexKeys(hndl, doc);
+	installIndexKeys(docHndl, doc);
 
 	if (txn)
-		addDocToTxn(hndl->map->db, txn, doc->docId, TxnAddDoc); 
+		addDocToTxn(docHndl->map->db, txn, doc->docId, TxnAddDoc); 
 
 	return DB_OK;
 }

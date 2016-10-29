@@ -61,7 +61,7 @@ DbMap *map;
 	else
 		return NULL;
 
-	arenaDef->id = atomicAdd64(&arenaDef->childId, CHILDID_INCR);
+	arenaDef->id = atomicAdd64(&parent->arenaDef->childId, CHILDID_INCR);
 	arenaDef->node.bits = rbEntry->addr.bits;
 
 	arenaDef->initSize = params[InitSize].int64Val;
@@ -71,6 +71,8 @@ DbMap *map;
 	arenaDef->arenaType = arenaType;
 	arenaDef->baseSize = baseSize;
 	arenaDef->objSize = objSize;
+
+	//	initialze idList RWLock
 
 	initLock(arenaDef->idList->lock);
 

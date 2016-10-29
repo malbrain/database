@@ -143,3 +143,6 @@ typedef enum {
 	OpFind	= 'f',
 	OpOne	= 'o'
 } CursorOp;
+
+uint32_t get64(uint8_t *key, uint32_t len, uint64_t *result);
+uint32_t store64(uint8_t *key, uint32_t keylen, uint64_t what);
