@@ -1,7 +1,5 @@
 #pragma once
 
-#define MAX_key		4096	// maximum key size in bytes
-
 //	Index data structure after DbArena object
 
 typedef struct {
@@ -55,5 +53,3 @@ DbStatus dbNextDoc(DbCursor *cursor, DbMap *map);
 DbStatus dbPrevDoc(DbCursor *cursor, DbMap *map);
 DbStatus dbRightKey(DbCursor *cursor, DbMap *map);
 DbStatus dbLeftKey(DbCursor *cursor, DbMap *map);
-
-DbStatus dbCloseCursor(DbCursor *cursor, DbMap *map);

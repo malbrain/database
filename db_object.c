@@ -111,20 +111,25 @@ int idx, max;
 //	return number of key bytes remaining
 
 uint32_t get64(uint8_t *key, uint32_t len, uint64_t *where) {
-uint32_t xtrabytes = key[len - 1] & 0x7;
-uint64_t result;
+uint32_t xtraBytes = key[len - 1] & 0x7;
+int signBit = key[0] & 0x80 ? 1 : 0;
+uint64_t result = 0;
 int idx = 0;
 
-	len -= xtrabytes + 2;
-	result = key[len] & 0x1f;
+	if (signBit)
+		result = -1;
 
-	while (idx++ < xtrabytes) {
+	len -= xtraBytes + 2;
+	result <<= 4;
+	result |= key[len] & 0x0f;
+
+	while (idx++ < xtraBytes) {
 	  result <<= 8;
 	  result |= key[len + idx];
 	}
 
 	result <<= 5;
-	result |= key[len + idx] >> 3;
+	result |= key[len + xtraBytes] >> 3;
 
 	if (where)
 		*where = result;
@@ -135,25 +140,32 @@ int idx = 0;
 // concatenate key with 64 bit value
 // returns length of concatenated key
 
-uint32_t store64(uint8_t *key, uint32_t keylen, uint64_t recId) {
-uint64_t tst64 = recId >> 10;
-uint32_t xtrabytes = 0;
-uint32_t idx;
+uint32_t store64(uint8_t *key, uint32_t keyLen, uint64_t recId) {
+int64_t tst64 = recId >> 9;
+uint32_t xtraBytes = 0;
+uint32_t idx, signBit;
+
+	signBit = (int64_t)recId < 0 ? 0 : 1;
 
 	while (tst64)
-		xtrabytes++, tst64 >>= 8;
+	  if (!signBit && tst64 == -1)
+		break;
+	  else
+		xtraBytes++, tst64 >>= 8;
 
-    key[keylen + xtrabytes + 1] = (recId & 0x1f) << 3 | xtrabytes;
+    key[keyLen + xtraBytes + 1] = (recId & 0x1f) << 3 | xtraBytes;
 
     recId >>= 5;
 
-    for (idx = xtrabytes; idx; idx--) {
-        key[keylen + idx] = (recId & 0xff);
+    for (idx = xtraBytes; idx; idx--) {
+        key[keyLen + idx] = (recId & 0xff);
         recId >>= 8;
     }
 
-    key[keylen] = recId | (xtrabytes << 5);
-    return keylen + xtrabytes + 2;
+    key[keyLen] = recId | (xtraBytes << 4);
+	key[keyLen] |= signBit << 7;
+
+    return keyLen + xtraBytes + 2;
 }
 
 //	allocate a new timestamp
