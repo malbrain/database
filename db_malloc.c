@@ -14,7 +14,7 @@
 //
 
 typedef struct {
-	DbAddr addr[1];
+	DbAddr addr;
 } dbobj_t;
 
 DbArena memArena[1];
@@ -63,21 +63,21 @@ DbAddr addr;
 }
 
 void db_memFree (uint64_t bits) {
-DbAddr addr[1];
+DbAddr addr;
 
-	addr->bits = bits;
+	addr.bits = bits;
 	freeBlk(memMap, addr);
 }
 
 void db_free (void *obj) {
 dbobj_t *raw = obj;
 
-	if (!raw[-1].addr->alive) {
+	if (!raw[-1].addr.alive) {
 		fprintf(stderr, "Duplicate db_free\n");
 		exit (1);
 	}
 
-	raw[-1].addr->alive = 0;
+	raw[-1].addr.alive = 0;
 	freeBlk(memMap, raw[-1].addr);
 }
 
@@ -101,6 +101,6 @@ DbAddr addr;
 
 	addr.bits = db_rawAlloc(len + sizeof(dbobj_t), zeroit);
 	mem = getObj(memMap, addr);
-	mem->addr->bits = addr.bits;
+	mem->addr.bits = addr.bits;
 	return mem + 1;
 }

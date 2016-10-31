@@ -18,11 +18,12 @@ uint64_t allocMap(DbMap *map, uint32_t size);
 uint64_t allocBlk(DbMap *map, uint32_t size, bool zeroit);
 uint64_t allocObj(DbMap *map, DbAddr *free, DbAddr *tail, int type, uint32_t size, bool zeroit);
 uint64_t allocObjId(DbMap *map, FreeList *list, uint16_t idx);
-void *fetchObjSlot (DbMap *map, ObjId objId);
-void *getObj(DbMap *map, DbAddr addr); 
-void freeBlk(DbMap *map, DbAddr *addr);
 
 void *fetchIdSlot (DbMap *map, ObjId objId);
+void *getObj(DbMap *map, DbAddr addr); 
+void freeBlk(DbMap *map, DbAddr addr);
+void freeId(DbMap *map, ObjId objId);
+
 uint64_t getFreeFrame(DbMap *map);
 uint64_t allocFrame(DbMap *map);
 

@@ -13,8 +13,8 @@ DbArena hndlArena[1];
 DbMap hndlMap[1];
 
 FreeList hndlList[ObjIdType + 1];
-DbAddr hndlRbRoot[1];
 ArenaDef hndlDef[1];
+DbAddr hndlRoot[1];
 
 //	return HandleId slot from bits
 
@@ -28,7 +28,6 @@ ObjId hndlId;
 //	return Handle from bits
 
 Handle *getHandle(DbHandle *hndl) {
-RedBlack *rbEntry;
 HandleId *slot;
 ObjId hndlId;
 
@@ -38,14 +37,13 @@ ObjId hndlId;
 	if (!(*slot->latch & ALIVE_BIT))
 		return NULL;
 
-	rbEntry = (RedBlack *)getObj(hndlMap, slot->addr);
-	return rbPayload(rbEntry);
+	return getObj(hndlMap, slot->addr);
 }
 
 //	make handle from map pointer
 //	return hndlId.bits in hndlArena or zero
 
-void initHandleMap(void) {
+void initHndlMap(void) {
     hndlMap->arena = hndlArena;
     hndlMap->db = hndlMap;
 
@@ -62,7 +60,7 @@ void initHandleMap(void) {
 }
 
 uint64_t makeHandle(DbMap *map, uint32_t xtraSize, uint32_t listMax, HandleType type) {
-Handle *hndl, *oldHndl = NULL;
+Handle *hndl, *head;
 PathStk pathStk[1];
 RedBlack *rbEntry;
 uint64_t *inUse;
@@ -78,7 +76,7 @@ DbAddr addr;
 	  lockLatch(hndlInit);
 
 	  if (!(*hndlInit & ALIVE_BIT))
-		initHandleMap();
+		initHndlMap();
 
 	  *hndlInit = ALIVE_BIT;
 	}
@@ -95,17 +93,24 @@ DbAddr addr;
 	slot = fetchIdSlot (hndlMap, hndlId);
 
 	//	find previous Handle for this path
-	//  or make a new one
+	//  or make a new one, and link it to
+	//	the head of the handle chain.
 
-	if ((rbEntry = rbFind(hndlMap, hndlRbRoot, map->path, map->pathLen, pathStk))) {
-		oldHndl = rbPayload(rbEntry);
+	if ((rbEntry = rbFind(hndlMap, hndlRoot, map->path, map->pathLen, pathStk))) {
 		addr.bits = allocBlk(hndlMap, amt, true);
+
+		head = getObj(hndlMap, rbEntry->payLoad);
+		head->prev.bits = addr.bits;
+
 		hndl = getObj(hndlMap, addr);
-		hndl->next.bits = oldHndl->next.bits;
-		oldHndl->next.bits = addr.bits;
+		hndl->next.bits = rbEntry->payLoad.bits;
+
+		rbEntry->payLoad.bits = addr.bits;
 	} else {
 		rbEntry = rbNew(hndlMap, map->path, map->pathLen, amt);
-		hndl = rbPayload(rbEntry);
+		rbAdd(hndlMap, hndlRoot, rbEntry, pathStk);
+		hndl = getObj(hndlMap, rbEntry->payLoad);
+		addr.bits = rbEntry->payLoad.bits;
 	}
 
 	//  initialize the new Handle
@@ -129,19 +134,21 @@ DbAddr addr;
 	//  install in HandleId slot
 
 	*slot->refCnt = 1;
-	slot->addr.bits = rbEntry->addr.bits;
+	slot->addr.bits = addr.bits;
 	*slot->latch = ALIVE_BIT;
 	return hndlId.bits;
 }
 
 //	destroy handle
 
-void destroyHandle(HandleId *slot) {
-RedBlack *rbEntry, *nxtEntry;
+void destroyHandle(ObjId hndlId) {
+Handle *hndl, *prevHndl, *nextHndl;
 PathStk pathStk[1];
+RedBlack *rbEntry;
+HandleId *slot;
 uint64_t *inUse;
-Handle *hndl;
 
+	slot = fetchIdSlot (hndlMap, hndlId);
 	lockLatch(slot->latch);
 
 	//	already destroyed?
@@ -151,8 +158,7 @@ Handle *hndl;
 		return;
 	}
 
-	rbEntry = getObj(hndlMap, slot->addr);
-	hndl = rbPayload(rbEntry);
+	hndl = getObj(hndlMap, slot->addr);
 
 	// release handle freeList
 
@@ -163,27 +169,41 @@ Handle *hndl;
 		unlockLatch(hndl->map->arena->listArray->latch);
 	}
 
-	//	find and remove our rbEntry in the rb tree
+	lockLatch (hndlRoot->latch);
 
-	if ((nxtEntry = rbFind (hndlMap, hndlRbRoot, hndl->map->path, hndl->map->pathLen, pathStk)))
-	  do {
-		if (nxtEntry == rbEntry) {
-			rbRemove (hndlMap, hndlRbRoot, pathStk);
-			break;
-		}
+	//	remove our Handle from the red/black list
 
-		if (memcmp(rbKey(nxtEntry), hndl->map->path, hndl->map->pathLen))
-			break;
-	  } while ((nxtEntry = rbNext(hndlMap, pathStk)));
+	rbEntry = rbFind (hndlMap, hndlRoot, hndl->map->path, hndl->map->pathLen, pathStk);
+
+	if (hndl->prev.bits) {
+		prevHndl = getObj(hndlMap, hndl->prev);
+		prevHndl->next.bits = hndl->next.bits;
+	} else
+		rbEntry->payLoad.bits = hndl->next.bits;
+
+	if (hndl->next.bits) {
+		nextHndl = getObj(hndlMap, hndl->next);
+		nextHndl->prev.bits = hndl->prev.bits;
+	}
+
+	freeBlk (hndlMap, slot->addr);
 
 	slot->addr.bits = 0;
 	*slot->latch = 0;
+
+	freeId(hndlMap, hndlId);
+
+	//	are we the last handle in the tree?
+
+	if (!rbEntry->payLoad.bits)
+		rbRemove (hndlMap, hndlRoot, pathStk);
+
+	unlockLatch (hndlRoot->latch);
 }
 
 //	close handle
 
 void closeHandle(DbHandle *dbHndl) {
-RedBlack *rbEntry;
 HandleId *slot;
 Handle *hndl;
 ObjId hndlId;
@@ -198,22 +218,20 @@ ObjId hndlId;
 
 	//  specific handle cleanup
 
-	rbEntry = getObj(hndlMap, slot->addr);
-	hndl = rbPayload(rbEntry);
+	hndl = getObj(hndlMap, slot->addr);
 
 	switch (hndl->hndlType) {
 	case Hndl_cursor:
 		dbCloseCursor((void *)(hndl + 1), hndl->map);
 	}
 
-	destroyHandle (slot);
+	destroyHandle (hndlId);
 }
 
 //	bind handle for use in API call
 //	return false if handle closed
 
 DbStatus bindHandle(DbHandle *dbHndl, Handle **hndl) {
-RedBlack *rbEntry;
 HandleId *slot;
 ObjId hndlId;
 
@@ -223,13 +241,12 @@ ObjId hndlId;
 	if (!(*slot->latch & ALIVE_BIT))
 		return DB_ERROR_handleclosed;
 
-	rbEntry = getObj(hndlMap, slot->addr);
-	*hndl = rbPayload(rbEntry);
+	*hndl = getObj(hndlMap, slot->addr);
 
 	//	is there a DROP request for this arena?
 
 	if (~(*hndl)->map->arena->mutex[0] & ALIVE_BIT) {
-		destroyHandle (slot);
+		destroyHandle (hndlId);
 		return DB_ERROR_arenadropped;
 	}
 

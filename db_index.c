@@ -16,15 +16,15 @@ extern int maxType[8];
 
 void removeIdx(Handle *docHndl, SkipEntry *entry) {
 DocStore *docStore;
-uint64_t bits;
+ObjId hndlId;
 
 	docStore = (DocStore *)(docHndl + 1);
 
 	//	find the childId in our indexes skiplist
 	//	and return the handle
 
-	if ((bits = skipDel(docHndl->map, docStore->indexes->head, *entry->key)))
-		destroyHandle(slotHandle(bits));
+	if ((hndlId.bits = skipDel(docHndl->map, docStore->indexes->head, *entry->key)))
+		destroyHandle(hndlId);
 
 	return;
 

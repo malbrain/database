@@ -237,7 +237,7 @@ DbAddr left;
 	if( node->left.bits )
 		node = getObj(map,node->left);
 	else {
-		freeBlk(map, &slot);
+		freeBlk(map, slot);
 		--path->lvl;
 		return;
 	}
@@ -289,7 +289,7 @@ DbAddr left;
 		break;
 	 }
 
-	freeBlk(map, &slot);
+	freeBlk(map, slot);
 	getRb(map, *root)->red = 0;
 }
 
@@ -313,21 +313,23 @@ PathStk path[1];
 
 //	make new red/black entry
 
-RedBlack *rbNew (DbMap *map, void *key, uint32_t keyLen, uint32_t payload) {
+RedBlack *rbNew (DbMap *map, void *key, uint32_t keyLen, uint32_t payLen) {
 RedBlack *entry = NULL;
 DbAddr child;
 
-  if ((child.bits = allocBlk(map, sizeof(RedBlack) + keyLen + payload, true))) {
+  if ((child.bits = allocBlk(map, sizeof(RedBlack) + keyLen, true))) {
 	entry = getObj(map, child);
 	entry->keyLen = keyLen;
-	entry->payload = payload;
-	entry->addr.bits = child.bits;
 	memcpy (entry + 1, key, keyLen);
+
+	if (payLen)
+		entry->payLoad.bits = allocBlk(map, payLen, true);
   }
 #ifdef DEBUG
-	else
-		fprintf(stderr, "Out of Memory -- rbNew\n");
+  else
+	fprintf(stderr, "Out of Memory -- rbNew\n");
 #endif
+
   return entry;
 }
 

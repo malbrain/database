@@ -16,7 +16,7 @@ struct Handle_ {
 	DbMap *map;			// pointer to map, zeroed on close
 	FreeList *list;		// list of objects waiting to be recycled in frames
 	HndlCall *calls;	// in-use & garbage collection counters
-	DbAddr next;		// next entry in red/black handle tree
+	DbAddr next, prev;	// next and prev in red/black handle tree
 	uint16_t arenaIdx;	// arena handle table entry index
 	uint16_t listIdx;	// arena handle table entry index
 	uint16_t xtraSize;	// size of following structure
@@ -39,5 +39,5 @@ void closeHandle(DbHandle *hndl);
 Handle *getHandle(DbHandle *hndl);
 HandleId *slotHandle(uint64_t hndlBits);
 
-void destroyHandle(HandleId *slot);
+void destroyHandle(ObjId hndlId);
 

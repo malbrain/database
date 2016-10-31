@@ -76,7 +76,7 @@ uint64_t val;
 	  else
 		skip->bits = skipNode->next->bits;
 
-	  freeBlk(map, next);
+	  freeBlk(map, *next);
 	  return val;
 	}
 

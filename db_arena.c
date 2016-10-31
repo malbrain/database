@@ -24,7 +24,7 @@ DbMap *arenaRbMap(DbMap *parent, RedBlack *rbEntry) {
 DbMap **catalog, *map;
 ArenaDef *arenaDef;
 
-	arenaDef = rbPayload(rbEntry);
+	arenaDef = getObj(parent->db, rbEntry->payLoad);
 	writeLock(parent->childMaps->lock);
 
 	catalog = skipAdd(parent->db, parent->childMaps->head, arenaDef->id);
@@ -32,7 +32,7 @@ ArenaDef *arenaDef;
 	if ((map = *catalog))
 		waitNonZero(map->arena->type);
 	else
-		map = *catalog = openMap(parent, (char *)(rbEntry + 1), rbEntry->keyLen, arenaDef);
+		map = *catalog = openMap(parent, rbKey(rbEntry), rbEntry->keyLen, arenaDef);
 
 	writeUnlock(parent->childMaps->lock);
 	return map;
@@ -57,7 +57,7 @@ DbMap *map;
 	// with an arenaDef payload
 
 	if ((rbEntry = rbNew(parent->db, name, nameLen, sizeof(ArenaDef))))
-		arenaDef = rbPayload(rbEntry);
+		arenaDef = getObj(parent->db, rbEntry->payLoad);
 	else
 		return NULL;
 
@@ -398,8 +398,12 @@ DbAddr slot;
 	return slot.bits;
 }
 
-void freeBlk(DbMap *map, DbAddr *addr) {
-	addSlotToFrame(map, &map->arena->freeBlk[addr->type], NULL, addr->bits);
+void freeBlk(DbMap *map, DbAddr addr) {
+	addSlotToFrame(map, &map->arena->freeBlk[addr.type], NULL, addr.bits);
+}
+
+void freeId(DbMap *map, ObjId objId) {
+	addSlotToFrame(map, &map->arena->freeBlk[ObjIdType], NULL, objId.bits);
 }
 
 uint64_t allocBlk(DbMap *map, uint32_t size, bool zeroit) {
