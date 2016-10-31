@@ -2,6 +2,7 @@
 #include "db_txn.h"
 #include "db_malloc.h"
 #include "db_object.h"
+#include "db_handle.h"
 #include "db_arena.h"
 #include "db_index.h"
 #include "db_map.h"
@@ -74,7 +75,7 @@ DbMap *map;
 		return DB_ERROR_createdatabase;
 
 	*map->arena->type = Hndl_database;
-	*hndl->handle = makeHandle(map, sizeof(Txn), ObjIdType, Hndl_database);
+	hndl->hndlBits = makeHandle(map, sizeof(Txn), ObjIdType, Hndl_database);
 	return DB_OK;
 }
 
@@ -118,9 +119,9 @@ Handle *ds;
 		releaseHandle(database);
 
 	map->arena->type[0] = Hndl_docStore;
-	*hndl->handle = makeHandle(map, sizeof(DocStore), MAX_blk, Hndl_docStore);
+	hndl->hndlBits = makeHandle(map, sizeof(DocStore), MAX_blk, Hndl_docStore);
 
-	ds = db_memObj(*hndl->handle);
+	ds = getHandle(hndl);
 	docStore = (DocStore *)(ds + 1);
 	initLock(docStore->indexes->lock);
 
@@ -163,7 +164,7 @@ DbObject *obj;
 	  return DB_ERROR_createindex;
 	}
 
-	*hndl->handle = makeHandle(map, 0, maxType[type], type);
+	hndl->hndlBits = makeHandle(map, 0, maxType[type], type);
 
 	if (*map->arena->type)
 		goto createXit;
@@ -174,7 +175,7 @@ DbObject *obj;
 	map->arenaDef->partialAddr = params[IdxKeyPartial].int64Val;
 	map->arenaDef->specAddr = params[IdxKeySpec].int64Val;
 
-	index = db_memObj(*hndl->handle);
+	index = getHandle(hndl);
 
 	switch (type) {
 	  case Hndl_artIndex:
@@ -200,7 +201,7 @@ createXit:
 //	create new cursor
 
 DbStatus createCursor(DbHandle hndl[1], DbHandle idxHndl[1], ObjId txnId, Params *params) {
-Handle *index, *newIdx;
+Handle *index, *cursorHndl;
 uint64_t timestamp;
 DbCursor *cursor;
 DbStatus stat;
@@ -217,21 +218,21 @@ Txn *txn;
 	} else
 		timestamp = allocateTimestamp(index->map->db, en_reader);
 
-	*hndl->handle = makeHandle(index->map, cursorSize[*index->map->arena->type], 0, Hndl_cursor);
+	hndl->hndlBits = makeHandle(index->map, cursorSize[*index->map->arena->type], 0, Hndl_cursor);
 
-	newIdx = db_memObj(*hndl->handle);
-	cursor = (DbCursor *)(newIdx + 1);
+	cursorHndl = getHandle(hndl);
+	cursor = (DbCursor *)(cursorHndl + 1);
 	cursor->noDocs = params[NoDocs].boolVal;
 	cursor->txnId.bits = txnId.bits;
 	cursor->ts = timestamp;
 
 	switch (*index->map->arena->type) {
 	case Hndl_artIndex:
-		stat = artNewCursor(index, (ArtCursor *)cursor);
+		stat = artNewCursor((ArtCursor *)cursor, index->map);
 		break;
 
 	case Hndl_btree1Index:
-		stat = btree1NewCursor(index, (Btree1Cursor *)cursor);
+		stat = btree1NewCursor((Btree1Cursor *)cursor, index->map);
 		break;
 	}
 
@@ -239,7 +240,7 @@ Txn *txn;
 	return stat;
 }
 
-DbStatus destoryCursor(DbHandle hndl[1]) {
+DbStatus closeCursor(DbHandle hndl[1]) {
 DbCursor *cursor;
 DbStatus stat;
 Handle *index;
@@ -247,23 +248,11 @@ Handle *index;
 	if ((stat = bindHandle(hndl, &index)))
 		return stat;
 
-	lockAddr (hndl->handle);
 	cursor = (DbCursor *)(index + 1);
-
-	switch (*index->map->arena->type) {
-	case Hndl_artIndex:
-		stat = artReturnCursor(index, cursor);
-		break;
-
-	case Hndl_btree1Index:
-		stat = btree1ReturnCursor(index, cursor);
-		break;
-	}
+	stat = dbCloseCursor (cursor, index->map);
 
 	releaseHandle(index);
-	returnHandle(index);
-
-	*hndl->handle = 0;
+	closeHandle(hndl);
 	return DB_OK;
 }
 
@@ -335,7 +324,7 @@ DbStatus keyAtCursor(DbHandle *hndl, uint8_t **key, uint32_t *keyLen) {
 DbCursor *cursor;
 DbStatus stat;
 
-	cursor = (DbCursor *)((Handle *)db_memObj(*hndl->handle) + 1);
+	cursor = (DbCursor *)(getHandle(hndl) + 1);
 
 	switch (cursor->state) {
 	case CursorPosAt:
@@ -356,7 +345,7 @@ DbCursor *cursor;
 uint32_t keyLen;
 DbStatus stat;
 
-	cursor = (DbCursor *)((Handle *)db_memObj(*hndl->handle) + 1);
+	cursor = (DbCursor *)(getHandle(hndl) + 1);
 	keyLen = cursor->keyLen;
 
 	switch (cursor->state) {
@@ -419,7 +408,7 @@ DbStatus stat;
 	if ((stat = bindHandle(oldHndl, &hndl)))
 		return stat;
 
-	*newHndl->handle = makeHandle(hndl->map, hndl->xtraSize, hndl->maxType, hndl->hndlType);
+	newHndl->hndlBits = makeHandle(hndl->map, hndl->xtraSize, hndl->maxType, hndl->hndlType);
 	return DB_OK;
 }
 
@@ -586,7 +575,7 @@ DbStatus stat;
 DbStatus setCursorMax(DbHandle hndl[1], uint8_t *max, uint32_t maxLen) {
 DbCursor *cursor;
 
-	cursor = (DbCursor *)((Handle *)db_memObj(*hndl->handle) + 1);
+	cursor = (DbCursor *)(getHandle(hndl) + 1);
 	cursor->maxKey = max;
 	cursor->maxKeyLen = maxLen;
 	return DB_OK;
@@ -595,7 +584,7 @@ DbCursor *cursor;
 DbStatus setCursorMin(DbHandle hndl[1], uint8_t *min, uint32_t minLen) {
 DbCursor *cursor;
 
-	cursor = (DbCursor *)((Handle *)db_memObj(*hndl->handle) + 1);
+	cursor = (DbCursor *)(getHandle(hndl) + 1);
 	cursor->minKey = min;
 	cursor->minKeyLen = minLen;
 	return DB_OK;

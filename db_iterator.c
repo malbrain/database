@@ -1,5 +1,6 @@
 #include "db.h"
 #include "db_object.h"
+#include "db_handle.h"
 #include "db_arena.h"
 #include "db_map.h"
 #include "db_txn.h"
@@ -21,9 +22,9 @@ Txn *txn;
 	if ((stat = bindHandle(docHndl, &docStore)))
 		return stat;
 
-	*hndl->handle = makeHandle(docStore->map, sizeof(Iterator), 0, Hndl_iterator);
+	hndl->hndlBits = makeHandle(docStore->map, sizeof(Iterator), 0, Hndl_iterator);
 
-	it = (Iterator *)((Handle *)db_memObj(*hndl->handle) + 1);
+	it = (Iterator *)(getHandle(hndl) + 1);
 
 	if ((txnId.bits = txnBits)) {
 		txn = fetchIdSlot(docStore->map->db, txnId);
@@ -33,20 +34,6 @@ Txn *txn;
 
 	it->txnId.bits = txnId.bits;
 	releaseHandle(docStore);
-	return DB_OK;
-}
-
-DbStatus destroyIterator(DbHandle hndl[1]) {
-Handle *docStore;
-DbStatus stat;
-Iterator *it;
-
-	if ((stat = bindHandle(hndl, &docStore)))
-		return stat;
-
-	releaseHandle(docStore);
-	returnHandle(docStore);
-	*hndl->handle = 0;
 	return DB_OK;
 }
 

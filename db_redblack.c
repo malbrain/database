@@ -6,8 +6,6 @@
 
 #define getRb(x,y)	((RedBlack *)getObj(x,y))
 
-RedBlack *rbNext(DbMap *map, PathStk *path);
-
 void rbInsert (DbMap *map, DbAddr *root, DbAddr slot, PathStk *path);
 void rbRemove (DbMap *map, DbAddr *root, PathStk *path);
 

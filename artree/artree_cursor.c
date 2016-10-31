@@ -7,12 +7,12 @@
 
 //	TODO: lock record
 
-DbStatus artNewCursor(Handle *index, ArtCursor *cursor) {
+DbStatus artNewCursor(ArtCursor *cursor, DbMap *map) {
 	cursor->base->key = cursor->key;
 	return DB_OK;
 }
 
-DbStatus artReturnCursor(Handle *index, DbCursor *dbCursor) {
+DbStatus artReturnCursor(DbCursor *dbCursor, DbMap *map) {
 	return DB_OK;
 }
 

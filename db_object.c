@@ -1,5 +1,6 @@
 #include "db.h"
 #include "db_object.h"
+#include "db_handle.h"
 #include "db_arena.h"
 #include "db_map.h"
 
@@ -104,105 +105,6 @@ int idx, max;
 
 	unlockLatch(array->latch);
 	return array->maxidx * 64 + 1;
-}
-
-//	make handle from map pointer
-
-uint64_t makeHandle(DbMap *map, uint32_t xtraSize, uint32_t listMax, HandleType type) {
-DbAddr *array = map->handleArray;
-uint64_t *inUse;
-DbAddr *addr;
-Handle *hndl;
-uint32_t amt;
-uint16_t idx;
-
-	amt = sizeof(Handle) + xtraSize;
-	idx = arrayAlloc(map, array, sizeof(DbAddr));
-	addr = arrayElement(map, array, idx, sizeof(DbAddr));
-
-	if ((addr->bits = db_rawAlloc(amt, false)))
-		hndl = db_memObj(addr->bits);
-	else
-		return 0;
-
-	memset (hndl, 0, amt);
-	hndl->xtraSize = xtraSize;	// size of following structure
-	hndl->maxType = listMax;	// number of list entries
-	hndl->hndlType = type;
-	hndl->arenaIdx = idx;
-	hndl->map = map;
-
-	if (listMax) {
-		idx = arrayAlloc(map, map->arena->listArray, sizeof(FreeList) * listMax);
-		inUse = arrayBlk(map, map->arena->listArray, idx);
-		hndl->list = (FreeList *)(inUse + 1) + ((idx % 64) - 1) * listMax;
-		hndl->listIdx = idx;
-	}
-
-	idx = arrayAlloc(map, map->arena->hndlCalls, sizeof(HndlCall));
-	hndl->calls = arrayElement(map, map->arena->hndlCalls, idx, sizeof(HndlCall));
-	hndl->calls->entryIdx = idx;
-	return addr->bits;
-}
-
-//	return handle
-
-void returnHandle(Handle  *hndl) {
-uint64_t *inUse;
-
-	lockLatch(hndl->map->handleArray->latch);
-
-	// release freeList
-
-	if (hndl->list) {
-		lockLatch(hndl->map->arena->listArray->latch);
-		inUse = arrayBlk(hndl->map, hndl->map->arena->listArray, hndl->listIdx);
-		inUse[0] &= ~(1ULL << (hndl->listIdx % 64));
-		unlockLatch(hndl->map->arena->listArray->latch);
-	}
-
-	// clear handle in-use bit
-
-	inUse = arrayBlk(hndl->map, hndl->map->handleArray, hndl->arenaIdx);
-	inUse[0] &= ~(1ULL << (hndl->arenaIdx % 64));
-	unlockLatch(hndl->map->handleArray->latch);
-}
-
-//	bind handle for use in API call
-//	return false if arena dropped
-
-DbStatus bindHandle(DbHandle *dbHndl, Handle **hndl) {
-
-	lockAddr(dbHndl->handle);
-
-	if (!*dbHndl->handle)
-		return DB_ERROR_handleclosed;
-
-	*hndl = db_memObj(*dbHndl->handle);
-
-	//	increment count of active binds
-	//	and capture timestamp if we are the
-	//	first handle bind
-
-	if (atomicAdd32((*hndl)->calls->entryCnt, 1) == 1)
-		(*hndl)->calls->entryTs = atomicAdd64(&(*hndl)->map->arena->nxtTs, 1);
-
-	//	is there a DROP request active?
-
-	if (~(*hndl)->map->arena->mutex[0] & ALIVE_BIT) {
-		(*hndl)->map = NULL;
-		releaseHandle((*hndl));
-		return DB_ERROR_arenadropped;
-	}
-
-	unlockAddr(dbHndl->handle);
-	return DB_OK;
-}
-
-//	release handle binding
-
-void releaseHandle(Handle *hndl) {
-	atomicAdd32(hndl->calls->entryCnt, -1);
 }
 
 //	peel off 64 bit suffix value from key

@@ -105,8 +105,8 @@ typedef struct {
 
 #define artIndexAddr(map)((ArtIndex *)(map->arena + 1))
 
-DbStatus artNewCursor(Handle *index, ArtCursor *cursor);
-DbStatus artReturnCursor(Handle *index, DbCursor *dbCursor);
+DbStatus artNewCursor(ArtCursor *cursor, DbMap *map);
+DbStatus artReturnCursor(DbCursor *dbCursor, DbMap *map);
 
 DbStatus artLeftKey(DbCursor *cursor, DbMap *map);
 DbStatus artRightKey(DbCursor *cursor, DbMap *map);

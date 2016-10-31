@@ -27,7 +27,6 @@ typedef struct {
 //  arena creation specification
 
 typedef struct {
-	DbAddr node;				// database redblack node
 	uint64_t id;				// child arena id in parent
 	uint64_t childId;			// highest child Id issued
 	uint64_t initSize;			// initial arena size
@@ -74,7 +73,6 @@ struct DbMap_ {
 #endif
 	DbArena *arena;			// ptr to mapped seg zero
 	DbMap *parent, *db;		// ptr to parent and database
-	DbAddr handleArray[1];	// handle array for our instance
 	SkipHead childMaps[1];	// skipList of child DbMaps
 	char path[MAX_path];	// file database path
 	ArenaDef *arenaDef;		// our arena definition

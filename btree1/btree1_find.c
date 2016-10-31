@@ -47,6 +47,7 @@ DbStatus stat;
 
 		memcpy (keyptr(cursor->page,1), foundKey + keypre(foundKey), keylen(foundKey));
 
+		btree1UnlockPage(set->page, Btree1_lockRead);
 		cursor->base->key = keyptr(cursor->page, 1);
 		cursor->base->keyLen = keylen(foundKey);
 		cursor->slotIdx = 1;

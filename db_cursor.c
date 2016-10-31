@@ -7,6 +7,24 @@
 #include "btree1/btree1.h"
 #include "artree/artree.h"
 
+//	release cursor resources
+
+DbStatus dbCloseCursor(DbCursor *cursor, DbMap *map) {
+DbStatus stat = DB_ERROR_indextype;
+
+	switch (*map->arena->type) {
+	case Hndl_artIndex:
+		stat = artReturnCursor(cursor, map);
+		break;
+
+	case Hndl_btree1Index:
+		stat = btree1ReturnCursor(cursor, map);
+		break;
+	}
+
+	return stat;
+}
+
 //	position cursor
 
 DbStatus dbFindKey(DbCursor *cursor, DbMap *map, uint8_t *key, uint32_t keyLen, bool onlyOne) {

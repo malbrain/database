@@ -108,7 +108,7 @@ FILE *in;
 
 	idxType = indexType[args->idxType];
 	idxName = indexNames[args->idxType];
-	*docHndl->handle = 0;
+	docHndl->hndlBits = 0;
 
 	txnId.bits = 0;
 
@@ -133,7 +133,7 @@ FILE *in;
 		if ((stat = createIndex(index, parent, idxType, idxName, strlen(idxName), args->params)))
 		  fprintf(stderr, "createIndex Error %d name: %s\n", stat, idxName), exit(0);
 
-		if (docHndl->handle->bits)
+		if (docHndl->hndlBits)
 			addIndexes(docHndl);
 
 		if( in = fopen (args->inFile, "rb") )
@@ -172,7 +172,7 @@ FILE *in;
 		if ((stat = createIndex(index, parent, idxType, idxName, strlen(idxName), args->params)))
 		  fprintf(stderr, "createIndex Error %d name: %s\n", stat, idxName), exit(0);
 
-		if (*docHndl->handle)
+		if (docHndl->hndlBits)
 			addIndexes(docHndl);
 
 		if( in = fopen (args->inFile, "r") )
@@ -185,7 +185,7 @@ FILE *in;
 #endif
 			  line++;
 
-			  if (*docHndl->handle) {
+			  if (docHndl->hndlBits) {
 				if ((stat = storeDoc (docHndl, key, len, &objId, txnId.bits)))
 				  fprintf(stderr, "Add Doc Error %d Line: %lld\n", stat, line), exit(0);
 			  } else
@@ -212,7 +212,7 @@ FILE *in;
 		if ((stat = createIndex(index, parent, idxType, idxName, strlen(idxName), args->params)))
 		  fprintf(stderr, "createIndex Error %d name: %s\n", stat, idxName), exit(0);
 
-		if (*docHndl->handle)
+		if (docHndl->hndlBits)
 			addIndexes(docHndl);
 
 		createCursor (cursor, index, txnId, args->params);
@@ -272,7 +272,7 @@ FILE *in;
 		if ((stat = createIndex(index, parent, idxType, idxName, strlen(idxName), args->params)))
 		  fprintf(stderr, "createIndex Error %d name: %s\n", stat, idxName), exit(0);
 
-		if (*docHndl->handle)
+		if (docHndl->hndlBits)
 			addIndexes(docHndl);
 
 		// create forward cursor
@@ -330,7 +330,7 @@ FILE *in;
 		if ((stat = createIndex(index, parent, idxType, idxName, strlen(idxName), args->params)))
 		  fprintf(stderr, "createIndex Error %d name: %s\n", stat, idxName), exit(0);
 
-		if (*docHndl->handle)
+		if (docHndl->hndlBits)
 			addIndexes(docHndl);
 
 		// create reverse cursor

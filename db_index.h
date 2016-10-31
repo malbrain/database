@@ -38,7 +38,6 @@ typedef struct {
 } DbCursor;
 
 typedef struct {
-	RWLock lock[1];		// index list r/w lock
 	SkipHead indexes[1];	// index handles by Id
 	uint64_t childId;		// highest child installed
 	uint32_t idxCnt;		// number of indexes
@@ -56,3 +55,5 @@ DbStatus dbNextDoc(DbCursor *cursor, DbMap *map);
 DbStatus dbPrevDoc(DbCursor *cursor, DbMap *map);
 DbStatus dbRightKey(DbCursor *cursor, DbMap *map);
 DbStatus dbLeftKey(DbCursor *cursor, DbMap *map);
+
+DbStatus dbCloseCursor(DbCursor *cursor, DbMap *map);

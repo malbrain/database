@@ -62,8 +62,6 @@ DbMap *map;
 		return NULL;
 
 	arenaDef->id = atomicAdd64(&arenaDef->childId, CHILDID_INCR);
-	arenaDef->node.bits = rbEntry->addr.bits;
-
 	arenaDef->initSize = params[InitSize].int64Val;
 	arenaDef->onDisk = params[OnDisk].boolVal;
 	arenaDef->useTxn = params[UseTxn].boolVal;
@@ -234,7 +232,8 @@ uint32_t bits;
 	initSize &= -65536;
 
 #ifdef DEBUG
-	fprintf(stderr, "InitMap %s at %llu bytes\n", map->path, initSize);
+	if (map->pathLen)
+		fprintf(stderr, "InitMap %s at %llu bytes\n", map->path, initSize);
 #endif
 #ifdef _WIN32
 	_BitScanReverse((unsigned long *)&bits, initSize - 1);

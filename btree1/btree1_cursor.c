@@ -1,27 +1,32 @@
 #include "../db.h"
 #include "../db_object.h"
+#include "../db_handle.h"
 #include "../db_arena.h"
 #include "../db_index.h"
 #include "../db_frame.h"
 #include "../db_map.h"
 #include "btree1.h"
 
-DbStatus btree1NewCursor(Handle *index, Btree1Cursor *cursor) {
-Btree1Index *btree1 = btree1index(index->map);
-Btree1Page *first;
+DbStatus btree1NewCursor(Btree1Cursor *cursor, DbMap *map) {
+Btree1Index *btree1 = btree1index(map);
+uint32_t size;
 
-	cursor->pageAddr.bits = btree1NewPage(index, 0);
-	cursor->page = getObj(index->map, cursor->pageAddr);
+	//	allocate cursor page buffer
+
+	size = btree1->pageSize << btree1->leafXtra;
+
+	cursor->pageAddr.bits = db_rawAlloc(size, false);
+	cursor->page = db_memObj(cursor->pageAddr.bits);
 	cursor->slotIdx = 0;
 	return DB_OK;
 }
 
-DbStatus btree1ReturnCursor(Handle *index, DbCursor *dbCursor) {
+DbStatus btree1ReturnCursor(DbCursor *dbCursor, DbMap *map) {
 Btree1Cursor *cursor = (Btree1Cursor *)dbCursor;
 
 	// return cursor page buffer
 
-	addSlotToFrame(index->map, index->list[cursor->pageAddr.type].free, NULL, cursor->pageAddr.bits);
+	db_memFree(cursor->pageAddr.bits);
 	return DB_OK;
 }
 

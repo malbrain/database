@@ -19,12 +19,15 @@ typedef struct RedBlack_ {
 } RedBlack;
 
 #define rbPayload(entry) ((void *)((char *)(entry + 1) + entry->keyLen))
+#define rbKey(entry) ((char *)(entry + 1))
 
 typedef DbStatus (*RbFcnPtr)(DbMap *map, RedBlack *entry, void *params);
 
 DbStatus rbList(DbMap *map, DbAddr *root, RbFcnPtr fcn, void *key, uint32_t keyLen, void *params);
 RedBlack *rbFind(DbMap *parent, DbAddr *childNames, char *name, uint32_t nameLen, PathStk *path);
 RedBlack *rbNew (DbMap *map, void *key, uint32_t keyLen, uint32_t payload);
+RedBlack *rbNext(DbMap *map, PathStk *path); 
+
 void rbAdd(DbMap *map, DbAddr *root, RedBlack *entry, PathStk *path);
 bool rbDel (DbMap *map, DbAddr *root, void *key, uint32_t keylen);
 

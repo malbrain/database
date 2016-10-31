@@ -10,35 +10,10 @@ enum ObjType {
 };
 
 typedef struct {
-	DbAddr tail[1];		// frame of oldest nodes waiting to be recycled
 	DbAddr head[1];		// frame of newest nodes waiting to be recycled
+	DbAddr tail[1];		// frame of oldest nodes waiting to be recycled
 	DbAddr free[1];		// frames of available free objects
 } FreeList;
-
-//  arena api entry counts
-//	for array list of handles
-
-typedef struct {
-	uint64_t entryTs;		// time stamp on first api entry
-	uint32_t entryCnt[1];	// count of running api calls
-	uint16_t entryIdx;		// entry Array index
-} HndlCall;
-
-//	Local Handle for an arena
-
-struct Handle_ {
-	DbMap *map;			// pointer to map, zeroed on close
-#ifdef ENFORCE_CLONING
-	DbHandle *addr;		// user's DbHandle location address
-#endif
-	FreeList *list;		// list of objects waiting to be recycled in frames
-	HndlCall *calls;	// in-use & garbage collection counters
-	uint16_t arenaIdx;	// arena handle table entry index
-	uint16_t listIdx;	// arena handle table entry index
-	uint16_t xtraSize;	// size of following structure
-	uint8_t hndlType;	// type of handle
-	uint8_t maxType;	// number of arena list entries
-};
 
 /**
  * even =>  reader timestamp
@@ -86,15 +61,10 @@ bool isCommitted(uint64_t ts);
 
 uint32_t get64(uint8_t *key, uint32_t len, uint64_t *result);
 uint32_t store64(uint8_t *key, uint32_t keylen, uint64_t what);
-uint64_t makeHandle(DbMap *map, uint32_t xtraSize, uint32_t listMax, HandleType type);
-void closeHandle(Handle  *hndl);
-
-DbStatus bindHandle(DbHandle *dbHndl, Handle **hndl);
-void releaseHandle(Handle *hndl);
 
 void *arrayElement(DbMap *map, DbAddr *array, uint16_t idx, size_t size);
 uint16_t arrayAlloc(DbMap *map, DbAddr *array, size_t size);
-uint64_t scanHandleTs(DbMap *map);
+uint64_t *arrayBlk(DbMap *map, DbAddr *array, uint32_t idx);
 
 SkipEntry *skipSearch(SkipEntry *array, int high, uint64_t key);
 uint64_t skipDel(DbMap *map, DbAddr *skip, uint64_t key);

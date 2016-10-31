@@ -1,6 +1,7 @@
 #include "db.h"
 #include "db_txn.h"
 #include "db_object.h"
+#include "db_handle.h"
 #include "db_arena.h"
 #include "db_index.h"
 #include "db_map.h"
@@ -13,28 +14,26 @@ extern int maxType[8];
 //	remove a dropped index from the docStore indexes skiplist
 //	call with arena child skiplist entry
 
-void removeIdx(Handle *hndl, SkipEntry *entry) {
+void removeIdx(Handle *docHndl, SkipEntry *entry) {
 DocStore *docStore;
-Handle *index;
 uint64_t bits;
 
-	docStore = (DocStore *)(hndl + 1);
+	docStore = (DocStore *)(docHndl + 1);
 
 	//	find the childId in our indexes skiplist
 	//	and return the handle
 
-	if ((bits = skipDel(hndl->map, docStore->indexes->head, *entry->key)))
-		index = db_memObj(bits);
-	else
-		return;
+	if ((bits = skipDel(docHndl->map, docStore->indexes->head, *entry->key)))
+		destroyHandle(slotHandle(bits));
 
-	returnHandle(index);
+	return;
+
 }
 
-//  open and install index DbHandle in hndl cache
+//  open and install index DbHandle in docHndl cache
 //	call with docStore handle and arenaDef address.
 
-void installIdx(Handle *hndl, SkipEntry *entry) {
+void installIdx(Handle *docHndl, SkipEntry *entry) {
 uint64_t *hndlAddr;
 DocStore *docStore;
 RedBlack *rbEntry;
@@ -42,14 +41,14 @@ DbAddr rbAddr;
 DbMap *child;
 DbAddr addr;
 
-	docStore = (DocStore *)(hndl + 1);
+	docStore = (DocStore *)(docHndl + 1);
 
-	hndlAddr = skipAdd(hndl->map, docStore->indexes->head, *entry->key);
+	hndlAddr = skipAdd(docHndl->map, docStore->indexes->head, *entry->key);
 
 	rbAddr.bits = *entry->val;
-	rbEntry = getObj(hndl->map->parent->db, rbAddr);
+	rbEntry = getObj(docHndl->map->parent->db, rbAddr);
 
-	child = arenaRbMap(hndl->map, rbEntry);
+	child = arenaRbMap(docHndl->map, rbEntry);
 
 	*hndlAddr = makeHandle(child, 0, maxType[*child->arena->type], *child->arena->type);
 }
@@ -57,8 +56,8 @@ DbAddr addr;
 //	create new index handles based on children of the docStore.
 //	call with docStore handle.
 
-DbStatus installIndexes(Handle *hndl) {
-ArenaDef *arenaDef = hndl->map->arenaDef;
+DbStatus installIndexes(Handle *docHndl) {
+ArenaDef *arenaDef = docHndl->map->arenaDef;
 DocStore *docStore;
 uint64_t maxId = 0;
 SkipNode *skipNode;
@@ -66,7 +65,7 @@ SkipEntry *entry;
 DbAddr *next;
 int idx;
 
-	docStore = (DocStore *)(hndl + 1);
+	docStore = (DocStore *)(docHndl + 1);
 
 	if (docStore->childId >= arenaDef->childId)
 		return DB_OK;
@@ -83,7 +82,7 @@ int idx;
 	//	most recent first
 
 	while (next->addr) {
-		skipNode = getObj(hndl->map->db, *next);
+		skipNode = getObj(docHndl->map->db, *next);
 		idx = next->nslot;
 
 		if (!maxId)
@@ -92,10 +91,10 @@ int idx;
 		while (idx--)
 		  if (*skipNode->array[idx].key > docStore->childId) {
 			if (*skipNode->array[idx].key & CHILDID_DROP) {
-			  removeIdx(hndl, &skipNode->array[idx]);
+			  removeIdx(docHndl, &skipNode->array[idx]);
 			  docStore->idxCnt--;
 			} else {
-			  installIdx(hndl, &skipNode->array[idx]);
+			  installIdx(docHndl, &skipNode->array[idx]);
 			  docStore->idxCnt++;
 			}
 		  } else
@@ -113,8 +112,9 @@ int idx;
 //	install index key for a document
 //	call with docStore handle
 
-DbStatus installIndexKey(Handle *hndl, SkipEntry *entry, Doc *doc) {
+DbStatus installIndexKey(Handle *docHndl, SkipEntry *entry, Doc *doc) {
 uint8_t key[MAX_key];
+DbHandle hndl[1];
 uint64_t *verPtr;
 DbObject *spec;
 Handle *index;
@@ -122,7 +122,8 @@ DbStatus stat;
 DbAddr addr;
 int keyLen;
 
-	index = db_memObj(*entry->val);
+	hndl->hndlBits = *entry->val;
+	index = getHandle(hndl);
 
 	//  bind the dbIndex handle
 	//	and capture timestamp if
@@ -149,7 +150,7 @@ int keyLen;
 	//	add the version for the indexId
 	//	to the verKeys skiplist
 
-	verPtr = skipAdd(hndl->map, doc->verKeys, *entry->key);
+	verPtr = skipAdd(docHndl->map, doc->verKeys, *entry->key);
 	*verPtr = doc->version;
 
 	switch (*index->map->arena->type) {
@@ -169,30 +170,30 @@ int keyLen;
 //	install keys for a document insert
 //	call with docStore handle
 
-DbStatus installIndexKeys(Handle *hndl, Doc *doc) {
+DbStatus installIndexKeys(Handle *docHndl, Doc *doc) {
 SkipNode *skipNode;
 DocStore *docStore;
 DbAddr *next;
 DbStatus stat;
 int idx;
 
-	docStore = (DocStore *)(hndl + 1);
+	docStore = (DocStore *)(docHndl + 1);
 
 	readLock (docStore->indexes->lock);
 	next = docStore->indexes->head;
 
-	doc->verKeys->bits = skipInit(hndl->map, docStore->idxCnt);
+	doc->verKeys->bits = skipInit(docHndl->map, docStore->idxCnt);
 
 	//	scan indexes skiplist of index handles
 	//	and install keys for document
 
 	while (next->addr) {
-	  skipNode = getObj(hndl->map, *next);
+	  skipNode = getObj(docHndl->map, *next);
 	  idx = next->nslot;
 
 	  while (idx--) {
 		if (~*skipNode->array[idx].key & CHILDID_DROP)
-		  if ((stat = installIndexKey(hndl, &skipNode->array[idx], doc)))
+		  if ((stat = installIndexKey(docHndl, &skipNode->array[idx], doc)))
 			return stat;
 	  }
 

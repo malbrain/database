@@ -124,11 +124,11 @@ typedef struct {
 	uint32_t size;
 } DbObject;
 
+// user's DbHandle
+//	contains the HandleId ObjId bits
+
 typedef struct {
-	uint64_t handle[1];
-#ifdef ENFORCE_CLONING
-	void *addr;
-#endif
+	uint64_t hndlBits;
 } DbHandle;
 
 // cursor positioning operations
