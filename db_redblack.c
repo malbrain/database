@@ -33,21 +33,15 @@ int ans;
 //	return NULL if not found.
 
 RedBlack *rbFind(DbMap *map, DbAddr *root, char *key, uint32_t len, PathStk *path) {
-RedBlack *node = NULL;
 DbAddr slot = *root;
 int rbcmp;
 
 	path->lvl = 0;
 
-	while (slot.addr) {
-		if (path)
-			path->entry[path->lvl].bits = slot.bits;
-
-		node = getObj(map,slot);
+	while ((path->entry[path->lvl].bits = slot.addr)) {
+		RedBlack *node = getObj(map,slot);
 		rbcmp = rbKeyCmp (node, key, len);
-
-		if (path)
-			path->entry[path->lvl].rbcmp = rbcmp;
+		path->entry[path->lvl].rbcmp = rbcmp;
 
 		if (rbcmp == 0)
 			return node;
@@ -57,8 +51,7 @@ int rbcmp;
 		else
 			slot.bits = node->right.bits;
 
-		if (path)
-			path->lvl++;
+		path->lvl++;
 	}
 
 	return NULL;
@@ -319,7 +312,9 @@ DbAddr child;
 
   if ((child.bits = allocBlk(map, sizeof(RedBlack) + keyLen, true))) {
 	entry = getObj(map, child);
+	entry->addr.bits = child.bits;
 	entry->keyLen = keyLen;
+
 	memcpy (entry + 1, key, keyLen);
 
 	if (payLen)

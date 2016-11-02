@@ -57,6 +57,18 @@ DbMap *map;
 	return obj;
 }
 
+DbStatus dropArena(DbHandle hndl[1], bool dropDefinitions) {
+Handle *arena;
+DbStatus stat;
+
+  if ((stat = bindHandle(hndl, &arena)))
+	return stat;
+
+  dropMap(arena->map);
+  releaseHandle(arena);
+  return stat;
+}
+
 DbStatus openDatabase(DbHandle hndl[1], char *name, uint32_t nameLen, Params *params) {
 ArenaDef arenaDef[1];
 DbMap *map;

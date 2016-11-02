@@ -31,8 +31,10 @@ void yield() {
 
 //  assemble filename path
 
-int getPath(char *path, int max, char *name, int len, DbMap *parent) {
+int getPath(char *path, int max, char *name, int len, DbMap *parent, uint64_t id) {
+char buff[24];
 int off = 0;
+int amt = sizeof(buff);
 
 	//  start with parent name
 
@@ -42,8 +44,22 @@ int off = 0;
 		path[off++] = '.';
 	}
 
+	//	append arena name
+
 	memcpy(path + off, name, len);
 	off += len;
+
+	//	append child ID
+
+	do buff[--amt] = id % 10 | '0';
+	while (id /= 10);
+
+	if (parent) {
+		path[off++] = '-';
+		memcpy (path + off, buff + amt, sizeof(buff) - amt);
+		off += sizeof(buff) - amt;
+	}
+
 	path[off] = 0;
 	return off;
 }
@@ -52,7 +68,7 @@ int off = 0;
 HANDLE openPath(char *path) {
 HANDLE hndl;
 
-	hndl = CreateFile(path, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+	hndl = CreateFile(path, GENERIC_READ | GENERIC_WRITE | DELETE, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 
 	if (hndl == INVALID_HANDLE_VALUE) {
 		fprintf(stderr, "Unable to create/open %s, error = %d\n", path, (int)GetLastError());
@@ -316,3 +332,22 @@ bool fileExists(char *path) {
 	return !access(path, F_OK);
 #endif
 }
+
+#ifdef _WIN32
+void deleteMap(DbMap *map) {
+FILE_DISPOSITION_INFO dispInfo[1];
+FILE_RENAME_INFO renameInfo[1];
+
+	memset (renameInfo, 0, sizeof(renameInfo));
+	SetFileInformationByHandle (map->hndl, FileRenameInfo, renameInfo, sizeof(renameInfo));
+
+	memset (dispInfo, 0, sizeof(dispInfo));
+	dispInfo->DeleteFile = TRUE;
+	SetFileInformationByHandle (map->hndl, FileDispositionInfo, dispInfo, sizeof(dispInfo));
+}
+#else
+void deleteMap(DbMap *map) {
+
+	unlink(map->path);
+}
+#endif

@@ -104,7 +104,7 @@ int32_t amt = 0;
 #endif
 
 	map = db_malloc(sizeof(DbMap) + arenaDef->localSize, true);
-	map->pathLen = getPath(map->path, MAX_path, name, nameLen, parent);
+	map->pathLen = getPath(map->path, MAX_path, name, nameLen, parent, arenaDef->id / 2);
 
 	if ((map->parent = parent))
 		map->db = parent->db;
@@ -521,4 +521,15 @@ ObjId objId;
 	objId.idx = idx;
 	unlockLatch(list[ObjIdType].free->latch);
 	return objId.bits;
+}
+
+// drop an arena and recursively its children
+
+void dropMap(DbMap *map) {
+
+	lockLatch(map->arena->mutex);
+	*map->arena->mutex &= ~ALIVE_BIT;
+
+	deleteMap(map);
+
 }

@@ -112,11 +112,12 @@ DbMap *initArena (DbMap *map, ArenaDef *arenaDef);
 void* mapMemory(DbMap *map, uint64_t offset, uint64_t size, uint32_t segNo);
 void unmapSeg(DbMap *map, uint32_t segNo);
 bool mapSeg(DbMap *map, uint32_t segNo);
+void dropMap(DbMap *map);
 
 bool newSeg(DbMap *map, uint32_t minSize);
 void mapSegs(DbMap *map);
 
-int getPath(char *path, int max, char *name, int len, DbMap *parent);
+int getPath(char *path, int max, char *name, int len, DbMap *parent, uint64_t id);
 #ifdef _WIN32
 HANDLE openPath(char *name);
 #else

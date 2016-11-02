@@ -96,6 +96,8 @@ DbAddr addr;
 	//  or make a new one, and link it to
 	//	the head of the handle chain.
 
+	lockLatch(hndlRoot->latch);
+
 	if ((rbEntry = rbFind(hndlMap, hndlRoot, map->path, map->pathLen, pathStk))) {
 		addr.bits = allocBlk(hndlMap, amt, true);
 
@@ -136,6 +138,8 @@ DbAddr addr;
 	*slot->refCnt = 1;
 	slot->addr.bits = addr.bits;
 	*slot->latch = ALIVE_BIT;
+
+	unlockLatch(hndlRoot->latch);
 	return hndlId.bits;
 }
 
