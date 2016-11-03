@@ -47,6 +47,24 @@ typedef struct {
 	SkipEntry array[0];	// array of key/value pairs
 } SkipNode;
 
+//  arena creation specification
+
+typedef struct {
+	uint64_t id;				// child arena id in parent
+	uint64_t childId;			// highest child Id issued
+	uint64_t initSize;			// initial arena size
+	uint64_t specAddr;			// database addr of spec object
+	uint64_t partialAddr;		// database addr of partial object
+	uint32_t localSize;			// extra space after DbMap
+	uint32_t baseSize;			// extra space after DbArena
+	uint32_t objSize;			// size of ObjectId array slot
+	uint8_t onDisk;				// arena onDisk/inMemory
+	uint8_t useTxn;				// transactions are used
+	uint8_t arenaType;			// type of the arena
+	DbAddr nameTree[1];			// child arena name red/black tree
+	SkipHead idList[1];			// child skiplist of names by id
+} ArenaDef;
+
 #define skipSize(addr) (((1ULL << addr->type) - sizeof(SkipNode)) / sizeof(SkipEntry))
 #define SKIP_node 15
 
@@ -63,8 +81,10 @@ uint32_t get64(uint8_t *key, uint32_t len, uint64_t *result);
 uint32_t store64(uint8_t *key, uint32_t keylen, uint64_t what);
 
 void *arrayElement(DbMap *map, DbAddr *array, uint16_t idx, size_t size);
+void *arrayEntry(DbMap *map, DbAddr array, uint16_t idx, size_t size);
 uint16_t arrayAlloc(DbMap *map, DbAddr *array, size_t size);
 uint64_t *arrayBlk(DbMap *map, DbAddr *array, uint32_t idx);
+uint64_t arrayAddr(DbMap *map, DbAddr *array, uint32_t idx);
 
 SkipEntry *skipSearch(SkipEntry *array, int high, uint64_t key);
 uint64_t skipDel(DbMap *map, DbAddr *skip, uint64_t key);

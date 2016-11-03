@@ -24,24 +24,6 @@ typedef struct {
 	ObjId nextId;		// highest object ID in use
 } DbSeg;
 
-//  arena creation specification
-
-typedef struct {
-	uint64_t id;				// child arena id in parent
-	uint64_t childId;			// highest child Id issued
-	uint64_t initSize;			// initial arena size
-	uint64_t specAddr;			// database addr of spec object
-	uint64_t partialAddr;		// database addr of partial object
-	uint32_t localSize;			// extra space after DbMap
-	uint32_t baseSize;			// extra space after DbArena
-	uint32_t objSize;			// size of ObjectId array slot
-	uint8_t onDisk;				// arena onDisk/inMemory
-	uint8_t useTxn;				// transactions are used
-	uint8_t arenaType;			// type of the arena
-	DbAddr nameTree[1];			// child arena name red/black tree
-	SkipHead idList[1];			// child skiplist of names by id
-} ArenaDef;
-
 //  arena at beginning of seg zero
 
 struct DbArena_ {
@@ -91,6 +73,13 @@ typedef struct {
 } DataBase;
 
 #define database(db) ((DataBase *)(db->arena + 1))
+
+//	catalog structure
+
+typedef struct {
+	FreeList list[MinObjType];
+	ArenaDef arenaDef[1];
+} Catalog;
 
 //	docarena variables
 

@@ -1,6 +1,5 @@
 #include "db.h"
 #include "db_object.h"
-#include "db_handle.h"
 #include "db_arena.h"
 #include "db_map.h"
 
@@ -14,6 +13,29 @@ DbAddr *addr;
 
 	addr = getObj(map, *array);
 	return getObj(map, addr[idx / 64]);
+}
+
+//	return addr of array segment for array index
+
+uint64_t arrayAddr(DbMap *map, DbAddr *array, uint32_t idx) {
+DbAddr *addr;
+
+	if (!array->addr)
+		return 0;
+
+	addr = getObj(map, *array);
+	return addr[idx / 64].bits;
+}
+
+//	return payload address for an idx from an array segment
+
+void *arrayEntry (DbMap *map, DbAddr addr, uint16_t idx, size_t size) {
+uint64_t *inUse = getObj(map, addr);
+uint8_t *base;
+
+	base = (uint8_t *)(inUse + 1);
+	base += size * ((idx % 64) - 1);
+	return (void *)base;
 }
 
 //	return payload address for an array element idx
@@ -212,36 +234,3 @@ bool isWriter(uint64_t ts) {
 bool isCommitted(uint64_t ts) {
 	return (ts & 1);
 }
-
-//	find arena's earliest bound handle
-//	by scanning HndlCall array
-
-uint64_t scanHandleTs(DbMap *map) {
-uint64_t lowTs = map->arena->nxtTs + 1;
-DbAddr *array = map->arena->hndlCalls;
-DbAddr *addr;
-int idx;
-
-  if (array->addr) {
-	addr = getObj(map, *array);
-
-	for (idx = 0; idx <= array->maxidx; idx++) {
-	  uint64_t *inUse = getObj(map, addr[idx]);
-	  HndlCall *call = (HndlCall *)(inUse + 1);
-	  uint64_t bits = *inUse;
-	  int bit = 0;
-
-	  while (bit++, bits /= 2) {
-		if (bits & 1) {
-		  if (!call[bit].entryCnt[0])
-			continue;
-		  else
-			lowTs = call[bit].entryTs;
-		}
-	  }
-	}
-  }
-
-  return lowTs;
-}
-

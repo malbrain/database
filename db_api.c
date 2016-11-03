@@ -100,13 +100,14 @@ DbMap *map;
 	rbEntry = createArenaDef(hndlMap, name, nameLen, params);
 	arenaDef = getObj(hndlMap, rbEntry->payLoad);
 
-	memset (arenaDef, 0, sizeof(ArenaDef));
 	arenaDef->initSize = params[InitSize].int64Val;
 	arenaDef->onDisk = params[OnDisk].boolVal;
 	arenaDef->useTxn = params[UseTxn].boolVal;
 	arenaDef->baseSize = sizeof(DataBase);
 	arenaDef->arenaType = Hndl_database;
 	arenaDef->objSize = sizeof(Txn);
+
+	initLock(arenaDef->idList->lock);
 
 	//  create the database
 
@@ -248,7 +249,6 @@ DbObject *obj;
 
 createXit:
 
-	unlockLatch(parent->arenaDef->nameTree->latch);
 	releaseHandle(parentHndl);
 	return DB_OK;
 }
@@ -295,8 +295,6 @@ Txn *txn;
 	return stat;
 }
 
-//	close handle
-
 DbStatus closeHandle(DbHandle dbHndl[1]) {
 HandleId *slot;
 Handle *hndl;
@@ -305,23 +303,44 @@ ObjId hndlId;
 	hndlId.bits = dbHndl->hndlBits;
 	slot = fetchIdSlot (hndlMap, hndlId);
 
-	//	not last reference?
+	lockLatch(slot->addr.latch);
 
-	if (atomicAdd32(slot->refCnt, -1))
-		return DB_OK;
+	if (*slot->addr.latch & ALIVE_BIT)
+		hndl = getObj(hndlMap, slot->addr);
+	else {
+		*slot->addr.latch = 0;
+		return DB_ERROR_handleclosed;
+	}
 
 	//  specific handle cleanup
-
-	hndl = getObj(hndlMap, slot->addr);
 
 	switch (hndl->hndlType) {
 	case Hndl_cursor:
 		dbCloseCursor((void *)(hndl + 1), hndl->map);
 	}
 
-	destroyHandle (hndlId);
+	destroyHandle (slot);
 	return DB_OK;
 }
+
+//	delete unreferenced handle
+
+DbStatus deleteHandle(DbHandle dbHndl[1]) {
+HandleId *slot;
+DbStatus stat;
+ObjId hndlId;
+
+	hndlId.bits = dbHndl->hndlBits;
+	slot = fetchIdSlot (hndlMap, hndlId);
+
+	if (*slot->addr.latch & ALIVE_BIT)
+	  stat = closeHandle(dbHndl);
+
+	freeId(hndlMap, hndlId);
+	return DB_OK;
+}
+
+//	close handle
 
 //	position cursor on a key
 

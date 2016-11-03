@@ -4,9 +4,8 @@
 //	for array list of handles
 
 typedef struct {
-	uint64_t entryTs;		// time stamp on first api entry
-	uint32_t entryCnt[1];	// count of running api calls
-	uint16_t entryIdx;		// entry Array index
+	uint64_t entryTs;	// time stamp on first api entry
+	ObjId hndlId;		// object Id entry in catalog
 } HndlCall;
 
 //	Local Handle for an arena
@@ -15,19 +14,19 @@ typedef struct {
 struct Handle_ {
 	DbMap *map;			// pointer to map, zeroed on close
 	FreeList *list;		// list of objects waiting to be recycled in frames
-	HndlCall *calls;	// in-use & garbage collection counters
-	DbAddr next, prev;	// next and prev in red/black handle tree
+	DbAddr calls;		// current handle timestamp
+	ObjId hndlId;		// object Id entry in catalog
 	uint16_t arenaIdx;	// arena handle table entry index
-	uint16_t listIdx;	// arena handle table entry index
 	uint16_t xtraSize;	// size of following structure
+	uint16_t callIdx;	// arena call table entry index
+	uint16_t listIdx;	// arena list table entry index
 	uint8_t hndlType;	// type of handle
 	uint8_t maxType;	// number of arena list entries
 };
 
 typedef struct {
 	DbAddr addr;
-	uint32_t refCnt[1];
-	char latch[1];
+	uint32_t entryCnt[1];	// count of outstanding handle binds
 } HandleId;
 
 uint64_t scanHandleTs(DbMap *map);
@@ -38,6 +37,6 @@ void releaseHandle(Handle *hndl);
 Handle *getHandle(DbHandle *hndl);
 HandleId *slotHandle(uint64_t hndlBits);
 
-void destroyHandle(ObjId hndlId);
+void destroyHandle(HandleId *slot);
 void initHndlMap(char *path, int pathLen, char *name, int nameLen, bool onDisk);
 

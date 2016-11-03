@@ -192,11 +192,11 @@ int32_t amt = 0;
 	free(segZero);
 #endif
 
-	//	are we opening an existing database?
+	//	are we opening the Catalog arena?
 
-	if (arenaDef->arenaType == Hndl_database) {
-		DataBase *db = database(map);
-		map->arenaDef = db->arenaDef;
+	if (arenaDef->arenaType == Hndl_catalog) {
+		Catalog *cat = (Catalog *)(map->arena + 1);
+		map->arenaDef = cat->arenaDef;
 	} else
 		map->arenaDef = arenaDef;
 
@@ -266,11 +266,11 @@ uint32_t bits;
 
 	//	are we creating a database?
 
-	if (arenaDef->arenaType == Hndl_database) {
-		DataBase *db = database(map);
-		memcpy(db->arenaDef, arenaDef, sizeof(ArenaDef));
-		initLock(db->arenaDef->idList->lock);
-		map->arenaDef = db->arenaDef;
+	if (arenaDef->arenaType == Hndl_catalog) {
+		Catalog *cat = (Catalog *)(map->arena + 1);
+		memcpy(cat->arenaDef, arenaDef, sizeof(ArenaDef));
+		initLock(cat->arenaDef->idList->lock);
+		map->arenaDef = cat->arenaDef;
 	} else
 		map->arenaDef = arenaDef;
 

@@ -23,8 +23,12 @@ ObjId hndlId;
 	//	find the childId in our indexes skiplist
 	//	and return the handle
 
-	if ((hndlId.bits = skipDel(docHndl->map, docStore->indexes->head, *entry->key)))
-		destroyHandle(hndlId);
+	if ((hndlId.bits = skipDel(docHndl->map, docStore->indexes->head, *entry->key))) {
+		HandleId *slot = slotHandle(hndlId.bits);
+
+		lockLatch(slot->addr.latch);
+		destroyHandle(slot);
+	}
 
 	return;
 
@@ -117,20 +121,25 @@ uint8_t key[MAX_key];
 DbHandle hndl[1];
 uint64_t *verPtr;
 DbObject *spec;
+HandleId *slot;
 Handle *index;
 DbStatus stat;
 DbAddr addr;
 int keyLen;
 
 	hndl->hndlBits = *entry->val;
+
 	index = getHandle(hndl);
+	slot = slotHandle(index->hndlId.bits);
 
-	//  bind the dbIndex handle
-	//	and capture timestamp if
-	//	this is the first bind
+    //  increment count of active binds
+    //  and capture timestamp if we are the
+    //  first handle bind
 
-	if (atomicAdd32(index->calls->entryCnt, 1) == 1)
-		index->calls->entryTs = atomicAdd64(&index->map->arena->nxtTs, 1);
+    if (atomicAdd32(slot->entryCnt, 1) == 1) {
+        HndlCall *hndlCall = arrayEntry(index->map, index->calls, index->callIdx, sizeof(HndlCall));
+        hndlCall->entryTs = atomicAdd64(&index->map->arena->nxtTs, 1);
+    }
 
 	if ((addr.bits = index->map->arenaDef->partialAddr)) {
 		spec = getObj(index->map->db, addr);
@@ -163,7 +172,7 @@ int keyLen;
 		break;
 	}
 
-	atomicAdd32(index->calls->entryCnt, -1);
+	atomicAdd32(slot->entryCnt, -1);
 	return stat;
 }
 
