@@ -10,6 +10,20 @@
 #include "btree1/btree1.h"
 #include "artree/artree.h"
 
+char *hndlNames[] = {
+	"newarena",
+	"catalog",
+	"database",
+	"docStore",
+	"artIndex",
+	"btree1Index",
+	"btree2Index",
+	"colIndex",
+	"iterator",
+	"cursor",
+	"docVersion"
+};
+
 int cursorSize[8] = {0, 0, 0, 0, sizeof(ArtCursor), sizeof(Btree1Cursor), 0};
 int maxType[8] = {0, 0, 0, 0, MaxARTType, MAXBtree1Type, 0};
 
@@ -277,19 +291,31 @@ Txn *txn;
 	return stat;
 }
 
-DbStatus closeCursor(DbHandle hndl[1]) {
-DbCursor *cursor;
-DbStatus stat;
-Handle *index;
+//	close handle
 
-	if ((stat = bindHandle(hndl, &index)))
-		return stat;
+DbStatus closeHandle(DbHandle dbHndl[1]) {
+HandleId *slot;
+Handle *hndl;
+ObjId hndlId;
 
-	cursor = (DbCursor *)(index + 1);
-	stat = dbCloseCursor (cursor, index->map);
+	hndlId.bits = dbHndl->hndlBits;
+	slot = fetchIdSlot (hndlMap, hndlId);
 
-	releaseHandle(index);
-	closeHandle(hndl);
+	//	not last reference?
+
+	if (atomicAdd32(slot->refCnt, -1))
+		return DB_OK;
+
+	//  specific handle cleanup
+
+	hndl = getObj(hndlMap, slot->addr);
+
+	switch (hndl->hndlType) {
+	case Hndl_cursor:
+		dbCloseCursor((void *)(hndl + 1), hndl->map);
+	}
+
+	destroyHandle (hndlId);
 	return DB_OK;
 }
 

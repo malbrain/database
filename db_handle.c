@@ -222,33 +222,6 @@ uint64_t *inUse;
 	unlockLatch (catalog->hndlRoot->latch);
 }
 
-//	close handle
-
-void closeHandle(DbHandle *dbHndl) {
-HandleId *slot;
-Handle *hndl;
-ObjId hndlId;
-
-	hndlId.bits = dbHndl->hndlBits;
-	slot = fetchIdSlot (hndlMap, hndlId);
-
-	//	is this the last reference?
-
-	if (atomicAdd32(slot->refCnt, -1))
-		return;
-
-	//  specific handle cleanup
-
-	hndl = getObj(hndlMap, slot->addr);
-
-	switch (hndl->hndlType) {
-	case Hndl_cursor:
-		dbCloseCursor((void *)(hndl + 1), hndl->map);
-	}
-
-	destroyHandle (hndlId);
-}
-
 //	bind handle for use in API call
 //	return false if handle closed
 

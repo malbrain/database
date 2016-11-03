@@ -35,7 +35,6 @@ uint64_t scanHandleTs(DbMap *map);
 uint64_t makeHandle(DbMap *map, uint32_t xtraSize, uint32_t listMax, HandleType type);
 DbStatus bindHandle(DbHandle *dbHndl, Handle **hndl);
 void releaseHandle(Handle *hndl);
-void closeHandle(DbHandle *hndl);
 Handle *getHandle(DbHandle *hndl);
 HandleId *slotHandle(uint64_t hndlBits);
 
