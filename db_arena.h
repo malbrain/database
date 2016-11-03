@@ -77,6 +77,7 @@ struct DbMap_ {
 	char path[MAX_path];	// file database path
 	ArenaDef *arenaDef;		// our arena definition
 	uint16_t pathLen;		// length of path in buffer
+	uint16_t pathOff;		// offset of name path in buffer
 	uint16_t maxSeg;		// maximum mapped segment array index
 	char mapMutex[1];		// segment mapping mutex
 };
@@ -101,9 +102,10 @@ typedef struct {
 #define docarena(map) ((DocArena *)(map->arena + 1))
 
 DbMap *openMap(DbMap *parent, char *name, uint32_t nameLen, ArenaDef *arena);
-DbMap *arenaRbMap(DbMap *parent, RedBlack *entry);
+DbMap *arenaRbMap(DbMap *parent, RedBlack *entry, ArenaDef *arenaDef);
 DbMap *initArena (DbMap *map, ArenaDef *arenaDef);
 
+RedBlack *createArenaDef(DbMap *parent, char *name, int nameLen, Params *params);
 
 /**
  *  memory mapping
@@ -117,7 +119,8 @@ void dropMap(DbMap *map);
 bool newSeg(DbMap *map, uint32_t minSize);
 void mapSegs(DbMap *map);
 
-int getPath(char *path, int max, char *name, int len, DbMap *parent, uint64_t id);
+bool getPath(DbMap *map, char *name, int len, DbMap *parent, uint64_t id);
+
 #ifdef _WIN32
 HANDLE openPath(char *name);
 #else

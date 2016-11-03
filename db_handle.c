@@ -5,16 +5,18 @@
 #include "db_arena.h"
 #include "db_map.h"
 
-//	local process Handle arena
+//	Catalog/Handle arena
+
+typedef struct {
+	FreeList list[MinObjType];
+	DbAddr hndlRoot[1];
+} Catalog;
+
+Catalog *catalog;
 
 char hndlInit[1];
-
-DbArena hndlArena[1];
-DbMap hndlMap[1];
-
-FreeList hndlList[ObjIdType + 1];
-ArenaDef hndlDef[1];
-DbAddr hndlRoot[1];
+DbMap *hndlMap;
+char *hndlPath;
 
 //	return HandleId slot from bits
 
@@ -40,24 +42,45 @@ ObjId hndlId;
 	return getObj(hndlMap, slot->addr);
 }
 
-//	make handle from map pointer
-//	return hndlId.bits in hndlArena or zero
+void initHndlMap(char *path, int pathLen, char *name, int nameLen, bool onDisk) {
+ArenaDef arenaDef[1];
+int len;
 
-void initHndlMap(void) {
-    hndlMap->arena = hndlArena;
-    hndlMap->db = hndlMap;
+	lockLatch(hndlInit);
 
-#ifdef _WIN32
-    hndlMap->hndl = INVALID_HANDLE_VALUE;
-#else
-    hndlMap->hndl = -1;
-#endif
+	if (*hndlInit & ALIVE_BIT) {
+		unlockLatch(hndlInit);
+		return;
+	}
 
-    memset (hndlDef, 0, sizeof(ArenaDef));
-	hndlDef->objSize = sizeof(HandleId);
+	if (pathLen) {
+		hndlPath = db_malloc(pathLen + 1, false);
+		memcpy(hndlPath, path, pathLen);
+		hndlPath[pathLen] = 0;
+	}
 
-    initArena(hndlMap, hndlDef);
+	if (!name) {
+		name = "_Catalog";
+		nameLen = strlen(name);
+	}
+
+	memset(arenaDef, 0, sizeof(arenaDef));
+	arenaDef->baseSize = sizeof(Catalog);
+	arenaDef->objSize = sizeof(HandleId);
+	arenaDef->arenaType = Hndl_catalog;
+	arenaDef->onDisk = onDisk;
+
+	hndlMap = openMap(NULL, name, nameLen, arenaDef);
+
+	catalog = (Catalog *)(hndlMap->arena + 1);
+	*hndlMap->arena->type = Hndl_catalog;
+	hndlMap->db = hndlMap;
+
+	*hndlInit = ALIVE_BIT;
 }
+
+//	make handle from map pointer
+//	return hndlId.bits in hndlMap or zero
 
 uint64_t makeHandle(DbMap *map, uint32_t xtraSize, uint32_t listMax, HandleType type) {
 Handle *hndl, *head;
@@ -72,14 +95,8 @@ DbAddr addr;
 
 	// first call?
 
-	if (!*hndlInit) {
-	  lockLatch(hndlInit);
-
-	  if (!(*hndlInit & ALIVE_BIT))
-		initHndlMap();
-
-	  *hndlInit = ALIVE_BIT;
-	}
+	if (!(*hndlInit & ALIVE_BIT))
+		initHndlMap(NULL, 0, NULL, 0, true);
 
 	// total size of the Handle
 
@@ -87,7 +104,7 @@ DbAddr addr;
 
 	//	get a new or recycled HandleId
 
-	if (!(hndlId.bits = allocObjId(hndlMap, hndlList, 0)))
+	if (!(hndlId.bits = allocObjId(hndlMap, catalog->list, 0)))
 		return 0;
 
 	slot = fetchIdSlot (hndlMap, hndlId);
@@ -96,9 +113,9 @@ DbAddr addr;
 	//  or make a new one, and link it to
 	//	the head of the handle chain.
 
-	lockLatch(hndlRoot->latch);
+	lockLatch(catalog->hndlRoot->latch);
 
-	if ((rbEntry = rbFind(hndlMap, hndlRoot, map->path, map->pathLen, pathStk))) {
+	if ((rbEntry = rbFind(hndlMap, catalog->hndlRoot, map->path + map->pathOff, map->pathLen - map->pathOff, pathStk))) {
 		addr.bits = allocBlk(hndlMap, amt, true);
 
 		head = getObj(hndlMap, rbEntry->payLoad);
@@ -109,8 +126,8 @@ DbAddr addr;
 
 		rbEntry->payLoad.bits = addr.bits;
 	} else {
-		rbEntry = rbNew(hndlMap, map->path, map->pathLen, amt);
-		rbAdd(hndlMap, hndlRoot, rbEntry, pathStk);
+		rbEntry = rbNew(hndlMap, map->path + map->pathOff, map->pathLen - map->pathOff, amt);
+		rbAdd(hndlMap, catalog->hndlRoot, rbEntry, pathStk);
 		hndl = getObj(hndlMap, rbEntry->payLoad);
 		addr.bits = rbEntry->payLoad.bits;
 	}
@@ -139,7 +156,7 @@ DbAddr addr;
 	slot->addr.bits = addr.bits;
 	*slot->latch = ALIVE_BIT;
 
-	unlockLatch(hndlRoot->latch);
+	unlockLatch(catalog->hndlRoot->latch);
 	return hndlId.bits;
 }
 
@@ -173,11 +190,11 @@ uint64_t *inUse;
 		unlockLatch(hndl->map->arena->listArray->latch);
 	}
 
-	lockLatch (hndlRoot->latch);
+	lockLatch (catalog->hndlRoot->latch);
 
 	//	remove our Handle from the red/black list
 
-	rbEntry = rbFind (hndlMap, hndlRoot, hndl->map->path, hndl->map->pathLen, pathStk);
+	rbEntry = rbFind (hndlMap, catalog->hndlRoot, hndl->map->path + hndl->map->pathOff, hndl->map->pathLen - hndl->map->pathOff, pathStk);
 
 	if (hndl->prev.bits) {
 		prevHndl = getObj(hndlMap, hndl->prev);
@@ -200,9 +217,9 @@ uint64_t *inUse;
 	//	are we the last handle in the tree?
 
 	if (!rbEntry->payLoad.bits)
-		rbRemove (hndlMap, hndlRoot, pathStk);
+		rbRemove (hndlMap, catalog->hndlRoot, pathStk);
 
-	unlockLatch (hndlRoot->latch);
+	unlockLatch (catalog->hndlRoot->latch);
 }
 
 //	close handle

@@ -21,6 +21,8 @@
 #include "db_arena.h"
 #include "db_map.h"
 
+extern char *hndlPath;
+
 void yield() {
 #ifndef _WIN32
 			pause();
@@ -31,37 +33,62 @@ void yield() {
 
 //  assemble filename path
 
-int getPath(char *path, int max, char *name, int len, DbMap *parent, uint64_t id) {
+bool getPath(DbMap *map, char *name, int len, DbMap *parent, uint64_t id) {
 char buff[24];
 int off = 0;
-int amt = sizeof(buff);
 
-	//  start with parent name
+	//  start with parent or catalog path
 
-	if (parent) {
-		memcpy(path, parent->path, parent->pathLen);
+	if (parent && *parent->arena->type != Hndl_catalog) {
+	  if (parent->pathLen + 1 < MAX_path) {
+		memcpy(map->path, parent->path, parent->pathLen);
+		map->pathOff = parent->pathOff;
 		off = parent->pathLen;
-		path[off++] = '.';
+		map->path[off++] = '.';
+	  } else
+		return false;
+	} else if (hndlPath) {
+	  off = strlen(hndlPath);
+
+	  if (off + 1 < MAX_path) {
+		memcpy(map->path, hndlPath, off);
+		map->path[off++] = '/';
+		map->pathOff = off;
+	  } else
+		return false;
 	}
 
 	//	append arena name
 
-	memcpy(path + off, name, len);
-	off += len;
+	if (off + len < MAX_path) {
+		memcpy(map->path + off, name, len);
+		off += len;
+	} else
+		return false;
 
 	//	append child ID
 
-	do buff[--amt] = id % 10 | '0';
+	len = 0;
+
+	do buff[sizeof(buff) - ++len] = id % 10 | '0';
 	while (id /= 10);
 
-	if (parent) {
-		path[off++] = '-';
-		memcpy (path + off, buff + amt, sizeof(buff) - amt);
-		off += sizeof(buff) - amt;
+	if (parent && *parent->arena->type != Hndl_catalog) {
+	  if (off + len + 1 < MAX_path) {
+		map->path[off++] = '-';
+		memcpy (map->path + off, buff + sizeof(buff) - len, len);
+		off += len;
+	  } else
+		return false;
 	}
 
-	path[off] = 0;
-	return off;
+	if (off + 1 < MAX_path)
+		map->path[off] = 0;
+	else
+		return false;
+
+	map->pathLen = off;
+	return true;
 }
 
 #ifdef _WIN32
@@ -342,7 +369,7 @@ FILE_RENAME_INFO renameInfo[1];
 	SetFileInformationByHandle (map->hndl, FileRenameInfo, renameInfo, sizeof(renameInfo));
 
 	memset (dispInfo, 0, sizeof(dispInfo));
-	dispInfo->DeleteFile = TRUE;
+	dispInfo->DeleteFile = true;
 	SetFileInformationByHandle (map->hndl, FileDispositionInfo, dispInfo, sizeof(dispInfo));
 }
 #else

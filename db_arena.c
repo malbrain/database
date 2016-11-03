@@ -20,63 +20,53 @@ void mapAll (DbMap *map);
 
 //	open map given red/black rbEntry
 
-DbMap *arenaRbMap(DbMap *parent, RedBlack *rbEntry) {
-DbMap **catalog, *map;
-ArenaDef *arenaDef;
+DbMap *arenaRbMap(DbMap *parent, RedBlack *rbEntry, ArenaDef *arenaDef) {
+DbMap **childMap, *map;
 
-	arenaDef = getObj(parent->db, rbEntry->payLoad);
 	writeLock(parent->childMaps->lock);
 
-	catalog = skipAdd(parent->db, parent->childMaps->head, arenaDef->id);
+	childMap = skipAdd(parent, parent->childMaps->head, arenaDef->id);
 
-	if ((map = *catalog))
+	if ((map = *childMap))
 		waitNonZero(map->arena->type);
 	else
-		map = *catalog = openMap(parent, rbKey(rbEntry), rbEntry->keyLen, arenaDef);
+		map = *childMap = openMap(parent, rbKey(rbEntry), rbEntry->keyLen, arenaDef);
 
 	writeUnlock(parent->childMaps->lock);
 	return map;
 }
 
-//  open/create arena by name
-//	call with parent's nameTree locked
+//  install the new arena name and params in the Catalog
 
-DbMap *createMap(DbMap *parent, HandleType arenaType, char *name, uint32_t nameLen, uint32_t localSize, uint32_t baseSize, uint32_t objSize, Params *params) {
+RedBlack *createArenaDef(DbMap *parent, char *name, int nameLen, Params *params) {
 DbAddr *skipPayload;
 ArenaDef *arenaDef;
 PathStk pathStk[1];
 RedBlack *rbEntry;
-DbMap *map;
 
-	//	see if ArenaDef already exists as a child
+	lockLatch(parent->arenaDef->nameTree->latch);
 
-	if ((rbEntry = rbFind(parent->db, parent->arenaDef->nameTree, name, nameLen, pathStk)))
-		return arenaRbMap(parent, rbEntry);
+	//	see if ArenaDef already exists as a child in the parent
 
-	// otherwise, create new redblack rbEntry in database
+	if ((rbEntry = rbFind(parent->db, parent->arenaDef->nameTree, name, nameLen, pathStk))) {
+		unlockLatch(parent->arenaDef->nameTree->latch);
+		return rbEntry;
+	}
+
+	// otherwise, create new rbEntry in parent
 	// with an arenaDef payload
 
 	if ((rbEntry = rbNew(parent->db, name, nameLen, sizeof(ArenaDef))))
 		arenaDef = getObj(parent->db, rbEntry->payLoad);
-	else
+	else {
+		unlockLatch(parent->arenaDef->nameTree->latch);
 		return NULL;
+	}
 
 	arenaDef->id = atomicAdd64(&parent->arenaDef->childId, CHILDID_INCR);
-	arenaDef->initSize = params[InitSize].int64Val;
-	arenaDef->onDisk = params[OnDisk].boolVal;
-	arenaDef->useTxn = params[UseTxn].boolVal;
-	arenaDef->localSize = localSize;
-	arenaDef->arenaType = arenaType;
-	arenaDef->baseSize = baseSize;
-	arenaDef->objSize = objSize;
-
-	//	initialze idList RWLock
-
 	initLock(arenaDef->idList->lock);
 
-	map = arenaRbMap(parent, rbEntry);
-
-	//	add arena to parent child arenaDef tree
+	//	add arenaDef to parent's child arenaDef tree
 
 	rbAdd(parent->db, parent->arenaDef->nameTree, rbEntry, pathStk);
 
@@ -86,11 +76,13 @@ DbMap *map;
 	skipPayload = skipAdd (parent->db, parent->arenaDef->idList->head, arenaDef->id);
 	skipPayload->bits = rbEntry->addr.bits;
 	writeUnlock(parent->arenaDef->idList->lock);
-	return map;
+
+	unlockLatch(parent->arenaDef->nameTree->latch);
+	return rbEntry;
 }
 
 //  open/create an Object database/store/index arena file
-//	call with parent's nameTree r/b tree locked
+//	call with writeLock(parent->childMaps->lock)
 
 DbMap *openMap(DbMap *parent, char *name, uint32_t nameLen, ArenaDef *arenaDef) {
 DbArena *segZero = NULL;
@@ -104,7 +96,11 @@ int32_t amt = 0;
 #endif
 
 	map = db_malloc(sizeof(DbMap) + arenaDef->localSize, true);
-	map->pathLen = getPath(map->path, MAX_path, name, nameLen, parent, arenaDef->id / 2);
+
+	if (!getPath(map, name, nameLen, parent, arenaDef->id / 2)) {
+		db_free(map);
+		return NULL;
+	}
 
 	if ((map->parent = parent))
 		map->db = parent->db;

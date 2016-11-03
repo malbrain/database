@@ -7,7 +7,6 @@
  * open/create arenas
  */
 
-DbMap *createMap(DbMap *parent, HandleType arenaType, char *name, uint32_t nameLen, uint32_t localSize, uint32_t baseSize, uint32_t objSize, Params *params);
 void deleteMap(DbMap *map);
 void closeMap(DbMap *map);
 

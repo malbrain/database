@@ -10,12 +10,16 @@
 #include "btree1/btree1.h"
 #include "artree/artree.h"
 
-int cursorSize[8] = {0, 0, 0, sizeof(ArtCursor), sizeof(Btree1Cursor), 0};
-int maxType[8] = {0, 0, 0, MaxARTType, MAXBtree1Type, 0};
+int cursorSize[8] = {0, 0, 0, 0, sizeof(ArtCursor), sizeof(Btree1Cursor), 0};
+int maxType[8] = {0, 0, 0, 0, MaxARTType, MAXBtree1Type, 0};
 
 void initialize() {
 	memInit();
 }
+
+extern char hndlInit[1];
+extern DbMap *hndlMap;
+extern char *hndlPath;
 
 uint64_t arenaAlloc(DbHandle arenaHndl[1], uint32_t size, bool zeroit, bool dbArena) {
 Handle *arena;
@@ -70,23 +74,33 @@ DbStatus stat;
 }
 
 DbStatus openDatabase(DbHandle hndl[1], char *name, uint32_t nameLen, Params *params) {
-ArenaDef arenaDef[1];
+ArenaDef *arenaDef;
+RedBlack *rbEntry;
 DbMap *map;
 
 	memset (hndl, 0, sizeof(DbHandle));
 
+	if (!(*hndlInit & ALIVE_BIT))
+		initHndlMap(NULL, 0, NULL, 0, true);
+
+	rbEntry = createArenaDef(hndlMap, name, nameLen, params);
+	arenaDef = getObj(hndlMap, rbEntry->payLoad);
+
 	memset (arenaDef, 0, sizeof(ArenaDef));
-	arenaDef->baseSize = sizeof(DataBase);
+	arenaDef->initSize = params[InitSize].int64Val;
 	arenaDef->onDisk = params[OnDisk].boolVal;
+	arenaDef->useTxn = params[UseTxn].boolVal;
+	arenaDef->baseSize = sizeof(DataBase);
 	arenaDef->arenaType = Hndl_database;
 	arenaDef->objSize = sizeof(Txn);
 
-	map = openMap(NULL, name, nameLen, arenaDef);
+	//  create the database
 
-	if (!map)
+	if ((map = arenaRbMap(hndlMap, rbEntry, arenaDef)))
+		*map->arena->type = Hndl_database;
+	else
 		return DB_ERROR_createdatabase;
 
-	*map->arena->type = Hndl_database;
 	hndl->hndlBits = makeHandle(map, sizeof(Txn), ObjIdType, Hndl_database);
 	return DB_OK;
 }
@@ -96,6 +110,8 @@ DbMap *map, *parent = NULL;
 Handle *database = NULL;
 DocStore *docStore;
 DocArena *docArena;
+ArenaDef *arenaDef;
+RedBlack *rbEntry;
 uint64_t *inUse;
 DataBase *db;
 DbAddr *addr;
@@ -105,18 +121,24 @@ Handle *ds;
 
 	memset (hndl, 0, sizeof(DbHandle));
 
-	if (dbHndl)
-	  if ((stat = bindHandle(dbHndl, &database)))
+	if ((stat = bindHandle(dbHndl, &database)))
 		return stat;
 
 	parent = database->map, db = database(parent);
 
 	//  create the docArena and assign database txn idx
 
-	if (parent)
-		lockLatch(parent->arenaDef->nameTree->latch);
+	rbEntry = createArenaDef(parent, name, nameLen, params);
 
-	if ((map = createMap(parent, Hndl_docStore, name, nameLen, 0, sizeof(DocArena), sizeof(ObjId), params)))
+	arenaDef = getObj(parent->db, rbEntry->payLoad);
+	arenaDef->initSize = params[InitSize].int64Val;
+	arenaDef->onDisk = params[OnDisk].boolVal;
+	arenaDef->useTxn = params[UseTxn].boolVal;
+	arenaDef->baseSize = sizeof(DocArena);
+	arenaDef->arenaType = Hndl_docStore;
+	arenaDef->objSize = sizeof(ObjId);
+
+	if ((map = arenaRbMap(parent, rbEntry, arenaDef)))
 		docArena = docarena(map);
 	else
 		return DB_ERROR_arenadropped;
@@ -127,8 +149,7 @@ Handle *ds;
 	  if (parent)
 		docArena->docIdx = arrayAlloc(parent, db->txnIdx, sizeof(uint64_t));
 
-	if (database)
-		releaseHandle(database);
+	releaseHandle(database);
 
 	map->arena->type[0] = Hndl_docStore;
 	hndl->hndlBits = makeHandle(map, sizeof(DocStore), MAX_blk, Hndl_docStore);
@@ -137,16 +158,15 @@ Handle *ds;
 	docStore = (DocStore *)(ds + 1);
 	initLock(docStore->indexes->lock);
 
-	if (parent)
-		unlockLatch(parent->arenaDef->nameTree->latch);
-
 	return DB_OK;
 }
 
 DbStatus createIndex(DbHandle hndl[1], DbHandle docHndl[1], HandleType type, char *name, uint32_t nameLen, Params *params) {
-Handle *parentHndl = NULL;
 uint32_t baseSize = 0;
 DbMap *map, *parent;
+Handle *parentHndl;
+ArenaDef *arenaDef;
+RedBlack *rbEntry;
 DbIndex *dbIndex;
 Handle *index;
 DbStatus stat;
@@ -158,7 +178,6 @@ DbObject *obj;
 		return stat;
 
 	parent = parentHndl->map;
-	lockLatch(parent->arenaDef->nameTree->latch);
 
 	switch (type) {
 	case Hndl_artIndex:
@@ -169,12 +188,20 @@ DbObject *obj;
 		break;
 	}
 
-	map = createMap(parent, type, name, nameLen, 0, baseSize, sizeof(ObjId), params);
+	//  create the index
 
-	if (!map) {
-	  unlockLatch(parent->arenaDef->nameTree->latch);
+	rbEntry = createArenaDef(parent, name, nameLen, params);
+
+	arenaDef = getObj(parent->db, rbEntry->payLoad);
+	arenaDef->initSize = params[InitSize].int64Val;
+	arenaDef->onDisk = params[OnDisk].boolVal;
+	arenaDef->useTxn = params[UseTxn].boolVal;
+	arenaDef->objSize = sizeof(ObjId);
+	arenaDef->baseSize = baseSize;
+	arenaDef->arenaType = type;
+
+	if (!(map = arenaRbMap(parent, rbEntry, arenaDef)))
 	  return DB_ERROR_createindex;
-	}
 
 	hndl->hndlBits = makeHandle(map, 0, maxType[type], type);
 
@@ -202,11 +229,9 @@ DbObject *obj;
 	*map->arena->type = type;
 
 createXit:
+
 	unlockLatch(parent->arenaDef->nameTree->latch);
-
-	if (parentHndl)
-		releaseHandle(parentHndl);
-
+	releaseHandle(parentHndl);
 	return DB_OK;
 }
 

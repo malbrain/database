@@ -40,4 +40,5 @@ Handle *getHandle(DbHandle *hndl);
 HandleId *slotHandle(uint64_t hndlBits);
 
 void destroyHandle(ObjId hndlId);
+void initHndlMap(char *path, int pathLen, char *name, int nameLen, bool onDisk);
 

@@ -48,7 +48,7 @@ DbAddr addr;
 	rbAddr.bits = *entry->val;
 	rbEntry = getObj(docHndl->map->parent->db, rbAddr);
 
-	child = arenaRbMap(docHndl->map, rbEntry);
+	child = arenaRbMap(docHndl->map, rbEntry, getObj(docHndl->map->db, rbEntry->payLoad));
 
 	*hndlAddr = makeHandle(child, 0, maxType[*child->arena->type], *child->arena->type);
 }

@@ -16,6 +16,7 @@
 
 typedef enum {
 	Hndl_newarena = 0,
+	Hndl_catalog,
 	Hndl_database,
 	Hndl_docStore,
 	Hndl_artIndex,
