@@ -115,6 +115,10 @@ DbMap *map;
 	else
 		return DB_ERROR_createdatabase;
 
+	//  top most child map chain
+
+	map->db = map;
+
 	hndl->hndlBits = makeHandle(map, sizeof(Txn), ObjIdType, Hndl_database);
 	return DB_OK;
 }
