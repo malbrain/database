@@ -14,7 +14,7 @@ uint64_t skipInit(DbMap *map, int numEntries) {
 
 //	find key value in skiplist, return entry address
 
-void *skipFind(DbMap *map, DbAddr *skip, uint64_t key) {
+uint64_t *skipFind(DbMap *map, DbAddr *skip, uint64_t key) {
 DbAddr *next = skip;
 SkipNode *skipNode;
 SkipEntry *entry;
@@ -89,7 +89,7 @@ uint64_t val;
 //	Push new maximal key onto head of skip list
 //	return the value slot address
 
-void *skipPush(DbMap *map, DbAddr *skip, uint64_t key) {
+uint64_t *skipPush(DbMap *map, DbAddr *skip, uint64_t key) {
 SkipNode *skipNode;
 SkipEntry *entry;
 uint64_t next;
@@ -110,7 +110,7 @@ uint64_t next;
 //	Add arbitrary key to skip list
 //	return val address
 
-void *skipAdd(DbMap *map, DbAddr *skip, uint64_t key) {
+uint64_t *skipAdd(DbMap *map, DbAddr *skip, uint64_t key) {
 SkipNode *skipNode = NULL, *nextNode;
 DbAddr *next = skip;
 uint64_t prevBits;

@@ -117,7 +117,7 @@ DbAddr addr;
 	if (listMax) {
 		idx = arrayAlloc(map, map->arena->listArray, sizeof(FreeList) * listMax);
 		inUse = arrayBlk(map, map->arena->listArray, idx);
-		hndl->list = (FreeList *)(inUse + 1) + ((idx % 64) - 1) * listMax;
+		hndl->list = (FreeList *)(inUse + ARRAY_size / 64) + ((idx % ARRAY_size) - 1) * listMax;
 		hndl->listIdx = idx;
 	}
 
@@ -156,7 +156,7 @@ uint64_t *inUse;
 	if (hndl->list) {
 		lockLatch(hndl->map->arena->listArray->latch);
 		inUse = arrayBlk(hndl->map, hndl->map->arena->listArray, hndl->listIdx);
-		inUse[0] &= ~(1ULL << (hndl->listIdx % 64));
+		inUse[hndl->listIdx % ARRAY_size / 64] &= ~(1ULL << (hndl->listIdx % 64));
 		unlockLatch(hndl->map->arena->listArray->latch);
 	}
 
@@ -220,25 +220,30 @@ uint64_t scanHandleTs(DbMap *map) {
 uint64_t lowTs = map->arena->nxtTs + 1;
 DbAddr *array = map->arena->hndlCalls;
 DbAddr *addr;
-int idx;
+int idx, seg;
 
   if (array->addr) {
 	addr = getObj(map, *array);
 
 	for (idx = 0; idx <= array->maxidx; idx++) {
 	  uint64_t *inUse = getObj(map, addr[idx]);
-	  HndlCall *call = (HndlCall *)(inUse + 1);
-	  uint64_t bits = *inUse;
-	  int slotIdx = 0;
+	  HndlCall *call = (HndlCall *)(inUse + ARRAY_size / 64);
 
-	  while (slotIdx++, bits /= 2) {
-		if (bits & 1) {
-		  HandleId *slot = fetchIdSlot(hndlMap, call[slotIdx - 1].hndlId);
+	  for (seg = 0; seg < ARRAY_size / 64; seg++) {
+		uint64_t bits = inUse[seg];
+		int slotIdx = 0;
 
-		  if (!slot->entryCnt[0])
-			continue;
-		  else
-			lowTs = call[slotIdx - 1].entryTs;
+		// sluff first idx
+
+		while (slotIdx++, bits /= 2) {
+		  if (bits & 1) {
+			HandleId *slot = fetchIdSlot(hndlMap, call[seg * 64 + slotIdx - 1].hndlId);
+
+			if (!slot->entryCnt[0])
+			  continue;
+			else
+			  lowTs = call[slotIdx - 1].entryTs;
+		  }
 		}
 	  }
 	}

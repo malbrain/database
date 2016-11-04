@@ -12,7 +12,7 @@ DbAddr *addr;
 		return NULL;
 
 	addr = getObj(map, *array);
-	return getObj(map, addr[idx / 64]);
+	return getObj(map, addr[idx / ARRAY_size]);
 }
 
 //	return addr of array segment for array index
@@ -24,7 +24,7 @@ DbAddr *addr;
 		return 0;
 
 	addr = getObj(map, *array);
-	return addr[idx / 64].bits;
+	return addr[idx / ARRAY_size].bits;
 }
 
 //	return payload address for an idx from an array segment
@@ -33,9 +33,9 @@ void *arrayEntry (DbMap *map, DbAddr addr, uint16_t idx, size_t size) {
 uint64_t *inUse = getObj(map, addr);
 uint8_t *base;
 
-	base = (uint8_t *)(inUse + 1);
-	base += size * ((idx % 64) - 1);
-	return (void *)base;
+	base = (uint8_t *)(inUse + ARRAY_size / 64);
+	base += size * ((idx % ARRAY_size) - 1);
+	return base;
 }
 
 //	return payload address for an array element idx
@@ -47,32 +47,38 @@ DbAddr *addr;
 
 	lockLatch(array->latch);
 
+	//	allocate the first level of the Array
+	//	and fill it with the first array segment
+
 	if (!array->addr) {
 		array->bits = allocBlk(map, sizeof(DbAddr) * 256, true) | ADDR_MUTEX_SET;
 		addr = getObj(map, *array);
-		addr->bits = allocBlk(map, sizeof(uint64_t) + size * 63, true);
+		addr->bits = allocBlk(map, sizeof(uint64_t) * ARRAY_size / 64 + size * (ARRAY_size - 1), true);
+
+		// sluff first idx
+
 		inUse = getObj(map, *addr);
 		*inUse = 1ULL;
 	} else
 		addr = getObj(map, *array);
 
-	while (idx / 64 > array->maxidx)
+	while (idx / ARRAY_size > array->maxidx)
 	  if (array->maxidx == 255) {
 #ifdef DEBUG
 		fprintf(stderr, "Array Overflow file: %s\n", map->path);
 #endif
 		return NULL;
 	  } else
-		addr[++array->maxidx].bits = allocBlk(map, sizeof(uint64_t) + size * 63, true);
+		addr[++array->maxidx].bits = allocBlk(map, sizeof(uint64_t) * ARRAY_size / 64 + size * 63, true);
 
-	inUse = getObj(map, addr[idx / 64]);
-	*inUse |= 1ULL << idx % 64;
+	inUse = getObj(map, addr[idx / ARRAY_size]);
+	inUse[idx % ARRAY_size / 64] &= ~(1ULL << (idx % 64));
 
-	base = (uint8_t *)(inUse + 1);
-	base += size * ((idx % 64) - 1);
+	base = (uint8_t *)(inUse + ARRAY_size / 64);
+	base += size * ((idx % ARRAY_size) - 1);
 	unlockLatch(array->latch);
 
-	return (void *)base;
+	return base;
 }
 
 //	allocate an array element index
@@ -81,39 +87,50 @@ uint16_t arrayAlloc(DbMap *map, DbAddr *array, size_t size) {
 unsigned long bits[1];
 uint64_t *inUse;
 DbAddr *addr;
-int idx, max;
+int idx, seg;
 
 	lockLatch(array->latch);
+
+	//	initialize empty array
 
 	if (!array->addr) {
 		array->bits = allocBlk(map, sizeof(DbAddr) * 256, true) | ADDR_MUTEX_SET;
 		addr = getObj(map, *array);
-		addr->bits = allocBlk(map, sizeof(uint64_t) + size * 63, true);
+		addr->bits = allocBlk(map, sizeof(uint64_t) * ARRAY_size / 64 + size * (ARRAY_size - 1), true);
+
+		// sluff first idx
+
 		inUse = getObj(map, *addr);
 		*inUse = 1ULL;
 	} else
 		addr = getObj(map, *array);
 
-	for (idx = 0; idx <= array->maxidx; idx++) {
+	idx = array->maxidx + 1;
+
+	while (idx--) {
 		inUse = getObj(map, addr[idx]);
 
-		//  skip completely used array entry
+		//  find array segment with available entry
 
-		if (inUse[0] == ULLONG_MAX)
+		for (seg = 0; seg < ARRAY_size / 64; seg++)
+		  if (inUse[seg] < ULLONG_MAX)
+			break;
+
+		if (seg == ARRAY_size / 64)
 			continue;
 
 #		ifdef _WIN32
-		  _BitScanForward64(bits, ~inUse[0]);
+		  _BitScanForward64(bits, ~inUse[seg]);
 #		else
-		  *bits = (__builtin_ffs (~inUse[0])) - 1;
+		  *bits = (__builtin_ffs (~inUse[seg])) - 1;
 #		endif
 
-		*inUse |= 1ULL << *bits;
+		inUse[seg] |= 1ULL << *bits;
 		unlockLatch(array->latch);
-		return *bits + idx * 64;
+		return *bits + idx * ARRAY_size + seg * 64;
 	}
 
-	// current array is full
+	// current array segments are full
 	//	allocate a new segment
 
 	if (array->maxidx == 255) {
@@ -121,12 +138,15 @@ int idx, max;
 		exit(1);
 	 }
 
-	addr[++array->maxidx].bits = allocBlk(map, sizeof(uint64_t) + size * 63, true);
+	addr[++array->maxidx].bits = allocBlk(map, sizeof(uint64_t) * ARRAY_size / 64 + size * (ARRAY_size - 1), true);
 	inUse = getObj(map, addr[idx]);
-	*inUse = 3ULL;
+
+	// sluff idx zero and assign idx one
+
+	inUse[0] = 3ULL;
 
 	unlockLatch(array->latch);
-	return array->maxidx * 64 + 1;
+	return array->maxidx * ARRAY_size + 1;
 }
 
 //	peel off 64 bit suffix value from key

@@ -21,16 +21,19 @@ void mapAll (DbMap *map);
 //	open map given red/black rbEntry
 
 DbMap *arenaRbMap(DbMap *parent, RedBlack *rbEntry, ArenaDef *arenaDef) {
-DbMap **childMap, *map;
+uint64_t *childMap;
+DbMap *map;
 
 	writeLock(parent->childMaps->lock);
 
 	childMap = skipAdd(parent, parent->childMaps->head, arenaDef->id);
 
-	if ((map = *childMap))
+	if ((map = (DbMap *)*childMap))
 		waitNonZero(map->arena->type);
-	else
-		map = *childMap = openMap(parent, rbKey(rbEntry), rbEntry->keyLen, arenaDef);
+	else {
+		map = openMap(parent, rbKey(rbEntry), rbEntry->keyLen, arenaDef);
+		*childMap = (uint64_t)map;
+	}
 
 	writeUnlock(parent->childMaps->lock);
 	return map;
@@ -39,7 +42,7 @@ DbMap **childMap, *map;
 //  install the new arena name and params in the Catalog
 
 RedBlack *createArenaDef(DbMap *parent, char *name, int nameLen, Params *params) {
-DbAddr *skipPayload;
+uint64_t *skipPayload;
 ArenaDef *arenaDef;
 PathStk pathStk[1];
 RedBlack *rbEntry;
@@ -74,7 +77,7 @@ RedBlack *rbEntry;
 
 	writeLock(parent->arenaDef->idList->lock);
 	skipPayload = skipAdd (parent->db, parent->arenaDef->idList->head, arenaDef->id);
-	skipPayload->bits = rbEntry->addr.bits;
+	*skipPayload = rbEntry->addr.bits;
 	writeUnlock(parent->arenaDef->idList->lock);
 
 	unlockLatch(parent->arenaDef->nameTree->latch);
@@ -521,11 +524,47 @@ ObjId objId;
 
 // drop an arena and recursively its children
 
-void dropMap(DbMap *map) {
+void dropMap(DbMap *map, bool dropDefs) {
+DbAddr *next, addr;
+RedBlack *rbEntry;
+SkipEntry *entry;
+SkipNode *node;
+DbMap *child;
+int idx;
+
+	//	is arena being created?
+
+	waitNonZero(map->arena->type);
+
+	//	are we already dropped?
 
 	lockLatch(map->arena->mutex);
-	*map->arena->mutex &= ~ALIVE_BIT;
 
+	if (~*map->arena->mutex & ALIVE_BIT) {
+		*map->arena->mutex = 0;
+		return;
+	}
+
+	// first, remove the ALIVE bit then delete
+	//	all children
+
+	writeLock(map->arenaDef->idList->lock);
+	next = map->arenaDef->idList->head;
+
+	while (next->addr) {
+	  node = getObj(map, *next);
+
+	  for (idx = 0; idx < next->nslot; idx++) {
+		entry = node->array + idx;
+		addr.bits = *entry->val;
+		rbEntry = getObj(map->db, addr);
+		child = arenaRbMap(map->db, rbEntry, getObj(map->db, rbEntry->payLoad));
+		dropMap(child, dropDefs);
+	  }
+
+	  next = node->next;
+	}
+
+	writeUnlock(map->arenaDef->idList->lock);
 	deleteMap(map);
-
 }

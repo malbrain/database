@@ -455,7 +455,7 @@ DbHandle index[1];
 	fprintf(stderr, "PageSize: %d, # Processors: %d, Allocation Granularity: %d\n\n", info->dwPageSize, info->dwNumberOfProcessors, info->dwAllocationGranularity);
 #endif
 	if( argc < 3 ) {
-		fprintf (stderr, "Usage: %s db_name -cmds=[crwsdf]... -idxType=[012] -bits=# -xtra=# -inMem -txns -noDocs -keyLen=# -minKey=abcd -maxKey=abce src_file1 src_file2 ... ]\n", argv[0]);
+		fprintf (stderr, "Usage: %s db_name -cmds=[crwsdf]... -idxType=[012] -bits=# -xtra=# -inMem -txns -noDocs -keyLen=# -minKey=abcd -maxKey=abce -drop src_file1 src_file2 ... ]\n", argv[0]);
 		fprintf (stderr, "  where db_name is the prefix name of the database file\n");
 		fprintf (stderr, "  cmds is a string of (c)ount/(r)ev scan/(w)rite/(s)can/(d)elete/(f)ind, with a one character command for each input src_file, or a no-input command.\n");
 		fprintf (stderr, "  idxType is the type of index: 0 = ART, 1 = btree1, 2 = btree2\n");
@@ -467,6 +467,7 @@ DbHandle index[1];
 		fprintf (stderr, "  txns indicates use of transactions\n");
 		fprintf (stderr, "  minKey specifies beginning cursor key\n");
 		fprintf (stderr, "  maxKey specifies ending cursor key\n");
+		fprintf (stderr, "  drop will initially drop database\n");
 		fprintf (stderr, "  src_file1 thru src_filen are files of keys/documents separated by newline\n");
 		exit(0);
 	}
@@ -497,6 +498,8 @@ DbHandle index[1];
 			idxType = atoi(argv[0] + 9);
 	  else if (!memcmp(argv[0], "-inMem", 6))
 			params[OnDisk].boolVal = false;
+	  else if (!memcmp(argv[0], "-drop", 5))
+			params[DropDb].boolVal = true;
 	  else if (!memcmp(argv[0], "-txns", 5))
 			params[UseTxn].boolVal = true;
 	  else if (!memcmp(argv[0], "-noDocs", 7))
@@ -522,6 +525,13 @@ DbHandle index[1];
 	args = malloc ((cnt ? cnt : 1) * sizeof(ThreadArg));
 
 	openDatabase(database, dbName, strlen(dbName), params);
+
+	//  drop the database?
+
+	if (params[DropDb].boolVal) {
+		dropArena(database, true);
+		openDatabase(database, dbName, strlen(dbName), params);
+	}
 
 	keyAddr = arenaAlloc(database, sizeof(KeySpec), true, true);
 	params[IdxKeySpec].int64Val = keyAddr;

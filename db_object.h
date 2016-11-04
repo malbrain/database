@@ -2,6 +2,10 @@
 
 #include "db_lock.h"
 
+//  number of elements in an array node
+
+#define ARRAY_size	512
+
 enum ObjType {
 	FrameType,
 	ObjIdType,			// ObjId value
@@ -82,14 +86,15 @@ uint32_t store64(uint8_t *key, uint32_t keylen, uint64_t what);
 
 void *arrayElement(DbMap *map, DbAddr *array, uint16_t idx, size_t size);
 void *arrayEntry(DbMap *map, DbAddr array, uint16_t idx, size_t size);
+
 uint16_t arrayAlloc(DbMap *map, DbAddr *array, size_t size);
 uint64_t *arrayBlk(DbMap *map, DbAddr *array, uint32_t idx);
 uint64_t arrayAddr(DbMap *map, DbAddr *array, uint32_t idx);
 
 SkipEntry *skipSearch(SkipEntry *array, int high, uint64_t key);
 uint64_t skipDel(DbMap *map, DbAddr *skip, uint64_t key);
-void *skipFind(DbMap *map, DbAddr *skip, uint64_t key);
-void *skipPush(DbMap *map, DbAddr *skip, uint64_t key);
-void *skipAdd(DbMap *map, DbAddr *skip, uint64_t key);
+uint64_t *skipFind(DbMap *map, DbAddr *skip, uint64_t key);
+uint64_t *skipPush(DbMap *map, DbAddr *skip, uint64_t key);
+uint64_t *skipAdd(DbMap *map, DbAddr *skip, uint64_t key);
 uint64_t skipInit(DbMap *map, int numEntries);
 

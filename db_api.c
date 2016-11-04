@@ -75,14 +75,14 @@ DbMap *map;
 	return obj;
 }
 
-DbStatus dropArena(DbHandle hndl[1], bool dropDefinitions) {
+DbStatus dropArena(DbHandle hndl[1], bool dropDefs) {
 Handle *arena;
 DbStatus stat;
 
   if ((stat = bindHandle(hndl, &arena)))
 	return stat;
 
-  dropMap(arena->map);
+  dropMap(arena->map, dropDefs);
   releaseHandle(arena);
   return stat;
 }

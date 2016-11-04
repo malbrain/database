@@ -103,7 +103,7 @@ RedBlack *createArenaDef(DbMap *parent, char *name, int nameLen, Params *params)
 void* mapMemory(DbMap *map, uint64_t offset, uint64_t size, uint32_t segNo);
 void unmapSeg(DbMap *map, uint32_t segNo);
 bool mapSeg(DbMap *map, uint32_t segNo);
-void dropMap(DbMap *map);
+void dropMap(DbMap *map, bool dropDefs);
 
 bool newSeg(DbMap *map, uint32_t minSize);
 void mapSegs(DbMap *map);

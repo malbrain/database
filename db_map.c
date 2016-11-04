@@ -277,7 +277,6 @@ char *base = segNo ? map->base[segNo] : 0ULL;
 
 #ifndef _WIN32
 	munmap(base, map->arena->segs[segNo].size);
-	close (map->hndl);
 #else
 	if (!map->arenaDef->onDisk) {
 		VirtualFree(base, 0, MEM_RELEASE);
@@ -360,21 +359,26 @@ bool fileExists(char *path) {
 #endif
 }
 
-#ifdef _WIN32
 void deleteMap(DbMap *map) {
+#ifdef _WIN32
 FILE_DISPOSITION_INFO dispInfo[1];
-FILE_RENAME_INFO renameInfo[1];
-
-	memset (renameInfo, 0, sizeof(renameInfo));
-	SetFileInformationByHandle (map->hndl, FileRenameInfo, renameInfo, sizeof(renameInfo));
 
 	memset (dispInfo, 0, sizeof(dispInfo));
 	dispInfo->DeleteFile = true;
 	SetFileInformationByHandle (map->hndl, FileDispositionInfo, dispInfo, sizeof(dispInfo));
-}
 #else
-void deleteMap(DbMap *map) {
-
 	unlink(map->path);
-}
 #endif
+
+	do unmapSeg(map, map->maxSeg);
+	while (map->maxSeg--);
+
+#ifdef _WIN32
+	CloseHandle(map->hndl);
+#else
+	if( map->hndl < 0 )
+		close(map->hndl);
+#endif
+
+	db_free(map);
+}

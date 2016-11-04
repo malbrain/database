@@ -84,6 +84,7 @@ typedef enum {
 	InitSize,		// arena size
 	UseTxn,			// txn used
 	NoDocs,			// no documents
+	DropDb,			// drop the database
 
 	IdxKeySpec = 10,	// index key spec document
 	IdxKeyUnique,
