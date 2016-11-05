@@ -11,8 +11,8 @@
 
 extern int maxType[8];
 
-//	remove a dropped index from the docStore indexes skiplist
-//	call with arena child skiplist entry
+//	remove a dropped index from the docStore child skiplist
+//	call with child delete skiplist entry
 
 void removeIdx(Handle *docHndl, SkipEntry *entry) {
 DocStore *docStore;
@@ -23,15 +23,12 @@ ObjId hndlId;
 	//	find the childId in our indexes skiplist
 	//	and return the handle
 
-	if ((hndlId.bits = skipDel(docHndl->map, docStore->indexes->head, *entry->key))) {
+	if ((hndlId.bits = skipDel(docHndl->map, docStore->indexes->head, *entry->val))) {
 		HandleId *slot = slotHandle(hndlId.bits);
 
-		lockLatch(slot->addr.latch);
-		destroyHandle(slot);
+		lockLatch(slot->addr->latch);
+		destroyHandle(slot->addr);
 	}
-
-	return;
-
 }
 
 //  open and install index DbHandle in docHndl cache
@@ -41,6 +38,7 @@ void installIdx(Handle *docHndl, SkipEntry *entry) {
 uint64_t *hndlAddr;
 DocStore *docStore;
 RedBlack *rbEntry;
+HandleType type;
 DbAddr rbAddr;
 DbMap *child;
 DbAddr addr;
@@ -50,11 +48,12 @@ DbAddr addr;
 	hndlAddr = skipAdd(docHndl->map, docStore->indexes->head, *entry->key);
 
 	rbAddr.bits = *entry->val;
-	rbEntry = getObj(docHndl->map->parent->db, rbAddr);
+	rbEntry = getObj(docHndl->map->db, rbAddr);
 
-	child = arenaRbMap(docHndl->map, rbEntry, getObj(docHndl->map->db, rbEntry->payLoad));
+	child = arenaRbMap(docHndl->map, rbEntry);
+	type = *child->arena->type;
 
-	*hndlAddr = makeHandle(child, 0, maxType[*child->arena->type], *child->arena->type);
+	*hndlAddr = makeHandle(child, 0, maxType[type], type);
 }
 
 //	create new index handles based on children of the docStore.

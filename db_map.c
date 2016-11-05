@@ -130,6 +130,15 @@ void waitZero(volatile char *zero) {
 #endif
 }
 
+void waitZero32(volatile uint32_t *zero) {
+	while (*zero)
+#ifndef _WIN32
+			pause();
+#else
+			Yield();
+#endif
+}
+
 void waitZero64(volatile uint64_t *zero) {
 	while (*zero)
 #ifndef _WIN32
@@ -140,6 +149,15 @@ void waitZero64(volatile uint64_t *zero) {
 }
 
 void waitNonZero(volatile char *zero) {
+	while (!*zero)
+#ifndef _WIN32
+			pause();
+#else
+			Yield();
+#endif
+}
+
+void waitNonZero32(volatile uint32_t *zero) {
 	while (!*zero)
 #ifndef _WIN32
 			pause();
@@ -197,11 +215,11 @@ void unlockAddr(volatile uint64_t* bits) {
 	*bits = *bits & ~ADDR_MUTEX_SET;
 }
 
-int8_t atomicAdd8(volatile int8_t *value, int8_t amt) {
+int8_t atomicAnd8(volatile int8_t *value, int8_t amt) {
 #ifndef _WIN32
-	return __sync_add_and_fetch(value, amt);
+	return __sync_fetch_and_and(value, amt);
 #else
-	return _InterlockedExchangeAdd8( value, amt);
+	return _InterlockedAnd8( value, amt);
 #endif
 }
 

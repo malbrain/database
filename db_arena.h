@@ -91,7 +91,7 @@ typedef struct {
 #define docarena(map) ((DocArena *)(map->arena + 1))
 
 DbMap *openMap(DbMap *parent, char *name, uint32_t nameLen, ArenaDef *arena);
-DbMap *arenaRbMap(DbMap *parent, RedBlack *entry, ArenaDef *arenaDef);
+DbMap *arenaRbMap(DbMap *parent, RedBlack *entry);
 DbMap *initArena (DbMap *map, ArenaDef *arenaDef);
 
 RedBlack *createArenaDef(DbMap *parent, char *name, int nameLen, Params *params);

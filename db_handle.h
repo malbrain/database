@@ -13,9 +13,9 @@ typedef struct {
 
 struct Handle_ {
 	DbMap *map;			// pointer to map, zeroed on close
-	FreeList *list;		// list of objects waiting to be recycled in frames
 	DbAddr calls;		// current handle timestamp
 	ObjId hndlId;		// object Id entry in catalog
+	FreeList *list;		// obj frames waiting to be recycled
 	uint16_t arenaIdx;	// arena handle table entry index
 	uint16_t xtraSize;	// size of following structure
 	uint16_t callIdx;	// arena call table entry index
@@ -25,7 +25,7 @@ struct Handle_ {
 };
 
 typedef struct {
-	DbAddr addr;
+	DbAddr addr[1];
 	uint32_t entryCnt[1];	// count of outstanding handle binds
 } HandleId;
 
@@ -37,6 +37,6 @@ void releaseHandle(Handle *hndl);
 Handle *getHandle(DbHandle *hndl);
 HandleId *slotHandle(uint64_t hndlBits);
 
-void destroyHandle(HandleId *slot);
+void destroyHandle(DbAddr *addr);
 void initHndlMap(char *path, int pathLen, char *name, int nameLen, bool onDisk);
 

@@ -111,7 +111,7 @@ DbMap *map;
 
 	//  create the database
 
-	if ((map = arenaRbMap(hndlMap, rbEntry, arenaDef)))
+	if ((map = arenaRbMap(hndlMap, rbEntry)))
 		*map->arena->type = Hndl_database;
 	else
 		return DB_ERROR_createdatabase;
@@ -157,7 +157,7 @@ Handle *ds;
 	arenaDef->arenaType = Hndl_docStore;
 	arenaDef->objSize = sizeof(ObjId);
 
-	if ((map = arenaRbMap(parent, rbEntry, arenaDef)))
+	if ((map = arenaRbMap(parent, rbEntry)))
 		docArena = docarena(map);
 	else
 		return DB_ERROR_arenadropped;
@@ -219,7 +219,7 @@ DbObject *obj;
 	arenaDef->baseSize = baseSize;
 	arenaDef->arenaType = type;
 
-	if (!(map = arenaRbMap(parent, rbEntry, arenaDef)))
+	if (!(map = arenaRbMap(parent, rbEntry)))
 	  return DB_ERROR_createindex;
 
 	hndl->hndlBits = makeHandle(map, 0, maxType[type], type);
@@ -303,12 +303,12 @@ ObjId hndlId;
 	hndlId.bits = dbHndl->hndlBits;
 	slot = fetchIdSlot (hndlMap, hndlId);
 
-	lockLatch(slot->addr.latch);
+	lockLatch(slot->addr->latch);
 
-	if (*slot->addr.latch & ALIVE_BIT)
-		hndl = getObj(hndlMap, slot->addr);
+	if (*slot->addr->latch & ALIVE_BIT)
+		hndl = getObj(hndlMap, *slot->addr);
 	else {
-		*slot->addr.latch = 0;
+		*slot->addr->latch = 0;
 		return DB_ERROR_handleclosed;
 	}
 
@@ -319,7 +319,7 @@ ObjId hndlId;
 		dbCloseCursor((void *)(hndl + 1), hndl->map);
 	}
 
-	destroyHandle (slot);
+	destroyHandle (slot->addr);
 	return DB_OK;
 }
 
@@ -333,7 +333,7 @@ ObjId hndlId;
 	hndlId.bits = dbHndl->hndlBits;
 	slot = fetchIdSlot (hndlMap, hndlId);
 
-	if (*slot->addr.latch & ALIVE_BIT)
+	if (*slot->addr->latch & ALIVE_BIT)
 	  stat = closeHandle(dbHndl);
 
 	freeId(hndlMap, hndlId);

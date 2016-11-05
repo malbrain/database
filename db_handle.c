@@ -29,10 +29,10 @@ ObjId hndlId;
 	hndlId.bits = hndl->hndlBits;
 	slot = fetchIdSlot (hndlMap, hndlId);
 
-	if (!(*slot->addr.latch & ALIVE_BIT))
+	if (!(*slot->addr->latch & ALIVE_BIT))
 		return NULL;
 
-	return getObj(hndlMap, slot->addr);
+	return getObj(hndlMap, *slot->addr);
 }
 
 void initHndlMap(char *path, int pathLen, char *name, int nameLen, bool onDisk) {
@@ -132,15 +132,15 @@ DbAddr addr;
 
 	//  install in HandleId slot
 
-	slot->addr.bits = addr.bits;
+	slot->addr->bits = addr.bits;
 	return hndlId.bits;
 }
 
 //	destroy handle
 //	call with id slot locked
 
-void destroyHandle(HandleId *slot) {
-Handle *hndl = getObj(hndlMap, slot->addr);
+void destroyHandle(DbAddr *addr) {
+Handle *hndl = getObj(hndlMap, *addr);
 Handle *prevHndl, *nextHndl;
 PathStk pathStk[1];
 RedBlack *rbEntry;
@@ -148,7 +148,7 @@ uint64_t *inUse;
 
 	//	already destroyed?
 
-	if (!(*slot->addr.latch & ALIVE_BIT))
+	if (!(*addr->latch & ALIVE_BIT))
 		return;
 
 	// release handle freeList
@@ -160,8 +160,8 @@ uint64_t *inUse;
 		unlockLatch(hndl->map->arena->listArray->latch);
 	}
 
-	freeBlk (hndlMap, slot->addr);
-	slot->addr.bits = 0;
+	freeBlk (hndlMap, *addr);
+	addr->bits = 0;
 }
 
 //	bind handle for use in API call
@@ -171,29 +171,41 @@ DbStatus bindHandle(DbHandle *dbHndl, Handle **hndl) {
 HndlCall *hndlCall;
 HandleId *slot;
 ObjId hndlId;
+uint32_t cnt;
 
 	hndlId.bits = dbHndl->hndlBits;
 	slot = fetchIdSlot (hndlMap, hndlId);
 
-	if (!(*slot->addr.latch & ALIVE_BIT))
+	if (!(*slot->addr->latch & ALIVE_BIT))
 		return DB_ERROR_handleclosed;
-
-	*hndl = getObj(hndlMap, slot->addr);
-
-	//	is there a DROP request for this arena?
-
-	if (~(*hndl)->map->arena->mutex[0] & ALIVE_BIT) {
-		lockLatch(slot->addr.latch);
-		destroyHandle (slot);
-		unlockLatch(slot->addr.latch);
-		return DB_ERROR_arenadropped;
-	}
 
 	//	increment count of active binds
 	//	and capture timestamp if we are the
 	//	first handle bind
 
-	if (atomicAdd32(slot->entryCnt, 1) == 1) {
+	cnt = atomicAdd32(slot->entryCnt, 1);
+
+	//	exit if it was reclaimed?
+
+	if (!(*slot->addr->latch & ALIVE_BIT)) {
+		atomicAdd32(slot->entryCnt, -1);
+		return DB_ERROR_handleclosed;
+	}
+
+	*hndl = getObj(hndlMap, *slot->addr);
+
+	//	is there a DROP request for this arena?
+
+	if (~(*hndl)->map->arena->mutex[0] & ALIVE_BIT) {
+		lockLatch(slot->addr->latch);
+		destroyHandle (slot->addr);
+		return DB_ERROR_arenadropped;
+	}
+
+	//  are we the first call after an idle period?
+	//	set the entryTs if so.
+
+	if (cnt == 1) {
 		hndlCall = arrayEntry((*hndl)->map, (*hndl)->calls, (*hndl)->callIdx, sizeof(HndlCall));
 		hndlCall->entryTs = atomicAdd64(&(*hndl)->map->arena->nxtTs, 1);
 	}
@@ -211,6 +223,50 @@ ObjId hndlId;
 	slot = fetchIdSlot (hndlMap, hndlId);
 
 	atomicAdd32(slot->entryCnt, -1);
+}
+
+//	disable all arena handles
+//	by scanning HndlCall array
+
+void disableHndls(DbMap *map, DbAddr *array) {
+DbAddr *addr;
+int idx, seg;
+
+  if (array->addr) {
+	addr = getObj(map, *array);
+
+	for (idx = 0; idx <= array->maxidx; idx++) {
+	  uint64_t *inUse = getObj(map, addr[idx]);
+	  HndlCall *call = (HndlCall *)(inUse + ARRAY_size / 64);
+
+	  for (seg = 0; seg < ARRAY_size / 64; seg++) {
+		uint64_t bits = inUse[seg];
+		int slotIdx = 0;
+
+		// sluff first idx in segment zero
+
+		if (!seg) {
+		  slotIdx = 1;
+		  bits /= 2;
+		}
+
+		do if (bits & 1) {
+		  HandleId *slot = fetchIdSlot(hndlMap, call[seg * 64 + slotIdx - 1].hndlId);
+		  DbAddr handle[1];
+		  handle->bits = slot->addr->bits;
+		  slot->addr->bits = 0;
+
+		  //  wait for outstanding activity to finish
+
+		  waitZero32 (slot->entryCnt);
+
+		  //  destroy the handle
+
+		  destroyHandle(handle);
+		} while (slotIdx++, bits /= 2);
+	  }
+	}
+  }
 }
 
 //	find arena's earliest bound handle
@@ -233,18 +289,21 @@ int idx, seg;
 		uint64_t bits = inUse[seg];
 		int slotIdx = 0;
 
-		// sluff first idx
+		// sluff first idx in segment zero
 
-		while (slotIdx++, bits /= 2) {
-		  if (bits & 1) {
-			HandleId *slot = fetchIdSlot(hndlMap, call[seg * 64 + slotIdx - 1].hndlId);
-
-			if (!slot->entryCnt[0])
-			  continue;
-			else
-			  lowTs = call[slotIdx - 1].entryTs;
-		  }
+		if (!seg) {
+		  slotIdx = 1;
+		  bits /= 2;
 		}
+
+		do if (bits & 1) {
+		  HandleId *slot = fetchIdSlot(hndlMap, call[seg * 64 + slotIdx - 1].hndlId);
+
+		  if (!slot->entryCnt[0])
+			  continue;
+		  else
+			  lowTs = call[slotIdx - 1].entryTs;
+		} while (slotIdx++, bits /= 2);
 	  }
 	}
   }

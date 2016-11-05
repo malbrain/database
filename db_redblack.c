@@ -288,13 +288,12 @@ DbAddr left;
 
 //	delete red/black tree entry
 
-bool rbDel (DbMap *map, DbAddr *root, void *key, uint32_t keyLen) {
-RedBlack *entry;
+bool rbDel (DbMap *map, DbAddr *root, RedBlack *entry) {
 PathStk path[1];
 
 	lockLatch(root->latch);
 
-	if ((entry = rbFind(map, root, key, keyLen, path))) {
+	if ((rbFind(map, root, (char *)(entry + 1), entry->keyLen, path))) {
 		rbRemove (map, root, path);
 		unlockLatch(root->latch);
 		return true;

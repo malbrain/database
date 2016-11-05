@@ -20,7 +20,8 @@ void mapAll (DbMap *map);
 
 //	open map given red/black rbEntry
 
-DbMap *arenaRbMap(DbMap *parent, RedBlack *rbEntry, ArenaDef *arenaDef) {
+DbMap *arenaRbMap(DbMap *parent, RedBlack *rbEntry) {
+ArenaDef *arenaDef = getObj(parent->db, rbEntry->payLoad);
 uint64_t *childMap;
 DbMap *map;
 
@@ -42,7 +43,7 @@ DbMap *map;
 //  install the new arena name and params in the Catalog
 
 RedBlack *createArenaDef(DbMap *parent, char *name, int nameLen, Params *params) {
-uint64_t *skipPayload;
+uint64_t *skipPayLoad;
 ArenaDef *arenaDef;
 PathStk pathStk[1];
 RedBlack *rbEntry;
@@ -76,8 +77,8 @@ RedBlack *rbEntry;
 	//	add new rbEntry to parent's child id array
 
 	writeLock(parent->arenaDef->idList->lock);
-	skipPayload = skipAdd (parent->db, parent->arenaDef->idList->head, arenaDef->id);
-	*skipPayload = rbEntry->addr.bits;
+	skipPayLoad = skipAdd (parent->db, parent->arenaDef->idList->head, arenaDef->id);
+	*skipPayLoad = rbEntry->addr.bits;
 	writeUnlock(parent->arenaDef->idList->lock);
 
 	unlockLatch(parent->arenaDef->nameTree->latch);
@@ -525,14 +526,16 @@ ObjId objId;
 // drop an arena and recursively its children
 
 void dropMap(DbMap *map, bool dropDefs) {
+uint64_t *skipPayLoad;
 DbAddr *next, addr;
 RedBlack *rbEntry;
-SkipEntry *entry;
+DbAddr rbPayLoad;
 SkipNode *node;
 DbMap *child;
+uint64_t id;
 int idx;
 
-	//	is arena being created?
+	//	wait until arena is created
 
 	waitNonZero(map->arena->type);
 
@@ -545,26 +548,72 @@ int idx;
 		return;
 	}
 
-	// first, remove the ALIVE bit then delete
-	//	all children
+	//  delete our current id from parent's child list
 
-	writeLock(map->arenaDef->idList->lock);
-	next = map->arenaDef->idList->head;
+	id = map->arenaDef->id;
+	writeLock(map->parent->arenaDef->idList->lock);
+	rbEntry = (RedBlack *)skipDel(map->parent, map->parent->arenaDef->idList->head, id); 
+	writeUnlock(map->parent->arenaDef->idList->lock);
 
-	while (next->addr) {
-	  node = getObj(map, *next);
+	//  insert a new idList delete entry
 
-	  for (idx = 0; idx < next->nslot; idx++) {
-		entry = node->array + idx;
-		addr.bits = *entry->val;
-		rbEntry = getObj(map->db, addr);
-		child = arenaRbMap(map->db, rbEntry, getObj(map->db, rbEntry->payLoad));
-		dropMap(child, dropDefs);
-	  }
+	if (rbEntry)
+		writeLock(map->parent->arenaDef->idList->lock);
+	else
+		return;
 
-	  next = node->next;
+	//	our ArenaDef addr
+
+	rbPayLoad.bits = rbEntry->payLoad.bits;
+
+	skipPayLoad = skipAdd (map->parent->db, map->parent->arenaDef->idList->head, atomicAdd64(&map->parent->arenaDef->childId, CHILDID_INCR) | 1);
+	*skipPayLoad = id;
+
+	//	either delete our entry in our parent's child list and name tree,
+	//	or advance our id number so future child creators
+	//	build a new file under a new id
+
+	if (dropDefs)
+		rbDel(map->db, map->parent->arenaDef->nameTree, rbEntry); 
+	else {
+		map->arenaDef->id = atomicAdd64(&map->parent->arenaDef->childId, CHILDID_INCR);
+		skipPayLoad = skipAdd (map->parent->db, map->parent->arenaDef->idList->head, map->arenaDef->id);
+		*skipPayLoad = rbEntry->addr.bits;
 	}
 
+	writeUnlock(map->parent->arenaDef->idList->lock);
+
+	//	remove the ALIVE bits
+	//	and drop the children
+
+	do {
+	  writeLock(map->arenaDef->idList->lock);
+	  next = map->arenaDef->idList->head;
+
+	  if (next->addr)
+		node = getObj(map, *next);
+	  else
+		break;
+
+	  addr.bits = *node->array->val;
+	  writeUnlock(map->arenaDef->idList->lock);
+
+	  rbEntry = getObj(map->db, addr);
+	  child = arenaRbMap(map, rbEntry);
+	  dropMap(child, dropDefs);
+	} while (true);
+
 	writeUnlock(map->arenaDef->idList->lock);
+
+	//	return arenaDef storage
+
+	freeBlk(map->db, rbPayLoad);
+
+	//  wait for handles to exit
+	//	and delete our map
+
+	lockLatch(map->arena->hndlCalls->latch);
+	disableHndls(map, map->arena->hndlCalls);
+	unlockLatch(map->arena->hndlCalls->latch);
 	deleteMap(map);
 }

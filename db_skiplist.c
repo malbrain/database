@@ -108,6 +108,7 @@ uint64_t next;
 }
 
 //	Add arbitrary key to skip list
+//	call with skip hdr locked
 //	return val address
 
 uint64_t *skipAdd(DbMap *map, DbAddr *skip, uint64_t key) {

@@ -11,7 +11,7 @@ typedef struct {
 
 typedef struct RedBlack_ {
 	DbAddr left, right;		// next nodes down
-	DbAddr payLoad;			// length of payload after key
+	DbAddr payLoad;			// entry payload address
 	DbAddr addr;			// this entry addr in map
 	uint32_t keyLen;		// length of key after entry
 	char latch[1];			// this entry latch
@@ -28,5 +28,5 @@ RedBlack *rbNew (DbMap *map, void *key, uint32_t keyLen, uint32_t payload);
 RedBlack *rbNext(DbMap *map, PathStk *path); 
 
 void rbAdd(DbMap *map, DbAddr *root, RedBlack *entry, PathStk *path);
-bool rbDel (DbMap *map, DbAddr *root, void *key, uint32_t keylen);
+bool rbDel (DbMap *map, DbAddr *root, RedBlack *entry);
 
