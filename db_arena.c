@@ -67,7 +67,7 @@ RedBlack *rbEntry;
 		return NULL;
 	}
 
-	arenaDef->id = atomicAdd64(&parent->arenaDef->childId, CHILDID_INCR);
+	arenaDef->id = atomicAdd64(&parent->arenaDef->childId, 1);
 	initLock(arenaDef->idList->lock);
 
 	//	add arenaDef to parent's child arenaDef tree
@@ -101,7 +101,7 @@ int32_t amt = 0;
 
 	map = db_malloc(sizeof(DbMap) + arenaDef->localSize, true);
 
-	if (!getPath(map, name, nameLen, parent, arenaDef->id / 2)) {
+	if (!getPath(map, name, nameLen, parent, arenaDef->id)) {
 		db_free(map);
 		return NULL;
 	}
@@ -527,6 +527,7 @@ ObjId objId;
 
 void dropMap(DbMap *map, bool dropDefs) {
 uint64_t *skipPayLoad;
+uint32_t childIdMax;
 DbAddr *next, addr;
 RedBlack *rbEntry;
 DbAddr rbPayLoad;
@@ -548,37 +549,30 @@ int idx;
 		return;
 	}
 
-	//  delete our current id from parent's child list
+	//  delete our current id from parent's child id list
 
 	id = map->arenaDef->id;
 	writeLock(map->parent->arenaDef->idList->lock);
-	rbEntry = (RedBlack *)skipDel(map->parent, map->parent->arenaDef->idList->head, id); 
+	addr.bits = skipDel(map->parent->db, map->parent->arenaDef->idList->head, id); 
+	rbEntry = getObj(map->parent->db, addr);
 	writeUnlock(map->parent->arenaDef->idList->lock);
-
-	//  insert a new idList delete entry
-
-	if (rbEntry)
-		writeLock(map->parent->arenaDef->idList->lock);
-	else
-		return;
 
 	//	our ArenaDef addr
 
 	rbPayLoad.bits = rbEntry->payLoad.bits;
 
-	skipPayLoad = skipAdd (map->parent->db, map->parent->arenaDef->idList->head, atomicAdd64(&map->parent->arenaDef->childId, CHILDID_INCR) | 1);
-	*skipPayLoad = id;
-
 	//	either delete our entry in our parent's child list and name tree,
 	//	or advance our id number so future child creators
 	//	build a new file under a new id
 
-	if (dropDefs)
-		rbDel(map->db, map->parent->arenaDef->nameTree, rbEntry); 
-	else {
-		map->arenaDef->id = atomicAdd64(&map->parent->arenaDef->childId, CHILDID_INCR);
+	if (dropDefs) {
+		rbDel(map->parent->db, map->parent->arenaDef->nameTree, rbEntry); 
+		childIdMax = UINT32_MAX;
+	} else {
+		map->arenaDef->id = atomicAdd64(&map->parent->arenaDef->childId, 1);
 		skipPayLoad = skipAdd (map->parent->db, map->parent->arenaDef->idList->head, map->arenaDef->id);
 		*skipPayLoad = rbEntry->addr.bits;
+		childIdMax = map->arenaDef->childId;
 	}
 
 	writeUnlock(map->parent->arenaDef->idList->lock);
@@ -591,11 +585,15 @@ int idx;
 	  next = map->arenaDef->idList->head;
 
 	  if (next->addr)
-		node = getObj(map, *next);
+		node = getObj(map->db, *next);
 	  else
 		break;
 
-	  addr.bits = *node->array->val;
+	  if (*node->array->key < childIdMax)
+	  	addr.bits = *node->array->val;
+	  else
+		break;
+
 	  writeUnlock(map->arenaDef->idList->lock);
 
 	  rbEntry = getObj(map->db, addr);
@@ -607,7 +605,7 @@ int idx;
 
 	//	return arenaDef storage
 
-	freeBlk(map->db, rbPayLoad);
+	freeBlk(map->parent->db, rbPayLoad);
 
 	//  wait for handles to exit
 	//	and delete our map

@@ -41,7 +41,7 @@ uint64_t bits;
 DbStatus stat;
 DbMap *map;
 
-	if ((stat = bindHandle(arenaHndl, &arena)))
+	if (!(arena = bindHandle(arenaHndl)))
 		return 0;
 
 	map = arena->map;
@@ -61,7 +61,7 @@ DbObject *obj;
 DbAddr addr;
 DbMap *map;
 
-	if ((stat = bindHandle(arenaHndl, &arena)))
+	if (!(arena = bindHandle(arenaHndl)))
 		return NULL;
 
 	map = arena->map;
@@ -77,14 +77,17 @@ DbMap *map;
 
 DbStatus dropArena(DbHandle hndl[1], bool dropDefs) {
 Handle *arena;
-DbStatus stat;
+DbMap *map;
 
-  if ((stat = bindHandle(hndl, &arena)))
-	return stat;
+  if (!(arena = bindHandle(hndl)))
+	return DB_ERROR_handleclosed;
 
-  dropMap(arena->map, dropDefs);
+  map = arena->map;
+
   releaseHandle(arena);
-  return stat;
+
+  dropMap(map, dropDefs);
+  return DB_OK;
 }
 
 DbStatus openDatabase(DbHandle hndl[1], char *name, uint32_t nameLen, Params *params) {
@@ -140,8 +143,8 @@ Handle *ds;
 
 	memset (hndl, 0, sizeof(DbHandle));
 
-	if ((stat = bindHandle(dbHndl, &database)))
-		return stat;
+	if (!(database = bindHandle(dbHndl)))
+		return DB_ERROR_handleclosed;
 
 	parent = database->map, db = database(parent);
 
@@ -193,8 +196,8 @@ DbObject *obj;
 
 	memset (hndl, 0, sizeof(DbHandle));
 
-	if ((stat = bindHandle(docHndl, &parentHndl)))
-		return stat;
+	if (!(parentHndl = bindHandle(docHndl)))
+		return DB_ERROR_handleclosed;
 
 	parent = parentHndl->map;
 
@@ -264,8 +267,8 @@ Txn *txn;
 
 	memset (hndl, 0, sizeof(DbHandle));
 
-	if ((stat = bindHandle(idxHndl, &index)))
-		return stat;
+	if (!(index = bindHandle(idxHndl)))
+		return DB_ERROR_handleclosed;
 
 	if (txnId.bits) {
 		txn = fetchIdSlot(index->map->db, txnId);
@@ -319,7 +322,7 @@ ObjId hndlId;
 		dbCloseCursor((void *)(hndl + 1), hndl->map);
 	}
 
-	destroyHandle (slot->addr);
+	destroyHandle (hndl->map, slot->addr);
 	return DB_OK;
 }
 
@@ -349,8 +352,8 @@ DbCursor *cursor;
 Handle *index;
 DbStatus stat;
 
-	if ((stat = bindHandle(hndl, &index)))
-		return stat;
+	if (!(index = bindHandle(hndl)))
+		return DB_ERROR_handleclosed;
 
 	cursor = (DbCursor *)(index + 1);
 
@@ -374,8 +377,8 @@ DbCursor *cursor;
 Handle *index;
 DbStatus stat;
 
-	if ((stat = bindHandle(hndl, &index)))
-		return stat;
+	if (!(index = bindHandle(hndl)))
+		return DB_ERROR_handleclosed;
 
 	cursor = (DbCursor *)(index + 1);
 
@@ -452,8 +455,8 @@ DbCursor *cursor;
 Handle *index;
 DbStatus stat;
 
-	if ((stat = bindHandle(hndl, &index)))
-		return stat;
+	if (!(index = bindHandle(hndl)))
+		return DB_ERROR_handleclosed;
 
 	cursor = (DbCursor *)(index + 1);
 
@@ -473,8 +476,8 @@ DbCursor *cursor;
 Handle *index;
 DbStatus stat;
 
-	if ((stat = bindHandle(hndl, &index)))
-		return stat;
+	if (!(index = bindHandle(hndl)))
+		return DB_ERROR_handleclosed;
 
 	cursor = (DbCursor *)(index + 1);
 
@@ -488,13 +491,15 @@ DbStatus stat;
 }
 
 DbStatus cloneHandle(DbHandle newHndl[1], DbHandle oldHndl[1]) {
-Handle *hndl;
+Handle *arena;
 DbStatus stat;
 
-	if ((stat = bindHandle(oldHndl, &hndl)))
-		return stat;
+	if (!(arena = bindHandle(oldHndl)))
+		return DB_ERROR_handleclosed;
 
-	newHndl->hndlBits = makeHandle(hndl->map, hndl->xtraSize, hndl->maxType, hndl->hndlType);
+	newHndl->hndlBits = makeHandle(arena->map, arena->xtraSize, arena->maxType, arena->hndlType);
+
+	releaseHandle(arena);
 	return DB_OK;
 }
 
@@ -504,12 +509,14 @@ DbStatus stat;
 ObjId txnId;
 Txn *txn;
 
-	if ((stat = bindHandle(hndl, &database)))
-		return stat;
+	if (!(database = bindHandle(hndl)))
+		return 0;
 
 	txnId.bits = allocObjId(database->map, database->list, 0);
 	txn = fetchIdSlot(database->map, txnId);
 	txn->timestamp = allocateTimestamp(database->map, en_reader);
+
+	releaseHandle(database);
 	return txnId.bits;
 }
 
@@ -525,8 +532,8 @@ DbStatus addIndexes(DbHandle hndl[1]) {
 Handle *docHndl;
 DbStatus stat;
 
-	if ((stat = bindHandle(hndl, &docHndl)))
-		return stat;
+	if (!(docHndl = bindHandle(hndl)))
+		return DB_ERROR_handleclosed;
 
 	stat = installIndexes(docHndl);
 	releaseHandle(docHndl);
@@ -563,8 +570,8 @@ Txn *txn = NULL;
 DbStatus stat;
 ObjId docId;
 
-	if ((stat = bindHandle(hndl, &docHndl)))
-		return stat;
+	if (!(docHndl = bindHandle(hndl)))
+		return DB_ERROR_handleclosed;
 
 	docArena = docarena(docHndl->map);
 
@@ -584,8 +591,8 @@ Handle *docHndl;
 DbStatus stat;
 DbAddr addr;
 
-	if ((stat = bindHandle(hndl, &docHndl)))
-		return stat;
+	if (!(docHndl = bindHandle(hndl)))
+		return DB_ERROR_handleclosed;
 
 	if ((addr.bits = allocObj(docHndl->map, docHndl->list->free, docHndl->list->tail, -1, objSize + sizeof(Doc), false)))
 		*doc = getObj(docHndl->map, addr);
@@ -608,8 +615,8 @@ DbAddr *slot;
 ObjId docId;
 Doc *doc;
 
-	if ((stat = bindHandle(hndl, &docHndl)))
-		return stat;
+	if (!(docHndl = bindHandle(hndl)))
+		return DB_ERROR_handleclosed;
 
 	docId.bits = docBits;
 
@@ -620,6 +627,7 @@ Doc *doc;
 		txn = fetchIdSlot(docHndl->map->db, doc->delId);
 
 	doc->state = DocDeleted;
+	releaseHandle(docHndl);
 	return DB_OK;
 }
 
@@ -645,8 +653,8 @@ DbStatus insertKey(DbHandle hndl[1], uint8_t *key, uint32_t len) {
 Handle *index;
 DbStatus stat;
 
-	if ((stat = bindHandle(hndl, &index)))
-		return stat;
+	if (!(index = bindHandle(hndl)))
+		return DB_ERROR_handleclosed;
 
 	switch (*index->map->arena->type) {
 	case Hndl_artIndex:

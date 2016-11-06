@@ -27,7 +27,7 @@ ObjId hndlId;
 		HandleId *slot = slotHandle(hndlId.bits);
 
 		lockLatch(slot->addr->latch);
-		destroyHandle(slot->addr);
+		destroyHandle(docHndl->map, slot->addr);
 	}
 }
 
@@ -93,13 +93,8 @@ int idx;
 
 		while (idx--)
 		  if (*skipNode->array[idx].key > docStore->childId) {
-			if (*skipNode->array[idx].key & CHILDID_DROP) {
-			  removeIdx(docHndl, &skipNode->array[idx]);
-			  docStore->idxCnt--;
-			} else {
 			  installIdx(docHndl, &skipNode->array[idx]);
 			  docStore->idxCnt++;
-			}
 		  } else
 			break;
 
@@ -120,7 +115,6 @@ uint8_t key[MAX_key];
 DbHandle hndl[1];
 uint64_t *verPtr;
 DbObject *spec;
-HandleId *slot;
 Handle *index;
 DbStatus stat;
 DbAddr addr;
@@ -128,22 +122,15 @@ int keyLen;
 
 	hndl->hndlBits = *entry->val;
 
-	index = getHandle(hndl);
-	slot = slotHandle(index->hndlId.bits);
-
-    //  increment count of active binds
-    //  and capture timestamp if we are the
-    //  first handle bind
-
-    if (atomicAdd32(slot->entryCnt, 1) == 1) {
-        HndlCall *hndlCall = arrayEntry(index->map, index->calls, index->callIdx, sizeof(HndlCall));
-        hndlCall->entryTs = atomicAdd64(&index->map->arena->nxtTs, 1);
-    }
+	if (!(index = bindHandle(hndl)))
+		return DB_ERROR_handleclosed;
 
 	if ((addr.bits = index->map->arenaDef->partialAddr)) {
 		spec = getObj(index->map->db, addr);
-		if (!partialEval(doc, spec))
+		if (!partialEval(doc, spec)) {
+			releaseHandle(index);
 			return DB_OK;
+		}
 	}
 
 	addr.bits = index->map->arenaDef->specAddr;
@@ -171,7 +158,7 @@ int keyLen;
 		break;
 	}
 
-	atomicAdd32(slot->entryCnt, -1);
+	releaseHandle(index);
 	return stat;
 }
 

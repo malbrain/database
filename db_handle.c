@@ -139,7 +139,7 @@ DbAddr addr;
 //	destroy handle
 //	call with id slot locked
 
-void destroyHandle(DbAddr *addr) {
+void destroyHandle(DbMap *map, DbAddr *addr) {
 Handle *hndl = getObj(hndlMap, *addr);
 Handle *prevHndl, *nextHndl;
 PathStk pathStk[1];
@@ -154,10 +154,10 @@ uint64_t *inUse;
 	// release handle freeList
 
 	if (hndl->list) {
-		lockLatch(hndl->map->arena->listArray->latch);
-		inUse = arrayBlk(hndl->map, hndl->map->arena->listArray, hndl->listIdx);
+		lockLatch(map->arena->listArray->latch);
+		inUse = arrayBlk(map, map->arena->listArray, hndl->listIdx);
 		inUse[hndl->listIdx % ARRAY_size / 64] &= ~(1ULL << (hndl->listIdx % 64));
-		unlockLatch(hndl->map->arena->listArray->latch);
+		unlockLatch(map->arena->listArray->latch);
 	}
 
 	freeBlk (hndlMap, *addr);
@@ -167,9 +167,10 @@ uint64_t *inUse;
 //	bind handle for use in API call
 //	return false if handle closed
 
-DbStatus bindHandle(DbHandle *dbHndl, Handle **hndl) {
+Handle *bindHandle(DbHandle *dbHndl) {
 HndlCall *hndlCall;
 HandleId *slot;
+Handle *hndl;
 ObjId hndlId;
 uint32_t cnt;
 
@@ -177,40 +178,41 @@ uint32_t cnt;
 	slot = fetchIdSlot (hndlMap, hndlId);
 
 	if (!(*slot->addr->latch & ALIVE_BIT))
-		return DB_ERROR_handleclosed;
+		return NULL;
 
 	//	increment count of active binds
 	//	and capture timestamp if we are the
 	//	first handle bind
 
-	cnt = atomicAdd32(slot->entryCnt, 1);
+	cnt = atomicAdd32(slot->bindCnt, 1);
 
 	//	exit if it was reclaimed?
 
 	if (!(*slot->addr->latch & ALIVE_BIT)) {
-		atomicAdd32(slot->entryCnt, -1);
-		return DB_ERROR_handleclosed;
+		atomicAdd32(slot->bindCnt, -1);
+		return NULL;
 	}
 
-	*hndl = getObj(hndlMap, *slot->addr);
+	hndl = getObj(hndlMap, *slot->addr);
 
 	//	is there a DROP request for this arena?
 
-	if (~(*hndl)->map->arena->mutex[0] & ALIVE_BIT) {
+	if (~hndl->map->arena->mutex[0] & ALIVE_BIT) {
 		lockLatch(slot->addr->latch);
-		destroyHandle (slot->addr);
-		return DB_ERROR_arenadropped;
+		atomicAdd32(slot->bindCnt, -1);
+		destroyHandle (hndl->map, slot->addr);
+		return NULL;
 	}
 
 	//  are we the first call after an idle period?
 	//	set the entryTs if so.
 
 	if (cnt == 1) {
-		hndlCall = arrayEntry((*hndl)->map, (*hndl)->calls, (*hndl)->callIdx, sizeof(HndlCall));
-		hndlCall->entryTs = atomicAdd64(&(*hndl)->map->arena->nxtTs, 1);
+		hndlCall = arrayEntry(hndl->map, hndl->calls, hndl->callIdx, sizeof(HndlCall));
+		hndlCall->entryTs = atomicAdd64(&hndl->map->arena->nxtTs, 1);
 	}
 
-	return DB_OK;
+	return hndl;
 }
 
 //	release handle binding
@@ -222,7 +224,7 @@ ObjId hndlId;
 	hndlId.bits = hndl->hndlId.bits;
 	slot = fetchIdSlot (hndlMap, hndlId);
 
-	atomicAdd32(slot->entryCnt, -1);
+	atomicAdd32(slot->bindCnt, -1);
 }
 
 //	disable all arena handles
@@ -258,11 +260,11 @@ int idx, seg;
 
 		  //  wait for outstanding activity to finish
 
-		  waitZero32 (slot->entryCnt);
+		  waitZero32 (slot->bindCnt);
 
 		  //  destroy the handle
 
-		  destroyHandle(handle);
+		  destroyHandle(map, handle);
 		} while (slotIdx++, bits /= 2);
 	  }
 	}
@@ -299,7 +301,7 @@ int idx, seg;
 		do if (bits & 1) {
 		  HandleId *slot = fetchIdSlot(hndlMap, call[seg * 64 + slotIdx - 1].hndlId);
 
-		  if (!slot->entryCnt[0])
+		  if (!slot->bindCnt[0])
 			  continue;
 		  else
 			  lowTs = call[slotIdx - 1].entryTs;

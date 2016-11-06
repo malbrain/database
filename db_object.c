@@ -113,7 +113,7 @@ int idx, seg;
 		//  find array segment with available entry
 
 		for (seg = 0; seg < ARRAY_size / 64; seg++)
-		  if (inUse[seg] < ULLONG_MAX)
+		  if (inUse[seg] < UINT64_MAX)
 			break;
 
 		if (seg == ARRAY_size / 64)

@@ -26,17 +26,17 @@ struct Handle_ {
 
 typedef struct {
 	DbAddr addr[1];
-	uint32_t entryCnt[1];	// count of outstanding handle binds
+	uint32_t bindCnt[1];	// count of outstanding handle binds
 } HandleId;
 
 uint64_t scanHandleTs(DbMap *map);
 
 uint64_t makeHandle(DbMap *map, uint32_t xtraSize, uint32_t listMax, HandleType type);
-DbStatus bindHandle(DbHandle *dbHndl, Handle **hndl);
+Handle *bindHandle(DbHandle *dbHndl);
 void releaseHandle(Handle *hndl);
 Handle *getHandle(DbHandle *hndl);
 HandleId *slotHandle(uint64_t hndlBits);
 
-void destroyHandle(DbAddr *addr);
+void destroyHandle(DbMap *map, DbAddr *addr);
 void initHndlMap(char *path, int pathLen, char *name, int nameLen, bool onDisk);
 

@@ -19,8 +19,8 @@ Txn *txn;
 
 	memset (hndl, 0, sizeof(DbHandle));
 
-	if ((stat = bindHandle(docHndl, &docStore)))
-		return stat;
+	if (!(docStore = bindHandle(docHndl)))
+		return DB_ERROR_handleclosed;
 
 	hndl->hndlBits = makeHandle(docStore->map, sizeof(Iterator), 0, Hndl_iterator);
 
@@ -90,7 +90,7 @@ Doc *doc = NULL;
 DbStatus stat;
 Iterator *it;
 
-	if ((stat = bindHandle(hndl, &docStore)))
+	if (!(docStore = bindHandle(hndl)))
 		return NULL;
 
 	it = (Iterator *)(docStore + 1);
@@ -118,7 +118,7 @@ Doc *doc = NULL;
 DbStatus stat;
 Iterator *it;
 
-	if ((stat = bindHandle(hndl, &docStore)))
+	if (!(docStore = bindHandle(hndl)))
 		return NULL;
 
 	it = (Iterator *)(docStore + 1);
@@ -147,7 +147,7 @@ Iterator *it;
 ObjId docId;
 Doc *doc;
 
-	if ((stat = bindHandle(hndl, &docStore)))
+	if (!(docStore = bindHandle(hndl)))
 		return NULL;
 
 	it = (Iterator *)(docStore + 1);

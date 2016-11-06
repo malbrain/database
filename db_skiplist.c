@@ -22,7 +22,7 @@ SkipEntry *entry;
   while (next->addr) {
 	skipNode = getObj(map, *next);
 
-	if (*skipNode->array->key <= key) {
+	if (*skipNode->array[next->nslot-1].key >= key) {
 	  entry = skipSearch(skipNode->array, next->nslot, key);
 
 	  if (*entry->key == key)
@@ -50,7 +50,7 @@ uint64_t val;
 	prevNode = skipNode;
 	skipNode = getObj(map, *next);
 
-	if (*skipNode->array->key <= key) {
+	if (*skipNode->array[next->nslot-1].key >= key) {
 	  entry = skipSearch(skipNode->array, next->nslot, key);
 
 	  if (*entry->key == key)
@@ -123,12 +123,12 @@ int min, max;
 
 	//  find skipList node that covers key
 
-	if (skipNode->next->bits && *skipNode->array->key > key) {
+	if (skipNode->next->bits && *skipNode->array[next->nslot-1].key < key) {
 	  next = skipNode->next;
 	  continue;
 	}
 
-	if (*skipNode->array->key <= key) {
+	if (*skipNode->array[next->nslot-1].key >= key) {
 	  entry = skipSearch(skipNode->array, next->nslot, key);
 	
 	  //  does key already exist?
