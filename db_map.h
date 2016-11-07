@@ -4,13 +4,6 @@
 #include "db_malloc.h"
 
 /**
- * open/create arenas
- */
-
-void deleteMap(DbMap *map);
-void closeMap(DbMap *map);
-
-/**
  *	map allocations
  */
 
@@ -53,8 +46,9 @@ int64_t atomicAdd64(volatile int64_t *value, int64_t amt);
 int32_t atomicAdd32(volatile int32_t *value, int32_t amt);
 int64_t atomicOr64(volatile int64_t *value, int64_t amt);
 int32_t atomicOr32(volatile int32_t *value, int32_t amt);
+int8_t atomicOr8(volatile int8_t *value, int8_t amt);
+uint64_t atomicExchange(uint64_t *target, uint64_t value);
 uint64_t compareAndSwap(uint64_t* target, uint64_t compare_val, uint64_t swap_val);
-int8_t atomicAnd8(volatile int8_t *value, int8_t amt);
 
 void lockArena (DbMap *map);
 void unlockArena (DbMap *map);

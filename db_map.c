@@ -34,6 +34,7 @@ void yield() {
 //  assemble filename path
 
 bool getPath(DbMap *map, char *name, int len, DbMap *parent, uint64_t id) {
+uint64_t conv = id;
 char buff[24];
 int off = 0;
 
@@ -70,10 +71,10 @@ int off = 0;
 
 	len = 0;
 
-	do buff[sizeof(buff) - ++len] = id % 10 | '0';
-	while (id /= 10);
+	do buff[sizeof(buff) - ++len] = conv % 10 | '0';
+	while (conv /= 10);
 
-	if (parent && *parent->arena->type != Hndl_catalog) {
+	if (parent && id) {
 	  if (off + len + 1 < MAX_path) {
 		map->path[off++] = '-';
 		memcpy (map->path + off, buff + sizeof(buff) - len, len);
@@ -215,11 +216,11 @@ void unlockAddr(volatile uint64_t* bits) {
 	*bits = *bits & ~ADDR_MUTEX_SET;
 }
 
-int8_t atomicAnd8(volatile int8_t *value, int8_t amt) {
+int8_t atomicOr8(volatile int8_t *value, int8_t amt) {
 #ifndef _WIN32
-	return __sync_fetch_and_and(value, amt);
+	return __sync_fetch_and_or(value, amt);
 #else
-	return _InterlockedAnd8( value, amt);
+	return _InterlockedOr8( value, amt);
 #endif
 }
 
@@ -301,18 +302,27 @@ char *base = segNo ? map->base[segNo] : 0ULL;
 		return;
 	}
 
-	UnmapViewOfFile(map->base);
+	UnmapViewOfFile(map->base[segNo]);
 	CloseHandle(map->maphndl[segNo]);
 #endif
 }
 
-uint64_t compareAndSwap(uint64_t* target, uint64_t compare_val, uint64_t swap_val) {
+uint64_t compareAndSwap(uint64_t* target, uint64_t compareVal, uint64_t swapVal) {
 #ifndef _WIN32
-	return __sync_val_compare_and_swap(target, compare_val, swap_val);
+	return __sync_val_compare_and_swap(target, compareVal, swapVal);
 #else
-	return _InterlockedCompareExchange64((volatile __int64*)target, swap_val, compare_val);
+	return _InterlockedCompareExchange64((volatile __int64*)target, swapVal, compareVal);
 #endif
 }
+
+uint64_t atomicExchange(uint64_t *target, uint64_t swapVal) {
+#ifndef _WIN32
+	return __sync_lock_test_and_set(target, swapVal);
+#else
+	return _InterlockedExchange64((volatile __int64*)target, swapVal);
+#endif
+}
+
 
 #ifdef _WIN32
 void lockArena (DbMap *map) {
@@ -378,18 +388,22 @@ bool fileExists(char *path) {
 }
 
 void deleteMap(DbMap *map) {
+int maxSeg = map->maxSeg;
+
 #ifdef _WIN32
 FILE_DISPOSITION_INFO dispInfo[1];
+#endif
 
+	do unmapSeg(map, maxSeg);
+	while (maxSeg--);
+
+#ifdef _WIN32
 	memset (dispInfo, 0, sizeof(dispInfo));
 	dispInfo->DeleteFile = true;
 	SetFileInformationByHandle (map->hndl, FileDispositionInfo, dispInfo, sizeof(dispInfo));
 #else
 	unlink(map->path);
 #endif
-
-	do unmapSeg(map, map->maxSeg);
-	while (map->maxSeg--);
 
 #ifdef _WIN32
 	CloseHandle(map->hndl);

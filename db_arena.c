@@ -265,7 +265,6 @@ uint32_t bits;
 	map->arena->segs[map->arena->currSeg].nextObject.offset = segOffset >> 3;
 	map->arena->objSize = arenaDef->objSize;
 	map->arena->segs->size = initSize;
-	*map->arena->mutex = ALIVE_BIT;
 	map->arena->delTs = 1;
 
 	//	are we creating a database?
@@ -394,7 +393,7 @@ DbAddr slot;
 	if (zeroit)
 		memset (getObj(map, slot), 0, amt);
 
-	*slot.latch = type | ALIVE_BIT;
+	*slot.latch = type;
 	return slot.bits;
 }
 
@@ -434,15 +433,6 @@ void* getObj(DbMap *map, DbAddr slot) {
 		mapAll(map);
 
 	return map->base[slot.segment] + slot.offset * 8ULL;
-}
-
-//	close the arena
-
-void closeMap(DbMap *map) {
-	while (map->maxSeg)
-		unmapSeg(map, map->maxSeg--);
-
-	map->arena = NULL;
 }
 
 //  allocate raw space in the current segment
@@ -542,12 +532,8 @@ int idx;
 
 	//	are we already dropped?
 
-	lockLatch(map->arena->mutex);
-
-	if (~*map->arena->mutex & ALIVE_BIT) {
-		*map->arena->mutex = 0;
+	if (atomicOr8(map->arena->mutex, KILL_BIT) & KILL_BIT)
 		return;
-	}
 
 	//  delete our current id from parent's child id list
 
@@ -556,6 +542,10 @@ int idx;
 	addr.bits = skipDel(map->parent->db, map->parent->arenaDef->idList->head, id); 
 	rbEntry = getObj(map->parent->db, addr);
 	writeUnlock(map->parent->arenaDef->idList->lock);
+
+	writeLock(map->parent->childMaps->lock);
+	skipDel(map->parent, map->parent->childMaps->head, id);
+	writeUnlock(map->parent->childMaps->lock);
 
 	//	our ArenaDef addr
 
@@ -577,8 +567,7 @@ int idx;
 
 	writeUnlock(map->parent->arenaDef->idList->lock);
 
-	//	remove the ALIVE bits
-	//	and drop the children
+	//	drop the children
 
 	do {
 	  writeLock(map->arenaDef->idList->lock);

@@ -29,7 +29,7 @@ ObjId hndlId;
 	hndlId.bits = hndl->hndlBits;
 	slot = fetchIdSlot (hndlMap, hndlId);
 
-	if (!(*slot->addr->latch & ALIVE_BIT))
+	if ((*slot->addr->latch & KILL_BIT))
 		return NULL;
 
 	return getObj(hndlMap, *slot->addr);
@@ -41,7 +41,7 @@ int len;
 
 	lockLatch(hndlInit);
 
-	if (*hndlInit & ALIVE_BIT) {
+	if (*hndlInit & TYPE_BITS) {
 		unlockLatch(hndlInit);
 		return;
 	}
@@ -67,7 +67,7 @@ int len;
 	hndlMap->db = hndlMap;
 
 	*hndlMap->arena->type = Hndl_catalog;
-	*hndlInit = ALIVE_BIT;
+	*hndlInit = Hndl_catalog;
 }
 
 //	make handle from map pointer
@@ -88,7 +88,7 @@ DbAddr addr;
 
 	// first call?
 
-	if (!(*hndlInit & ALIVE_BIT))
+	if (!(*hndlInit & TYPE_BITS))
 		initHndlMap(NULL, 0, NULL, 0, true);
 
 	// total size of the Handle
@@ -148,7 +148,7 @@ uint64_t *inUse;
 
 	//	already destroyed?
 
-	if (!(*addr->latch & ALIVE_BIT))
+	if (!addr->addr)
 		return;
 
 	// release handle freeList
@@ -177,7 +177,7 @@ uint32_t cnt;
 	hndlId.bits = dbHndl->hndlBits;
 	slot = fetchIdSlot (hndlMap, hndlId);
 
-	if (!(*slot->addr->latch & ALIVE_BIT))
+	if ((*slot->addr->latch & KILL_BIT))
 		return NULL;
 
 	//	increment count of active binds
@@ -188,7 +188,7 @@ uint32_t cnt;
 
 	//	exit if it was reclaimed?
 
-	if (!(*slot->addr->latch & ALIVE_BIT)) {
+	if ((*slot->addr->latch & KILL_BIT)) {
 		atomicAdd32(slot->bindCnt, -1);
 		return NULL;
 	}
@@ -197,7 +197,7 @@ uint32_t cnt;
 
 	//	is there a DROP request for this arena?
 
-	if (~hndl->map->arena->mutex[0] & ALIVE_BIT) {
+	if (hndl->map->arena->mutex[0] & KILL_BIT) {
 		lockLatch(slot->addr->latch);
 		atomicAdd32(slot->bindCnt, -1);
 		destroyHandle (hndl->map, slot->addr);
@@ -231,6 +231,8 @@ ObjId hndlId;
 //	by scanning HndlCall array
 
 void disableHndls(DbMap *map, DbAddr *array) {
+DbAddr handle[1];
+HandleId *slot;
 DbAddr *addr;
 int idx, seg;
 
@@ -253,10 +255,8 @@ int idx, seg;
 		}
 
 		do if (bits & 1) {
-		  HandleId *slot = fetchIdSlot(hndlMap, call[seg * 64 + slotIdx - 1].hndlId);
-		  DbAddr handle[1];
-		  handle->bits = slot->addr->bits;
-		  slot->addr->bits = 0;
+		  slot = fetchIdSlot(hndlMap, call[seg * 64 + slotIdx - 1].hndlId);
+		  handle->bits = atomicExchange(&slot->addr->bits, 0);
 
 		  //  wait for outstanding activity to finish
 

@@ -37,7 +37,7 @@ typedef union {
 		union {
 			struct {
 				uint8_t type:6;		// object type
-				uint8_t alive:1;	// entry alive
+				uint8_t kill:1;		// kill entry
 				uint8_t mutex:1;	// mutex bit
 			};
 			volatile char latch[1];
@@ -58,10 +58,11 @@ typedef union {
 } DbAddr;
 
 #define MUTEX_BIT  0x80
-#define ALIVE_BIT  0x40
+#define KILL_BIT   0x40
+#define TYPE_BITS  0x3f
 
 #define ADDR_MUTEX_SET 0x80000000000000ULL
-#define ADDR_ALIVE_SET 0x40000000000000ULL
+#define ADDR_KILL_SET  0x40000000000000ULL
 
 typedef union {
 	struct {

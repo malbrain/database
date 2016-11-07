@@ -41,7 +41,7 @@ uint8_t ch;
 			lockLatch(stack->addr->latch);
 			newSlot.bits = stack->addr->bits;
 
-			if ((retry = !newSlot.alive))
+			if ((retry = newSlot.kill))
 				unlockLatch(stack->addr->latch);
 
 		} while (retry);
@@ -54,7 +54,7 @@ uint8_t ch;
 			case KeyPass: {
 				DbAddr slot;
 				slot.bits = 0;
-				*slot.latch = KeyEnd | ALIVE_BIT;
+				*slot.latch = KeyEnd;
 				stack->addr->bits = slot.bits;
 
 				if (!addSlotToFrame(index->map, index->list[newSlot.type].head, index->list[newSlot.type].tail, newSlot))

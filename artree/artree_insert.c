@@ -86,7 +86,7 @@ uint32_t len;
 
 	// mark the end of the key
 
-	*next->latch = KeyEnd | ALIVE_BIT;
+	*next->latch = KeyEnd;
 	slot->bits = fill->bits;
 	return true;
 }
@@ -293,7 +293,7 @@ uint8_t bits;
 	// restart if slot has been killed
 	// or node has changed by another insert.
 
-	if (!p->slot->alive) {
+	if (p->slot->kill) {
 		unlockLatch(p->slot->latch);
 		return RestartSearch;
 	}
@@ -348,7 +348,7 @@ uint8_t bits;
 		volatile DbAddr *slot = node->radix + idx;
 		lockLatch(slot->latch);
 
-		if (slot->alive) {
+		if (!slot->kill) {
 #ifdef _WIN32
 			_BitScanForward((DWORD *)&out, ~radix14Node->alloc);
 #else
@@ -359,9 +359,9 @@ uint8_t bits;
 			radix14Node->keys[out] = node->keys[idx];
 		}
 
-		// clear mutex & alive bits
+		// clear mutex & set kill bits
 
-		*slot->latch = slot->type;
+		*slot->latch = slot->type | KILL_BIT;
 	}
 
 #ifdef _WIN32
@@ -402,7 +402,7 @@ uint16_t bits;
 	// restart if slot has been killed
 	// or node has changed.
 
-	if (!p->slot->alive) {
+	if (p->slot->kill) {
 		unlockLatch(p->slot->latch);
 		return RestartSearch;
 	}
@@ -458,7 +458,7 @@ uint16_t bits;
 		volatile DbAddr *slot = node->radix + idx;
 		lockLatch(slot->latch);
 
-		if (slot->alive) {
+		if (!slot->kill) {
 #ifdef _WIN32
 			_BitScanForward64((DWORD *)&out, ~radix64Node->alloc);
 #else
@@ -469,9 +469,9 @@ uint16_t bits;
 			radix64Node->keys[node->keys[idx]] = out;
 		}
 
-		// clear mutex & alive bits
+		// clear mutex & set kill bits
 
-		*slot->latch = slot->type;
+		*slot->latch = slot->type | KILL_BIT;
 	}
 #ifdef _WIN32
 	_BitScanForward64((DWORD *)&out, ~radix64Node->alloc);
@@ -510,7 +510,7 @@ uint32_t idx, out;
 	// restart if slot has been killed
 	// or node has changed.
 
-	if (!p->slot->alive) {
+	if (p->slot->kill) {
 		unlockLatch(p->slot->latch);
 		return RestartSearch;
 	}
@@ -562,14 +562,14 @@ uint32_t idx, out;
 	  if (node->keys[idx] < 0xff) {
 		volatile DbAddr *slot = node->radix + node->keys[idx];
 		lockLatch(slot->latch);
-		if (slot->alive) {
+		if (!slot->kill) {
 			radix256Node->radix[idx].bits = slot->bits & ~ADDR_MUTEX_SET;
 			p->newSlot->nslot++;
 		}
 
-		// clear mutex & alive bits
+		// clear mutex & set kill bits
 
-		*slot->latch = slot->type;
+		*slot->latch = slot->type | KILL_BIT;
 	  }
 
 	// fill in the rest of the key bytes into Span nodes
@@ -644,7 +644,7 @@ ARTNode4 *radix4Node;
 	// restart if slot has been killed
 	// or node has changed.
 
-	if (!p->slot->alive) {
+	if (p->slot->kill) {
 		unlockLatch(p->slot->latch);
 		return RestartSearch;
 	}
@@ -656,7 +656,7 @@ ARTNode4 *radix4Node;
 
 	lockLatch(node->next->latch);
 
-	if (!node->next->alive) {
+	if (node->next->kill) {
 		unlockLatch(p->slot->latch);
 		unlockLatch(node->next->latch);
 		return RestartSearch;
@@ -731,7 +731,9 @@ ARTNode4 *radix4Node;
 		nxtSlot->bits = node->next->bits & ~ADDR_MUTEX_SET;
 	}
 
-	*node->next->latch = node->next->type;	// turn off alive & mutex
+	// turn off mutex & set kill bits
+
+	*node->next->latch = node->next->type | KILL_BIT;
 	assert(p->newSlot->bits > 0);
 
 	// fill in the rest of the key into the radix or overflow span node

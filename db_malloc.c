@@ -72,12 +72,12 @@ DbAddr addr;
 void db_free (void *obj) {
 dbobj_t *raw = obj;
 
-	if (!raw[-1].addr.alive) {
+	if (raw[-1].addr.kill) {
 		fprintf(stderr, "Duplicate db_free\n");
 		exit (1);
 	}
 
-	raw[-1].addr.alive = 0;
+	raw[-1].addr.kill = 1;
 	freeBlk(memMap, raw[-1].addr);
 }
 

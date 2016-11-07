@@ -97,7 +97,7 @@ DbMap *map;
 
 	memset (hndl, 0, sizeof(DbHandle));
 
-	if (!(*hndlInit & ALIVE_BIT))
+	if (!(*hndlInit & TYPE_BITS))
 		initHndlMap(NULL, 0, NULL, 0, true);
 
 	rbEntry = createArenaDef(hndlMap, name, nameLen, params);
@@ -308,12 +308,12 @@ ObjId hndlId;
 
 	lockLatch(slot->addr->latch);
 
-	if (*slot->addr->latch & ALIVE_BIT)
-		hndl = getObj(hndlMap, *slot->addr);
-	else {
-		*slot->addr->latch = 0;
+	if (*slot->addr->latch & KILL_BIT) {
+		*slot->addr->latch = KILL_BIT;
 		return DB_ERROR_handleclosed;
 	}
+
+	hndl = getObj(hndlMap, *slot->addr);
 
 	//  specific handle cleanup
 
@@ -336,7 +336,7 @@ ObjId hndlId;
 	hndlId.bits = dbHndl->hndlBits;
 	slot = fetchIdSlot (hndlMap, hndlId);
 
-	if (*slot->addr->latch & ALIVE_BIT)
+	if (*slot->addr->latch & KILL_BIT)
 	  stat = closeHandle(dbHndl);
 
 	freeId(hndlMap, hndlId);

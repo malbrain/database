@@ -533,8 +533,10 @@ DbHandle index[1];
 		openDatabase(database, dbName, strlen(dbName), params);
 	}
 
-	keyAddr = arenaAlloc(database, sizeof(KeySpec), true, true);
-	params[IdxKeySpec].int64Val = keyAddr;
+	if ((keyAddr = arenaAlloc(database, sizeof(KeySpec), true, true)))
+		params[IdxKeySpec].int64Val = keyAddr;
+	else
+		fprintf(stderr, "arenaAlloc from database failed\n"), exit(0);
 
 	keySpec = (KeySpec *)(arenaObj(database, keyAddr, true) + 1);
 	keySpec->keyLen = keyLen;
