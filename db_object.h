@@ -5,6 +5,7 @@
 //  number of elements in an array node
 
 #define ARRAY_size	512
+#define ARRAY_inuse	((2 * 512 - 1) / 64)
 
 enum ObjType {
 	FrameType,
@@ -54,33 +55,34 @@ typedef struct {
 //  arena creation specification
 
 typedef struct {
-	uint64_t id;				// child arena id in parent
-	uint64_t childId;			// highest child Id issued
-	uint64_t initSize;			// initial arena size
-	uint64_t specAddr;			// database addr of spec object
-	uint64_t partialAddr;		// database addr of partial object
+	uint64_t id;				// our id in parent children
+	uint64_t ver;				// current arena version
+	int64_t childId;			// highest child Id we've issued
 	uint32_t localSize;			// extra space after DbMap
 	uint32_t baseSize;			// extra space after DbArena
 	uint32_t objSize;			// size of ObjectId array slot
-	uint8_t onDisk;				// arena onDisk/inMemory
-	uint8_t useTxn;				// transactions are used
+	uint32_t mapIdx;			// index in openMap array
 	uint8_t arenaType;			// type of the arena
+	char dead[1];				// arena being deleted
+	DbAddr parentAddr;			// address of parent's red-black entry
 	DbAddr nameTree[1];			// child arena name red/black tree
+	DbAddr hndlCalls[1];		// array of bound handle counts
 	SkipHead idList[1];			// child skiplist of names by id
+	Params params[MaxParam];	// parameter array for rest of object
 } ArenaDef;
 
 #define skipSize(addr) (((1ULL << addr->type) - sizeof(SkipNode)) / sizeof(SkipEntry))
 #define SKIP_node 15
 
-//	Child Id bits
-
-#define CHILDID_DROP 0x1
-#define CHILDID_INCR 0x2
+//	timestamp bits
 
 bool isReader(uint64_t ts);
 bool isWriter(uint64_t ts);
 bool isCommitted(uint64_t ts);
 
+uint64_t allocateTimestamp(DbMap *map, enum ReaderWriterEnum e);
+
+uint8_t *getObjParam(ArenaDef *arena, uint32_t idx);
 uint32_t get64(uint8_t *key, uint32_t len, uint64_t *result);
 uint32_t store64(uint8_t *key, uint32_t keylen, uint64_t what);
 

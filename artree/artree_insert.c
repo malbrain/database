@@ -3,6 +3,7 @@
 #include "../db_handle.h"
 #include "../db_index.h"
 #include "../db_arena.h"
+#include "../db_frame.h"
 #include "../db_map.h"
 #include "artree.h"
 
@@ -210,7 +211,7 @@ DbAddr slot;
 				// add old slot to free/wait list
 
 				if (slot.type && slot.type != KeyEnd)
-				  if (!addSlotToFrame(index->map, index->list[slot.type].head, index->list[slot.type].tail, slot))
+				  if((!addSlotToFrame(index->map, index->list[slot.type].head, index->list[slot.type].tail, slot.bits)))
 					return DB_ERROR_outofmemory;
 
 				return DB_OK;

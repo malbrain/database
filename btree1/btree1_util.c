@@ -467,7 +467,7 @@ int ans;
 
 	key1 += keypre(key1);
 
-	if( ans = memcmp (key1, key2, len1 > len2 ? len2 : len1) )
+	if((ans = memcmp (key1, key2, len1 > len2 ? len2 : len1)))
 		return ans;
 
 	if( len1 > len2 )

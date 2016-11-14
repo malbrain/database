@@ -10,10 +10,10 @@
 
 typedef volatile union {
   struct {
-	uint16_t writer[1];
-	uint16_t reader[1];
+	int16_t writer[1];
+	int16_t reader[1];
   };
-  uint32_t bits[1];
+  int32_t bits[1];
 } Counter;
 	
 typedef struct {
@@ -52,7 +52,7 @@ void mutex_unlock(Mutex* mutex);
 typedef struct {
   Mutex xcl[1];
   Mutex wrt[1];
-  uint16_t readers[1];
+  int16_t readers[1];
 } RWLock;
 #endif
 
@@ -67,12 +67,12 @@ enum {
 
 typedef volatile union {
 	struct {
-	  uint16_t rin[1];
-	  uint16_t rout[1];
-	  uint16_t serving[1];
-	  uint16_t ticket[1];
+	  int16_t rin[1];
+	  int16_t rout[1];
+	  int16_t serving[1];
+	  int16_t ticket[1];
 	};
-	uint32_t rw[2];
+	int32_t rw[2];
 } RWLock;
 
 #define PHID 0x1

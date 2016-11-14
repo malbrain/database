@@ -29,7 +29,7 @@ double getCpuTime(int type);
 
 //  Interface function to evaluate a partial document
 
-bool partialEval(Doc *doc, DbObject *spec) {
+bool evalPartial(Doc *doc, char *spec, uint32_t specLen) {
 	return true;
 }
 
@@ -40,8 +40,8 @@ typedef struct {
 	int keyLen;
 } KeySpec;
 
-uint16_t keyGenerator (uint8_t *key, Doc *doc, DbObject *spec) {
-KeySpec *keySpec = (KeySpec *)(spec + 1);
+uint16_t keyGenerator (char *key, Doc *doc, char *spec, uint32_t specLen) {
+KeySpec *keySpec = (KeySpec *)spec;
 uint16_t keyLen = 0;
 
 	if (!(keyLen = keySpec->keyLen))
@@ -84,7 +84,6 @@ unsigned __stdcall index_file (void *arg)
 #endif
 {
 uint64_t line = 0, cnt = 0;
-unsigned char key[4096];
 int ch, len = 0, slot;
 ThreadArg *args = arg;
 HandleType idxType;
@@ -93,11 +92,12 @@ DbHandle docHndl[1];
 DbHandle cursor[1];
 DbHandle index[1];
 DbHandle *parent;
+char key[4096];
 char *idxName;
 bool found;
 
 uint32_t foundLen = 0;
-uint8_t *foundKey;
+char *foundKey;
 int idx, stat;
 ObjId objId;
 ObjId txnId;
@@ -175,7 +175,7 @@ FILE *in;
 		if (docHndl->hndlBits)
 			addIndexes(docHndl);
 
-		if( in = fopen (args->inFile, "r") )
+		if((in = fopen (args->inFile, "r"))) {
 		  while( ch = getc(in), ch != EOF )
 			if( ch == '\n' )
 			{
@@ -193,8 +193,10 @@ FILE *in;
 				  fprintf(stderr, "Insert Key Error %d Line: %lld\n", stat, line), exit(0);
 			  len = 0;
 			}
-			else if( len < 4096 )
+			else if( len < 4096 ) {
 				key[len++] = ch;
+			}
+		}
 
 		fprintf(stderr, " Total keys indexed %lld\n", line);
 		break;
@@ -217,10 +219,9 @@ FILE *in;
 
 		createCursor (cursor, index, txnId, args->params);
 
-		if( in = fopen (args->inFile, "rb") )
+		if((in = fopen (args->inFile, "rb"))) {
 		  while( ch = getc(in), ch != EOF )
-			if( ch == '\n' )
-			{
+			if( ch == '\n' ) {
 #ifdef DEBUG
 			  if (!(line % 100000))
 				fprintf(stderr, "line %lld\n", line);
@@ -244,9 +245,10 @@ FILE *in;
 
 			  cnt++;
 			  len = 0;
-			}
-			else if( len < 4096 )
+			} else if( len < 4096 ) {
 				key[len++] = ch;
+			}
+		}
 
 		fprintf(stderr, "finished %s for %lld keys, found %lld\n", args->inFile, line, cnt);
 		break;
@@ -425,8 +427,7 @@ int main (int argc, char **argv)
 {
 int idx, cnt, len, slot, err;
 Params params[MaxParam];
-KeySpec *keySpec;
-uint64_t keyAddr;
+KeySpec keySpec[1];
 int keyLen = 10;
 int idxType = 0;
 char *minKey;
@@ -483,6 +484,9 @@ DbHandle index[1];
 	params[Btree1Bits].intVal = 14;
 	params[OnDisk].boolVal = true;
 
+	params[IdxKeySpec].obj = keySpec;
+	params[IdxKeySpecLen].intVal = sizeof(KeySpec);;
+
 	// process configuration arguments
 
 	while (--argc > 0 && (++argv)[0][0] == '-')
@@ -532,14 +536,6 @@ DbHandle index[1];
 		dropArena(database, true);
 		openDatabase(database, dbName, strlen(dbName), params);
 	}
-
-	if ((keyAddr = arenaAlloc(database, sizeof(KeySpec), true, true)))
-		params[IdxKeySpec].int64Val = keyAddr;
-	else
-		fprintf(stderr, "arenaAlloc from database failed\n"), exit(0);
-
-	keySpec = (KeySpec *)(arenaObj(database, keyAddr, true) + 1);
-	keySpec->keyLen = keyLen;
 
 	//	fire off threads
 

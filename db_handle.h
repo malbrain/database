@@ -9,7 +9,7 @@ typedef struct {
 } HndlCall;
 
 //	Local Handle for an arena
-//	entries live in red/black entries.
+//	these live in red/black entries.
 
 struct Handle_ {
 	DbMap *map;			// pointer to map, zeroed on close
@@ -26,9 +26,10 @@ struct Handle_ {
 
 typedef struct {
 	DbAddr addr[1];
-	uint32_t bindCnt[1];	// count of outstanding handle binds
+	int32_t bindCnt[1];	// count of outstanding handle binds
 } HandleId;
 
+void disableHndls(DbMap *db, DbAddr *hndlCalls);
 uint64_t scanHandleTs(DbMap *map);
 
 uint64_t makeHandle(DbMap *map, uint32_t xtraSize, uint32_t listMax, HandleType type);

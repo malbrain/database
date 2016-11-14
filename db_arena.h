@@ -28,19 +28,21 @@ typedef struct {
 
 struct DbArena_ {
 	DbSeg segs[MAX_segs]; 			// segment meta-data
-	uint64_t lowTs, delTs, nxtTs;	// low hndl ts, Incr on delete
+	int64_t lowTs, delTs, nxtTs;	// low hndl ts, Incr on delete
 	DbAddr freeBlk[MAX_blk];		// free blocks in frames
-	DbAddr hndlCalls[1];			// array of open handle call cnts
 	DbAddr listArray[1];			// free lists array for handles
 	DbAddr freeFrame[1];			// free frames in frames
+	DbAddr redblack[1];				// our redblack entry addr
 	uint64_t objCount;				// overall number of objects
 	uint64_t objSpace;				// overall size of objects
+	uint32_t baseSize;				// size of object following arena
 	uint32_t objSize;				// size of object array element
 	uint16_t currSeg;				// index of highest segment
 	uint16_t objSeg;				// current segment index for ObjIds
-	char UseTxn[1];					// Transactions are used for arena
 	char mutex[1];					// arena allocation lock/drop flag
 	char type[1];					// arena type
+
+	char filler[256];
 };
 
 //	per instance arena structure
@@ -54,21 +56,20 @@ struct DbMap_ {
 	HANDLE maphndl[MAX_segs];
 #endif
 	DbArena *arena;			// ptr to mapped seg zero
+	char *arenaPath;		// file database path
 	DbMap *parent, *db;		// ptr to parent and database
 	SkipHead childMaps[1];	// skipList of child DbMaps
-	char path[MAX_path];	// file database path
 	ArenaDef *arenaDef;		// our arena definition
-	uint16_t pathLen;		// length of path in buffer
-	uint16_t pathOff;		// offset of name path in buffer
-	uint16_t maxSeg;		// maximum mapped segment array index
+	int32_t openCnt[1];		// count of open children
+	uint16_t pathLen;		// length of arena path
+	uint16_t numSeg;		// number of mapped segments
 	char mapMutex[1];		// segment mapping mutex
 };
 
 //	database variables
 
 typedef struct {
-	uint64_t timestamp[1];	// database txn timestamp
-	ArenaDef arenaDef[1];	// database variables and root of children
+	int64_t timestamp[1];	// database txn timestamp
 	DbAddr txnIdx[1];		// array of active idx for txn entries
 } DataBase;
 
@@ -78,7 +79,9 @@ typedef struct {
 
 typedef struct {
 	FreeList list[MinObjType];
-	ArenaDef arenaDef[1];
+	DbAddr openMap[1];		// process openMap array index assignments
+	DbAddr dbList[1];		// red/black tree of database names & versions
+	char filler[256];
 } Catalog;
 
 //	docarena variables
@@ -86,6 +89,7 @@ typedef struct {
 typedef struct {
 	uint16_t docIdx;		// our map index for txn
 	uint8_t init;			// set on init
+	char filler[256];
 } DocArena;
 
 #define docarena(map) ((DocArena *)(map->arena + 1))
@@ -94,13 +98,11 @@ typedef struct {
  * open/create arenas
  */
 
-DbMap *openMap(DbMap *parent, char *name, uint32_t nameLen, ArenaDef *arena);
+DbMap *openMap(DbMap *parent, char *name, uint32_t nameLen, ArenaDef *arena, DbAddr *rbAddr);
 DbMap *arenaRbMap(DbMap *parent, RedBlack *entry);
-DbMap *initArena (DbMap *map, ArenaDef *arenaDef);
-void deleteMap(DbMap *map);
 
-
-RedBlack *createArenaDef(DbMap *parent, char *name, int nameLen, Params *params);
+RedBlack *procParam(DbMap *parent, char *name, int nameLen, Params *params);
+DbMap *initArena (DbMap *map, ArenaDef *arenaDef, char *name, uint32_t nameLen, DbAddr *rbAddr);
 
 /**
  *  memory mapping
@@ -109,12 +111,13 @@ RedBlack *createArenaDef(DbMap *parent, char *name, int nameLen, Params *params)
 void* mapMemory(DbMap *map, uint64_t offset, uint64_t size, uint32_t segNo);
 void unmapSeg(DbMap *map, uint32_t segNo);
 bool mapSeg(DbMap *map, uint32_t segNo);
-void dropMap(DbMap *map, bool dropDefs);
 
 bool newSeg(DbMap *map, uint32_t minSize);
 void mapSegs(DbMap *map);
 
-bool getPath(DbMap *map, char *name, int len, DbMap *parent, uint64_t id);
+DbStatus dropMap(DbMap *db, bool dropDefs);
+void getPath(DbMap *map, char *name, uint32_t nameLen, uint64_t ver);
+uint32_t addPath(char *path, uint32_t len, char *name, uint32_t nameLen, uint64_t ver);
 
 #ifdef _WIN32
 HANDLE openPath(char *name);

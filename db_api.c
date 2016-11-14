@@ -27,13 +27,14 @@ char *hndlNames[] = {
 int cursorSize[8] = {0, 0, 0, 0, sizeof(ArtCursor), sizeof(Btree1Cursor), 0};
 int maxType[8] = {0, 0, 0, 0, MaxARTType, MAXBtree1Type, 0};
 
-void initialize() {
-	memInit();
-}
-
+extern void memInit();
 extern char hndlInit[1];
 extern DbMap *hndlMap;
 extern char *hndlPath;
+
+void initialize() {
+	memInit();
+}
 
 uint64_t arenaAlloc(DbHandle arenaHndl[1], uint32_t size, bool zeroit, bool dbArena) {
 Handle *arena;
@@ -54,74 +55,65 @@ DbMap *map;
 	return bits;
 }
 
-DbObject *arenaObj(DbHandle arenaHndl[1], uint64_t bits, bool dbArena) {
-Handle *arena;
-DbStatus stat;
-DbObject *obj;
-DbAddr addr;
-DbMap *map;
-
-	if (!(arena = bindHandle(arenaHndl)))
-		return NULL;
-
-	map = arena->map;
-
-	if (dbArena)
-		map = map->db;
-
-	addr.bits = bits;
-	obj = getObj(map, addr);
-	releaseHandle(arena);
-	return obj;
-}
-
 DbStatus dropArena(DbHandle hndl[1], bool dropDefs) {
 Handle *arena;
 DbMap *map;
 
-  if (!(arena = bindHandle(hndl)))
-	return DB_ERROR_handleclosed;
+	if (!(arena = bindHandle(hndl)))
+		return DB_ERROR_handleclosed;
 
-  map = arena->map;
+	map = arena->map;
 
-  releaseHandle(arena);
+	releaseHandle(arena);
 
-  dropMap(map, dropDefs);
-  return DB_OK;
+	//	wait until arena is created
+
+	waitNonZero(map->arena->type);
+	dropMap(map, dropDefs);
+
+	return DB_OK;
 }
 
 DbStatus openDatabase(DbHandle hndl[1], char *name, uint32_t nameLen, Params *params) {
-ArenaDef *arenaDef;
+ArenaDef arenaDef[1];
+uint64_t dbVer = 0;
+PathStk pathStk[1];
 RedBlack *rbEntry;
+Catalog *catalog;
 DbMap *map;
 
+	memset (arenaDef, 0, sizeof(ArenaDef));
 	memset (hndl, 0, sizeof(DbHandle));
 
 	if (!(*hndlInit & TYPE_BITS))
 		initHndlMap(NULL, 0, NULL, 0, true);
 
-	rbEntry = createArenaDef(hndlMap, name, nameLen, params);
-	arenaDef = getObj(hndlMap, rbEntry->payLoad);
+	//	find/create our database in the catalog
 
-	arenaDef->initSize = params[InitSize].int64Val;
-	arenaDef->onDisk = params[OnDisk].boolVal;
-	arenaDef->useTxn = params[UseTxn].boolVal;
+	catalog = (Catalog *)(hndlMap + 1);
+	lockLatch(catalog->dbList->latch);
+
+	if ((rbEntry = rbFind(hndlMap, catalog->dbList, name, nameLen, pathStk)))
+		dbVer = *(uint64_t *)(rbEntry + 1);
+	else {
+		rbEntry = rbNew(hndlMap, name, nameLen, sizeof(uint64_t));
+		rbAdd(hndlMap, catalog->dbList, rbEntry, pathStk);
+	}
+
+	unlockLatch(catalog->dbList->latch);
+	memcpy (arenaDef->params, params, sizeof(Params) * MaxParam);
+
+	arenaDef->mapIdx = arrayAlloc(hndlMap, catalog->openMap, sizeof(void *));
 	arenaDef->baseSize = sizeof(DataBase);
 	arenaDef->arenaType = Hndl_database;
 	arenaDef->objSize = sizeof(Txn);
 
-	initLock(arenaDef->idList->lock);
-
 	//  create the database
 
-	if ((map = arenaRbMap(hndlMap, rbEntry)))
+	if ((map = openMap(NULL, name, nameLen, arenaDef, NULL)))
 		*map->arena->type = Hndl_database;
 	else
 		return DB_ERROR_createdatabase;
-
-	//  top most child map chain
-
-	map->db = map;
 
 	hndl->hndlBits = makeHandle(map, sizeof(Txn), ObjIdType, Hndl_database);
 	return DB_OK;
@@ -150,12 +142,9 @@ Handle *ds;
 
 	//  create the docArena and assign database txn idx
 
-	rbEntry = createArenaDef(parent, name, nameLen, params);
+	rbEntry = procParam(parent, name, nameLen, params);
 
-	arenaDef = getObj(parent->db, rbEntry->payLoad);
-	arenaDef->initSize = params[InitSize].int64Val;
-	arenaDef->onDisk = params[OnDisk].boolVal;
-	arenaDef->useTxn = params[UseTxn].boolVal;
+	arenaDef = (ArenaDef *)(rbEntry + 1);
 	arenaDef->baseSize = sizeof(DocArena);
 	arenaDef->arenaType = Hndl_docStore;
 	arenaDef->objSize = sizeof(ObjId);
@@ -192,7 +181,6 @@ RedBlack *rbEntry;
 DbIndex *dbIndex;
 Handle *index;
 DbStatus stat;
-DbObject *obj;
 
 	memset (hndl, 0, sizeof(DbHandle));
 
@@ -208,16 +196,16 @@ DbObject *obj;
 	case Hndl_btree1Index:
 		baseSize = sizeof(Btree1Index);
 		break;
+	default:
+		releaseHandle(parentHndl);
+		return DB_ERROR_indextype;
 	}
 
 	//  create the index
 
-	rbEntry = createArenaDef(parent, name, nameLen, params);
+	rbEntry = procParam(parent, name, nameLen, params);
 
-	arenaDef = getObj(parent->db, rbEntry->payLoad);
-	arenaDef->initSize = params[InitSize].int64Val;
-	arenaDef->onDisk = params[OnDisk].boolVal;
-	arenaDef->useTxn = params[UseTxn].boolVal;
+	arenaDef = (ArenaDef *)(rbEntry + 1);
 	arenaDef->objSize = sizeof(ObjId);
 	arenaDef->baseSize = baseSize;
 	arenaDef->arenaType = type;
@@ -233,9 +221,6 @@ DbObject *obj;
 	dbIndex = dbindex(map);
 	dbIndex->noDocs = params[NoDocs].boolVal;
 
-	map->arenaDef->partialAddr = params[IdxKeyPartial].int64Val;
-	map->arenaDef->specAddr = params[IdxKeySpec].int64Val;
-
 	index = getHandle(hndl);
 
 	switch (type) {
@@ -246,12 +231,14 @@ DbObject *obj;
 	  case Hndl_btree1Index:
 		btree1Init(index, params);
 		break;
+
+	  default:
+		break;
 	}
 
 	*map->arena->type = type;
 
 createXit:
-
 	releaseHandle(parentHndl);
 	return DB_OK;
 }
@@ -347,7 +334,7 @@ ObjId hndlId;
 
 //	position cursor on a key
 
-DbStatus positionCursor(DbHandle hndl[1], CursorOp op, uint8_t *key, uint32_t keyLen) {
+DbStatus positionCursor(DbHandle hndl[1], CursorOp op, char *key, uint32_t keyLen) {
 DbCursor *cursor;
 Handle *index;
 DbStatus stat;
@@ -364,6 +351,8 @@ DbStatus stat;
 	  case OpOne:
 		stat = dbFindKey(cursor, index->map, key, keyLen, true);
 		break;
+	  default:
+		stat = DB_ERROR_cursorop;
 	}
 
 	releaseHandle(index);
@@ -401,6 +390,9 @@ DbStatus stat;
 	  case OpPrev:
 		stat = dbPrevKey(cursor, index->map);
 		break;
+	  default:
+		stat = DB_ERROR_cursorop;
+		break;
 	}
 
 	releaseHandle(index);
@@ -409,7 +401,7 @@ DbStatus stat;
 
 //	return cursor key
 
-DbStatus keyAtCursor(DbHandle *hndl, uint8_t **key, uint32_t *keyLen) {
+DbStatus keyAtCursor(DbHandle *hndl, char **key, uint32_t *keyLen) {
 DbCursor *cursor;
 DbStatus stat;
 
@@ -424,6 +416,9 @@ DbStatus stat;
 			*keyLen = cursor->userLen;
 
 		return DB_OK;
+
+	default:
+		break;
 	}
 
 	return DB_CURSOR_notpositioned;
@@ -443,6 +438,9 @@ DbStatus stat;
 			*doc = cursor->doc;
 
 		return DB_OK;
+
+	default:
+		break;
 	}
 
 	return DB_CURSOR_notpositioned;
@@ -649,7 +647,7 @@ Doc *doc;
 	return DB_OK;
 }
 
-DbStatus insertKey(DbHandle hndl[1], uint8_t *key, uint32_t len) {
+DbStatus insertKey(DbHandle hndl[1], char *key, uint32_t len) {
 Handle *index;
 DbStatus stat;
 
@@ -670,7 +668,7 @@ DbStatus stat;
 	return stat;
 }
 
-DbStatus setCursorMax(DbHandle hndl[1], uint8_t *max, uint32_t maxLen) {
+DbStatus setCursorMax(DbHandle hndl[1], char *max, uint32_t maxLen) {
 DbCursor *cursor;
 
 	cursor = (DbCursor *)(getHandle(hndl) + 1);
@@ -679,7 +677,7 @@ DbCursor *cursor;
 	return DB_OK;
 }
 
-DbStatus setCursorMin(DbHandle hndl[1], uint8_t *min, uint32_t minLen) {
+DbStatus setCursorMin(DbHandle hndl[1], char *min, uint32_t minLen) {
 DbCursor *cursor;
 
 	cursor = (DbCursor *)(getHandle(hndl) + 1);

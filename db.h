@@ -88,9 +88,11 @@ typedef enum {
 	DropDb,			// drop the database
 
 	IdxKeySpec = 10,	// index key spec document
+	IdxKeySpecLen,		// this must immediately follow
 	IdxKeyUnique,
 	IdxKeySparse,
 	IdxKeyPartial,
+	IdxKeyPartialLen,	// this must immediately follow
 
 	Btree1Bits = 20,	// Btree1 set
 	Btree1Xtra,
@@ -99,10 +101,10 @@ typedef enum {
 } ParamSlot;
 
 typedef union {
-	uint64_t int64Val;
-	char *strVal;
+	uint64_t intVal;
+	uint32_t offset;
 	bool boolVal;
-	int intVal;
+	void *obj;
 } Params;
 
 typedef enum {
@@ -124,10 +126,6 @@ typedef struct {
 	uint32_t size;		// document size
 	DocState state;		// document state
 } Doc;
-
-typedef struct {
-	uint32_t size;
-} DbObject;
 
 // user's DbHandle
 //	contains the HandleId ObjId bits

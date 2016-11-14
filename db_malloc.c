@@ -33,7 +33,7 @@ ArenaDef arenaDef[1];
 #endif
 
 	memset (arenaDef, 0, sizeof(arenaDef));
-	initArena(memMap, arenaDef);
+	initArena(memMap, arenaDef, "malloc", 6, NULL);
 }
 
 uint32_t db_rawSize (uint64_t address) {

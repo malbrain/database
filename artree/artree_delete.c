@@ -3,6 +3,7 @@
 #include "../db_handle.h"
 #include "../db_index.h"
 #include "../db_arena.h"
+#include "../db_frame.h"
 #include "../db_map.h"
 #include "artree.h"
 
@@ -57,7 +58,7 @@ uint8_t ch;
 				*slot.latch = KeyEnd;
 				stack->addr->bits = slot.bits;
 
-				if (!addSlotToFrame(index->map, index->list[newSlot.type].head, index->list[newSlot.type].tail, newSlot))
+				if((!addSlotToFrame(index->map, index->list[newSlot.type].head, index->list[newSlot.type].tail, newSlot.bits)))
 					rt = ErrorSearch;
 				else
 					rt = EndSearch;
@@ -72,7 +73,7 @@ uint8_t ch;
 			case SpanNode: {
 				stack->addr->bits = 0;
 
-				if (!addSlotToFrame(index->map, index->list[newSlot.type].head, index->list[newSlot.type].tail, newSlot))
+				if (!addSlotToFrame(index->map, index->list[newSlot.type].head, index->list[newSlot.type].tail, newSlot.bits))
 					rt = ErrorSearch;
 				else
 					continue;
@@ -104,7 +105,7 @@ uint8_t ch;
 
 				stack->addr->bits = 0;
 
-				if (addSlotToFrame(index->map, index->list[newSlot.type].head, index->list[newSlot.type].tail, newSlot))
+				if (addSlotToFrame(index->map, index->list[newSlot.type].head, index->list[newSlot.type].tail, newSlot.bits))
 					continue;
 
 				rt = ErrorSearch;
@@ -136,7 +137,7 @@ uint8_t ch;
 
 				stack->addr->bits = 0;
 
-				if (addSlotToFrame(index->map, index->list[newSlot.type].head, index->list[newSlot.type].tail, newSlot))
+				if (addSlotToFrame(index->map, index->list[newSlot.type].head, index->list[newSlot.type].tail, newSlot.bits))
 					continue;
 
 				rt = ErrorSearch;
@@ -162,7 +163,7 @@ uint8_t ch;
 
 				stack->addr->bits = 0;
 
-				if (addSlotToFrame(index->map, index->list[newSlot.type].head, index->list[newSlot.type].tail, newSlot))
+				if (addSlotToFrame(index->map, index->list[newSlot.type].head, index->list[newSlot.type].tail, newSlot.bits))
 					continue;
 
 				rt = ErrorSearch;
@@ -188,7 +189,7 @@ uint8_t ch;
 				// remove the slot
 				stack->addr->bits = 0;
 
-				if (addSlotToFrame(index->map, index->list[newSlot.type].head, index->list[newSlot.type].tail, newSlot))
+				if (addSlotToFrame(index->map, index->list[newSlot.type].head, index->list[newSlot.type].tail, newSlot.bits))
 					continue;
 
 				rt = ErrorSearch;

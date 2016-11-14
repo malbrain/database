@@ -14,11 +14,11 @@ void rbRemove (DbMap *map, DbAddr *root, PathStk *path);
 //	-1 -> go right
 //	1 -> go left
 
-int rbKeyCmp (RedBlack *node, uint8_t *key2, uint32_t len2) {
+int rbKeyCmp (RedBlack *node, char *key2, uint32_t len2) {
 uint32_t len1 = node->keyLen;
 int ans;
 
-	if ((ans = memcmp (node + 1, key2, len1 > len2 ? len2 : len1)))
+	if ((ans = memcmp ((char *)(node + 1) + node->payLoad, key2, len1 > len2 ? len2 : len1)))
 		return ans > 0 ? 1 : -1;
 
 	if( len1 > len2 )
@@ -218,7 +218,7 @@ void rbRemove (DbMap *map, DbAddr *root, PathStk *path) {
 DbAddr slot = path->entry[path->lvl];
 RedBlack *node = getObj (map, slot);
 RedBlack *parent, *sibling, *grand;
-uint8_t red = node->red, lvl, idx;
+char red = node->red, lvl, idx;
 DbAddr left;
 
 	if( (lvl =  path->lvl) ) {
@@ -293,7 +293,7 @@ PathStk path[1];
 
 	lockLatch(root->latch);
 
-	if ((rbFind(map, root, (char *)(entry + 1), entry->keyLen, path))) {
+	if ((rbFind(map, root, (char *)(entry + 1) + entry->payLoad, entry->keyLen, path))) {
 		rbRemove (map, root, path);
 		unlockLatch(root->latch);
 		return true;
@@ -305,19 +305,17 @@ PathStk path[1];
 
 //	make new red/black entry
 
-RedBlack *rbNew (DbMap *map, void *key, uint32_t keyLen, uint32_t payLen) {
+RedBlack *rbNew (DbMap *map, void *key, uint32_t keyLen, uint32_t payLoad) {
 RedBlack *entry = NULL;
 DbAddr child;
 
-  if ((child.bits = allocBlk(map, sizeof(RedBlack) + keyLen, true))) {
+  if ((child.bits = allocBlk(map, sizeof(RedBlack) + keyLen + payLoad, true))) {
 	entry = getObj(map, child);
 	entry->addr.bits = child.bits;
+	entry->payLoad = payLoad;
 	entry->keyLen = keyLen;
 
-	memcpy (entry + 1, key, keyLen);
-
-	if (payLen)
-		entry->payLoad.bits = allocBlk(map, payLen, true);
+	memcpy ((char *)(entry + 1) + payLoad, key, keyLen);
   }
 #ifdef DEBUG
   else
@@ -372,20 +370,4 @@ RedBlack *entry;
 	} while (path->lvl--);
 
 	return NULL;
-}
-
-//	enumerate red/black tree node addresses
-
-DbStatus rbList(DbMap *map, DbAddr *root, RbFcnPtr fcn, void *key, uint32_t keyLen, void *params) {
-PathStk path[1];
-RedBlack *entry;
-DbStatus stat;
-
-	rbFind(map, root, key, keyLen, path);
-
-	while ((entry = rbNext(map, path)))
-	  if ((stat = fcn(map, entry, params)))
-		return stat;
-
-	return DB_OK;
 }

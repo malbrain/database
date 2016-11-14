@@ -11,6 +11,8 @@ DbAddr *addr;
 	if (!array->addr)
 		return NULL;
 
+	assert(idx % ARRAY_size >= ARRAY_inuse);
+
 	addr = getObj(map, *array);
 	return getObj(map, addr[idx / ARRAY_size]);
 }
@@ -23,6 +25,8 @@ DbAddr *addr;
 	if (!array->addr)
 		return 0;
 
+	assert(idx % ARRAY_size >= ARRAY_inuse);
+
 	addr = getObj(map, *array);
 	return addr[idx / ARRAY_size].bits;
 }
@@ -33,8 +37,10 @@ void *arrayEntry (DbMap *map, DbAddr addr, uint16_t idx, size_t size) {
 uint64_t *inUse = getObj(map, addr);
 uint8_t *base;
 
-	base = (uint8_t *)(inUse + ARRAY_size / 64);
-	base += size * ((idx % ARRAY_size) - 1);
+	assert(idx % ARRAY_size >= ARRAY_inuse);
+
+	base = (uint8_t *)(inUse + ARRAY_inuse);
+	base += size * ((idx % ARRAY_size) - ARRAY_inuse);
 	return base;
 }
 
@@ -45,6 +51,8 @@ uint64_t *inUse;
 uint8_t *base;
 DbAddr *addr;
 
+	assert(idx % ARRAY_size >= ARRAY_inuse);
+
 	lockLatch(array->latch);
 
 	//	allocate the first level of the Array
@@ -53,29 +61,31 @@ DbAddr *addr;
 	if (!array->addr) {
 		array->bits = allocBlk(map, sizeof(DbAddr) * 256, true) | ADDR_MUTEX_SET;
 		addr = getObj(map, *array);
-		addr->bits = allocBlk(map, sizeof(uint64_t) * ARRAY_size / 64 + size * (ARRAY_size - 1), true);
+		addr->bits = allocBlk(map, sizeof(uint64_t) * ARRAY_inuse + size * (ARRAY_size - ARRAY_inuse), true);
 
-		// sluff first idx
+		// sluff first slots
 
 		inUse = getObj(map, *addr);
-		*inUse = 1ULL;
+		*inUse = (1ULL << ARRAY_inuse) - 1;
 	} else
 		addr = getObj(map, *array);
+
+	//	fill-in missing slots
 
 	while (idx / ARRAY_size > array->maxidx)
 	  if (array->maxidx == 255) {
 #ifdef DEBUG
-		fprintf(stderr, "Array Overflow file: %s\n", map->path);
+		fprintf(stderr, "Array Overflow file: %s\n", map->arenaPath);
 #endif
 		return NULL;
 	  } else
-		addr[++array->maxidx].bits = allocBlk(map, sizeof(uint64_t) * ARRAY_size / 64 + size * 63, true);
+		addr[++array->maxidx].bits = allocBlk(map, sizeof(uint64_t) * ARRAY_inuse + size * (ARRAY_size - ARRAY_inuse), true);
 
 	inUse = getObj(map, addr[idx / ARRAY_size]);
 	inUse[idx % ARRAY_size / 64] &= ~(1ULL << (idx % 64));
 
-	base = (uint8_t *)(inUse + ARRAY_size / 64);
-	base += size * ((idx % ARRAY_size) - 1);
+	base = (uint8_t *)(inUse + ARRAY_inuse);
+	base += size * ((idx % ARRAY_size) - ARRAY_inuse);
 	unlockLatch(array->latch);
 
 	return base;
@@ -96,12 +106,12 @@ int idx, seg;
 	if (!array->addr) {
 		array->bits = allocBlk(map, sizeof(DbAddr) * 256, true) | ADDR_MUTEX_SET;
 		addr = getObj(map, *array);
-		addr->bits = allocBlk(map, sizeof(uint64_t) * ARRAY_size / 64 + size * (ARRAY_size - 1), true);
+		addr->bits = allocBlk(map, sizeof(uint64_t) * ARRAY_inuse + size * (ARRAY_size - ARRAY_inuse), true);
 
-		// sluff first idx
+		// sluff first slots
 
 		inUse = getObj(map, *addr);
-		*inUse = 1ULL;
+		*inUse = (1ULL << ARRAY_inuse) - 1;
 	} else
 		addr = getObj(map, *array);
 
@@ -112,11 +122,11 @@ int idx, seg;
 
 		//  find array segment with available entry
 
-		for (seg = 0; seg < ARRAY_size / 64; seg++)
+		for (seg = 0; seg < ARRAY_inuse; seg++)
 		  if (inUse[seg] < UINT64_MAX)
 			break;
 
-		if (seg == ARRAY_size / 64)
+		if (seg == ARRAY_inuse)
 			continue;
 
 #		ifdef _WIN32
@@ -134,19 +144,18 @@ int idx, seg;
 	//	allocate a new segment
 
 	if (array->maxidx == 255) {
-		fprintf(stderr, "Array Overflow file: %s\n", map->path);
+		fprintf(stderr, "Array Overflow file: %s\n", map->arenaPath);
 		exit(1);
 	 }
 
-	addr[++array->maxidx].bits = allocBlk(map, sizeof(uint64_t) * ARRAY_size / 64 + size * (ARRAY_size - 1), true);
+	addr[++array->maxidx].bits = allocBlk(map, sizeof(uint64_t) * ARRAY_inuse + size * (ARRAY_size - ARRAY_inuse), true);
 	inUse = getObj(map, addr[idx]);
 
-	// sluff idx zero and assign idx one
-
-	inUse[0] = 3ULL;
+	inUse[0] = (1ULL << ARRAY_inuse) - 1;
+	inUse[0] |= 1ULL << ARRAY_inuse;
 
 	unlockLatch(array->latch);
-	return array->maxidx * ARRAY_size + 1;
+	return array->maxidx * ARRAY_size + ARRAY_inuse;
 }
 
 //	peel off 64 bit suffix value from key

@@ -17,6 +17,7 @@ typedef enum {
 	DB_ERROR_invaliddeleterecord,
 	DB_ERROR_cursorbasekeyerror,
 	DB_ERROR_cursoroverflow,
+	DB_ERROR_cursorop,
 	DB_ERROR_writeconflict,
 	DB_ERROR_duplicatekey,
 	DB_ERROR_keynotfound,

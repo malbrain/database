@@ -50,12 +50,12 @@ Btree1Slot *slot;
 uint8_t *buff;
 
 	if (params[Btree1Bits].intVal > Btree1_maxbits) {
-		fprintf(stderr, "createIndex: bits = %d > max = %d\n", params[Btree1Bits].intVal, Btree1_maxbits);
+		fprintf(stderr, "createIndex: bits = %lld > max = %d\n", params[Btree1Bits].intVal, Btree1_maxbits);
 		exit(1);
 	}
 
 	if (params[Btree1Bits].intVal + params[Btree1Xtra].intVal > Btree1_maxbits) {
-		fprintf(stderr, "createIndex: bits = %d + xtra = %d > max = %d\n", params[Btree1Bits].intVal, params[Btree1Xtra].intVal, Btree1_maxbits);
+		fprintf(stderr, "createIndex: bits = %lld + xtra = %lld > max = %d\n", params[Btree1Bits].intVal, params[Btree1Xtra].intVal, Btree1_maxbits);
 		exit(1);
 	}
 

@@ -71,6 +71,9 @@ uint8_t *key;
 
 	  case CursorRightEof:
 		return DB_CURSOR_eof;
+
+	  default:
+		break;
 	}
 
 	while (true) {
@@ -115,6 +118,9 @@ uint8_t *key;
 
 	  case CursorLeftEof:
 		return DB_CURSOR_eof;
+
+	  default:
+		break;
 	}
 
 	while (true) {

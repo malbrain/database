@@ -11,8 +11,6 @@ char hndlInit[1];
 DbMap *hndlMap;
 char *hndlPath;
 
-//	return HandleId slot from bits
-
 HandleId *slotHandle(uint64_t hndlBits) {
 ObjId hndlId;
 
@@ -58,12 +56,12 @@ int len;
 	}
 
 	memset(arenaDef, 0, sizeof(arenaDef));
+	arenaDef->params[OnDisk].boolVal = onDisk;
 	arenaDef->baseSize = sizeof(Catalog);
 	arenaDef->objSize = sizeof(HandleId);
 	arenaDef->arenaType = Hndl_catalog;
-	arenaDef->onDisk = onDisk;
 
-	hndlMap = openMap(NULL, name, nameLen, arenaDef);
+	hndlMap = openMap(NULL, name, nameLen, arenaDef, NULL);
 	hndlMap->db = hndlMap;
 
 	*hndlMap->arena->type = Hndl_catalog;
@@ -98,6 +96,7 @@ DbAddr addr;
 	//	get a new or recycled HandleId
 
 	catalog = (Catalog *)(hndlMap->arena + 1);
+
 	if (!(hndlId.bits = allocObjId(hndlMap, catalog->list, 0)))
 		return 0;
 
@@ -117,17 +116,17 @@ DbAddr addr;
 	if (listMax) {
 		idx = arrayAlloc(map, map->arena->listArray, sizeof(FreeList) * listMax);
 		inUse = arrayBlk(map, map->arena->listArray, idx);
-		hndl->list = (FreeList *)(inUse + ARRAY_size / 64) + ((idx % ARRAY_size) - 1) * listMax;
+		hndl->list = (FreeList *)(inUse + ARRAY_inuse) + ((idx % ARRAY_size) - ARRAY_inuse) * listMax;
 		hndl->listIdx = idx;
 	}
 
 	//	allocate and initialize a hndlCall for the handle
 
-	idx = arrayAlloc(map, map->arena->hndlCalls, sizeof(HndlCall));
-	hndl->calls.bits = arrayAddr(map, map->arena->hndlCalls, idx);
+	idx = arrayAlloc(map->db, map->arenaDef->hndlCalls, sizeof(HndlCall));
+	hndl->calls.bits = arrayAddr(map->db, map->arenaDef->hndlCalls, idx);
 	hndl->callIdx = idx;
 
-	hndlCall = arrayEntry(map, hndl->calls, idx, sizeof(HndlCall));
+	hndlCall = arrayEntry(map->db, hndl->calls, idx, sizeof(HndlCall));
 	hndlCall->hndlId.bits = hndlId.bits;
 
 	//  install in HandleId slot
@@ -208,7 +207,7 @@ uint32_t cnt;
 	//	set the entryTs if so.
 
 	if (cnt == 1) {
-		hndlCall = arrayEntry(hndl->map, hndl->calls, hndl->callIdx, sizeof(HndlCall));
+		hndlCall = arrayEntry(hndl->map->db, hndl->calls, hndl->callIdx, sizeof(HndlCall));
 		hndlCall->entryTs = atomicAdd64(&hndl->map->arena->nxtTs, 1);
 	}
 
@@ -234,6 +233,7 @@ void disableHndls(DbMap *map, DbAddr *array) {
 DbAddr handle[1];
 HandleId *slot;
 DbAddr *addr;
+ObjId hndlId;
 int idx, seg;
 
   if (array->addr) {
@@ -241,21 +241,16 @@ int idx, seg;
 
 	for (idx = 0; idx <= array->maxidx; idx++) {
 	  uint64_t *inUse = getObj(map, addr[idx]);
-	  HndlCall *call = (HndlCall *)(inUse + ARRAY_size / 64);
+	  HndlCall *call = (HndlCall *)(inUse + ARRAY_inuse);
 
-	  for (seg = 0; seg < ARRAY_size / 64; seg++) {
-		uint64_t bits = inUse[seg];
-		int slotIdx = 0;
-
-		// sluff first idx in segment zero
-
-		if (!seg) {
-		  slotIdx = 1;
-		  bits /= 2;
-		}
+	  for (seg = 0; seg < ARRAY_inuse; seg++) {
+		uint64_t bits = inUse[seg] >> ARRAY_inuse;
+		int slotIdx = ARRAY_inuse;
 
 		do if (bits & 1) {
-		  slot = fetchIdSlot(hndlMap, call[seg * 64 + slotIdx - 1].hndlId);
+		  hndlId.bits = call[seg * 64 + slotIdx - ARRAY_inuse].hndlId.bits;
+		  slot = fetchIdSlot(hndlMap, hndlId);
+
 		  handle->bits = atomicExchange(&slot->addr->bits, 0);
 
 		  //  wait for outstanding activity to finish
@@ -276,30 +271,23 @@ int idx, seg;
 
 uint64_t scanHandleTs(DbMap *map) {
 uint64_t lowTs = map->arena->nxtTs + 1;
-DbAddr *array = map->arena->hndlCalls;
+DbAddr *array = map->arenaDef->hndlCalls;
 DbAddr *addr;
 int idx, seg;
 
   if (array->addr) {
-	addr = getObj(map, *array);
+	addr = getObj(map->db, *array);
 
 	for (idx = 0; idx <= array->maxidx; idx++) {
-	  uint64_t *inUse = getObj(map, addr[idx]);
-	  HndlCall *call = (HndlCall *)(inUse + ARRAY_size / 64);
+	  uint64_t *inUse = getObj(map->db, addr[idx]);
+	  HndlCall *call = (HndlCall *)(inUse + ARRAY_inuse);
 
-	  for (seg = 0; seg < ARRAY_size / 64; seg++) {
-		uint64_t bits = inUse[seg];
-		int slotIdx = 0;
-
-		// sluff first idx in segment zero
-
-		if (!seg) {
-		  slotIdx = 1;
-		  bits /= 2;
-		}
+	  for (seg = 0; seg < ARRAY_inuse; seg++) {
+		uint64_t bits = inUse[seg] >> ARRAY_inuse;
+		int slotIdx = ARRAY_inuse;
 
 		do if (bits & 1) {
-		  HandleId *slot = fetchIdSlot(hndlMap, call[seg * 64 + slotIdx - 1].hndlId);
+		  HandleId *slot = fetchIdSlot(hndlMap, call[seg * 64 + slotIdx - ARRAY_inuse].hndlId);
 
 		  if (!slot->bindCnt[0])
 			  continue;

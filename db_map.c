@@ -31,71 +31,75 @@ void yield() {
 #endif
 }
 
+//	add next name to path
+
+uint32_t addPath(char *path, uint32_t pathLen, char *name, uint32_t nameLen,  uint64_t ver) {
+uint32_t len = 0, off = 12;
+char buff[12];
+
+
+	if (pathLen)
+	  if( path[pathLen - 1] != '/')
+		path[pathLen] = '.', len = 1;
+
+	path += pathLen;
+
+	if (pathLen + nameLen + len < MAX_path) {
+		memcpy(path + len, name, nameLen);
+		len += nameLen;
+	}
+
+	if (ver) {
+	  do buff[--off] = ver % 10 + '0';
+	  while (ver /= 10);
+
+	  if (pathLen + len + 14 - off < MAX_path) {
+	  	path[len++] = '-';
+		memcpy (path + len, buff + off, 12 - off);
+		len += 12 - off;
+	  }
+	} 
+
+	path[len] = 0;
+	return len;
+}
+
 //  assemble filename path
 
-bool getPath(DbMap *map, char *name, int len, DbMap *parent, uint64_t id) {
-uint64_t conv = id;
-char buff[24];
-int off = 0;
+void getPath(DbMap *map, char *name, uint32_t nameLen, uint64_t ver) {
+uint32_t len = 12, off = 0, prev;
+char buff[12];
 
-	//  start with parent or catalog path
-
-	if (parent && *parent->arena->type != Hndl_catalog) {
-	  if (parent->pathLen + 1 < MAX_path) {
-		memcpy(map->path, parent->path, parent->pathLen);
-		map->pathOff = parent->pathOff;
-		off = parent->pathLen;
-		map->path[off++] = '.';
-	  } else
-		return false;
-	} else if (hndlPath) {
-	  off = strlen(hndlPath);
-
-	  if (off + 1 < MAX_path) {
-		memcpy(map->path, hndlPath, off);
-		map->path[off++] = '/';
-		map->pathOff = off;
-	  } else
-		return false;
-	}
-
-	//	append arena name
-
-	if (off + len < MAX_path) {
-		memcpy(map->path + off, name, len);
-		off += len;
-	} else
-		return false;
-
-	//	append child ID
-
-	len = 0;
-
-	do buff[sizeof(buff) - ++len] = conv % 10 | '0';
-	while (conv /= 10);
-
-	if (parent && id) {
-	  if (off + len + 1 < MAX_path) {
-		map->path[off++] = '-';
-		memcpy (map->path + off, buff + sizeof(buff) - len, len);
-		off += len;
-	  } else
-		return false;
-	}
-
-	if (off + 1 < MAX_path)
-		map->path[off] = 0;
+	if (map->parent)
+		len += prev = map->parent->pathLen, len++;
+	else if (hndlPath)
+		len += prev = strlen(hndlPath), len++;
 	else
-		return false;
+		prev = 0;
 
-	map->pathLen = off;
-	return true;
+	map->arenaPath = db_malloc(len + 1, false);
+
+	if (map->parent)
+		memcpy (map->arenaPath, map->parent->arenaPath, prev);
+	else if (hndlPath) {
+		memcpy (map->arenaPath, hndlPath, prev);
+		map->arenaPath[prev++] = '/';
+	}
+
+	off = prev;
+
+	map->pathLen = off + addPath(map->arenaPath, off, name, nameLen, ver);
 }
 
 #ifdef _WIN32
 HANDLE openPath(char *path) {
 HANDLE hndl;
+#else
+int openPath(char *path) {
+int hndl, flags;
+#endif
 
+#ifdef _WIN32
 	hndl = CreateFile(path, GENERIC_READ | GENERIC_WRITE | DELETE, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 
 	if (hndl == INVALID_HANDLE_VALUE) {
@@ -104,14 +108,11 @@ HANDLE hndl;
 	}
 
 	return hndl;
-}
 #else
-int openPath(char *path) {
-int hndl, flags;
 
 	flags = O_RDWR | O_CREAT;
 
-	hndl = open (path, flags, 0666);
+	hndl = open (path, flags, 0664);
 
 	if (hndl == -1) {
 		fprintf (stderr, "Unable to open/create %s, error = %d", path, errno);
@@ -119,8 +120,8 @@ int hndl, flags;
 	}
 
 	return hndl;
-}
 #endif
+}
 
 void waitZero(volatile char *zero) {
 	while (*zero)
@@ -131,7 +132,7 @@ void waitZero(volatile char *zero) {
 #endif
 }
 
-void waitZero32(volatile uint32_t *zero) {
+void waitZero32(volatile int32_t *zero) {
 	while (*zero)
 #ifndef _WIN32
 			pause();
@@ -140,7 +141,7 @@ void waitZero32(volatile uint32_t *zero) {
 #endif
 }
 
-void waitZero64(volatile uint64_t *zero) {
+void waitZero64(volatile int64_t *zero) {
 	while (*zero)
 #ifndef _WIN32
 			pause();
@@ -158,7 +159,7 @@ void waitNonZero(volatile char *zero) {
 #endif
 }
 
-void waitNonZero32(volatile uint32_t *zero) {
+void waitNonZero32(volatile int32_t *zero) {
 	while (!*zero)
 #ifndef _WIN32
 			pause();
@@ -167,7 +168,7 @@ void waitNonZero32(volatile uint32_t *zero) {
 #endif
 }
 
-void waitNonZero64(volatile uint64_t *zero) {
+void waitNonZero64(volatile int64_t *zero) {
 	while (!*zero)
 #ifndef _WIN32
 			pause();
@@ -200,7 +201,7 @@ void lockAddr(volatile uint64_t* bits) {
 #ifndef _WIN32
 	while (__sync_fetch_and_or(bits, ADDR_MUTEX_SET) & ADDR_MUTEX_SET) {
 #else
-	while (_InterlockedOr64(bits, ADDR_MUTEX_SET) & ADDR_MUTEX_SET) {
+	while (_InterlockedOr64((volatile int64_t *)bits, ADDR_MUTEX_SET) & ADDR_MUTEX_SET) {
 #endif
 		do
 #ifndef _WIN32
@@ -216,7 +217,7 @@ void unlockAddr(volatile uint64_t* bits) {
 	*bits = *bits & ~ADDR_MUTEX_SET;
 }
 
-int8_t atomicOr8(volatile int8_t *value, int8_t amt) {
+int8_t atomicOr8(volatile char *value, char amt) {
 #ifndef _WIN32
 	return __sync_fetch_and_or(value, amt);
 #else
@@ -268,7 +269,7 @@ int flags = MAP_SHARED;
 	mem = mmap(NULL, size, PROT_READ | PROT_WRITE, flags, map->hndl, offset);
 
 	if (mem == MAP_FAILED) {
-		fprintf (stderr, "Unable to mmap %s, offset = %llx, size = %llx, error = %d", map->path, offset, size, errno);
+		fprintf (stderr, "Unable to mmap %s, offset = %llx, size = %llx, error = %d", map->arenaPath, offset, size, errno);
 		return NULL;
 	}
 #else
@@ -276,14 +277,14 @@ int flags = MAP_SHARED;
 		return VirtualAlloc(NULL, size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 
 	if (!(map->maphndl[segNo] = CreateFileMapping(map->hndl, NULL, PAGE_READWRITE, (DWORD)((offset + size) >> 32), (DWORD)(offset + size), NULL))) {
-		fprintf (stderr, "Unable to CreateFileMapping %s, size = %llx, segment = %d error = %d\n", map->path, offset + size, segNo, (int)GetLastError());
+		fprintf (stderr, "Unable to CreateFileMapping %s, size = %llx, segment = %d error = %d\n", map->arenaPath, offset + size, segNo, (int)GetLastError());
 		return NULL;
 	}
 
 	mem = MapViewOfFile(map->maphndl[segNo], FILE_MAP_WRITE, offset >> 32, offset, size);
 
 	if (!mem) {
-		fprintf (stderr, "Unable to MapViewOfFile %s, offset = %llx, size = %llx, error = %d\n", map->path, offset, size, (int)GetLastError());
+		fprintf (stderr, "Unable to MapViewOfFile %s, offset = %llx, size = %llx, error = %d\n", map->arenaPath, offset, size, (int)GetLastError());
 		return NULL;
 	}
 #endif
@@ -297,7 +298,7 @@ char *base = segNo ? map->base[segNo] : 0ULL;
 #ifndef _WIN32
 	munmap(base, map->arena->segs[segNo].size);
 #else
-	if (!map->arenaDef->onDisk) {
+	if (!map->arenaDef->params[OnDisk].boolVal) {
 		VirtualFree(base, 0, MEM_RELEASE);
 		return;
 	}
@@ -334,7 +335,7 @@ OVERLAPPED ovl[1];
 	if (LockFileEx (map->hndl, LOCKFILE_EXCLUSIVE_LOCK, 0, sizeof(DbArena), 0, ovl))
 		return;
 
-	fprintf (stderr, "Unable to lock %s, error = %d", map->path, (int)GetLastError());
+	fprintf (stderr, "Unable to lock %s, error = %d", map->arenaPath, (int)GetLastError());
 	exit(1);
 }
 #else
@@ -343,7 +344,7 @@ void lockArena (DbMap *map) {
 	if (!flock(map->hndl, LOCK_EX))
 		return;
 
-	fprintf (stderr, "Unable to lock %s, error = %d", map->path, errno);
+	fprintf (stderr, "Unable to lock %s, error = %d", map->arenaPath, errno);
 	exit(1);
 }
 #endif
@@ -358,7 +359,7 @@ OVERLAPPED ovl[1];
 	if (UnlockFileEx (map->hndl, 0, sizeof(DbArena), 0, ovl))
 		return;
 
-	fprintf (stderr, "Unable to unlock %s, error = %d", map->path, (int)GetLastError());
+	fprintf (stderr, "Unable to unlock %s, error = %d", map->arenaPath, (int)GetLastError());
 	exit(1);
 }
 #else
@@ -366,7 +367,7 @@ void unlockArena (DbMap *map) {
 	if (!flock(map->hndl, LOCK_UN))
 		return;
 
-	fprintf (stderr, "Unable to unlock %s, error = %d", map->path, errno);
+	fprintf (stderr, "Unable to unlock %s, error = %d", map->arenaPath, errno);
 	exit(1);
 }
 #endif
@@ -387,23 +388,28 @@ bool fileExists(char *path) {
 #endif
 }
 
-void deleteMap(DbMap *map) {
-int maxSeg = map->maxSeg;
+//	close a map
 
+void closeMap(DbMap *map) {
 #ifdef _WIN32
 FILE_DISPOSITION_INFO dispInfo[1];
 #endif
 
-	do unmapSeg(map, maxSeg);
-	while (maxSeg--);
+	while (map->numSeg)
+		unmapSeg(map, --map->numSeg);
 
+	if (map->parent)
+		atomicAdd32(map->parent->openCnt, -1);
+
+	if (*map->arenaDef->dead) {
 #ifdef _WIN32
-	memset (dispInfo, 0, sizeof(dispInfo));
-	dispInfo->DeleteFile = true;
-	SetFileInformationByHandle (map->hndl, FileDispositionInfo, dispInfo, sizeof(dispInfo));
+		memset (dispInfo, 0, sizeof(dispInfo));
+		dispInfo->DeleteFile = true;
+		SetFileInformationByHandle (map->hndl, FileDispositionInfo, dispInfo, sizeof(dispInfo));
 #else
-	unlink(map->path);
+		unlink(map->arenaPath);
 #endif
+	}
 
 #ifdef _WIN32
 	CloseHandle(map->hndl);
@@ -414,3 +420,15 @@ FILE_DISPOSITION_INFO dispInfo[1];
 
 	db_free(map);
 }
+
+//	delete a map
+
+void deleteMap(char *path) {
+#ifdef _WIN32
+	DeleteFile (path);
+#else
+	unlink(path);
+#endif
+}
+
+

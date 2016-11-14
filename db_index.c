@@ -112,9 +112,11 @@ int idx;
 
 DbStatus installIndexKey(Handle *docHndl, SkipEntry *entry, Doc *doc) {
 uint8_t key[MAX_key];
+ArenaDef *arenaDef;
 DbHandle hndl[1];
+uint32_t specLen;
 uint64_t *verPtr;
-DbObject *spec;
+uint8_t *spec;
 Handle *index;
 DbStatus stat;
 DbAddr addr;
@@ -125,21 +127,21 @@ int keyLen;
 	if (!(index = bindHandle(hndl)))
 		return DB_ERROR_handleclosed;
 
-	if ((addr.bits = index->map->arenaDef->partialAddr)) {
-		spec = getObj(index->map->db, addr);
-		if (!partialEval(doc, spec)) {
-			releaseHandle(index);
-			return DB_OK;
-		}
-	}
+	arenaDef = index->map->arenaDef;
 
-	addr.bits = index->map->arenaDef->specAddr;
-	spec = getObj(index->map->db, addr);
+	if ((spec = getObjParam(arenaDef, IdxKeyPartial)))
+	  if (!evalPartial(doc, spec, arenaDef->params[IdxKeyPartialLen].intVal)) {
+		releaseHandle(index);
+		return DB_OK;
+	  }
 
-	keyLen = keyGenerator(key, doc, spec);
+	spec = getObjParam(arenaDef, IdxKeySpec);
+	specLen = arenaDef->params[IdxKeySpecLen].intVal;
+
+	keyLen = keyGenerator(key, doc, spec, specLen);
 	keyLen = store64(key, keyLen, doc->docId.bits);
 
-	if (index->map->arenaDef->useTxn)
+	if (arenaDef->params[UseTxn].boolVal)
 		keyLen = store64(key, keyLen, doc->version);
 
 	//	add the version for the indexId
@@ -187,7 +189,6 @@ int idx;
 	  idx = next->nslot;
 
 	  while (idx--) {
-		if (~*skipNode->array[idx].key & CHILDID_DROP)
 		  if ((stat = installIndexKey(docHndl, &skipNode->array[idx], doc)))
 			return stat;
 	  }

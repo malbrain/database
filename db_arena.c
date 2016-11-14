@@ -18,78 +18,41 @@ bool mapSeg (DbMap *map, uint32_t currSeg);
 void mapZero(DbMap *map, uint64_t size);
 void mapAll (DbMap *map);
 
-//	open map given red/black rbEntry
+extern DbMap memMap[1];
+DbAddr openMaps[1];
+
+//	open map given database red/black rbEntry
 
 DbMap *arenaRbMap(DbMap *parent, RedBlack *rbEntry) {
-ArenaDef *arenaDef = getObj(parent->db, rbEntry->payLoad);
-uint64_t *childMap;
+ArenaDef *arenaDef = (ArenaDef *)(rbEntry + 1);
+void **childMap;
 DbMap *map;
 
-	writeLock(parent->childMaps->lock);
+	if (*arenaDef->dead & KILL_BIT)
+		return NULL;
 
-	childMap = skipAdd(parent, parent->childMaps->head, arenaDef->id);
+	//	see if we've opened this child
+	//	map in this process already
+
+	childMap = arrayElement(memMap, openMaps, arenaDef->mapIdx, sizeof(void *));
 
 	if ((map = (DbMap *)*childMap))
 		waitNonZero(map->arena->type);
 	else {
-		map = openMap(parent, rbKey(rbEntry), rbEntry->keyLen, arenaDef);
-		*childMap = (uint64_t)map;
+		map = openMap(parent, rbkey(rbEntry), rbEntry->keyLen, arenaDef, &rbEntry->addr);
+		atomicAdd32(parent->openCnt, 1);
+		*childMap = map;
 	}
 
-	writeUnlock(parent->childMaps->lock);
 	return map;
-}
-
-//  install the new arena name and params in the Catalog
-
-RedBlack *createArenaDef(DbMap *parent, char *name, int nameLen, Params *params) {
-uint64_t *skipPayLoad;
-ArenaDef *arenaDef;
-PathStk pathStk[1];
-RedBlack *rbEntry;
-
-	lockLatch(parent->arenaDef->nameTree->latch);
-
-	//	see if ArenaDef already exists as a child in the parent
-
-	if ((rbEntry = rbFind(parent->db, parent->arenaDef->nameTree, name, nameLen, pathStk))) {
-		unlockLatch(parent->arenaDef->nameTree->latch);
-		return rbEntry;
-	}
-
-	// otherwise, create new rbEntry in parent
-	// with an arenaDef payload
-
-	if ((rbEntry = rbNew(parent->db, name, nameLen, sizeof(ArenaDef))))
-		arenaDef = getObj(parent->db, rbEntry->payLoad);
-	else {
-		unlockLatch(parent->arenaDef->nameTree->latch);
-		return NULL;
-	}
-
-	arenaDef->id = atomicAdd64(&parent->arenaDef->childId, 1);
-	initLock(arenaDef->idList->lock);
-
-	//	add arenaDef to parent's child arenaDef tree
-
-	rbAdd(parent->db, parent->arenaDef->nameTree, rbEntry, pathStk);
-
-	//	add new rbEntry to parent's child id array
-
-	writeLock(parent->arenaDef->idList->lock);
-	skipPayLoad = skipAdd (parent->db, parent->arenaDef->idList->head, arenaDef->id);
-	*skipPayLoad = rbEntry->addr.bits;
-	writeUnlock(parent->arenaDef->idList->lock);
-
-	unlockLatch(parent->arenaDef->nameTree->latch);
-	return rbEntry;
 }
 
 //  open/create an Object database/store/index arena file
 //	call with writeLock(parent->childMaps->lock)
 
-DbMap *openMap(DbMap *parent, char *name, uint32_t nameLen, ArenaDef *arenaDef) {
+DbMap *openMap(DbMap *parent, char *name, uint32_t nameLen, ArenaDef *arenaDef, DbAddr *rbAddr) {
 DbArena *segZero = NULL;
+RedBlack *rbEntry;
 DataBase *db;
 DbMap *map;
 
@@ -101,31 +64,29 @@ int32_t amt = 0;
 
 	map = db_malloc(sizeof(DbMap) + arenaDef->localSize, true);
 
-	if (!getPath(map, name, nameLen, parent, arenaDef->id)) {
-		db_free(map);
-		return NULL;
-	}
-
 	if ((map->parent = parent))
 		map->db = parent->db;
 	else
 		map->db = map;
 
-	if (!arenaDef->onDisk) {
+	if (!arenaDef->params[OnDisk].boolVal) {
 #ifdef _WIN32
 		map->hndl = INVALID_HANDLE_VALUE;
 #else
 		map->hndl = -1;
 #endif
-		return initArena(map, arenaDef);
+		return initArena(map, arenaDef, name, nameLen, rbAddr);
 	}
+
+	getPath(map, name, nameLen, arenaDef->ver);
 
 	//	open the onDisk arena file
 
 #ifdef _WIN32
-	map->hndl = openPath (map->path);
+	map->hndl = openPath (map->arenaPath);
 
 	if (map->hndl == INVALID_HANDLE_VALUE) {
+		db_free(map->arenaPath);
 		db_free(map);
 		return NULL;
 	}
@@ -135,16 +96,18 @@ int32_t amt = 0;
 	segZero = VirtualAlloc(NULL, sizeof(DbArena), MEM_COMMIT, PAGE_READWRITE);
 
 	if (!ReadFile(map->hndl, segZero, sizeof(DbArena), &amt, NULL)) {
-		fprintf (stderr, "Unable to read %lld bytes from %s, error = %d", sizeof(DbArena), map->path, errno);
+		fprintf (stderr, "Unable to read %lld bytes from %s, error = %d\n", sizeof(DbArena), map->arenaPath, errno);
 		VirtualFree(segZero, 0, MEM_RELEASE);
 		CloseHandle(map->hndl);
+		db_free(map->arenaPath);
 		db_free(map);
 		return NULL;
 	}
 #else
-	map->hndl = openPath (map->path);
+	map->hndl = openPath (map->arenaPath);
 
 	if (map->hndl == -1) {
+		db_free(map->arenaPath);
 		db_free(map);
 		return NULL;
 	}
@@ -152,7 +115,7 @@ int32_t amt = 0;
 	lockArena(map);
 
 #ifdef DEBUG
-	fprintf(stderr, "lockArena %s\n", map->path);
+	fprintf(stderr, "lockArena %s\n", map->arenaPath);
 #endif
 	// read first part of segment zero if it exists
 
@@ -161,7 +124,8 @@ int32_t amt = 0;
 	amt = pread(map->hndl, segZero, sizeof(DbArena), 0LL);
 
 	if (amt < 0) {
-		fprintf (stderr, "Unable to read %d bytes from %s, error = %d", (int)sizeof(DbArena), map->path, errno);
+		fprintf (stderr, "Unable to read %d bytes from %s, error = %d\n", (int)sizeof(DbArena), map->arenaPath, errno);
+		db_free(map->arenaPath);
 		unlockArena(map);
 		close(map->hndl);
 		free(segZero);
@@ -172,7 +136,7 @@ int32_t amt = 0;
 	//	did we create the arena?
 
 	if (amt < sizeof(DbArena)) {
-		if ((map = initArena(map, arenaDef)))
+		if ((map = initArena(map, arenaDef, name, nameLen, rbAddr)))
 			unlockArena(map);
 #ifdef _WIN32
 		VirtualFree(segZero, 0, MEM_RELEASE);
@@ -180,6 +144,34 @@ int32_t amt = 0;
 		free(segZero);
 #endif
 		return map;
+	}
+
+	//  verify the arena shape
+
+	if (segZero->baseSize != arenaDef->baseSize) {
+		fprintf (stderr, "Arena baseSize:%d doesn't match:%d file: %s\n", segZero->baseSize, arenaDef->baseSize, map->arenaPath);
+		unlockArena(map);
+#ifdef _WIN32
+		CloseHandle(map->hndl);
+#else
+		close(map->hndl);
+#endif
+		free(segZero);
+		db_free(map);
+		return NULL;
+	}
+
+	if (segZero->objSize != arenaDef->objSize) {
+		fprintf (stderr, "Arena objSize:%d doesn't match:%d file: %s\n", segZero->objSize, arenaDef->objSize, map->arenaPath);
+		unlockArena(map);
+#ifdef _WIN32
+		CloseHandle(map->hndl);
+#else
+		close(map->hndl);
+#endif
+		free(segZero);
+		db_free(map);
+		return NULL;
 	}
 
 	//  since segment zero exists,
@@ -196,14 +188,8 @@ int32_t amt = 0;
 	free(segZero);
 #endif
 
-	//	are we opening the Catalog arena?
-
-	if (arenaDef->arenaType == Hndl_catalog) {
-		Catalog *cat = (Catalog *)(map->arena + 1);
-		map->arenaDef = cat->arenaDef;
-	} else
-		map->arenaDef = arenaDef;
-
+	rbEntry = getObj(map->db, *map->arena->redblack);
+	map->arenaDef = (ArenaDef *)(rbEntry + 1);
 	unlockArena(map);
 
 	// wait for initialization to finish
@@ -215,8 +201,8 @@ int32_t amt = 0;
 //	finish creating new arena
 //	call with arena locked
 
-DbMap *initArena (DbMap *map, ArenaDef *arenaDef) {
-uint64_t initSize = arenaDef->initSize;
+DbMap *initArena (DbMap *map, ArenaDef *arenaDef, char *name, uint32_t nameLen, DbAddr *rbAddr) {
+uint64_t initSize = arenaDef->params[InitSize].intVal;
 uint32_t segOffset;
 uint32_t bits;
 
@@ -234,8 +220,8 @@ uint32_t bits;
 	initSize &= -65536;
 
 #ifdef DEBUG
-	if (map->pathLen)
-		fprintf(stderr, "InitMap %s at %llu bytes\n", map->path, initSize);
+	if (map->parent)
+		fprintf(stderr, "InitMap %s at %llu bytes\n", map->arenaPath, initSize);
 #endif
 #ifdef _WIN32
 	_BitScanReverse((unsigned long *)&bits, initSize - 1);
@@ -250,7 +236,7 @@ uint32_t bits;
 #ifndef _WIN32
 	if (map->hndl != -1)
 	  if (ftruncate(map->hndl, initSize)) {
-		fprintf (stderr, "Unable to initialize file %s, error = %d", map->path, errno);
+		fprintf (stderr, "Unable to initialize file %s, error = %d\n", map->arenaPath, errno);
 		close(map->hndl);
 		db_free(map);
 		return NULL;
@@ -263,19 +249,23 @@ uint32_t bits;
 
 	mapZero(map, initSize);
 	map->arena->segs[map->arena->currSeg].nextObject.offset = segOffset >> 3;
+	map->arena->baseSize = arenaDef->baseSize;
 	map->arena->objSize = arenaDef->objSize;
 	map->arena->segs->size = initSize;
 	map->arena->delTs = 1;
 
-	//	are we creating a database?
+	//	are we creating a catalog or database?
 
-	if (arenaDef->arenaType == Hndl_catalog) {
-		Catalog *cat = (Catalog *)(map->arena + 1);
-		memcpy(cat->arenaDef, arenaDef, sizeof(ArenaDef));
-		initLock(cat->arenaDef->idList->lock);
-		map->arenaDef = cat->arenaDef;
-	} else
+	if (!map->parent) {
+		RedBlack *rbEntry = rbNew(map, name, nameLen, sizeof(ArenaDef));
+		map->arenaDef = (ArenaDef *)(rbEntry + 1);
+		memcpy(map->arenaDef, arenaDef, sizeof(ArenaDef));
+		map->arena->redblack->bits = rbEntry->addr.bits;
+		initLock(map->arenaDef->idList->lock);
+	} else {
+		map->arena->redblack->bits = rbAddr->bits;
 		map->arenaDef = arenaDef;
+	}
 
 	return map;
 }
@@ -288,6 +278,7 @@ void mapZero(DbMap *map, uint64_t size) {
 
 	map->arena = mapMemory (map, 0, size, 0);
 	map->base[0] = (char *)map->arena;
+	map->numSeg = 1;
 
 	mapAll(map);
 }
@@ -330,7 +321,7 @@ uint64_t nextSize;
 #ifndef _WIN32
 	if (map->hndl != -1)
 	  if (ftruncate(map->hndl, nextSize)) {
-		fprintf (stderr, "Unable to extend file %s to %ULL, error = %d", map->path, nextSize, errno);
+		fprintf (stderr, "Unable to extend file %s to %ULL, error = %d\n", map->arenaPath, nextSize, errno);
 		return false;
 	  }
 #endif
@@ -339,7 +330,7 @@ uint64_t nextSize;
 		return false;
 
 	map->arena->currSeg = nextSeg;
-	map->maxSeg = nextSeg;
+	map->numSeg = nextSeg + 1;
 	return true;
 }
 
@@ -412,24 +403,22 @@ uint64_t allocBlk(DbMap *map, uint32_t size, bool zeroit) {
 void mapAll (DbMap *map) {
 	lockLatch(map->mapMutex);
 
-	while (map->maxSeg < map->arena->currSeg)
-		if (mapSeg (map, map->maxSeg + 1))
-			map->maxSeg++;
+	while (map->numSeg <= map->arena->currSeg)
+		if (mapSeg (map, map->numSeg))
+			map->numSeg++;
 		else
-			fprintf(stderr, "Unable to map segment %d on map %s\n", map->maxSeg + 1, map->path), exit(1);
+			fprintf(stderr, "Unable to map segment %d on map %s\n", map->numSeg, map->arenaPath), exit(1);
 
 	unlockLatch(map->mapMutex);
 }
 
 void* getObj(DbMap *map, DbAddr slot) {
-	if (!slot.addr) {
-		fprintf (stderr, "Invalid zero DbAddr: %s\n", map->path);
-		exit(1);
-	}
+	if (!slot.addr)
+		fprintf (stderr, "Invalid zero DbAddr: %s\n", map->arenaPath), exit(1);
 
 	//  catch up segment mappings
 
-	if (slot.segment > map->maxSeg)
+	if (slot.segment >= map->numSeg)
 		mapAll(map);
 
 	return map->base[slot.segment] + slot.offset * 8ULL;
@@ -481,7 +470,7 @@ uint64_t off = map->arena->segs[currSeg].off;
 
 void *fetchIdSlot (DbMap *map, ObjId objId) {
 	if (!objId.index) {
-		fprintf (stderr, "Invalid zero document index: %s\n", map->path);
+		fprintf (stderr, "Invalid zero document index: %s\n", map->arenaPath);
 		exit(1);
 	}
 
@@ -511,96 +500,4 @@ ObjId objId;
 	objId.idx = idx;
 	unlockLatch(list[ObjIdType].free->latch);
 	return objId.bits;
-}
-
-// drop an arena and recursively its children
-
-void dropMap(DbMap *map, bool dropDefs) {
-uint64_t *skipPayLoad;
-uint32_t childIdMax;
-DbAddr *next, addr;
-RedBlack *rbEntry;
-DbAddr rbPayLoad;
-SkipNode *node;
-DbMap *child;
-uint64_t id;
-int idx;
-
-	//	wait until arena is created
-
-	waitNonZero(map->arena->type);
-
-	//	are we already dropped?
-
-	if (atomicOr8(map->arena->mutex, KILL_BIT) & KILL_BIT)
-		return;
-
-	//  delete our current id from parent's child id list
-
-	id = map->arenaDef->id;
-	writeLock(map->parent->arenaDef->idList->lock);
-	addr.bits = skipDel(map->parent->db, map->parent->arenaDef->idList->head, id); 
-	rbEntry = getObj(map->parent->db, addr);
-	writeUnlock(map->parent->arenaDef->idList->lock);
-
-	writeLock(map->parent->childMaps->lock);
-	skipDel(map->parent, map->parent->childMaps->head, id);
-	writeUnlock(map->parent->childMaps->lock);
-
-	//	our ArenaDef addr
-
-	rbPayLoad.bits = rbEntry->payLoad.bits;
-
-	//	either delete our entry in our parent's child list and name tree,
-	//	or advance our id number so future child creators
-	//	build a new file under a new id
-
-	if (dropDefs) {
-		rbDel(map->parent->db, map->parent->arenaDef->nameTree, rbEntry); 
-		childIdMax = UINT32_MAX;
-	} else {
-		map->arenaDef->id = atomicAdd64(&map->parent->arenaDef->childId, 1);
-		skipPayLoad = skipAdd (map->parent->db, map->parent->arenaDef->idList->head, map->arenaDef->id);
-		*skipPayLoad = rbEntry->addr.bits;
-		childIdMax = map->arenaDef->childId;
-	}
-
-	writeUnlock(map->parent->arenaDef->idList->lock);
-
-	//	drop the children
-
-	do {
-	  writeLock(map->arenaDef->idList->lock);
-	  next = map->arenaDef->idList->head;
-
-	  if (next->addr)
-		node = getObj(map->db, *next);
-	  else
-		break;
-
-	  if (*node->array->key < childIdMax)
-	  	addr.bits = *node->array->val;
-	  else
-		break;
-
-	  writeUnlock(map->arenaDef->idList->lock);
-
-	  rbEntry = getObj(map->db, addr);
-	  child = arenaRbMap(map, rbEntry);
-	  dropMap(child, dropDefs);
-	} while (true);
-
-	writeUnlock(map->arenaDef->idList->lock);
-
-	//	return arenaDef storage
-
-	freeBlk(map->parent->db, rbPayLoad);
-
-	//  wait for handles to exit
-	//	and delete our map
-
-	lockLatch(map->arena->hndlCalls->latch);
-	disableHndls(map, map->arena->hndlCalls);
-	unlockLatch(map->arena->hndlCalls->latch);
-	deleteMap(map);
 }

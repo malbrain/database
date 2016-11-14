@@ -2,6 +2,7 @@
 #include "db_map.h"
 #include "db_arena.h"
 #include "db_frame.h"
+#include "db_handle.h"
 
 uint64_t getFreeFrame(DbMap *map);
 uint64_t allocFrame( DbMap *map);

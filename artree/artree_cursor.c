@@ -132,6 +132,9 @@ int slot, prev, len;
 
 	case CursorRightEof:
 	  return DB_CURSOR_eof;
+
+	default:
+	  break;
   }
 
   while (cursor->depth < MAX_cursor) {
@@ -299,6 +302,9 @@ int slot, len;
 
 	case CursorLeftEof:
 	  return DB_CURSOR_eof;
+
+	default:
+	  break;
   }
 
   while (cursor->depth) {
