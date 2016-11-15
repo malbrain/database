@@ -1,5 +1,6 @@
 #include <errno.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "db.h"
 #include "db_api.h"
@@ -7,6 +8,7 @@
 #ifndef _WIN32
 #include <sys/time.h>
 #include <sys/resource.h>
+#include <pthread.h>
 #include <stdlib.h>
 #else
 #define WIN32_LEAN_AND_MEAN
@@ -23,6 +25,8 @@
 #define fputc	fputc_unlocked
 #define fwrite	fwrite_unlocked
 #define getc	getc_unlocked
+#define fopen_s(file, path, mode) ((*file = fopen(path, mode)) ? 0 : errno)
+
 #endif
 
 double getCpuTime(int type);
@@ -77,7 +81,7 @@ Hndl_btree2Index
 //  standalone program to index file of keys
 //  then list them onto std-out
 
-#ifdef unix
+#ifndef _WIN32
 void *index_file (void *arg)
 #else
 unsigned __stdcall index_file (void *arg)
@@ -414,7 +418,7 @@ FILE *in;
 		break;
 	}
 
-#ifdef unix
+#ifndef _WIN32
 	return NULL;
 #else
 	return 0;
@@ -436,7 +440,7 @@ char *dbName;
 char *cmds;
 
 double start, stop;
-#ifdef unix
+#ifndef _WIN32
 pthread_t *threads;
 #else
 SYSTEM_INFO info[1];
@@ -521,7 +525,7 @@ DbHandle index[1];
 
 	start = getCpuTime(0);
 
-#ifdef unix
+#ifndef _WIN32
 	threads = malloc (cnt * sizeof(pthread_t));
 #else
 	threads = GlobalAlloc (GMEM_FIXED|GMEM_ZEROINIT, cnt * sizeof(HANDLE));
@@ -554,7 +558,7 @@ DbHandle index[1];
 	  args[idx].idx = idx;
 
 	  if (cnt > 1) {
-#ifdef unix
+#ifndef _WIN32
 		if( err = pthread_create (threads + idx, NULL, index_file, args + idx) )
 		  fprintf(stderr, "Error creating thread %d\n", err);
 #else
@@ -572,7 +576,7 @@ DbHandle index[1];
 
 	// 	wait for termination
 
-#ifdef unix
+#ifndef _WIN32
 	if (cnt > 1)
 	  for( idx = 0; idx < cnt; idx++ )
 		pthread_join (threads[idx], NULL);

@@ -7,6 +7,7 @@
 #include <limits.h>
 #include <memory.h>
 #include <errno.h>
+#include <time.h>
 
 #include "db_lock.h"
 

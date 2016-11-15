@@ -21,7 +21,7 @@ The runtime options are:
 
 Linux compilation command:
 
-    [karl@test7x64 xlink]# cc -O2 -g -o dbtest standalone.c db*.c artree/*.c btree1/*.c -lpthread
+    [karl@test7x64 xlink]# cc -std=gnu99 -O2 -g -o dbtest standalone.c db*.c artree/*.c btree1/*.c -lpthread
 
 Sample single thread output from indexing 40M pennysort keys:
 
