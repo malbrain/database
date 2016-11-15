@@ -521,7 +521,7 @@ uint32_t good = 0;
 //  find and load page at given level for given key
 //	leave page rd or wr locked as requested
 
-DbStatus btree1LoadPage(DbMap *map, Btree1Set *set, uint8_t *key, uint32_t keyLen, uint8_t lvl, Btree1Lock lock, bool stopper) {
+DbStatus btree1LoadPage(DbMap *map, Btree1Set *set, void *key, uint32_t keyLen, uint8_t lvl, Btree1Lock lock, bool stopper) {
 Btree1Index *btree1 = btree1index(map);
 uint8_t drill = 0xff, *ptr;
 Btree1Page *prevPage = NULL;

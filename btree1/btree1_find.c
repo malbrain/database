@@ -5,7 +5,7 @@
 #include "../db_map.h"
 #include "btree1.h"
 
-DbStatus btree1FindKey( DbCursor *dbCursor, DbMap *map, uint8_t *key, uint32_t keyLen, bool onlyOne) {
+DbStatus btree1FindKey( DbCursor *dbCursor, DbMap *map, void *key, uint32_t keyLen, bool onlyOne) {
 Btree1Cursor *cursor = (Btree1Cursor *)dbCursor;
 Btree1Index *btree1 = btree1index(map);
 uint8_t *foundKey;

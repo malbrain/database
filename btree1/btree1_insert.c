@@ -7,7 +7,7 @@
 
 DbStatus btree1InsertSlot (Btree1Set *set, uint8_t *key, uint32_t keyLen, Btree1SlotType type);
 
-DbStatus btree1InsertKey(Handle *index, uint8_t *key, uint32_t keyLen, uint8_t lvl, Btree1SlotType type) {
+DbStatus btree1InsertKey(Handle *index, void *key, uint32_t keyLen, uint8_t lvl, Btree1SlotType type) {
 uint32_t totKeyLen = keyLen;
 Btree1Set set[1];
 DbStatus stat;

@@ -92,7 +92,7 @@ uint32_t len;
 	return true;
 }
 
-DbStatus artInsertKey( Handle *index, char *key, uint32_t keylen) {
+DbStatus artInsertKey( Handle *index, void *key, uint32_t keylen) {
 bool restart, pass = false;
 ARTSplice *splice;
 ParamStruct p[1];

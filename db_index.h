@@ -21,7 +21,7 @@ typedef struct {
 	uint64_t ts;		// cursor timestamp
 	ObjId txnId;		// cursor transaction
 	ObjId docId;		// current doc ID
-	char *key;
+	void *key;
 	Doc *doc;			// current document
 	uint32_t keyLen;	// raw key length
 	uint32_t userLen;	// user's key length

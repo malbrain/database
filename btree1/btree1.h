@@ -114,7 +114,7 @@ DbStatus btree1ReturnCursor(DbCursor *dbCursor, DbMap *map);
 DbStatus btree1LeftKey(DbCursor *cursor, DbMap *map);
 DbStatus btree1RightKey(DbCursor *cursor, DbMap *map);
 
-DbStatus btree1FindKey(DbCursor *dbCursor, DbMap *map, uint8_t *key, uint32_t keylen, bool onlyOne);
+DbStatus btree1FindKey(DbCursor *dbCursor, DbMap *map, void *key, uint32_t keylen, bool onlyOne);
 DbStatus btree1NextKey (DbCursor *cursor, DbMap *map);
 DbStatus btree1PrevKey (DbCursor *cursor, DbMap *map);
 
@@ -127,9 +127,9 @@ DbStatus btree1PrevKey (DbCursor *cursor, DbMap *map);
 #define keypre(key) ((key[0] & 0x80) ? 2 : 1)
 
 DbStatus btree1Init(Handle *hndl, Params *params);
-DbStatus btree1InsertKey(Handle *hndl, uint8_t *key, uint32_t keyLen, uint8_t lvl, Btree1SlotType type);
+DbStatus btree1InsertKey(Handle *hndl, void *key, uint32_t keyLen, uint8_t lvl, Btree1SlotType type);
 
-DbStatus btree1LoadPage(DbMap *map, Btree1Set *set, uint8_t *key, uint32_t keyLen, uint8_t lvl, Btree1Lock lock, bool stopper);
+DbStatus btree1LoadPage(DbMap *map, Btree1Set *set, void *key, uint32_t keyLen, uint8_t lvl, Btree1Lock lock, bool stopper);
 
 uint64_t btree1NewPage (Handle *hndl, uint8_t lvl);
 

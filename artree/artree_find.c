@@ -5,9 +5,10 @@
 #include "../db_map.h"
 #include "artree.h"
 
-DbStatus artFindKey( DbCursor *dbCursor, DbMap *map, char *key, uint32_t keyLen) {
+DbStatus artFindKey( DbCursor *dbCursor, DbMap *map, void *findKey, uint32_t keyLen) {
 ArtCursor *cursor = (ArtCursor *)dbCursor;
 uint32_t idx, offset = 0, spanMax;
+uint8_t *key = findKey;
 volatile DbAddr *slot;
 CursorStack* stack;
 
