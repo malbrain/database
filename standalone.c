@@ -136,7 +136,7 @@ FILE *in;
 		if (docHndl->hndlBits)
 			addIndexes(docHndl);
 
-		if( in = fopen (args->inFile, "rb") )
+		if( !fopen_s (&in, args->inFile, "rb") )
 		  while( ch = getc(in), ch != EOF )
 			if( ch == '\n' )
 			{
@@ -175,7 +175,7 @@ FILE *in;
 		if (docHndl->hndlBits)
 			addIndexes(docHndl);
 
-		if((in = fopen (args->inFile, "r"))) {
+		if((!fopen_s (&in, args->inFile, "r"))) {
 		  while( ch = getc(in), ch != EOF )
 			if( ch == '\n' )
 			{
@@ -219,7 +219,7 @@ FILE *in;
 
 		createCursor (cursor, index, txnId, args->params);
 
-		if((in = fopen (args->inFile, "rb"))) {
+		if((!fopen_s (&in, args->inFile, "rb"))) {
 		  while( ch = getc(in), ch != EOF )
 			if( ch == '\n' ) {
 #ifdef DEBUG
@@ -453,7 +453,7 @@ DbHandle index[1];
 
 #ifdef _WIN32
 	GetSystemInfo(info);
-	fprintf(stderr, "PageSize: %d, # Processors: %d, Allocation Granularity: %d\n\n", info->dwPageSize, info->dwNumberOfProcessors, info->dwAllocationGranularity);
+	fprintf(stderr, "PageSize: %d, # Processors: %d, Allocation Granularity: %d\n\n", (int)info->dwPageSize, (int)info->dwNumberOfProcessors, (int)info->dwAllocationGranularity);
 #endif
 	if( argc < 3 ) {
 		fprintf (stderr, "Usage: %s db_name -cmds=[crwsdf]... -idxType=[012] -bits=# -xtra=# -inMem -txns -noDocs -keyLen=# -minKey=abcd -maxKey=abce -drop src_file1 src_file2 ... ]\n", argv[0]);
