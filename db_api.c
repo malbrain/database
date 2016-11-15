@@ -337,7 +337,7 @@ ObjId hndlId;
 
 //	position cursor on a key
 
-DbStatus positionCursor(DbHandle hndl[1], CursorOp op, char *key, uint32_t keyLen) {
+DbStatus positionCursor(DbHandle hndl[1], CursorOp op, void *key, uint32_t keyLen) {
 DbCursor *cursor;
 Handle *index;
 DbStatus stat;
@@ -404,7 +404,7 @@ DbStatus stat;
 
 //	return cursor key
 
-DbStatus keyAtCursor(DbHandle *hndl, char **key, uint32_t *keyLen) {
+DbStatus keyAtCursor(DbHandle *hndl, void **key, uint32_t *keyLen) {
 DbCursor *cursor;
 DbStatus stat;
 
@@ -650,7 +650,7 @@ Doc *doc;
 	return DB_OK;
 }
 
-DbStatus insertKey(DbHandle hndl[1], char *key, uint32_t len) {
+DbStatus insertKey(DbHandle hndl[1], void *key, uint32_t len) {
 Handle *index;
 DbStatus stat;
 
@@ -663,7 +663,7 @@ DbStatus stat;
 		break;
 
 	case Hndl_btree1Index:
-		stat = btree1InsertKey(index, (uint8_t *)key, len, 0, Btree1_indexed);
+		stat = btree1InsertKey(index, key, len, 0, Btree1_indexed);
 		break;
 	}
 
@@ -671,7 +671,7 @@ DbStatus stat;
 	return stat;
 }
 
-DbStatus setCursorMax(DbHandle hndl[1], char *max, uint32_t maxLen) {
+DbStatus setCursorMax(DbHandle hndl[1], void *max, uint32_t maxLen) {
 DbCursor *cursor;
 
 	cursor = (DbCursor *)(getHandle(hndl) + 1);
@@ -680,7 +680,7 @@ DbCursor *cursor;
 	return DB_OK;
 }
 
-DbStatus setCursorMin(DbHandle hndl[1], char *min, uint32_t minLen) {
+DbStatus setCursorMin(DbHandle hndl[1], void *min, uint32_t minLen) {
 DbCursor *cursor;
 
 	cursor = (DbCursor *)(getHandle(hndl) + 1);
