@@ -83,8 +83,6 @@ bool isCommitted(uint64_t ts);
 uint64_t allocateTimestamp(DbMap *map, enum ReaderWriterEnum e);
 
 uint8_t *getObjParam(ArenaDef *arena, uint32_t idx);
-uint32_t get64(uint8_t *key, uint32_t len, uint64_t *result);
-uint32_t store64(uint8_t *key, uint32_t keylen, uint64_t what);
 
 void *arrayElement(DbMap *map, DbAddr *array, uint16_t idx, size_t size);
 void *arrayEntry(DbMap *map, DbAddr array, uint16_t idx, size_t size);

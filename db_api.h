@@ -45,5 +45,6 @@ uint16_t keyGenerator(char *key, Doc *doc, char *spec, uint32_t specLen);
 bool evalPartial(Doc *doc, char *spec, uint32_t specLen);
 
 DbStatus createIterator(DbHandle hndl[1], DbHandle docHndl[1], uint64_t txnBits);
+Doc *iteratorSeek(DbHandle hndl[1], uint64_t objBits);
 Doc *iteratorNext(DbHandle hndl[1]);
 Doc *iteratorPrev(DbHandle hndl[1]);
