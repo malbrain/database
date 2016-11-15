@@ -101,7 +101,7 @@ char *idxName;
 bool found;
 
 uint32_t foundLen = 0;
-char *foundKey;
+void *foundKey;
 int idx, stat;
 ObjId objId;
 ObjId txnId;
