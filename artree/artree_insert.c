@@ -13,7 +13,7 @@ typedef struct {
 	DbAddr oldSlot[1];
 	DbAddr newSlot[1];
 
-	uint8_t *key;
+	char *key;
 	Handle *index;
 
 	uint32_t keylen;	// length of the key
@@ -38,8 +38,8 @@ ReturnState insertKeyNode256(volatile ARTNode256*, ParamStruct *);
 ReturnState prevEndKeySlot(ParamStruct *p);
 
 uint64_t artAllocateNode(Handle *index, int type, uint32_t size) {
-DbAddr *free = index->list[type].free;
-DbAddr *tail = index->list[type].tail;
+DbAddr *free = listFree(index,type);
+DbAddr *tail = listTail(index,type);
 
 	return allocObj(index->map, free, tail, type, size, true);
 }
@@ -92,7 +92,7 @@ uint32_t len;
 	return true;
 }
 
-DbStatus artInsertKey( Handle *index, uint8_t *key, uint32_t keylen) {
+DbStatus artInsertKey( Handle *index, char *key, uint32_t keylen) {
 bool restart, pass = false;
 ARTSplice *splice;
 ParamStruct p[1];
@@ -211,7 +211,7 @@ DbAddr slot;
 				// add old slot to free/wait list
 
 				if (slot.type && slot.type != KeyEnd)
-				  if((!addSlotToFrame(index->map, index->list[slot.type].head, index->list[slot.type].tail, slot.bits)))
+				  if((!addSlotToFrame(index->map, listHead(index,slot.type), listTail(index,slot.type), slot.bits)))
 					return DB_ERROR_outofmemory;
 
 				return DB_OK;

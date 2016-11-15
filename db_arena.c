@@ -481,23 +481,29 @@ void *fetchIdSlot (DbMap *map, ObjId objId) {
 // allocate next available object id
 //
 
-uint64_t allocObjId(DbMap *map, FreeList *list, uint16_t idx) {
+uint64_t allocObjId(DbMap *map, DbAddr *free, DbAddr *tail, uint16_t idx) {
 ObjId objId;
 
-	lockLatch(list[ObjIdType].free->latch);
+	if (free)
+		free += ObjIdType;
+
+	if (tail)
+		tail += ObjIdType;
+
+	lockLatch(free->latch);
 
 	// see if there is a free object in the free queue
 	// otherwise create a new frame of new objects
 
-	while (!(objId.bits = getNodeFromFrame(map, list[ObjIdType].free))) {
-		if (!getNodeWait(map, list[ObjIdType].free, list[ObjIdType].tail))
-			if (!initObjIdFrame(map, list[ObjIdType].free)) {
-				unlockLatch(list[ObjIdType].free->latch);
+	while (!(objId.bits = getNodeFromFrame(map, free))) {
+		if (!getNodeWait(map, free, tail))
+			if (!initObjIdFrame(map, free)) {
+				unlockLatch(free->latch);
 				return 0;
 			}
 	}
 
 	objId.idx = idx;
-	unlockLatch(list[ObjIdType].free->latch);
+	unlockLatch(free->latch);
 	return objId.bits;
 }

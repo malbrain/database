@@ -111,12 +111,12 @@ DbStatus artReturnCursor(DbCursor *dbCursor, DbMap *map);
 DbStatus artLeftKey(DbCursor *cursor, DbMap *map);
 DbStatus artRightKey(DbCursor *cursor, DbMap *map);
 
-DbStatus artFindKey( DbCursor *dbCursor, DbMap *map, uint8_t *key, uint32_t keyLen);
+DbStatus artFindKey( DbCursor *dbCursor, DbMap *map, char *key, uint32_t keyLen);
 DbStatus artNextKey(DbCursor *dbCursor, DbMap *map);
 DbStatus artPrevKey(DbCursor *dbCursor, DbMap *map);
 
 DbStatus artInit(Handle *hndl, Params *params);
-DbStatus artInsertKey (Handle *hndl, uint8_t *key, uint32_t keyLen);
+DbStatus artInsertKey (Handle *hndl, char *key, uint32_t keyLen);
 
 uint64_t artAllocateNode(Handle *index, int type, uint32_t size);
 

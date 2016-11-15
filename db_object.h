@@ -14,12 +14,6 @@ enum ObjType {
 	MaxObjType = 49		// each half power of two, 3 - 24
 };
 
-typedef struct {
-	DbAddr head[1];		// frame of newest nodes waiting to be recycled
-	DbAddr tail[1];		// frame of oldest nodes waiting to be recycled
-	DbAddr free[1];		// frames of available free objects
-} FreeList;
-
 /**
  * even =>  reader timestamp
  * odd  =>  writer timestamp
@@ -63,6 +57,7 @@ typedef struct {
 	uint32_t objSize;			// size of ObjectId array slot
 	uint32_t mapIdx;			// index in openMap array
 	uint8_t arenaType;			// type of the arena
+	uint8_t numTypes;			// number of node types
 	char dead[1];				// arena being deleted
 	DbAddr parentAddr;			// address of parent's red-black entry
 	DbAddr nameTree[1];			// child arena name red/black tree
@@ -82,7 +77,7 @@ bool isCommitted(uint64_t ts);
 
 uint64_t allocateTimestamp(DbMap *map, enum ReaderWriterEnum e);
 
-uint8_t *getObjParam(ArenaDef *arena, uint32_t idx);
+char *getObjParam(ArenaDef *arena, uint32_t idx);
 
 void *arrayElement(DbMap *map, DbAddr *array, uint16_t idx, size_t size);
 void *arrayEntry(DbMap *map, DbAddr array, uint16_t idx, size_t size);

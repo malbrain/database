@@ -21,12 +21,12 @@ typedef struct {
 	uint64_t ts;		// cursor timestamp
 	ObjId txnId;		// cursor transaction
 	ObjId docId;		// current doc ID
-	uint8_t *key;
+	char *key;
 	Doc *doc;			// current document
 	uint32_t keyLen;	// raw key length
 	uint32_t userLen;	// user's key length
-	uint8_t *minKey;	// minimum key value
-	uint8_t *maxKey;	// maximum key value
+	char *minKey;	// minimum key value
+	char *maxKey;	// maximum key value
 	uint32_t minKeyLen;
 	uint32_t maxKeyLen;
 	PosState state:8;	// cursor position state enum
@@ -46,7 +46,7 @@ typedef struct {
 DbStatus installIndexes(Handle *docHndl);
 DbStatus installIndexKeys(Handle *docHndl, Doc *doc);
 
-DbStatus dbFindKey(DbCursor *cursor, DbMap *map, uint8_t *key, uint32_t keyLen, bool onlyOne);
+DbStatus dbFindKey(DbCursor *cursor, DbMap *map, char *key, uint32_t keyLen, bool onlyOne);
 DbStatus dbNextKey(DbCursor *cursor, DbMap *map);
 DbStatus dbPrevKey(DbCursor *cursor, DbMap *map);
 

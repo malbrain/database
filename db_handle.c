@@ -71,7 +71,7 @@ int len;
 //	make handle from map pointer
 //	return hndlId.bits in hndlMap or zero
 
-uint64_t makeHandle(DbMap *map, uint32_t xtraSize, uint32_t listMax, HandleType type) {
+uint64_t makeHandle(DbMap *map, uint32_t xtraSize, HandleType type) {
 Handle *hndl, *head;
 HndlCall *hndlCall;
 PathStk pathStk[1];
@@ -97,7 +97,7 @@ DbAddr addr;
 
 	catalog = (Catalog *)(hndlMap->arena + 1);
 
-	if (!(hndlId.bits = allocObjId(hndlMap, catalog->list, 0)))
+	if (!(hndlId.bits = allocObjId(hndlMap, hndlMap->arena->freeBlk, NULL, 0)))
 		return 0;
 
 	slot = fetchIdSlot (hndlMap, hndlId);
@@ -109,15 +109,14 @@ DbAddr addr;
 
 	hndl->hndlId.bits = hndlId.bits;
 	hndl->xtraSize = xtraSize;	// size of following structure
-	hndl->maxType = listMax;	// number of list entries
 	hndl->hndlType = type;
 	hndl->map = map;
 
-	if (listMax) {
-		idx = arrayAlloc(map, map->arena->listArray, sizeof(FreeList) * listMax);
+	if((hndl->maxType = map->arenaDef->numTypes)) {
+		idx = arrayAlloc(map, map->arena->listArray, sizeof(DbAddr) * amt * 3);
 		inUse = arrayBlk(map, map->arena->listArray, idx);
-		hndl->list = (FreeList *)(inUse + ARRAY_inuse) + ((idx % ARRAY_size) - ARRAY_inuse) * listMax;
-		hndl->listIdx = idx;
+		hndl->frames = (DbAddr *)(inUse + ARRAY_inuse) + ((idx % ARRAY_size) - ARRAY_inuse) * amt * 3;
+		hndl->frameIdx = idx;
 	}
 
 	//	allocate and initialize a hndlCall for the handle
@@ -152,10 +151,10 @@ uint64_t *inUse;
 
 	// release handle freeList
 
-	if (hndl->list) {
+	if (hndl->maxType) {
 		lockLatch(map->arena->listArray->latch);
-		inUse = arrayBlk(map, map->arena->listArray, hndl->listIdx);
-		inUse[hndl->listIdx % ARRAY_size / 64] &= ~(1ULL << (hndl->listIdx % 64));
+		inUse = arrayBlk(map, map->arena->listArray, hndl->frameIdx);
+		inUse[hndl->frameIdx % ARRAY_size / 64] &= ~(1ULL << (hndl->frameIdx % 64));
 		unlockLatch(map->arena->listArray->latch);
 	}
 

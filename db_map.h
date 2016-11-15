@@ -10,7 +10,7 @@
 uint64_t allocMap(DbMap *map, uint32_t size);
 uint64_t allocBlk(DbMap *map, uint32_t size, bool zeroit);
 uint64_t allocObj(DbMap *map, DbAddr *free, DbAddr *tail, int type, uint32_t size, bool zeroit);
-uint64_t allocObjId(DbMap *map, FreeList *list, uint16_t idx);
+uint64_t allocObjId(DbMap *map, DbAddr *free, DbAddr *tail, uint16_t idx);
 
 void *fetchIdSlot (DbMap *map, ObjId objId);
 void *getObj(DbMap *map, DbAddr addr); 

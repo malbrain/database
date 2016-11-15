@@ -78,7 +78,6 @@ typedef struct {
 //	catalog structure
 
 typedef struct {
-	FreeList list[MinObjType];
 	DbAddr openMap[1];		// process openMap array index assignments
 	DbAddr dbList[1];		// red/black tree of database names & versions
 	char filler[256];

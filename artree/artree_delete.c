@@ -58,7 +58,7 @@ uint8_t ch;
 				*slot.latch = KeyEnd;
 				stack->addr->bits = slot.bits;
 
-				if((!addSlotToFrame(index->map, index->list[newSlot.type].head, index->list[newSlot.type].tail, newSlot.bits)))
+				if(!addSlotToFrame(index->map, listHead(index,newSlot.type), listTail(index,newSlot.type), newSlot.bits))
 					rt = ErrorSearch;
 				else
 					rt = EndSearch;
@@ -73,7 +73,7 @@ uint8_t ch;
 			case SpanNode: {
 				stack->addr->bits = 0;
 
-				if (!addSlotToFrame(index->map, index->list[newSlot.type].head, index->list[newSlot.type].tail, newSlot.bits))
+				if(!addSlotToFrame(index->map, listHead(index,newSlot.type), listTail(index,newSlot.type), newSlot.bits))
 					rt = ErrorSearch;
 				else
 					continue;
@@ -105,7 +105,7 @@ uint8_t ch;
 
 				stack->addr->bits = 0;
 
-				if (addSlotToFrame(index->map, index->list[newSlot.type].head, index->list[newSlot.type].tail, newSlot.bits))
+				if(addSlotToFrame(index->map, listHead(index,newSlot.type), listTail(index,newSlot.type), newSlot.bits))
 					continue;
 
 				rt = ErrorSearch;
@@ -137,7 +137,7 @@ uint8_t ch;
 
 				stack->addr->bits = 0;
 
-				if (addSlotToFrame(index->map, index->list[newSlot.type].head, index->list[newSlot.type].tail, newSlot.bits))
+				if(addSlotToFrame(index->map, listHead(index,newSlot.type), listTail(index,newSlot.type), newSlot.bits))
 					continue;
 
 				rt = ErrorSearch;
@@ -163,7 +163,7 @@ uint8_t ch;
 
 				stack->addr->bits = 0;
 
-				if (addSlotToFrame(index->map, index->list[newSlot.type].head, index->list[newSlot.type].tail, newSlot.bits))
+				if(addSlotToFrame(index->map, listHead(index,newSlot.type), listTail(index,newSlot.type), newSlot.bits))
 					continue;
 
 				rt = ErrorSearch;
@@ -189,7 +189,7 @@ uint8_t ch;
 				// remove the slot
 				stack->addr->bits = 0;
 
-				if (addSlotToFrame(index->map, index->list[newSlot.type].head, index->list[newSlot.type].tail, newSlot.bits))
+				if(addSlotToFrame(index->map, listHead(index,newSlot.type), listTail(index,newSlot.type), newSlot.bits))
 					continue;
 
 				rt = ErrorSearch;

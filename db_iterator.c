@@ -22,7 +22,7 @@ Txn *txn;
 	if (!(docStore = bindHandle(docHndl)))
 		return DB_ERROR_handleclosed;
 
-	hndl->hndlBits = makeHandle(docStore->map, sizeof(Iterator), 0, Hndl_iterator);
+	hndl->hndlBits = makeHandle(docStore->map, sizeof(Iterator), Hndl_iterator);
 
 	it = (Iterator *)(getHandle(hndl) + 1);
 

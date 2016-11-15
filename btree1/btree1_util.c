@@ -320,7 +320,7 @@ DbStatus stat;
 
 	//  return temporary frame
 
-	addSlotToFrame(index->map, index->list[addr.type].free, NULL, addr.bits);
+	addSlotToFrame(index->map, listFree(index, addr.type), NULL, addr.bits);
 
 	// if current page is the root page, split it
 
@@ -387,7 +387,7 @@ DbAddr addr;
 	if( page->garbage < size / 5 )
 		return DB_BTREE_needssplit;
 
-	if( (addr.bits = allocObj(index->map, index->list[type].free, NULL, type, size, false)) )
+	if( (addr.bits = allocObj(index->map, listFree(index, type), NULL, type, size, false)) )
 		frame = getObj(index->map, addr);
 	else
 		return DB_ERROR_outofmemory;
@@ -445,7 +445,7 @@ DbAddr addr;
 
 	//  return temporary frame
 
-	addSlotToFrame(index->map, index->list[addr.type].free, NULL, addr.bits);
+	addSlotToFrame(index->map, listFree(index,addr.type), NULL, addr.bits);
 
 	//	see if page has enough space now, or does it still need splitting?
 

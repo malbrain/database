@@ -106,6 +106,7 @@ DbMap *map;
 	arenaDef->mapIdx = arrayAlloc(hndlMap, catalog->openMap, sizeof(void *));
 	arenaDef->baseSize = sizeof(DataBase);
 	arenaDef->arenaType = Hndl_database;
+	arenaDef->numTypes = ObjIdType + 1;
 	arenaDef->objSize = sizeof(Txn);
 
 	//  create the database
@@ -115,7 +116,7 @@ DbMap *map;
 	else
 		return DB_ERROR_createdatabase;
 
-	hndl->hndlBits = makeHandle(map, sizeof(Txn), ObjIdType, Hndl_database);
+	hndl->hndlBits = makeHandle(map, sizeof(Txn), Hndl_database);
 	return DB_OK;
 }
 
@@ -148,6 +149,7 @@ Handle *ds;
 	arenaDef->baseSize = sizeof(DocArena);
 	arenaDef->arenaType = Hndl_docStore;
 	arenaDef->objSize = sizeof(ObjId);
+	arenaDef->numTypes = MAX_blk + 1;
 
 	if ((map = arenaRbMap(parent, rbEntry)))
 		docArena = docarena(map);
@@ -163,7 +165,7 @@ Handle *ds;
 	releaseHandle(database);
 
 	map->arena->type[0] = Hndl_docStore;
-	hndl->hndlBits = makeHandle(map, sizeof(DocStore), MAX_blk, Hndl_docStore);
+	hndl->hndlBits = makeHandle(map, sizeof(DocStore), Hndl_docStore);
 
 	ds = getHandle(hndl);
 	docStore = (DocStore *)(ds + 1);
@@ -207,13 +209,14 @@ DbStatus stat;
 
 	arenaDef = (ArenaDef *)(rbEntry + 1);
 	arenaDef->objSize = sizeof(ObjId);
+	arenaDef->numTypes = maxType[type];
 	arenaDef->baseSize = baseSize;
 	arenaDef->arenaType = type;
 
 	if (!(map = arenaRbMap(parent, rbEntry)))
 	  return DB_ERROR_createindex;
 
-	hndl->hndlBits = makeHandle(map, 0, maxType[type], type);
+	hndl->hndlBits = makeHandle(map, 0, type);
 
 	if (*map->arena->type)
 		goto createXit;
@@ -263,7 +266,7 @@ Txn *txn;
 	} else
 		timestamp = allocateTimestamp(index->map->db, en_reader);
 
-	hndl->hndlBits = makeHandle(index->map, cursorSize[*index->map->arena->type], 0, Hndl_cursor);
+	hndl->hndlBits = makeHandle(index->map, cursorSize[*index->map->arena->type], Hndl_cursor);
 
 	cursorHndl = getHandle(hndl);
 	cursor = (DbCursor *)(cursorHndl + 1);
@@ -495,7 +498,7 @@ DbStatus stat;
 	if (!(arena = bindHandle(oldHndl)))
 		return DB_ERROR_handleclosed;
 
-	newHndl->hndlBits = makeHandle(arena->map, arena->xtraSize, arena->maxType, arena->hndlType);
+	newHndl->hndlBits = makeHandle(arena->map, arena->xtraSize, arena->hndlType);
 
 	releaseHandle(arena);
 	return DB_OK;
@@ -510,7 +513,7 @@ Txn *txn;
 	if (!(database = bindHandle(hndl)))
 		return 0;
 
-	txnId.bits = allocObjId(database->map, database->list, 0);
+	txnId.bits = allocObjId(database->map, listFree(database,0), listTail(database,0), 0);
 	txn = fetchIdSlot(database->map, txnId);
 	txn->timestamp = allocateTimestamp(database->map, en_reader);
 
@@ -576,7 +579,7 @@ ObjId docId;
 	if ((doc->txnId.bits = txnBits))
 		txn = fetchIdSlot(docHndl->map->db, doc->txnId);
 
-	doc->docId.bits = allocObjId(docHndl->map, docHndl->list, docArena->docIdx);
+	doc->docId.bits = allocObjId(docHndl->map, listFree(docHndl,0), listTail(docHndl,0), docArena->docIdx);
 
 	stat = installDoc(docHndl, doc, txn);
 	releaseHandle(docHndl);
@@ -592,7 +595,7 @@ DbAddr addr;
 	if (!(docHndl = bindHandle(hndl)))
 		return DB_ERROR_handleclosed;
 
-	if ((addr.bits = allocObj(docHndl->map, docHndl->list->free, docHndl->list->tail, -1, objSize + sizeof(Doc), false)))
+	if ((addr.bits = allocObj(docHndl->map, listFree(docHndl,0), listTail(docHndl,0), -1, objSize + sizeof(Doc), false)))
 		*doc = getObj(docHndl->map, addr);
 	else
 		return DB_ERROR_outofmemory;
@@ -660,7 +663,7 @@ DbStatus stat;
 		break;
 
 	case Hndl_btree1Index:
-		stat = btree1InsertKey(index, key, len, 0, Btree1_indexed);
+		stat = btree1InsertKey(index, (uint8_t *)key, len, 0, Btree1_indexed);
 		break;
 	}
 

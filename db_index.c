@@ -9,8 +9,6 @@
 #include "btree1/btree1.h"
 #include "artree/artree.h"
 
-extern int maxType[8];
-
 //	remove a dropped index from the docStore child skiplist
 //	call with child delete skiplist entry
 
@@ -53,7 +51,7 @@ DbAddr addr;
 	child = arenaRbMap(docHndl->map, rbEntry);
 	type = *child->arena->type;
 
-	*hndlAddr = makeHandle(child, 0, maxType[type], type);
+	*hndlAddr = makeHandle(child, 0, type);
 }
 
 //	create new index handles based on children of the docStore.
@@ -111,15 +109,15 @@ int idx;
 //	call with docStore handle
 
 DbStatus installIndexKey(Handle *docHndl, SkipEntry *entry, Doc *doc) {
-uint8_t key[MAX_key];
 ArenaDef *arenaDef;
+char key[MAX_key];
 DbHandle hndl[1];
 uint32_t specLen;
 uint64_t *verPtr;
-uint8_t *spec;
 Handle *index;
 DbStatus stat;
 DbAddr addr;
+char *spec;
 int keyLen;
 
 	hndl->hndlBits = *entry->val;
@@ -156,7 +154,7 @@ int keyLen;
 		break;
 
 	case Hndl_btree1Index:
-		stat = btree1InsertKey(index, key, keyLen, 0, Btree1_indexed);
+		stat = btree1InsertKey(index, (uint8_t *)key, keyLen, 0, Btree1_indexed);
 		break;
 	}
 

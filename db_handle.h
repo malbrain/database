@@ -1,5 +1,13 @@
 #pragma once
 
+//  listHead:		frame of newest nodes waiting to be recycled
+//	listTail:		frame of oldest nodes waiting to be recycled
+//	listFree;		frames of available free objects
+
+#define listHead(hndl, type) (&hndl->frames[type])
+#define listTail(hndl, type) (&hndl->frames[type + hndl->maxType])
+#define listFree(hndl, type) (&hndl->frames[type + 2 * hndl->maxType])
+
 //  arena api entry counts
 //	for array list of handles
 
@@ -15,11 +23,11 @@ struct Handle_ {
 	DbMap *map;			// pointer to map, zeroed on close
 	DbAddr calls;		// current handle timestamp
 	ObjId hndlId;		// object Id entry in catalog
-	FreeList *list;		// obj frames waiting to be recycled
+	DbAddr *frames;		// frames ready and waiting to be recycled
 	uint16_t arenaIdx;	// arena handle table entry index
 	uint16_t xtraSize;	// size of following structure
+	uint16_t frameIdx;	// arena free frames entry index
 	uint16_t callIdx;	// arena call table entry index
-	uint16_t listIdx;	// arena list table entry index
 	uint8_t hndlType;	// type of handle
 	uint8_t maxType;	// number of arena list entries
 };
@@ -32,7 +40,7 @@ typedef struct {
 void disableHndls(DbMap *db, DbAddr *hndlCalls);
 uint64_t scanHandleTs(DbMap *map);
 
-uint64_t makeHandle(DbMap *map, uint32_t xtraSize, uint32_t listMax, HandleType type);
+uint64_t makeHandle(DbMap *map, uint32_t xtraSize, HandleType type);
 Handle *bindHandle(DbHandle *dbHndl);
 void releaseHandle(Handle *hndl);
 Handle *getHandle(DbHandle *hndl);

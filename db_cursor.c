@@ -27,7 +27,7 @@ DbStatus stat = DB_ERROR_indextype;
 
 //	position cursor
 
-DbStatus dbFindKey(DbCursor *cursor, DbMap *map, uint8_t *key, uint32_t keyLen, bool onlyOne) {
+DbStatus dbFindKey(DbCursor *cursor, DbMap *map, char *key, uint32_t keyLen, bool onlyOne) {
 DbStatus stat;
 
 	switch (*map->arena->type) {
@@ -37,7 +37,7 @@ DbStatus stat;
 	  }
 
 	  case Hndl_btree1Index: {
-		stat = btree1FindKey(cursor, map, key, keyLen, onlyOne);
+		stat = btree1FindKey(cursor, map, (uint8_t *)key, keyLen, onlyOne);
 		break;
 	  }
 	}

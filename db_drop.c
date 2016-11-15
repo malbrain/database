@@ -20,6 +20,7 @@ SkipNode *node;
 DbMap **map;
 uint64_t id;
 
+	childIdMax = arenaDef->childId;
 	id = arenaDef->id;
 
 	//	databases don't have parents
@@ -37,7 +38,6 @@ uint64_t id;
 		arenaDef->id = atomicAdd64(&parentArena->childId, 1);
 		skipPayLoad = skipAdd (db, parentArena->idList->head, arenaDef->id);
 		*skipPayLoad = entry->addr.bits;
-		childIdMax = arenaDef->childId;
 	  }
 
 	  writeUnlock(parentArena->idList->lock);
@@ -54,7 +54,7 @@ uint64_t id;
 	  else
 		break;
 
-	  if (*node->array->key < childIdMax)
+	  if (*node->array->key <= childIdMax)
 	  	addr.bits = *node->array->val;
 	  else
 		break;

@@ -18,7 +18,7 @@ uint32_t size = 0;
 //	save the param object in the database
 
 void saveParam(DbMap *db, Params *arenaParams, Params *params) {
-uint8_t *save = (uint8_t *)(arenaParams + 1);
+char *save = (char *)(arenaParams + 1);
 uint32_t off = sizeof(ArenaDef);
 int idx;
 
@@ -99,11 +99,11 @@ uint32_t xtra;
 	return rbEntry;
 }
 
-uint8_t *getObjParam(ArenaDef *arena, uint32_t idx) {
+char *getObjParam(ArenaDef *arena, uint32_t idx) {
 uint32_t off;
 
 	if ((off = arena->params[idx].offset))
-		return (uint8_t *)arena + off;
+		return (char *)arena + off;
 
 	return NULL;
 }

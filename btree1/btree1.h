@@ -120,8 +120,8 @@ DbStatus btree1PrevKey (DbCursor *cursor, DbMap *map);
 
 #define slotptr(page, slot) (((Btree1Slot *)(page+1)) + (((int)slot)-1))
 
-#define keyaddr(page, off) ((uint8_t *)((unsigned char*)(page) + off))
-#define keyptr(page, slot) ((uint8_t *)((unsigned char*)(page) + slotptr(page, slot)->off))
+#define keyaddr(page, off) ((uint8_t *)((uint8_t *)(page) + off))
+#define keyptr(page, slot) ((uint8_t *)((uint8_t *)(page) + slotptr(page, slot)->off))
 #define keylen(key) ((key[0] & 0x80) ? ((key[0] & 0x7f) << 8 | key[1]) : key[0])
 #define keystr(key) ((key[0] & 0x80) ? (key + 2) : (key + 1))
 #define keypre(key) ((key[0] & 0x80) ? 2 : 1)
