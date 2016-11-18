@@ -39,7 +39,6 @@ void initialize() {
 uint64_t arenaAlloc(DbHandle arenaHndl[1], uint32_t size, bool zeroit, bool dbArena) {
 Handle *arena;
 uint64_t bits;
-DbStatus stat;
 DbMap *map;
 
 	if (!(arena = bindHandle(arenaHndl)))
@@ -131,7 +130,6 @@ uint64_t *inUse;
 DataBase *db;
 DbAddr *addr;
 int idx, jdx;
-DbStatus stat;
 Handle *ds;
 
 	memset (hndl, 0, sizeof(DbHandle));
@@ -182,7 +180,6 @@ ArenaDef *arenaDef;
 RedBlack *rbEntry;
 DbIndex *dbIndex;
 Handle *index;
-DbStatus stat;
 
 	memset (hndl, 0, sizeof(DbHandle));
 
@@ -252,7 +249,6 @@ DbStatus createCursor(DbHandle hndl[1], DbHandle idxHndl[1], ObjId txnId, Params
 Handle *index, *cursorHndl;
 uint64_t timestamp;
 DbCursor *cursor;
-DbStatus stat;
 Txn *txn;
 
 	memset (hndl, 0, sizeof(DbHandle));
@@ -320,7 +316,6 @@ ObjId hndlId;
 
 DbStatus deleteHandle(DbHandle dbHndl[1]) {
 HandleId *slot;
-DbStatus stat;
 ObjId hndlId;
 
 	hndlId.bits = dbHndl->hndlBits;
@@ -340,7 +335,6 @@ ObjId hndlId;
 DbStatus positionCursor(DbHandle hndl[1], CursorOp op, void *key, uint32_t keyLen) {
 DbCursor *cursor;
 Handle *index;
-DbStatus stat;
 
 	if (!(index = bindHandle(hndl)))
 		return DB_ERROR_handleclosed;
@@ -367,7 +361,6 @@ DbStatus stat;
 DbStatus moveCursor(DbHandle hndl[1], CursorOp op) {
 DbCursor *cursor;
 Handle *index;
-DbStatus stat;
 
 	if (!(index = bindHandle(hndl)))
 		return DB_ERROR_handleclosed;
@@ -406,7 +399,6 @@ DbStatus stat;
 
 DbStatus keyAtCursor(DbHandle *hndl, void **key, uint32_t *keyLen) {
 DbCursor *cursor;
-DbStatus stat;
 
 	cursor = (DbCursor *)(getHandle(hndl) + 1);
 
@@ -430,7 +422,6 @@ DbStatus stat;
 DbStatus docAtCursor(DbHandle *hndl, Doc **doc) {
 DbCursor *cursor;
 uint32_t keyLen;
-DbStatus stat;
 
 	cursor = (DbCursor *)(getHandle(hndl) + 1);
 	keyLen = cursor->keyLen;
@@ -493,7 +484,6 @@ DbStatus stat;
 
 DbStatus cloneHandle(DbHandle newHndl[1], DbHandle oldHndl[1]) {
 Handle *arena;
-DbStatus stat;
 
 	if (!(arena = bindHandle(oldHndl)))
 		return DB_ERROR_handleclosed;
@@ -506,7 +496,6 @@ DbStatus stat;
 
 uint64_t beginTxn(DbHandle hndl[1]) {
 Handle *database;
-DbStatus stat;
 ObjId txnId;
 Txn *txn;
 
@@ -589,7 +578,6 @@ ObjId docId;
 
 DbStatus allocDoc(DbHandle hndl[1], Doc **doc, uint32_t objSize) {
 Handle *docHndl;
-DbStatus stat;
 DbAddr addr;
 
 	if (!(docHndl = bindHandle(hndl)))
@@ -611,7 +599,6 @@ DbAddr addr;
 DbStatus deleteDoc(DbHandle hndl[1], uint64_t docBits, uint64_t txnBits) {
 Handle *docHndl;
 Txn *txn = NULL;
-DbStatus stat;
 DbAddr *slot;
 ObjId docId;
 Doc *doc;
