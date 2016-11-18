@@ -27,12 +27,12 @@ char *hndlNames[] = {
 int cursorSize[8] = {0, 0, 0, 0, sizeof(ArtCursor), sizeof(Btree1Cursor), 0};
 int maxType[8] = {0, 0, 0, 0, MaxARTType, MAXBtree1Type, 0};
 
-extern void memInit();
+extern void memInit(void);
 extern char hndlInit[1];
 extern DbMap *hndlMap;
 extern char *hndlPath;
 
-void initialize() {
+void initialize(void) {
 	memInit();
 }
 
@@ -107,6 +107,7 @@ DbMap *map;
 	arenaDef->arenaType = Hndl_database;
 	arenaDef->numTypes = ObjIdType + 1;
 	arenaDef->objSize = sizeof(Txn);
+	arenaDef->ver = dbVer;
 
 	//  create the database
 
@@ -126,10 +127,7 @@ DocStore *docStore;
 DocArena *docArena;
 ArenaDef *arenaDef;
 RedBlack *rbEntry;
-uint64_t *inUse;
 DataBase *db;
-DbAddr *addr;
-int idx, jdx;
 Handle *ds;
 
 	memset (hndl, 0, sizeof(DbHandle));
@@ -249,6 +247,7 @@ DbStatus createCursor(DbHandle hndl[1], DbHandle idxHndl[1], ObjId txnId, Params
 Handle *index, *cursorHndl;
 uint64_t timestamp;
 DbCursor *cursor;
+DbStatus stat;
 Txn *txn;
 
 	memset (hndl, 0, sizeof(DbHandle));
@@ -262,7 +261,7 @@ Txn *txn;
 	} else
 		timestamp = allocateTimestamp(index->map->db, en_reader);
 
-	hndl->hndlBits = makeHandle(index->map, cursorSize[*index->map->arena->type], Hndl_cursor);
+	hndl->hndlBits = makeHandle(index->map, cursorSize[(uint8_t)*index->map->arena->type], Hndl_cursor);
 
 	cursorHndl = getHandle(hndl);
 	cursor = (DbCursor *)(cursorHndl + 1);
@@ -315,6 +314,7 @@ ObjId hndlId;
 //	delete unreferenced handle
 
 DbStatus deleteHandle(DbHandle dbHndl[1]) {
+DbStatus stat = DB_OK;
 HandleId *slot;
 ObjId hndlId;
 
@@ -325,7 +325,7 @@ ObjId hndlId;
 	  stat = closeHandle(dbHndl);
 
 	freeId(hndlMap, hndlId);
-	return DB_OK;
+	return stat;
 }
 
 //	close handle
@@ -335,6 +335,7 @@ ObjId hndlId;
 DbStatus positionCursor(DbHandle hndl[1], CursorOp op, void *key, uint32_t keyLen) {
 DbCursor *cursor;
 Handle *index;
+DbStatus stat;
 
 	if (!(index = bindHandle(hndl)))
 		return DB_ERROR_handleclosed;
@@ -361,6 +362,7 @@ Handle *index;
 DbStatus moveCursor(DbHandle hndl[1], CursorOp op) {
 DbCursor *cursor;
 Handle *index;
+DbStatus stat;
 
 	if (!(index = bindHandle(hndl)))
 		return DB_ERROR_handleclosed;
@@ -421,10 +423,8 @@ DbCursor *cursor;
 
 DbStatus docAtCursor(DbHandle *hndl, Doc **doc) {
 DbCursor *cursor;
-uint32_t keyLen;
 
 	cursor = (DbCursor *)(getHandle(hndl) + 1);
-	keyLen = cursor->keyLen;
 
 	switch (cursor->state) {
 	case CursorPosAt:
@@ -558,7 +558,6 @@ DocArena *docArena;
 Handle *docHndl;
 Txn *txn = NULL;
 DbStatus stat;
-ObjId docId;
 
 	if (!(docHndl = bindHandle(hndl)))
 		return DB_ERROR_handleclosed;
@@ -597,6 +596,7 @@ DbAddr addr;
 }
 
 DbStatus deleteDoc(DbHandle hndl[1], uint64_t docBits, uint64_t txnBits) {
+/*
 Handle *docHndl;
 Txn *txn = NULL;
 DbAddr *slot;
@@ -616,6 +616,7 @@ Doc *doc;
 
 	doc->state = DocDeleted;
 	releaseHandle(docHndl);
+*/
 	return DB_OK;
 }
 
