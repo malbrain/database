@@ -18,6 +18,10 @@
 
 #include <inttypes.h>
 
+#ifndef PRIx64
+#define PRIx64 I64x
+#endif
+
 #include "db.h"
 #include "db_object.h"
 #include "db_arena.h"
