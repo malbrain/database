@@ -20,7 +20,7 @@ typedef struct {
 DbArena memArena[1];
 DbMap memMap[1];
 
-void memInit() {
+void memInit(void) {
 ArenaDef arenaDef[1];
 
 	memMap->arena = memArena;

@@ -62,7 +62,7 @@ int segments;
 //	return false if out of memory
 
 bool fillKey(ParamStruct *p, volatile DbAddr *slot) {
-DbAddr addr, fill[1], *next = fill;
+DbAddr fill[1], *next = fill;
 ARTSpan *spanNode;
 uint32_t len;
 
@@ -94,7 +94,6 @@ uint32_t len;
 
 DbStatus artInsertKey( Handle *index, void *key, uint32_t keylen) {
 bool restart, pass = false;
-ARTSplice *splice;
 ParamStruct p[1];
 DbAddr slot;
 

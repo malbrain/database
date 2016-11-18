@@ -1,5 +1,7 @@
 #include <errno.h>
 #include <string.h>
+#include <inttypes.h>
+#include <stdint.h>
 #include <stdio.h>
 
 #include "db.h"
@@ -56,8 +58,8 @@ uint16_t keyLen = 0;
 }
 
 typedef struct {
-	char idx;
 	char *cmds;
+	uint8_t idx;
 	char *inFile;
 	char *minKey;
 	char *maxKey;
@@ -88,7 +90,6 @@ unsigned __stdcall index_file (void *arg)
 #endif
 {
 uint64_t line = 0, cnt = 0;
-int ch, len = 0, slot;
 ThreadArg *args = arg;
 HandleType idxType;
 DbHandle database[1];
@@ -96,17 +97,17 @@ DbHandle docHndl[1];
 DbHandle cursor[1];
 DbHandle index[1];
 DbHandle *parent;
+int ch, len = 0;
 char key[4096];
 char *idxName;
-bool found;
 
 uint32_t foundLen = 0;
 void *foundKey;
-int idx, stat;
 ObjId objId;
 ObjId txnId;
 Doc *doc;
 FILE *in;
+int stat;
 
 	cloneHandle(database, args->database);
 
@@ -146,12 +147,12 @@ FILE *in;
 			{
 #ifdef DEBUG
 			  if (!(line % 100000))
-				fprintf(stderr, "line %lld\n", line);
+				fprintf(stderr, "line %" PRIu64 "\n", line);
 #endif
 			  line++;
 
 			  if ((stat = delDoc (docHndl, key, len, &objId, txnId)))
-				  fprintf(stderr, "Del Doc Error %d Line: %lld\n", stat, line), exit(0);
+				  fprintf(stderr, "Del Doc Error %d Line: %" PRIu64 "\n", stat, line), exit(0);
 			  len = 0;
 			  continue;
 			}
@@ -185,16 +186,16 @@ FILE *in;
 			{
 #ifdef DEBUG
 			  if (!(line % 100000))
-				fprintf(stderr, "line %lld\n", line);
+				fprintf(stderr, "line %" PRIu64 "\n", line);
 #endif
 			  line++;
 
 			  if (docHndl->hndlBits) {
 				if ((stat = storeDoc (docHndl, key, len, &objId, txnId.bits)))
-				  fprintf(stderr, "Add Doc Error %d Line: %lld\n", stat, line), exit(0);
+				  fprintf(stderr, "Add Doc Error %d Line: %" PRIu64 "\n", stat, line), exit(0);
 			  } else
 				if ((stat = insertKey(index, key, len)))
-				  fprintf(stderr, "Insert Key Error %d Line: %lld\n", stat, line), exit(0);
+				  fprintf(stderr, "Insert Key Error %d Line: %" PRIu64 "\n", stat, line), exit(0);
 			  len = 0;
 			}
 			else if( len < 4096 ) {
@@ -202,7 +203,7 @@ FILE *in;
 			}
 		}
 
-		fprintf(stderr, " Total keys indexed %lld\n", line);
+		fprintf(stderr, " Total keys indexed %" PRIu64 "\n", line);
 		break;
 
 	case 'f':
@@ -228,7 +229,7 @@ FILE *in;
 			if( ch == '\n' ) {
 #ifdef DEBUG
 			  if (!(line % 100000))
-				fprintf(stderr, "line %lld\n", line);
+				fprintf(stderr, "line %" PRIu64 "\n", line);
 #endif
 			  line++;
 
@@ -236,16 +237,16 @@ FILE *in;
 				len = args->keyLen;
 
 			  if ((stat = positionCursor (cursor, OpOne, key, len)))
-				fprintf(stderr, "findKey Error %d Syserr %d Line: %lld\n", stat, errno, line), exit(0);
+				fprintf(stderr, "findKey Error %d Syserr %d Line: %" PRIu64 "\n", stat, errno, line), exit(0);
 
 			  if ((stat = keyAtCursor (cursor, &foundKey, &foundLen)))
-				fprintf(stderr, "findKey Error %d Syserr %d Line: %lld\n", stat, errno, line), exit(0);
+				fprintf(stderr, "findKey Error %d Syserr %d Line: %" PRIu64 "\n", stat, errno, line), exit(0);
 
 			  if (foundLen != len)
-				fprintf(stderr, "findKey Error len mismatch: Line: %lld keyLen: %d, foundLen: %d\n", line, len, foundLen), exit(0);
+				fprintf(stderr, "findKey Error len mismatch: Line: %" PRIu64 " keyLen: %d, foundLen: %d\n", line, len, foundLen), exit(0);
 
 			  if (memcmp(foundKey, key, foundLen))
-				fprintf(stderr, "findKey not Found: line: %lld expected: %.*s \n", line, len, key), exit(0);
+				fprintf(stderr, "findKey not Found: line: %" PRIu64 " expected: %.*s \n", line, len, key), exit(0);
 
 			  cnt++;
 			  len = 0;
@@ -254,7 +255,7 @@ FILE *in;
 			}
 		}
 
-		fprintf(stderr, "finished %s for %lld keys, found %lld\n", args->inFile, line, cnt);
+		fprintf(stderr, "finished %s for %" PRIu64 " keys, found %" PRIu64 "\n", args->inFile, line, cnt);
 		break;
 
 	case 's':
@@ -310,9 +311,9 @@ FILE *in;
 		  }
 
 		if (stat != DB_CURSOR_eof)
-		  fprintf(stderr, "fwdScan: Error %d Syserr %d Line: %lld\n", stat, errno, cnt), exit(0);
+		  fprintf(stderr, "fwdScan: Error %d Syserr %d Line: %" PRIu64 "\n", stat, errno, cnt), exit(0);
 
-		fprintf(stderr, " Total keys read %lld\n", cnt);
+		fprintf(stderr, " Total keys read %" PRIu64 "\n", cnt);
 		break;
 
 	case 'r':
@@ -368,9 +369,9 @@ FILE *in;
 		  }
 
 		if (stat != DB_CURSOR_eof)
-		  fprintf(stderr, "revScan: Error %d Syserr %d Line: %lld\n", stat, errno, cnt), exit(0);
+		  fprintf(stderr, "revScan: Error %d Syserr %d Line: %" PRIu64 "\n", stat, errno, cnt), exit(0);
 
-		fprintf(stderr, " Total keys read %lld\n", cnt);
+		fprintf(stderr, " Total keys read %" PRIu64 "\n", cnt);
 		break;
 
 	case 'c':
@@ -414,7 +415,7 @@ FILE *in;
 	  	  while (!(stat = nextDoc(cursor, &doc)))
 			cnt++;
 
-		fprintf(stderr, " Total keys counted %lld\n", cnt);
+		fprintf(stderr, " Total keys counted %" PRIu64 "\n", cnt);
 		break;
 	}
 
@@ -429,7 +430,7 @@ typedef struct timeval timer;
 
 int main (int argc, char **argv)
 {
-int idx, cnt, len, slot, err;
+int idx, cnt, err;
 Params params[MaxParam];
 KeySpec keySpec[1];
 int keyLen = 10;
@@ -439,21 +440,18 @@ char *maxKey;
 char *dbName;
 char *cmds;
 
-double start, stop;
 #ifndef _WIN32
 pthread_t *threads;
 #else
 SYSTEM_INFO info[1];
 HANDLE *threads;
 #endif
+
+DbHandle database[1];
 ThreadArg *args;
 float elapsed;
+double start;
 int num = 0;
-char key[1];
-bool onDisk = true;
-DbHandle database[1];
-DbHandle docHndl[1];
-DbHandle index[1];
 
 #ifdef _WIN32
 	GetSystemInfo(info);
@@ -559,10 +557,10 @@ DbHandle index[1];
 
 	  if (cnt > 1) {
 #ifndef _WIN32
-		if( err = pthread_create (threads + idx, NULL, index_file, args + idx) )
+		if((err = pthread_create (threads + idx, NULL, index_file, args + idx)))
 		  fprintf(stderr, "Error creating thread %d\n", err);
 #else
-		while ( (int64_t)(threads[idx] = (HANDLE)_beginthreadex(NULL, 65536, index_file, args + idx, 0, NULL)) < 0LL)
+		while (((int64_t)(threads[idx] = (HANDLE)_beginthreadex(NULL, 65536, index_file, args + idx, 0, NULL)) < 0LL))
 		  fprintf(stderr, "Error creating thread errno = %d\n", errno);
 
 #endif

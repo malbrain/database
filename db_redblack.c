@@ -218,7 +218,7 @@ void rbRemove (DbMap *map, DbAddr *root, PathStk *path) {
 DbAddr slot = path->entry[path->lvl];
 RedBlack *node = getObj (map, slot);
 RedBlack *parent, *sibling, *grand;
-char red = node->red, lvl, idx;
+uint8_t red = node->red, lvl, idx;
 DbAddr left;
 
 	if( (lvl =  path->lvl) ) {

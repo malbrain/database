@@ -16,8 +16,8 @@ typedef enum {
 } ReturnState;
 
 DbStatus artDeleteKey(Handle *index, ArtCursor *cursor) {
+ReturnState rt = EndSearch;
 DbAddr newSlot;
-ReturnState rt;
 uint32_t bit;
 uint8_t ch;
 
@@ -203,5 +203,5 @@ uint8_t ch;
 	}	// end while
 
 	atomicAdd64(artIndexAddr(index->map)->numEntries, -1);
-	return DB_OK;
+	return rt == EndSearch ? DB_OK : DB_ERROR_deletekey;
 }

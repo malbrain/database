@@ -123,7 +123,7 @@ int slot64(int ch, uint64_t alloc, volatile uint8_t* keys) {
 
 DbStatus artNextKey(DbCursor *dbCursor, DbMap *map) {
 ArtCursor *cursor = (ArtCursor *)dbCursor;
-int slot, prev, len;
+int slot, len;
 
   switch (cursor->base->state) {
 	case CursorNone:

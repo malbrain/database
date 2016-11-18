@@ -25,6 +25,7 @@ typedef enum {
 	DB_ERROR_rollbackidxkey,
 	DB_ERROR_arena_already_closed,
 	DB_ERROR_arenadropped,
+	DB_ERROR_deletekey,
 	DB_ERROR_indextype,
 	DB_CURSOR_eof,
 	DB_CURSOR_notfound,

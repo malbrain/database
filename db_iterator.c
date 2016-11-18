@@ -12,7 +12,6 @@
 
 DbStatus createIterator(DbHandle hndl[1], DbHandle docHndl[1], uint64_t txnBits) {
 Handle *docStore;
-DbStatus stat;
 Iterator *it;
 ObjId txnId;
 Txn *txn;
@@ -87,7 +86,6 @@ Doc *iteratorNext(DbHandle hndl[1]) {
 Handle *docStore;
 Txn *txn = NULL;
 Doc *doc = NULL;
-DbStatus stat;
 Iterator *it;
 
 	if (!(docStore = bindHandle(hndl)))
@@ -115,7 +113,6 @@ Doc *iteratorPrev(DbHandle hndl[1]) {
 Handle *docStore;
 Txn *txn = NULL;
 Doc *doc = NULL;
-DbStatus stat;
 Iterator *it;
 
 	if (!(docStore = bindHandle(hndl)))
@@ -142,9 +139,7 @@ Iterator *it;
 Doc *iteratorSeek(DbHandle hndl[1], uint64_t objBits) {
 Handle *docStore;
 Txn *txn = NULL;
-DbStatus stat;
 Iterator *it;
-ObjId docId;
 Doc *doc;
 
 	if (!(docStore = bindHandle(hndl)))

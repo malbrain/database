@@ -35,7 +35,6 @@ ObjId hndlId;
 
 void initHndlMap(char *path, int pathLen, char *name, int nameLen, bool onDisk) {
 ArenaDef arenaDef[1];
-int len;
 
 	lockLatch(hndlInit);
 
@@ -72,14 +71,11 @@ int len;
 //	return hndlId.bits in hndlMap or zero
 
 uint64_t makeHandle(DbMap *map, uint32_t xtraSize, HandleType type) {
-Handle *hndl, *head;
 HndlCall *hndlCall;
-PathStk pathStk[1];
-RedBlack *rbEntry;
-Catalog *catalog;
 uint64_t *inUse;
 HandleId *slot;
 ObjId hndlId;
+Handle *hndl;
 uint32_t amt;
 uint16_t idx;
 DbAddr addr;
@@ -94,8 +90,6 @@ DbAddr addr;
 	amt = sizeof(Handle) + xtraSize;
 
 	//	get a new or recycled HandleId
-
-	catalog = (Catalog *)(hndlMap->arena + 1);
 
 	if (!(hndlId.bits = allocObjId(hndlMap, hndlMap->arena->freeBlk, NULL, 0)))
 		return 0;
@@ -139,9 +133,6 @@ DbAddr addr;
 
 void destroyHandle(DbMap *map, DbAddr *addr) {
 Handle *hndl = getObj(hndlMap, *addr);
-Handle *prevHndl, *nextHndl;
-PathStk pathStk[1];
-RedBlack *rbEntry;
 uint64_t *inUse;
 
 	//	already destroyed?

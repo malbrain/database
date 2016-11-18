@@ -16,6 +16,8 @@
 #define pause() asm volatile("pause\n": : : "memory")
 #endif
 
+#include <inttypes.h>
+
 #include "db.h"
 #include "db_object.h"
 #include "db_arena.h"
@@ -68,7 +70,6 @@ char buff[12];
 
 void getPath(DbMap *map, char *name, uint32_t nameLen, uint64_t ver) {
 uint32_t len = 12, off = 0, prev;
-char buff[12];
 
 	if (map->parent)
 		len += prev = map->parent->pathLen, len++;
@@ -269,7 +270,7 @@ int flags = MAP_SHARED;
 	mem = mmap(NULL, size, PROT_READ | PROT_WRITE, flags, map->hndl, offset);
 
 	if (mem == MAP_FAILED) {
-		fprintf (stderr, "Unable to mmap %s, offset = %llx, size = %llx, error = %d", map->arenaPath, offset, size, errno);
+		fprintf (stderr, "Unable to mmap %s, offset = %" PRIx64 ", size = %" PRIx64 ", error = %d", map->arenaPath, offset, size, errno);
 		return NULL;
 	}
 #else
@@ -277,14 +278,14 @@ int flags = MAP_SHARED;
 		return VirtualAlloc(NULL, size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
 
 	if (!(map->maphndl[segNo] = CreateFileMapping(map->hndl, NULL, PAGE_READWRITE, (DWORD)((offset + size) >> 32), (DWORD)(offset + size), NULL))) {
-		fprintf (stderr, "Unable to CreateFileMapping %s, size = %llx, segment = %d error = %d\n", map->arenaPath, offset + size, segNo, (int)GetLastError());
+		fprintf (stderr, "Unable to CreateFileMapping %s, size = %" PRIx64 ", segment = %d error = %d\n", map->arenaPath, offset + size, segNo, (int)GetLastError());
 		return NULL;
 	}
 
 	mem = MapViewOfFile(map->maphndl[segNo], FILE_MAP_WRITE, offset >> 32, offset, size);
 
 	if (!mem) {
-		fprintf (stderr, "Unable to MapViewOfFile %s, offset = %llx, size = %llx, error = %d\n", map->arenaPath, offset, size, (int)GetLastError());
+		fprintf (stderr, "Unable to MapViewOfFile %s, offset = %" PRIx64 ", size = %" PRIx64 ", error = %d\n", map->arenaPath, offset, size, (int)GetLastError());
 		return NULL;
 	}
 #endif

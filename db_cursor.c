@@ -166,7 +166,6 @@ DbStatus stat;
 }
 
 DbStatus dbNextKey(DbCursor *cursor, DbMap *map) {
-uint32_t len;
 DbStatus stat;
 
 	switch(*map->arena->type) {
@@ -209,7 +208,6 @@ DbStatus stat;
 }
 
 DbStatus dbPrevKey(DbCursor *cursor, DbMap *map) {
-uint32_t len;
 DbStatus stat;
 
 	switch(*map->arena->type) {

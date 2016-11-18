@@ -7,7 +7,7 @@
 
 #include "db_error.h"
 
-void initialize();
+void initialize(void);
 
 DbStatus openDatabase(DbHandle hndl[1], char *filePath, uint32_t pathLen, Params *params);
 DbStatus openDocStore(DbHandle hndl[1], DbHandle dbHndl[1], char *name, uint32_t nameLen, Params *params);

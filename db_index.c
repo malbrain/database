@@ -39,7 +39,6 @@ RedBlack *rbEntry;
 HandleType type;
 DbAddr rbAddr;
 DbMap *child;
-DbAddr addr;
 
 	docStore = (DocStore *)(docHndl + 1);
 
@@ -62,7 +61,6 @@ ArenaDef *arenaDef = docHndl->map->arenaDef;
 DocStore *docStore;
 uint64_t maxId = 0;
 SkipNode *skipNode;
-SkipEntry *entry;
 DbAddr *next;
 int idx;
 
@@ -116,7 +114,6 @@ uint32_t specLen;
 uint64_t *verPtr;
 Handle *index;
 DbStatus stat;
-DbAddr addr;
 char *spec;
 int keyLen;
 

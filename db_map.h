@@ -34,7 +34,7 @@ void waitNonZero64(volatile int64_t *zero);
 void waitZero(volatile char *zero);
 void waitZero32(volatile int32_t *zero);
 void waitZero64(volatile int64_t *zero);
-void art_yield();
+void art_yield(void);
 
 /**
  * atomic integer ops
@@ -55,4 +55,4 @@ void deleteMap(char *path);
 void lockArena (DbMap *map);
 void unlockArena (DbMap *map);
 bool fileExists(char *path);
-void yield();
+void yield(void);

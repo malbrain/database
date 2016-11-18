@@ -8,6 +8,8 @@
 #include <errno.h>
 #endif
 
+#include <inttypes.h>
+
 #include "db.h"
 #include "db_map.h"
 #include "db_object.h"
@@ -53,7 +55,6 @@ DbMap *map;
 DbMap *openMap(DbMap *parent, char *name, uint32_t nameLen, ArenaDef *arenaDef, DbAddr *rbAddr) {
 DbArena *segZero = NULL;
 RedBlack *rbEntry;
-DataBase *db;
 DbMap *map;
 
 #ifdef _WIN32
@@ -96,7 +97,7 @@ int32_t amt = 0;
 	segZero = VirtualAlloc(NULL, sizeof(DbArena), MEM_COMMIT, PAGE_READWRITE);
 
 	if (!ReadFile(map->hndl, segZero, sizeof(DbArena), &amt, NULL)) {
-		fprintf (stderr, "Unable to read %lld bytes from %s, error = %d\n", sizeof(DbArena), map->arenaPath, errno);
+		fprintf (stderr, "Unable to read %" PRIu64 " bytes from %s, error = %d\n", sizeof(DbArena), map->arenaPath, errno);
 		VirtualFree(segZero, 0, MEM_RELEASE);
 		CloseHandle(map->hndl);
 		db_free(map->arenaPath);
@@ -321,7 +322,7 @@ uint64_t nextSize;
 #ifndef _WIN32
 	if (map->hndl != -1)
 	  if (ftruncate(map->hndl, nextSize)) {
-		fprintf (stderr, "Unable to extend file %s to %ULL, error = %d\n", map->arenaPath, nextSize, errno);
+		fprintf (stderr, "Unable to extend file %s to %" PRIu64 ", error = %d\n", map->arenaPath, nextSize, errno);
 		return false;
 	  }
 #endif

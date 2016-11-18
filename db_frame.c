@@ -216,7 +216,6 @@ Frame *frame;
 uint64_t getNodeFromFrame(DbMap *map, DbAddr* free) {
 	while (free->addr) {
 		Frame *frame = getObj(map, *free);
-		DbAddr slot;
 
 		//  are there available free objects?
 
@@ -245,9 +244,8 @@ uint64_t getNodeFromFrame(DbMap *map, DbAddr* free) {
 //	call with free list empty and latched
 
 bool getNodeWait(DbMap *map, DbAddr* free, DbAddr* tail) {
-Frame *frame, *frame2;
 bool result = false;
-DbAddr prev;
+Frame *frame;
 
 	if (!tail || !tail->addr)
 		return false;

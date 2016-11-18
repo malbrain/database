@@ -45,7 +45,6 @@ Btree1Page *leftPage, *rightPage;
 Btree1Slot *slot;
 uint8_t *ptr;
 uint32_t off;
-DbStatus stat;
 DbAddr left;
 
 	//  Obtain an empty page to use, and copy the current
@@ -123,7 +122,6 @@ uint8_t leftKey[Btree1_maxkey], rightKey[Btree1_maxkey];
 Btree1Index *btree1 = btree1index(index->map);
 uint32_t cnt = 0, idx = 0, max, nxt, off;
 Btree1Slot librarian, *source, *dest;
-Btree1PageType type = Btree1_leafPage;
 uint32_t size = btree1->pageSize;
 Btree1Page *frame, *rightPage;
 uint8_t lvl = set->page->lvl;
@@ -143,8 +141,6 @@ DbStatus stat;
 
 	if( !set->page->lvl )
 		size <<= btree1->leafXtra;
-	else
-		type = Btree1_interior;
 
 	//	get new page and write higher keys to it.
 
@@ -360,7 +356,7 @@ uint32_t size = btree1->pageSize;
 Btree1Page *page = set->page;
 uint32_t max = page->cnt;
 uint32_t len, cnt, idx;
-uint32_t newslot = max;
+uint32_t newSlot = max;
 Btree1PageType type;
 Btree1Page *frame;
 uint8_t *key;
@@ -411,7 +407,7 @@ DbAddr addr;
 
 	while( source++, cnt++ < max ) {
 		if( cnt == set->slotIdx )
-			newslot = idx + 2;
+			newSlot = idx + 2;
 
 		if( source->dead )
 			continue;
@@ -442,6 +438,11 @@ DbAddr addr;
 
 	page->min = size;
 	page->cnt = idx;
+
+	//	update insert slot index
+	//	for newly cleaned-up page
+
+	set->slotIdx = newSlot;
 
 	//  return temporary frame
 

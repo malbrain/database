@@ -1,3 +1,5 @@
+#include <inttypes.h>
+
 #include "../db.h"
 #include "../db_object.h"
 #include "../db_handle.h"
@@ -50,12 +52,12 @@ Btree1Slot *slot;
 uint8_t *buff;
 
 	if (params[Btree1Bits].intVal > Btree1_maxbits) {
-		fprintf(stderr, "createIndex: bits = %lld > max = %d\n", params[Btree1Bits].intVal, Btree1_maxbits);
+		fprintf(stderr, "createIndex: bits = %" PRIu64 " > max = %d\n", params[Btree1Bits].intVal, Btree1_maxbits);
 		exit(1);
 	}
 
 	if (params[Btree1Bits].intVal + params[Btree1Xtra].intVal > Btree1_maxbits) {
-		fprintf(stderr, "createIndex: bits = %lld + xtra = %lld > max = %d\n", params[Btree1Bits].intVal, params[Btree1Xtra].intVal, Btree1_maxbits);
+		fprintf(stderr, "createIndex: bits = %" PRIu64 " + xtra = %" PRIu64 " > max = %d\n", params[Btree1Bits].intVal, params[Btree1Xtra].intVal, Btree1_maxbits);
 		exit(1);
 	}
 

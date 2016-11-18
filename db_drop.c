@@ -11,9 +11,8 @@ extern DbMap *hndlMap;
 // drop an arena and recursively its children
 
 void dropArenaDef(DbMap *db, ArenaDef *arenaDef, ArenaDef *parentArena, bool dropDefs, char *path, uint32_t pathLen) {
+uint32_t childIdMax, len;
 uint64_t *skipPayLoad;
-uint32_t childIdMax;
-uint32_t idx, len;
 DbAddr *next, addr;
 RedBlack *entry;
 SkipNode *node;
@@ -94,7 +93,6 @@ DbStatus dropMap(DbMap *map, bool dropDefs) {
 ArenaDef *parentArena;
 char path[MAX_path];
 PathStk pathStk[1];
-DbStatus stat;
 
 	//	are we already dropped?
 
@@ -104,9 +102,9 @@ DbStatus stat;
 
 	memcpy (path, map->arenaPath, map->pathLen);
 
-	// when dropping database, purge from parent's child list
+	// when dropping database, purge from catalog db list
 
-	if (dropDefs)
+	if (dropDefs) {
 	  if (map->arena->type[0] == Hndl_database) {
 		RedBlack *entry = getObj(hndlMap, *map->arena->redblack);
 		Catalog *catalog = (Catalog *)(hndlMap + 1);
@@ -124,7 +122,10 @@ DbStatus stat;
 		// no need to clean up database allocations
 
 		dropDefs = false;
+	  } else {
+		map->arenaDef->ver += 1;
 	  }
+	}
 
 	if (map->arenaDef->parentAddr.addr)
 	  parentArena = getObj(map->db, map->arenaDef->parentAddr);

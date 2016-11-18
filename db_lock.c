@@ -40,7 +40,7 @@ struct timespec ts[1];
 	nanosleep(ts, NULL);
 }
 
-int lock_spin (int *cnt) {
+int lock_spin (uint32_t *cnt) {
 volatile int idx;
 
 	if (!*cnt)
@@ -100,7 +100,6 @@ volatile int idx;
 #ifdef unix
 void mutex_lock(Mutex* mutex) {
 uint32_t spinCount = 0;
-uint32_t prev;
 
   while (__sync_fetch_and_or(mutex->lock, 1) & 1)
 	while (*mutex->lock)
