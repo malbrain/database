@@ -13,7 +13,12 @@
 #include <errno.h>
 #include <sched.h>
 
+//#ifndef apple
 #define pause() asm volatile("pause\n": : : "memory")
+//#else
+//#define pause() asm( "volatile pause : : : memory" )
+//#endif
+
 #endif
 
 #include <inttypes.h>

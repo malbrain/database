@@ -101,6 +101,8 @@ uint64_t next;
 	  skipNode = getObj(map, *skip);
 	  skipNode->next->bits = next;
 	}
+    else
+	  skipNode = getObj(map, *skip);
 
 	entry = skipNode->array + skip->nslot++;
 	*entry->key = key;

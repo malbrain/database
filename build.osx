@@ -1,0 +1,1 @@
+gcc -Dunix -Dapple -std=gnu99 -O2 -g -o dbtest db*.c artree/*.c btree1/*.c standalone.c -lpthread

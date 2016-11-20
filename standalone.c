@@ -23,11 +23,13 @@
 #define fputc	_fputc_nolock
 #define getc	_getc_nolock
 #else
+#define fopen_s(file, path, mode) ((*file = fopen(path, mode)) ? 0 : errno)
+#ifndef apple
 #undef getc
 #define fputc	fputc_unlocked
 #define fwrite	fwrite_unlocked
 #define getc	getc_unlocked
-#define fopen_s(file, path, mode) ((*file = fopen(path, mode)) ? 0 : errno)
+#endif
 
 #endif
 
