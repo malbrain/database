@@ -273,8 +273,10 @@ void *mem;
 #ifndef _WIN32
 int flags = MAP_SHARED;
 
-	if( map->hndl < 0 )
+	if( map->hndl < 0 ) {
 		flags |= MAP_ANON;
+		offset = 0;
+	}
 
 	mem = mmap(NULL, size, PROT_READ | PROT_WRITE, flags, map->hndl, offset);
 
