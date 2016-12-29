@@ -82,10 +82,10 @@ ObjId start = it->docId;
 
 //  TODO:  lock the record
 
-Doc *iteratorNext(DbHandle hndl[1]) {
+Ver *iteratorNext(DbHandle hndl[1]) {
 Handle *docStore;
 Txn *txn = NULL;
-Doc *doc = NULL;
+Ver *ver = NULL;
 Iterator *it;
 
 	if (!(docStore = bindHandle(hndl)))
@@ -97,10 +97,10 @@ Iterator *it;
 		txn = fetchIdSlot(docStore->map->db, it->txnId);
 
 	while (incrObjId(it, docStore->map))
-		if ((doc = findDocVer(docStore->map, it->docId, txn)))
+		if ((ver = findDocVer(docStore->map, it->docId, txn)))
 			break;
 
-	return doc;
+	return ver;
 }
 
 //
@@ -109,10 +109,10 @@ Iterator *it;
 
 //  TODO:  lock the record
 
-Doc *iteratorPrev(DbHandle hndl[1]) {
+Ver *iteratorPrev(DbHandle hndl[1]) {
 Handle *docStore;
 Txn *txn = NULL;
-Doc *doc = NULL;
+Ver *ver = NULL;
 Iterator *it;
 
 	if (!(docStore = bindHandle(hndl)))
@@ -124,23 +124,21 @@ Iterator *it;
 		txn = fetchIdSlot(docStore->map->db, it->txnId);
 
 	while (decrObjId(it, docStore->map))
-		if ((doc = findDocVer(docStore->map, it->docId, txn)))
+		if ((ver = findDocVer(docStore->map, it->docId, txn)))
 			break;
 
-	return doc;
+	return ver;
 }
 
 //
 //  set iterator to specific objectId
 //
 
-//  TODO:  lock the record
-
-Doc *iteratorSeek(DbHandle hndl[1], uint64_t objBits) {
+Ver *iteratorSeek(DbHandle hndl[1], uint64_t objBits) {
 Handle *docStore;
 Txn *txn = NULL;
+Ver *ver = NULL;
 Iterator *it;
-Doc *doc;
 
 	if (!(docStore = bindHandle(hndl)))
 		return NULL;
@@ -152,8 +150,8 @@ Doc *doc;
 
 	it->docId.bits = objBits;
 
-	doc = findDocVer(docStore->map, it->docId, txn);
+	ver = findDocVer(docStore->map, it->docId, txn);
 
 	releaseHandle(docStore);
-	return doc;
+	return ver;
 }

@@ -100,7 +100,7 @@ DbAddr slot;
 	frame->next.bits = 0;
 	frame->prev.bits = 0;
 
-	slot.fill = 0;
+	slot.coll = 0;
 	slot.type = FrameType;
 	return slot.bits;
 }

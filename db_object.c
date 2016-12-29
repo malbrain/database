@@ -94,7 +94,7 @@ DbAddr *addr;
 //	allocate an array element index
 
 uint16_t arrayAlloc(DbMap *map, DbAddr *array, size_t size) {
-unsigned long bits[1];
+unsigned int bits[1];
 uint64_t *inUse;
 DbAddr *addr;
 int idx, seg;
@@ -132,7 +132,7 @@ int idx, seg;
 #		ifdef _WIN32
 		  _BitScanForward64(bits, ~inUse[seg]);
 #		else
-		  *bits = (__builtin_ffs (~inUse[seg])) - 1;
+		  *bits = (__builtin_ffsll (~inUse[seg])) - 1;
 #		endif
 
 		inUse[seg] |= 1ULL << *bits;

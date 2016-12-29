@@ -4,17 +4,17 @@
 
 typedef struct {
 	uint64_t timestamp;	// txn timestamp, reader or writer
-	DbAddr frame[1];	// contains DocIds in the TXN
+	DbAddr frame[1];	// contains versions in the TXN
 	ObjId txnId;		// where we are stored.
 } Txn;
 
 //  txn command enum:
 
 typedef enum {
-	TxnAddDoc,
-	TxnDelDoc,
-	TxnUpdDoc
+	TxnAddDoc,	// add a new document
+	TxnDelDoc,	// delete the document
+	TxnUpdDoc	// add new version to document
 } TxnCmd;
 	
-void addDocToTxn(DbMap *database, Txn *txn, ObjId docId, TxnCmd cmd);
-Doc *findDocVer(DbMap *docStore, ObjId docId, Txn *txn);
+void addVerToTxn(DbMap *database, Txn *txn, Ver *ver, TxnCmd cmd);
+Ver *findDocVer(DbMap *docStore, ObjId docId, Txn *txn);

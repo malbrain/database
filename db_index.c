@@ -106,7 +106,7 @@ int idx;
 //	install index key for a document
 //	call with docStore handle
 
-DbStatus installIndexKey(Handle *docHndl, SkipEntry *entry, Doc *doc) {
+DbStatus installIndexKey(Handle *docHndl, SkipEntry *entry, Ver *ver) {
 ArenaDef *arenaDef;
 char key[MAX_key];
 DbHandle hndl[1];
@@ -125,7 +125,7 @@ int keyLen;
 	arenaDef = index->map->arenaDef;
 
 	if ((spec = getObjParam(arenaDef, IdxKeyPartial)))
-	  if (!evalPartial(doc, spec, arenaDef->params[IdxKeyPartialLen].intVal)) {
+	  if (!evalPartial(ver, spec, arenaDef->params[IdxKeyPartialLen].intVal)) {
 		releaseHandle(index);
 		return DB_OK;
 	  }
@@ -133,17 +133,17 @@ int keyLen;
 	spec = getObjParam(arenaDef, IdxKeySpec);
 	specLen = arenaDef->params[IdxKeySpecLen].intVal;
 
-	keyLen = keyGenerator(key, doc, spec, specLen);
-	keyLen = store64(key, keyLen, doc->docId.bits);
+	keyLen = keyGenerator(key, ver, spec, specLen);
+	keyLen = store64(key, keyLen, ver->docId.bits);
 
 	if (arenaDef->params[UseTxn].boolVal)
-		keyLen = store64(key, keyLen, doc->version);
+		keyLen = store64(key, keyLen, ver->version);
 
 	//	add the version for the indexId
 	//	to the verKeys skiplist
 
-	verPtr = skipAdd(docHndl->map, doc->verKeys, *entry->key);
-	*verPtr = doc->version;
+	verPtr = skipAdd(docHndl->map, ver->verKeys, *entry->key);
+	*verPtr = ver->version;
 
 	switch (*index->map->arena->type) {
 	case Hndl_artIndex:
@@ -162,7 +162,7 @@ int keyLen;
 //	install keys for a document insert
 //	call with docStore handle
 
-DbStatus installIndexKeys(Handle *docHndl, Doc *doc) {
+DbStatus installIndexKeys(Handle *docHndl, Ver *ver) {
 SkipNode *skipNode;
 DocStore *docStore;
 DbAddr *next;
@@ -174,7 +174,7 @@ int idx;
 	readLock (docStore->indexes->lock);
 	next = docStore->indexes->head;
 
-	doc->verKeys->bits = skipInit(docHndl->map, docStore->idxCnt);
+	ver->verKeys->bits = skipInit(docHndl->map, docStore->idxCnt);
 
 	//	scan indexes skiplist of index handles
 	//	and install keys for document
@@ -184,7 +184,7 @@ int idx;
 	  idx = next->nslot;
 
 	  while (idx--) {
-		  if ((stat = installIndexKey(docHndl, &skipNode->array[idx], doc)))
+		  if ((stat = installIndexKey(docHndl, &skipNode->array[idx], ver)))
 			return stat;
 	  }
 

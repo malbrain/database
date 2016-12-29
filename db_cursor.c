@@ -51,7 +51,7 @@ DbStatus stat;
 		return DB_OK;
 
 	if (cursor->useTxn)
-		cursor->userLen = get64(cursor->key, cursor->userLen, &cursor->ver);
+		cursor->userLen = get64(cursor->key, cursor->userLen, &cursor->version);
 
 	cursor->userLen = get64(cursor->key, cursor->userLen, &cursor->docId.bits);
 	return DB_OK;
@@ -108,8 +108,8 @@ DbStatus stat;
 //  position cursor at next doc visible under MVCC
 
 DbStatus dbNextDoc(DbCursor *cursor, DbMap *map) {
+uint64_t *version;
 Txn *txn = NULL;
-uint64_t *ver;
 DbStatus stat;
 
   while (true) {
@@ -119,13 +119,13 @@ DbStatus stat;
 	if (!txn && cursor->txnId.bits)
 		txn = fetchIdSlot(map->db, cursor->txnId);
 
-	if (!(cursor->doc = findDocVer(map->parent, cursor->docId, txn)))
+	if (!(cursor->ver = findDocVer(map->parent, cursor->docId, txn)))
 		continue;
 
 	//  find version in verKeys skip list
 
-	if ((ver = skipFind(map->parent, cursor->doc->verKeys, map->arenaDef->id)))
-	  if (*ver == cursor->ver)
+	if ((version = skipFind(map->parent, cursor->ver->verKeys, map->arenaDef->id)))
+	  if (*version == cursor->version)
 		return DB_OK;
   }
 }
@@ -133,8 +133,8 @@ DbStatus stat;
 //  position cursor at prev doc visible under MVCC
 
 DbStatus dbPrevDoc(DbCursor *cursor, DbMap *map) {
+uint64_t *version;
 Txn *txn = NULL;
-uint64_t *ver;
 DbStatus stat;
 
   while (true) {
@@ -154,13 +154,13 @@ DbStatus stat;
 	if (!txn && cursor->txnId.bits)
 		txn = fetchIdSlot(map->db, cursor->txnId);
 
-	if (!(cursor->doc = findDocVer(map->parent, cursor->docId, txn)))
+	if (!(cursor->ver = findDocVer(map->parent, cursor->docId, txn)))
 		continue;
 
 	//  find version in verKeys skip list
 
-	if ((ver = skipFind(map->parent, cursor->doc->verKeys, map->arenaDef->id)))
-	  if (*ver == cursor->ver)
+	if ((version = skipFind(map->parent, cursor->ver->verKeys, map->arenaDef->id)))
+	  if (*version == cursor->version)
 		return DB_OK;
   }
 }
@@ -189,7 +189,7 @@ DbStatus stat;
 
 	if (!cursor->noDocs) {
 	  if (cursor->useTxn)
-		cursor->userLen = get64(cursor->key, cursor->userLen, &cursor->ver);
+		cursor->userLen = get64(cursor->key, cursor->userLen, &cursor->version);
 
 	  cursor->userLen = get64(cursor->key, cursor->userLen, &cursor->docId.bits);
 	}
@@ -231,7 +231,7 @@ DbStatus stat;
 
 	if (!cursor->noDocs) {
 	  if (cursor->useTxn)
-		cursor->userLen = get64(cursor->key, cursor->userLen, &cursor->ver);
+		cursor->userLen = get64(cursor->key, cursor->userLen, &cursor->version);
 
 	  cursor->userLen = get64(cursor->key, cursor->userLen, &cursor->docId.bits);
 	}

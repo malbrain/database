@@ -25,7 +25,7 @@ typedef enum {
 	Hndl_colIndex,
 	Hndl_iterator,
 	Hndl_cursor,
-	Hndl_docVersion
+	Hndl_txn
 } HandleType;
 
 //	general object pointer
@@ -52,8 +52,8 @@ typedef union {
 	};
 	uint64_t bits;
 	struct {
-		uint64_t addr:48;
-		uint64_t fill:16;
+		uint64_t addr:48;		// segment/offset
+		uint64_t coll:16;		// collection  number
 	};
 } DbAddr;
 
@@ -117,14 +117,22 @@ typedef enum {
 
 typedef struct {
 	DbAddr verKeys[1];	// skiplist of versions with Id key
-	DbAddr prevDoc[1];	// previous version of doc
-	uint64_t version;	// version of the document
-	DbAddr addr;		// docStore arena address
-	ObjId docId;		// ObjId of the document
-	ObjId txnId;		// insert/update txn ID
+	uint64_t version;	// document version
+	uint32_t offset;	// offset from origin
+	uint32_t size;		// version size
+	ObjId docId;		// document ObjId
+	ObjId txnId;		// insert/version txn ID
+} Ver;
+
+typedef struct {
+	uint32_t refCnt[1];	// active references to the document
+	DbAddr prevDoc[1];	// previous versions of doc
+	DbAddr addr;		// doc arena address
 	ObjId delId;		// delete txn ID
-	uint32_t size;		// document size
+	uint32_t verCnt;	// number of versions
+	uint32_t size;		// total size
 	DocState state;		// document state
+	Ver ver[1];			// base version
 } Doc;
 
 // user's DbHandle

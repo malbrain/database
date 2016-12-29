@@ -5,7 +5,8 @@
 #include "db_frame.h"
 #include "db_map.h"
 
-void addDocToTxn(DbMap *database, Txn *txn, ObjId docId, TxnCmd cmd) {
+void addVerToTxn(DbMap *database, Txn *txn, Ver *ver, TxnCmd cmd) {
+	ObjId docId;
 
 	docId.cmd = cmd;
 	addSlotToFrame (database, txn->frame, NULL, docId.bits);
@@ -13,44 +14,56 @@ void addDocToTxn(DbMap *database, Txn *txn, ObjId docId, TxnCmd cmd) {
 
 //  find appropriate document version per txn beginning timestamp
 
-Doc *findDocVer(DbMap *docStore, ObjId docId, Txn *txn) {
+Ver *findDocVer(DbMap *docStore, ObjId docId, Txn *txn) {
 DbAddr *addr = fetchIdSlot(docStore, docId);
 DbMap *db = docStore->db;
-Doc *doc = NULL;
+uint32_t offset;
 uint64_t txnTs;
 Txn *docTxn;
+int verIdx;
+Doc *doc;
+Ver *ver;
 
   //	examine prior versions
 
   while (addr->bits) {
 	doc = getObj(docStore, *addr);
+	offset = sizeof(Doc);
 
-	// is this outside a txn? or
-	// is version in same txn?
+	for (verIdx = 0; verIdx < doc->verCnt; verIdx++) {
+	  // is this outside a txn? or
+	  // is version in same txn?
 
-	if (!txn || doc->txnId.bits == txn->txnId.bits)
-		return doc;
+	  if (verIdx)
+		ver = (Ver *)((uint8_t *)doc + offset);
+	  else
+		ver = doc->ver;
 
-	// is the version permanent?
+	  if (!txn || ver->txnId.bits == txn->txnId.bits)
+		return ver;
 
-	if (!doc->txnId.bits)
-		return doc;
+	  // is the version permanent?
 
-	// is version committed before our txn began?
+	  if (!ver->txnId.bits)
+		return ver;
 
-	if (doc->txnId.bits) {
-		docTxn = fetchIdSlot(db, doc->txnId);
+	  // is version committed before our txn began?
 
-		if (isCommitted(docTxn->timestamp))
+	  docTxn = fetchIdSlot(db, ver->txnId);
+
+	  if (isCommitted(docTxn->timestamp))
 		  if (docTxn->timestamp < txn->timestamp)
-			return doc;
-	}
+			return ver;
 
-	//	advance txn ts past doc version ts
-	//	and move onto next doc version
+	  //	advance txn ts past doc version ts
+	  //	and move onto next doc version
 
-	while (isReader((txnTs = txn->timestamp)) && txnTs < docTxn->timestamp)
+	  while (isReader((txnTs = txn->timestamp)) && txnTs < docTxn->timestamp)
 		compareAndSwap(&txn->timestamp, txnTs, docTxn->timestamp);
+
+
+	  offset += ver->size;
+	}
 
 	addr = doc->prevDoc;
   }

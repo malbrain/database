@@ -41,10 +41,10 @@ DbStatus assignDoc(DbHandle hndl[1], Doc *doc, uint64_t txnBits);
 DbStatus storeDoc(DbHandle hndl[1], void *obj, uint32_t objSize, ObjId *docId, uint64_t txnBits);
 DbStatus deleteDoc(DbHandle hndl[1], uint64_t docBits, uint64_t txnBits);
 
-uint16_t keyGenerator(char *key, Doc *doc, char *spec, uint32_t specLen);
-bool evalPartial(Doc *doc, char *spec, uint32_t specLen);
+uint16_t keyGenerator(char *key, Ver *ver, char *spec, uint32_t specLen);
+bool evalPartial(Ver *ver, char *spec, uint32_t specLen);
 
 DbStatus createIterator(DbHandle hndl[1], DbHandle docHndl[1], uint64_t txnBits);
-Doc *iteratorSeek(DbHandle hndl[1], uint64_t objBits);
-Doc *iteratorNext(DbHandle hndl[1]);
-Doc *iteratorPrev(DbHandle hndl[1]);
+Ver *iteratorSeek(DbHandle hndl[1], uint64_t objBits,  uint32_t *offset);
+Ver *iteratorNext(DbHandle hndl[1], uint32_t *offset);
+Ver *iteratorPrev(DbHandle hndl[1], uint32_t *offset);

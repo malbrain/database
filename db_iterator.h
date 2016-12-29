@@ -10,10 +10,9 @@ typedef enum {
 } IterState;
 
 typedef struct {
+	Ver *ver;			// current doc version
 	int64_t ts;			// iterator timestamp
-	int64_t ver;		// curent doc version
 	ObjId txnId;
 	ObjId docId;		// current ObjID
-	Doc *doc;			// current doc version
 	IterState state:8;
 } Iterator;
