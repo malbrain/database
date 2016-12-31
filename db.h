@@ -93,9 +93,14 @@ typedef enum {
 	IdxKeySparse,
 	IdxKeyPartial,
 	IdxKeyPartialLen,	// this must immediately follow
+	IdxType,			// 0 for artree, 1 & 2 for btree
 
 	Btree1Bits = 20,	// Btree1 set
 	Btree1Xtra,
+
+	CursorTxn = 25,
+	CursorStart,
+	CursorEnd,
 
 	MaxParam = 30	// param array size
 } ParamSlot;
@@ -104,6 +109,7 @@ typedef union {
 	uint64_t intVal;
 	uint32_t offset;
 	bool boolVal;
+	char *str;
 	void *obj;
 } Params;
 

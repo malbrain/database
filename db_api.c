@@ -170,7 +170,8 @@ Handle *ds;
 	return DB_OK;
 }
 
-DbStatus createIndex(DbHandle hndl[1], DbHandle docHndl[1], HandleType type, char *name, uint32_t nameLen, Params *params) {
+DbStatus createIndex(DbHandle hndl[1], DbHandle docHndl[1], char *name, uint32_t nameLen, Params *params) {
+int type = params[IdxType].intVal + Hndl_artIndex;
 uint32_t baseSize = 0;
 DbMap *map, *parent;
 Handle *parentHndl;
@@ -243,12 +244,15 @@ createXit:
 
 //	create new cursor
 
-DbStatus createCursor(DbHandle hndl[1], DbHandle idxHndl[1], ObjId txnId, Params *params) {
+DbStatus createCursor(DbHandle hndl[1], DbHandle idxHndl[1], Params *params) {
 Handle *index, *cursorHndl;
 uint64_t timestamp;
 DbCursor *cursor;
 DbStatus stat;
+ObjId txnId;
 Txn *txn;
+
+	txnId.bits = params[CursorTxn].intVal;
 
 	memset (hndl, 0, sizeof(DbHandle));
 

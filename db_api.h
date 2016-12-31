@@ -9,15 +9,15 @@
 
 void initialize(void);
 
-DbStatus openDatabase(DbHandle hndl[1], char *filePath, uint32_t pathLen, Params *params);
-DbStatus openDocStore(DbHandle hndl[1], DbHandle dbHndl[1], char *name, uint32_t nameLen, Params *params);
-DbStatus createIndex(DbHandle hndl[1], DbHandle docHndl[1], HandleType type, char *idxName, uint32_t nameLen, Params *params);
+DbStatus openDatabase(DbHandle hndl[1], char *name, uint32_t len, Params *params);
+DbStatus openDocStore(DbHandle hndl[1], DbHandle dbHndl[1], char *name, uint32_t len, Params *params);
+DbStatus createIndex(DbHandle hndl[1], DbHandle docHndl[1], char *name, uint32_t len, Params *params);
 DbStatus cloneHandle(DbHandle hndl[1], DbHandle fromHndl[1]);
 DbStatus deleteHandle(DbHandle hndl[1]);
 DbStatus dropArena(DbHandle hndl[1], bool dropDefinitions);
 DbStatus addIndexes(DbHandle docHndl[1]);
 
-DbStatus createCursor(DbHandle hndl[1], DbHandle idxHndl[1], ObjId txnId, Params *params);
+DbStatus createCursor(DbHandle hndl[1], DbHandle idxHndl[1], Params *params);
 DbStatus positionCursor(DbHandle hndl[1], CursorOp op, void *key, uint32_t keyLen);
 DbStatus moveCursor(DbHandle hndl[1], CursorOp op);
 DbStatus setCursorMax(DbHandle hndl[1], void *max, uint32_t maxLen);
@@ -44,7 +44,7 @@ DbStatus deleteDoc(DbHandle hndl[1], uint64_t docBits, uint64_t txnBits);
 uint16_t keyGenerator(char *key, Ver *ver, char *spec, uint32_t specLen);
 bool evalPartial(Ver *ver, char *spec, uint32_t specLen);
 
-DbStatus createIterator(DbHandle hndl[1], DbHandle docHndl[1], uint64_t txnBits);
+DbStatus createIterator(DbHandle hndl[1], DbHandle docHndl[1], Params *params);
 Ver *iteratorSeek(DbHandle hndl[1], uint64_t objBits,  uint32_t *offset);
 Ver *iteratorNext(DbHandle hndl[1], uint32_t *offset);
 Ver *iteratorPrev(DbHandle hndl[1], uint32_t *offset);
