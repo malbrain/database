@@ -37,26 +37,28 @@ double getCpuTime(int type);
 
 //  Interface function to evaluate a partial document
 
-bool evalPartial(Doc *doc, char *spec, uint32_t specLen) {
+bool evalPartial(Ver *ver, Params *params) {
 	return true;
 }
 
 //  Interface function to create a document key
 //	from a document and a key length
 
-typedef struct {
-	int keyLen;
-} KeySpec;
+uint16_t keyGenerator (char *key, Ver *ver, ParamVal *spec, Params *params) {
+uint16_t keyLen;
 
-uint16_t keyGenerator (char *key, Ver *ver, ParamVal *spec) {
-KeySpec *keySpec = (KeySpec *)spec->val;
-uint16_t keyLen = 0;
-
-	if (!(keyLen = keySpec->keyLen))
-		keyLen = doc->size;
+	if (!(keyLen = params[IdxKeySpec].intVal))
+		keyLen = ver->size;
 
 	memcpy(key, ver + 1, keyLen);
 	return keyLen;
+}
+
+DbAddr compileKeys(DbMap *map, Params *params) {
+DbAddr addr;
+
+	addr.bits = 0;
+	return addr;
 }
 
 typedef struct {
@@ -67,7 +69,7 @@ typedef struct {
 	char *maxKey;
 	Params *params;
 	DbHandle *database;
-	int num, idxType, keyLen;
+	int num;
 } ThreadArg;
 
 char *indexNames[] = {
@@ -93,7 +95,6 @@ unsigned __stdcall index_file (void *arg)
 {
 uint64_t line = 0, cnt = 0;
 ThreadArg *args = arg;
-HandleType idxType;
 DbHandle database[1];
 DbHandle docHndl[1];
 DbHandle cursor[1];
@@ -113,10 +114,8 @@ int stat;
 
 	cloneHandle(database, args->database);
 
-	idxType = indexType[args->idxType];
-	idxName = indexNames[args->idxType];
+	idxName = indexNames[args->params[IdxType].intVal - Hndl_artIndex];
 	docHndl->hndlBits = 0;
-
 	txnId.bits = 0;
 
 	if( args->idx < strlen (args->cmds) )
@@ -137,7 +136,7 @@ int stat;
 			parent = docHndl;
 		}
 
-		if ((stat = createIndex(index, parent, idxType, idxName, strlen(idxName), args->params)))
+		if ((stat = createIndex(index, parent, idxName, strlen(idxName), args->params)))
 		  fprintf(stderr, "createIndex Error %d name: %s\n", stat, idxName), exit(0);
 
 		if (docHndl->hndlBits)
@@ -153,7 +152,7 @@ int stat;
 #endif
 			  line++;
 
-			  if ((stat = delDoc (docHndl, key, len, &objId, txnId)))
+			  if ((stat = deleteDoc (docHndl, key, len, &objId, txnId)))
 				  fprintf(stderr, "Del Doc Error %d Line: %" PRIu64 "\n", stat, line), exit(0);
 			  len = 0;
 			  continue;
@@ -176,7 +175,7 @@ int stat;
 			parent = docHndl;
 		}
 
-		if ((stat = createIndex(index, parent, idxType, idxName, strlen(idxName), args->params)))
+		if ((stat = createIndex(index, parent, idxName, strlen(idxName), args->params)))
 		  fprintf(stderr, "createIndex Error %d name: %s\n", stat, idxName), exit(0);
 
 		if (docHndl->hndlBits)
@@ -193,7 +192,7 @@ int stat;
 			  line++;
 
 			  if (docHndl->hndlBits) {
-				if ((stat = storeDoc (docHndl, key, len, &objId, txnId.bits)))
+				if ((stat = storeDoc (docHndl, key, len, &objId, txnId)))
 				  fprintf(stderr, "Add Doc Error %d Line: %" PRIu64 "\n", stat, line), exit(0);
 			  } else
 				if ((stat = insertKey(index, key, len)))
@@ -218,13 +217,13 @@ int stat;
 			parent = docHndl;
 		}
 
-		if ((stat = createIndex(index, parent, idxType, idxName, strlen(idxName), args->params)))
+		if ((stat = createIndex(index, parent, idxName, strlen(idxName), args->params)))
 		  fprintf(stderr, "createIndex Error %d name: %s\n", stat, idxName), exit(0);
 
 		if (docHndl->hndlBits)
 			addIndexes(docHndl);
 
-		createCursor (cursor, index, txnId, args->params);
+		createCursor (cursor, index, args->params);
 
 		if((!fopen_s (&in, args->inFile, "rb"))) {
 		  while( ch = getc(in), ch != EOF )
@@ -235,8 +234,8 @@ int stat;
 #endif
 			  line++;
 
-			  if (args->keyLen)
-				len = args->keyLen;
+			  if (args->params[IdxKeySpec].intVal)
+				len = args->params[IdxKeySpec].intVal;
 
 			  if ((stat = positionCursor (cursor, OpOne, key, len)))
 				fprintf(stderr, "findKey Error %d Syserr %d Line: %" PRIu64 "\n", stat, errno, line), exit(0);
@@ -278,7 +277,7 @@ int stat;
 			parent = docHndl;
 		}
 
-		if ((stat = createIndex(index, parent, idxType, idxName, strlen(idxName), args->params)))
+		if ((stat = createIndex(index, parent, idxName, strlen(idxName), args->params)))
 		  fprintf(stderr, "createIndex Error %d name: %s\n", stat, idxName), exit(0);
 
 		if (docHndl->hndlBits)
@@ -286,7 +285,7 @@ int stat;
 
 		// create forward cursor
 
-		createCursor (cursor, index, txnId, args->params);
+		createCursor (cursor, index, args->params);
 
 		if (args->maxKey)
 			setCursorMax (cursor, args->maxKey, strlen(args->maxKey));
@@ -336,7 +335,7 @@ int stat;
 			parent = docHndl;
 		}
 
-		if ((stat = createIndex(index, parent, idxType, idxName, strlen(idxName), args->params)))
+		if ((stat = createIndex(index, parent, idxName, strlen(idxName), args->params)))
 		  fprintf(stderr, "createIndex Error %d name: %s\n", stat, idxName), exit(0);
 
 		if (docHndl->hndlBits)
@@ -344,7 +343,7 @@ int stat;
 
 		// create reverse cursor
 
-		createCursor (cursor, index, txnId, args->params);
+		createCursor (cursor, index, args->params);
 
 		if (args->maxKey)
 			setCursorMax (cursor, args->maxKey, strlen(args->maxKey));
@@ -394,12 +393,12 @@ int stat;
 			parent = docHndl;
 		}
 
-		if ((stat = createIndex(index, parent, idxType, idxName, strlen(idxName), args->params)))
+		if ((stat = createIndex(index, parent, idxName, strlen(idxName), args->params)))
 		  fprintf(stderr, "createIndex Error %d name: %s\n", stat, idxName), exit(0);
 
 		//  create forward cursor
 
-		createCursor (cursor, index, txnId, args->params);
+		createCursor (cursor, index, args->params);
 
 		if (args->maxKey)
 			setCursorMax (cursor, args->maxKey, strlen(args->maxKey));
@@ -434,8 +433,6 @@ int main (int argc, char **argv)
 {
 Params params[MaxParam];
 int idx, cnt, err;
-KeySpec keySpec[1];
-int keyLen = 10;
 int idxType = 0;
 char *minKey;
 char *maxKey;
@@ -487,9 +484,7 @@ int num = 0;
 	memset (params, 0, sizeof(params));
 	params[Btree1Bits].intVal = 14;
 	params[OnDisk].boolVal = true;
-
-	params[IdxKeySpec].off = keySpec;
-	params[IdxKeySpecLen].intVal = sizeof(KeySpec);;
+	params[IdxKeySpec].intVal = 10;
 
 	// process configuration arguments
 
@@ -497,13 +492,13 @@ int num = 0;
 	  if (!memcmp(argv[0], "-xtra=", 6))
 			params[Btree1Xtra].intVal = atoi(argv[0] + 6);
 	  else if (!memcmp(argv[0], "-keyLen=", 8))
-			keyLen = atoi(argv[0] + 8);
+			params[IdxKeySpec].intVal = atoi(argv[0] + 8);
 	  else if (!memcmp(argv[0], "-bits=", 6))
 			params[Btree1Bits].intVal = atoi(argv[0] + 6);
 	  else if (!memcmp(argv[0], "-cmds=", 6))
 			cmds = argv[0] + 6;
 	  else if (!memcmp(argv[0], "-idxType=", 9))
-			idxType = atoi(argv[0] + 9);
+			params[IdxType].intVal = atoi(argv[0] + 9) + Hndl_artIndex;
 	  else if (!memcmp(argv[0], "-inMem", 6))
 			params[OnDisk].boolVal = false;
 	  else if (!memcmp(argv[0], "-drop", 5))
@@ -548,11 +543,9 @@ int num = 0;
 	do {
 	  args[idx].database = database;
 	  args[idx].inFile = argv[idx];
-	  args[idx].idxType = idxType;
 	  args[idx].minKey = minKey;
 	  args[idx].maxKey = maxKey;
 	  args[idx].params = params;
-	  args[idx].keyLen = keyLen;
 	  args[idx].cmds = cmds;
 	  args[idx].num = num;
 	  args[idx].idx = idx;

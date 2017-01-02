@@ -110,6 +110,7 @@ typedef union {
 	uint32_t offset;
 	double dblVal;
 	bool boolVal;
+	void *obj;
 } Params;
 
 //	Param key docs and partial docs

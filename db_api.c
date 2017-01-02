@@ -498,27 +498,29 @@ Handle *arena;
 	return DB_OK;
 }
 
-uint64_t beginTxn(DbHandle hndl[1], Params *params) {
+ObjId beginTxn(DbHandle hndl[1], Params *params) {
 Handle *database;
 ObjId txnId;
 Txn *txn;
 
+	txnId.bits = 0;
+
 	if (!(database = bindHandle(hndl)))
-		return 0;
+		return txnId;
 
 	txnId.bits = allocObjId(database->map, listFree(database,0), listTail(database,0), 0);
 	txn = fetchIdSlot(database->map, txnId);
 	txn->timestamp = allocateTimestamp(database->map, en_reader);
 
 	releaseHandle(database);
-	return txnId.bits;
+	return txnId;
 }
 
-DbStatus rollbackTxn(DbHandle hndl[1], uint64_t txnBits) {
+DbStatus rollbackTxn(DbHandle hndl[1], ObjId txnId) {
 	return DB_OK;
 }
 
-DbStatus commitTxn(DbHandle hndl[1], uint64_t txnBits) {
+DbStatus commitTxn(DbHandle hndl[1], ObjId txnId) {
 	return DB_OK;
 }
 
@@ -557,7 +559,7 @@ DbAddr *slot;
 	return DB_OK;
 }
 
-DbStatus assignDoc(DbHandle hndl[1], Doc *doc, uint64_t txnBits) {
+DbStatus assignDoc(DbHandle hndl[1], Doc *doc, ObjId txnId) {
 DocArena *docArena;
 Handle *docHndl;
 Txn *txn = NULL;
@@ -568,7 +570,7 @@ DbStatus stat;
 
 	docArena = docarena(docHndl->map);
 
-	if ((doc->ver->txnId.bits = txnBits))
+	if ((doc->ver->txnId.bits = txnId.bits))
 		txn = fetchIdSlot(docHndl->map->db, doc->ver->txnId);
 
 	doc->ver->docId.bits = allocObjId(docHndl->map, listFree(docHndl,0), listTail(docHndl,0), docArena->docIdx);
@@ -604,24 +606,21 @@ DbAddr addr;
 	return DB_OK;
 }
 
-DbStatus deleteDoc(DbHandle hndl[1], uint64_t docBits, uint64_t txnBits) {
+DbStatus deleteDoc(DbHandle hndl[1], ObjId docId, ObjId txnId) {
 /*
 Handle *docHndl;
 Txn *txn = NULL;
 DbAddr *slot;
-ObjId docId;
 Doc *doc;
 
 	if (!(docHndl = bindHandle(hndl)))
 		return DB_ERROR_handleclosed;
 
-	docId.bits = docBits;
-
 	slot = fetchIdSlot(docHndl->map, docId);
 	doc = getObj(docHndl->map, *slot);
 
-	if ((doc->delId.bits = txnBits))
-		txn = fetchIdSlot(docHndl->map->db, doc->delId);
+	if ((doc->delId.bits = txnId.bits))
+		txn = fetchIdSlot(docHndl->map->db, txnId);
 
 	doc->state = DocDeleted;
 	releaseHandle(docHndl);
@@ -629,7 +628,7 @@ Doc *doc;
 	return DB_OK;
 }
 
-DbStatus storeDoc(DbHandle hndl[1], void *obj, uint32_t objSize, ObjId *docId, uint64_t txnBits) {
+DbStatus storeDoc(DbHandle hndl[1], void *obj, uint32_t objSize, ObjId *docId, ObjId txnId) {
 DbStatus stat;
 Doc *doc;
 
@@ -638,8 +637,10 @@ Doc *doc;
 
 	memcpy(doc + 1, obj, objSize);
 
-	if ((stat = assignDoc (hndl, doc, txnBits)))
+	if ((stat = assignDoc (hndl, doc, txnId)))
 		return stat;
+
+	//  return the docId
 
 	if (docId)
 		docId->bits = doc->ver->docId.bits;

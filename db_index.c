@@ -115,6 +115,7 @@ ParamVal *spec;
 int keyLen = 0;
 Handle *index;
 DbStatus stat;
+DbAddr keys;
 
 	hndl->hndlBits = *entry->val;
 
@@ -123,14 +124,17 @@ DbStatus stat;
 
 	arenaDef = index->map->arenaDef;
 
-	if ((spec = getParamIdx(arenaDef->params, IdxKeyPartial)))
-	  if (!evalPartial(ver, spec)) {
+	if (!evalPartial(ver, arenaDef->params)) {
 		releaseHandle(index);
 		return DB_OK;
-	  }
+	}
 
-	spec = getObj(index->map, dbindex(index->map)->idxKeys);
-	keyLen = keyGenerator(key, ver, spec);
+	if ((keys.bits = dbindex(index->map)->idxKeys.bits))
+		spec = getObj(index->map, keys);
+	else
+		spec = NULL;
+
+	keyLen = keyGenerator(key, ver, spec, index->map->arenaDef->params);
 	keyLen = store64(key, keyLen, ver->docId.bits);
 
 	if (arenaDef->params[UseTxn].boolVal)
