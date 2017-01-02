@@ -3,9 +3,10 @@
 #include "db_lock.h"
 
 //  number of elements in an array node
+//	max element idx = ARRAY_size * 256
 
-#define ARRAY_size	512
-#define ARRAY_inuse	((2 * 512 - 1) / 64)
+#define ARRAY_size	256
+#define ARRAY_inuse	((2 * 256 - 1) / 64)
 
 enum ObjType {
 	FrameType,
@@ -77,14 +78,12 @@ bool isCommitted(uint64_t ts);
 
 uint64_t allocateTimestamp(DbMap *map, enum ReaderWriterEnum e);
 
-char *getObjParam(ArenaDef *arena, uint32_t idx);
-
 void *arrayElement(DbMap *map, DbAddr *array, uint16_t idx, size_t size);
 void *arrayEntry(DbMap *map, DbAddr array, uint16_t idx, size_t size);
 
 uint16_t arrayAlloc(DbMap *map, DbAddr *array, size_t size);
-uint64_t *arrayBlk(DbMap *map, DbAddr *array, uint32_t idx);
-uint64_t arrayAddr(DbMap *map, DbAddr *array, uint32_t idx);
+uint64_t *arrayBlk(DbMap *map, DbAddr *array, uint16_t idx);
+uint64_t arrayAddr(DbMap *map, DbAddr *array, uint16_t idx);
 
 SkipEntry *skipSearch(SkipEntry *array, int high, uint64_t key);
 uint64_t skipDel(DbMap *map, DbAddr *skip, uint64_t key);

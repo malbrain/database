@@ -110,12 +110,11 @@ DbStatus installIndexKey(Handle *docHndl, SkipEntry *entry, Ver *ver) {
 ArenaDef *arenaDef;
 char key[MAX_key];
 DbHandle hndl[1];
-uint32_t specLen;
 uint64_t *verPtr;
+ParamVal *spec;
+int keyLen = 0;
 Handle *index;
 DbStatus stat;
-char *spec;
-int keyLen;
 
 	hndl->hndlBits = *entry->val;
 
@@ -124,16 +123,14 @@ int keyLen;
 
 	arenaDef = index->map->arenaDef;
 
-	if ((spec = getObjParam(arenaDef, IdxKeyPartial)))
-	  if (!evalPartial(ver, spec, arenaDef->params[IdxKeyPartialLen].intVal)) {
+	if ((spec = getParamIdx(arenaDef->params, IdxKeyPartial)))
+	  if (!evalPartial(ver, spec)) {
 		releaseHandle(index);
 		return DB_OK;
 	  }
 
-	spec = getObjParam(arenaDef, IdxKeySpec);
-	specLen = arenaDef->params[IdxKeySpecLen].intVal;
-
-	keyLen = keyGenerator(key, ver, spec, specLen);
+	spec = getObj(index->map, dbindex(index->map)->idxKeys);
+	keyLen = keyGenerator(key, ver, spec);
 	keyLen = store64(key, keyLen, ver->docId.bits);
 
 	if (arenaDef->params[UseTxn].boolVal)

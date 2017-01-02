@@ -202,6 +202,5 @@ uint8_t ch;
 
 	}	// end while
 
-	atomicAdd64(artIndexAddr(index->map)->numEntries, -1);
 	return rt == EndSearch ? DB_OK : DB_ERROR_deletekey;
 }

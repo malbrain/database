@@ -85,7 +85,6 @@ typedef struct {
 typedef struct {
 	DbIndex base[1];	// basic db index
 	DbAddr root[1];		// root of the arttree
-	int64_t numEntries[1];
 } ArtIndex;
 
 typedef struct {

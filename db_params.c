@@ -7,43 +7,10 @@ extern DbAddr openMaps[1];
 extern DbMap memMap[1];
 extern DbMap *hndlMap;
 
-uint32_t sizeParam(Params *params) {
-uint32_t size = 0;
-
-	size += params[IdxKeySpecLen].intVal;
-	size += params[IdxKeyPartialLen].intVal;
-	return size;
-}
-
-//	save the param object in the database
-
-void saveParam(DbMap *db, Params *arenaParams, Params *params) {
-char *save = (char *)(arenaParams + 1);
-uint32_t off = sizeof(ArenaDef);
-int idx;
-
-	for (idx = 0; idx < MaxParam; idx++)
-	  switch (idx) {
-		case IdxKeySpec:
-		case IdxKeyPartial:
-		  if (params[idx].obj) {
-			uint32_t size = params[idx+1].intVal;
-			memcpy(save + off, params[idx].obj, size);
-			arenaParams[idx].offset = off;
-			off += size;
-		  }
-
-		  continue;
-
-		default:
-		  arenaParams[idx] = params[idx];
-		  continue;
-	  }
-}
-
-//	if this is a new map file, process param
+//	if this is a new map file, copy param
 //	structure to a new ArenaDef in parent
 //	otherwise, return existing arenaDef
+//	from the parent.
 
 RedBlack *procParam(DbMap *parent, char *name, int nameLen, Params *params) {
 uint64_t *skipPayLoad;
@@ -65,7 +32,7 @@ uint32_t xtra;
 	// otherwise, create new rbEntry in parent
 	// with an arenaDef payload
 
-	xtra = sizeParam(params);
+	xtra = params[Size].intVal;
 
 	if ((rbEntry = rbNew(parent->db, name, nameLen, sizeof(ArenaDef) + xtra)))
 		arenaDef = (ArenaDef *)(rbEntry + 1);
@@ -74,7 +41,7 @@ uint32_t xtra;
 		return NULL;
 	}
 
-	saveParam(parent->db, arenaDef->params, params);
+	memcpy (arenaDef->params, params, xtra);
 
 	catalog = (Catalog *)(hndlMap->arena + 1);
 
@@ -99,11 +66,15 @@ uint32_t xtra;
 	return rbEntry;
 }
 
-char *getObjParam(ArenaDef *arena, uint32_t idx) {
+void *getParamOff(Params *params, uint32_t off) {
+	return (char *)params + off;
+}
+
+void *getParamIdx(Params *params, uint32_t idx) {
 uint32_t off;
 
-	if ((off = arena->params[idx].offset))
-		return (char *)arena + off;
+	if ((off = params[idx].offset))
+		return (char *)params + off;
 
 	return NULL;
 }

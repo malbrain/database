@@ -218,7 +218,7 @@ Handle *index;
 		goto createXit;
 
 	dbIndex = dbindex(map);
-	dbIndex->noDocs = params[NoDocs].boolVal;
+	dbIndex->idxKeys = compileKeys(map, params);
 
 	index = getHandle(hndl);
 
@@ -498,7 +498,7 @@ Handle *arena;
 	return DB_OK;
 }
 
-uint64_t beginTxn(DbHandle hndl[1]) {
+uint64_t beginTxn(DbHandle hndl[1], Params *params) {
 Handle *database;
 ObjId txnId;
 Txn *txn;

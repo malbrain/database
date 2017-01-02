@@ -5,7 +5,7 @@
 
 //	find array block for existing idx
 
-uint64_t *arrayBlk(DbMap *map, DbAddr *array, uint32_t idx) {
+uint64_t *arrayBlk(DbMap *map, DbAddr *array, uint16_t idx) {
 DbAddr *addr;
 
 	if (!array->addr)
@@ -19,7 +19,7 @@ DbAddr *addr;
 
 //	return addr of array segment for array index
 
-uint64_t arrayAddr(DbMap *map, DbAddr *array, uint32_t idx) {
+uint64_t arrayAddr(DbMap *map, DbAddr *array, uint16_t idx) {
 DbAddr *addr;
 
 	if (!array->addr)

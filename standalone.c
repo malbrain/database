@@ -48,14 +48,14 @@ typedef struct {
 	int keyLen;
 } KeySpec;
 
-uint16_t keyGenerator (char *key, Doc *doc, char *spec, uint32_t specLen) {
-KeySpec *keySpec = (KeySpec *)spec;
+uint16_t keyGenerator (char *key, Ver *ver, ParamVal *spec) {
+KeySpec *keySpec = (KeySpec *)spec->val;
 uint16_t keyLen = 0;
 
 	if (!(keyLen = keySpec->keyLen))
 		keyLen = doc->size;
 
-	memcpy(key, doc + 1, keyLen);
+	memcpy(key, ver + 1, keyLen);
 	return keyLen;
 }
 
@@ -432,8 +432,8 @@ typedef struct timeval timer;
 
 int main (int argc, char **argv)
 {
-int idx, cnt, err;
 Params params[MaxParam];
+int idx, cnt, err;
 KeySpec keySpec[1];
 int keyLen = 10;
 int idxType = 0;
@@ -488,7 +488,7 @@ int num = 0;
 	params[Btree1Bits].intVal = 14;
 	params[OnDisk].boolVal = true;
 
-	params[IdxKeySpec].obj = keySpec;
+	params[IdxKeySpec].off = keySpec;
 	params[IdxKeySpecLen].intVal = sizeof(KeySpec);;
 
 	// process configuration arguments

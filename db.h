@@ -81,18 +81,18 @@ typedef struct DbMap_ DbMap;
 //	param slots
 
 typedef enum {
-	OnDisk = 0,		// base set
-	InitSize,		// arena size
-	UseTxn,			// txn used
-	NoDocs,			// no documents
+	Size = 0,		// total Params structure size
+	OnDisk,			// Arena resides on disk
+	InitSize,		// initial arena size
+	UseTxn,			// transactions used
+	NoDocs,			// no documents, just indexes
 	DropDb,			// drop the database
 
-	IdxKeySpec = 10,	// index key spec document
-	IdxKeySpecLen,		// this must immediately follow
+	IdxKeySpec = 10,	// offset of key document
 	IdxKeyUnique,
 	IdxKeySparse,
-	IdxKeyPartial,
-	IdxKeyPartialLen,	// this must immediately follow
+	IdxKeyPartial,		// offset of partial document
+	IdxBinary,			// treat string fields as binary
 	IdxType,			// 0 for artree, 1 & 2 for btree
 
 	Btree1Bits = 20,	// Btree1 set
@@ -108,10 +108,16 @@ typedef enum {
 typedef union {
 	uint64_t intVal;
 	uint32_t offset;
+	double dblVal;
 	bool boolVal;
-	char *str;
-	void *obj;
 } Params;
+
+//	Param key docs and partial docs
+
+typedef struct {
+	uint32_t len;
+	char val[];
+} ParamVal;
 
 typedef enum {
 	DocUnused = 0,
@@ -161,3 +167,5 @@ typedef enum {
 
 uint32_t get64(char *key, uint32_t len, uint64_t *result);
 uint32_t store64(char *key, uint32_t keylen, uint64_t what);
+void *getParamOff(Params *params, uint32_t off);
+void *getParamIdx(Params *params, uint32_t idx);

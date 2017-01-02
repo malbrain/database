@@ -28,7 +28,7 @@ DbStatus docAtCursor(DbHandle cursor[1], Doc **doc);
 DbStatus nextDoc(DbHandle cursor[1], Doc **doc);
 DbStatus prevDoc(DbHandle cursor[1], Doc **doc);
 
-uint64_t beginTxn(DbHandle dbHndl[1]);
+uint64_t beginTxn(DbHandle dbHndl[1], Params *param);
 DbStatus rollbackTxn(DbHandle dbHndl[1], uint64_t txnBits);
 DbStatus commitTxn(DbHandle dbHnd[1], uint64_t txnBits);
 
@@ -41,10 +41,13 @@ DbStatus assignDoc(DbHandle hndl[1], Doc *doc, uint64_t txnBits);
 DbStatus storeDoc(DbHandle hndl[1], void *obj, uint32_t objSize, ObjId *docId, uint64_t txnBits);
 DbStatus deleteDoc(DbHandle hndl[1], uint64_t docBits, uint64_t txnBits);
 
-uint16_t keyGenerator(char *key, Ver *ver, char *spec, uint32_t specLen);
-bool evalPartial(Ver *ver, char *spec, uint32_t specLen);
-
 DbStatus createIterator(DbHandle hndl[1], DbHandle docHndl[1], Params *params);
 Ver *iteratorSeek(DbHandle hndl[1], uint64_t objBits,  uint32_t *offset);
 Ver *iteratorNext(DbHandle hndl[1], uint32_t *offset);
 Ver *iteratorPrev(DbHandle hndl[1], uint32_t *offset);
+
+//	callback functions
+
+uint16_t keyGenerator(char *key, Ver *ver, ParamVal *spec);
+DbAddr compileKeys(DbMap *map, Params *params);
+bool evalPartial(Ver *ver, ParamVal *spec);
