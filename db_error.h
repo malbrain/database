@@ -27,6 +27,7 @@ typedef enum {
 	DB_ERROR_arenadropped,
 	DB_ERROR_deletekey,
 	DB_ERROR_indextype,
+	DB_ERROR_indexnode,
 	DB_CURSOR_eof,
 	DB_CURSOR_notfound,
 	DB_CURSOR_notpositioned,

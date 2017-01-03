@@ -54,6 +54,18 @@ uint16_t keyLen;
 	return keyLen;
 }
 
+void printBinary(char *key, int len, FILE *file) {
+int off = 0;
+
+	while(off < len) {
+		int fldLen = key[off] << 8 | key[off + 1];
+		off += 2;
+		fwrite (key + off, fldLen, 1, file);
+		fputc (':', file);
+		off += fldLen;
+	}
+}
+
 DbAddr compileKeys(DbMap *map, Params *params) {
 DbAddr addr;
 
@@ -101,10 +113,12 @@ DbHandle cursor[1];
 DbHandle index[1];
 DbHandle *parent;
 int ch, len = 0;
+bool binaryFlds; 
 char key[4096];
 char *idxName;
 
 uint32_t foundLen = 0;
+int lastFld = 0;
 void *foundKey;
 ObjId objId;
 ObjId txnId;
@@ -114,7 +128,8 @@ int stat;
 
 	cloneHandle(database, args->database);
 
-	idxName = indexNames[args->params[IdxType].intVal - Hndl_artIndex];
+	idxName = indexNames[args->params[IdxType].intVal];
+	binaryFlds = args->params[IdxBinary].boolVal;
 	docHndl->hndlBits = 0;
 	txnId.bits = 0;
 
@@ -158,15 +173,24 @@ int stat;
 			  continue;
 			}
 
-			else if( len < 4096 )
-				key[len++] = ch;
+			else if( len < 4096 ) {
+			  if (binaryFlds)
+				if (ch == ':') {
+					key[lastFld] = (len - lastFld - 2) >> 8;
+					key[lastFld + 1] = (len - lastFld - 2);
+					lastFld = len;
+					len += 2;
+					continue;
+				}
+			  key[len++] = ch;
+			}
 
 		fprintf(stderr, "finished %s for %d keys: %d reads %d writes %d found\n", args->inFile, line, bt->reads, bt->writes, bt->found);
 		break;
 */
 
 	case 'w':
-		fprintf(stderr, "started indexing for %s\n", args->inFile);
+		fprintf(stderr, "started indexing keys from %s\n", args->inFile);
 
 		if (args->params[NoDocs].boolVal)
 			parent = database;
@@ -185,6 +209,10 @@ int stat;
 		  while( ch = getc(in), ch != EOF )
 			if( ch == '\n' )
 			{
+			  if (binaryFlds) {
+				key[lastFld] = (len - lastFld - 2) >> 8;
+				key[lastFld + 1] = (len - lastFld - 2);
+			  }
 #ifdef DEBUG
 			  if (!(line % 100000))
 				fprintf(stderr, "line %" PRIu64 "\n", line);
@@ -197,10 +225,19 @@ int stat;
 			  } else
 				if ((stat = insertKey(index, key, len)))
 				  fprintf(stderr, "Insert Key Error %d Line: %" PRIu64 "\n", stat, line), exit(0);
+			  lastFld = 0;
 			  len = 0;
 			}
 			else if( len < 4096 ) {
-				key[len++] = ch;
+			  if (binaryFlds)
+				if (ch == ':') {
+					key[lastFld] = (len - lastFld - 2) >> 8;
+					key[lastFld + 1] = (len - lastFld - 2);
+					lastFld = len;
+					len += 2;
+					continue;
+				}
+			  key[len++] = ch;
 			}
 		}
 
@@ -243,16 +280,26 @@ int stat;
 			  if ((stat = keyAtCursor (cursor, &foundKey, &foundLen)))
 				fprintf(stderr, "findKey Error %d Syserr %d Line: %" PRIu64 "\n", stat, errno, line), exit(0);
 
-			  if (foundLen != len)
+			  if (!binaryFlds) {
+			   if (foundLen != len)
 				fprintf(stderr, "findKey Error len mismatch: Line: %" PRIu64 " keyLen: %d, foundLen: %d\n", line, len, foundLen), exit(0);
 
-			  if (memcmp(foundKey, key, foundLen))
+			   if (memcmp(foundKey, key, foundLen))
 				fprintf(stderr, "findKey not Found: line: %" PRIu64 " expected: %.*s \n", line, len, key), exit(0);
+			  }
 
 			  cnt++;
 			  len = 0;
 			} else if( len < 4096 ) {
-				key[len++] = ch;
+			  if (binaryFlds)
+				if (ch == ':') {
+					key[lastFld] = (len - lastFld - 2) >> 8;
+					key[lastFld + 1] = (len - lastFld - 2);
+					lastFld = len;
+					len += 2;
+					continue;
+				}
+			  key[len++] = ch;
 			}
 		}
 
@@ -266,7 +313,7 @@ int stat;
 			fprintf(stderr, " min key: %s", args->minKey);
 
 		if (args->maxKey)
-			fprintf(stderr, " min key: %s", args->minKey);
+			fprintf(stderr, " max key: %s", args->maxKey);
 
 		fprintf(stderr, "\n");
 
@@ -300,7 +347,12 @@ int stat;
 		  while (!(stat = moveCursor(cursor, OpNext))) {
 			if ((stat = keyAtCursor (cursor, &foundKey, &foundLen)))
 			  fprintf(stderr, "keyAtCursor Error %d\n", stat), exit(0);
-			fwrite (foundKey, foundLen, 1, stdout);
+
+			if (binaryFlds)
+			  printBinary(foundKey, foundLen, stdout);
+			else
+			  fwrite (foundKey, foundLen, 1, stdout);
+
 			fputc ('\n', stdout);
 			cnt++;
 		  }
@@ -324,7 +376,7 @@ int stat;
 			fprintf(stderr, " min key: %s", args->minKey);
 
 		if (args->maxKey)
-			fprintf(stderr, " min key: %s", args->minKey);
+			fprintf(stderr, " max key: %s", args->maxKey);
 
 		fprintf(stderr, "\n");
 
@@ -382,7 +434,7 @@ int stat;
 			fprintf(stderr, " min key: %s", args->minKey);
 
 		if (args->maxKey)
-			fprintf(stderr, " min key: %s", args->minKey);
+			fprintf(stderr, " max key: %s", args->maxKey);
 
 		fprintf(stderr, "\n");
 
@@ -434,10 +486,10 @@ int main (int argc, char **argv)
 Params params[MaxParam];
 int idx, cnt, err;
 int idxType = 0;
-char *minKey;
-char *maxKey;
-char *dbName;
-char *cmds;
+char *minKey = NULL;
+char *maxKey = NULL;
+char *dbName = NULL;
+char *cmds = NULL;
 
 #ifndef _WIN32
 pthread_t *threads;
@@ -457,7 +509,7 @@ int num = 0;
 	fprintf(stderr, "PageSize: %d, # Processors: %d, Allocation Granularity: %d\n\n", (int)info->dwPageSize, (int)info->dwNumberOfProcessors, (int)info->dwAllocationGranularity);
 #endif
 	if( argc < 3 ) {
-		fprintf (stderr, "Usage: %s db_name -cmds=[crwsdf]... -idxType=[012] -bits=# -xtra=# -inMem -txns -noDocs -keyLen=# -minKey=abcd -maxKey=abce -drop src_file1 src_file2 ... ]\n", argv[0]);
+		fprintf (stderr, "Usage: %s db_name -cmds=[crwsdf]... -idxType=[012] -bits=# -xtra=# -inMem -txns -noDocs -keyLen=# -minKey=abcd -maxKey=abce -drop -idxBinary src_file1 src_file2 ... ]\n", argv[0]);
 		fprintf (stderr, "  where db_name is the prefix name of the database file\n");
 		fprintf (stderr, "  cmds is a string of (c)ount/(r)ev scan/(w)rite/(s)can/(d)elete/(f)ind, with a one character command for each input src_file, or a no-input command.\n");
 		fprintf (stderr, "  idxType is the type of index: 0 = ART, 1 = btree1, 2 = btree2\n");
@@ -470,6 +522,7 @@ int num = 0;
 		fprintf (stderr, "  minKey specifies beginning cursor key\n");
 		fprintf (stderr, "  maxKey specifies ending cursor key\n");
 		fprintf (stderr, "  drop will initially drop database\n");
+		fprintf (stderr, "  idxBinary utilize length counted fields\n");
 		fprintf (stderr, "  src_file1 thru src_filen are files of keys/documents separated by newline\n");
 		exit(0);
 	}
@@ -498,11 +551,13 @@ int num = 0;
 	  else if (!memcmp(argv[0], "-cmds=", 6))
 			cmds = argv[0] + 6;
 	  else if (!memcmp(argv[0], "-idxType=", 9))
-			params[IdxType].intVal = atoi(argv[0] + 9) + Hndl_artIndex;
+			params[IdxType].intVal = atoi(argv[0] + 9);
 	  else if (!memcmp(argv[0], "-inMem", 6))
 			params[OnDisk].boolVal = false;
 	  else if (!memcmp(argv[0], "-drop", 5))
 			params[DropDb].boolVal = true;
+	  else if (!memcmp(argv[0], "-idxBinary", 10))
+			params[IdxBinary].boolVal = true;
 	  else if (!memcmp(argv[0], "-txns", 5))
 			params[UseTxn].boolVal = true;
 	  else if (!memcmp(argv[0], "-noDocs", 7))

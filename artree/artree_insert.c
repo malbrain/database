@@ -16,10 +16,12 @@ typedef struct {
 	char *key;
 	Handle *index;
 
-	uint32_t keylen;	// length of the key
+	uint32_t keyLen;	// length of the key
 	uint32_t depth;		// current tree depth
 	uint32_t off;	 	// progress down the key bytes
+	uint16_t fldLen;	// remaining field length
 	uint8_t ch;			// current key character
+	uint8_t binaryFlds;	// string fields are binary
 } ParamStruct;
 
 typedef enum {
@@ -35,7 +37,6 @@ ReturnState insertKeyNode4(volatile ARTNode4*, ParamStruct *);
 ReturnState insertKeyNode14(volatile ARTNode14*, ParamStruct *);
 ReturnState insertKeyNode64(volatile ARTNode64*, ParamStruct *);
 ReturnState insertKeyNode256(volatile ARTNode256*, ParamStruct *);
-ReturnState prevEndKeySlot(ParamStruct *p);
 
 uint64_t artAllocateNode(Handle *index, int type, uint32_t size) {
 DbAddr *free = listFree(index,type);
@@ -66,211 +67,247 @@ DbAddr fill[1], *next = fill;
 ARTSpan *spanNode;
 uint32_t len;
 
-	fill->bits = 0;
+  fill->bits = 0;
 
-	while ( (len = (p->keylen - p->off)) ) {
-		if (len > 256)
-			len = 256;
+  while ( (len = (p->keyLen - p->off)) ) {
+	if (p->binaryFlds && !p->fldLen) {
+	  if (p->keyLen) {
+		if ((next->bits = artAllocateNode(p->index, FldEnd, sizeof(ARTFldEnd)))) {
+		  ARTFldEnd *fldEndNode = getObj(p->index->map, *next);
+		  next = fldEndNode->nextFld;
+		}
+	  }
 
-		if ((next->bits = allocSpanNode(p, len)))
-			spanNode = getObj(p->index->map, *next);
-		else
-			return false;
-
-		next->nbyte = len - 1;
-		spanNode->timestamp = allocateTimestamp(p->index->map->db, en_writer);
-		memcpy(spanNode->bytes, p->key + p->off, len);
-
-		next = spanNode->next;
-		p->off += len;
+	  p->fldLen = p->key[p->off++] << 8 | p->key[p->off++];
+	  continue;
 	}
 
-	// mark the end of the key
+	if (p->binaryFlds)
+	  if (len > p->fldLen)
+		len = p->fldLen;
 
-	*next->latch = KeyEnd;
-	slot->bits = fill->bits;
-	return true;
+	if (len > 256)
+	  len = 256;
+
+	if ((next->bits = allocSpanNode(p, len)))
+	  spanNode = getObj(p->index->map, *next);
+	else
+	  return false;
+
+	next->nbyte = len - 1;
+	spanNode->timestamp = allocateTimestamp(p->index->map->db, en_writer);
+	memcpy(spanNode->bytes, p->key + p->off, len);
+
+	next = spanNode->next;
+	p->off += len;
+
+	if (p->binaryFlds)
+	  p->fldLen -= len;
+  }
+
+  //	finish the key with a KeyEnd node
+
+  if (!(next->bits = artAllocateNode(p->index, KeyEnd, sizeof(ARTKeyEnd))))
+	return false;
+
+  //  splice into caller's tree
+
+  slot->bits = fill->bits;
+  return true;
 }
 
-DbStatus artInsertKey( Handle *index, void *key, uint32_t keylen) {
+DbStatus artInsertKey( Handle *index, void *key, uint32_t keyLen) {
 bool restart, pass = false;
 ParamStruct p[1];
 DbAddr slot;
 
-	memset(p, 0, sizeof(p));
+  memset(p, 0, sizeof(p));
+  p->binaryFlds = index->map->arenaDef->params[IdxBinary].boolVal;
 
-	do {
-		restart = false;
+  do {
+	restart = false;
 
-		p->off = 0;
-		p->depth = 0;
-		p->key = key;
-		p->index = index;
-		p->keylen = keylen;
-		p->slot = artIndexAddr(index->map)->root;
+	p->off = 0;
+	p->depth = 0;
+	p->key = key;
+	p->index = index;
+	p->keyLen = keyLen;
+	p->fldLen = -1;
+	p->slot = artIndexAddr(index->map)->root;
 
-		//  we encountered a dead node
+	//  we encountered a dead node
 
-		if (pass) {
-			pass = false;
-			yield();
+	if (pass) {
+	  pass = false;
+	  yield();
+	}
+
+	while (p->off < p->keyLen) {
+	  ReturnState rt;
+
+	  p->oldSlot->bits = p->slot->bits | ADDR_MUTEX_SET;
+	  p->ch = p->key[p->off];
+	  p->newSlot->bits = 0;
+	  p->prev = p->slot;
+
+	  //  begin a new field?
+
+	  if (p->binaryFlds)
+		if (!p->fldLen) {
+
+		  // splice-in a FldEnd?
+
+		  if (p->keyLen && p->slot->type != FldEnd) {
+			lockLatch(p->slot->latch);
+
+			// retry if node has changed.
+
+			if (p->slot->bits != p->oldSlot->bits) {
+			  unlockLatch(p->slot->latch);
+			  continue;
+			}
+
+			if ((slot.bits = artAllocateNode(p->index, FldEnd, sizeof(ARTFldEnd)))) {
+			  ARTFldEnd *fldEndNode = getObj(index->map, *p->newSlot);
+			  fldEndNode->nextFld->bits = p->slot->bits & ~ADDR_MUTEX_SET;
+	  		  p->slot->bits = slot.bits;
+			  p->slot = fldEndNode->sameFld;
+			}
+		  }
+
+		  p->fldLen = p->key[p->off++] << 8 | p->key[p->off++];
+		  continue;
 		}
 
-		while (p->off < p->keylen) {
-			ReturnState rt = ContinueSearch;
-
-			p->oldSlot->bits = p->slot->bits | ADDR_MUTEX_SET;
-			p->ch = p->key[p->off];
-			p->newSlot->bits = 0;
-			p->prev = p->slot;
-
-			switch (p->oldSlot->type < SpanNode ? p->oldSlot->type : SpanNode) {
-				case KeyPass: {
-					ARTSplice *splice = getObj(index->map, *p->oldSlot);
-					p->slot = splice->next;
-					rt = ContinueSearch;
-					break;
-				}
-				case KeyEnd: {
-					rt = prevEndKeySlot(p);
-					break;
-				}
-				case SpanNode: {
-					ARTSpan *spanNode = getObj(index->map, *p->oldSlot);
-					rt = insertKeySpan(spanNode, p);
-					break;
-				}
-				case Array4: {
-					ARTNode4 *radix4Node = getObj(index->map, *p->oldSlot);
-					rt = insertKeyNode4(radix4Node, p);
-					break;
-				}
-				case Array14: {
-					ARTNode14 *radix14Node = getObj(index->map, *p->oldSlot);
-					rt = insertKeyNode14(radix14Node, p);
-					break;
-				}
-				case Array64: {
-					ARTNode64 *radix64Node = getObj(index->map, *p->oldSlot);
-					rt = insertKeyNode64(radix64Node, p);
-					break;
-				}
-				case Array256: {
-					ARTNode256 *radix256Node = getObj(index->map, *p->oldSlot);
-					rt = insertKeyNode256(radix256Node, p);
-					break;
-				}
-				case UnusedSlot: {
-					// note this only occurs on the initial insert
-					// into an empty tree
-
-					lockLatch(p->slot->latch);
-
-					// retry if node has changed.
-
-					if (p->slot->bits != p->oldSlot->bits) {
-						unlockLatch(p->slot->latch);
-						continue;
-					}
-
-					rt = fillKey(p, p->newSlot) ? EndSearch : ErrorSearch;
-					break;
-				}
-
-			}  // end switch
-
-			switch (rt) {
-			case ErrorSearch:		//	out of memory error
-				return DB_ERROR_outofmemory;
-
-			case RetrySearch:
-				continue;
-
-			case RestartSearch:
-				restart = true;
-				break;
-
-			case ContinueSearch:
-				p->depth++;
-				continue;
-
-			case EndSearch:
-				// is there a new node, or a change?
-
-				if (!p->newSlot->bits) {
-					unlockLatch(p->prev->latch);
-					return DB_OK;
-				}
-
-				// install new node value
-
-				slot.bits = p->prev->bits;
-				p->prev->bits = p->newSlot->bits;
-
-				// add old slot to free/wait list
-
-				if (slot.type && slot.type != KeyEnd)
-				  if((!addSlotToFrame(index->map, listHead(index,slot.type), listTail(index,slot.type), slot.bits)))
-					return DB_ERROR_outofmemory;
-
-				return DB_OK;
-
-			}  // end switch
-
-			break;	// only restart comes here
-
-		}	// end while (p->off < p->keylen)
-
-		if (restart) {
-			pass = true;
+	  switch (p->oldSlot->type < SpanNode ? p->oldSlot->type : SpanNode) {
+		case KeyEnd: {
+			ARTKeyEnd *keyEndNode = getObj(index->map, *p->oldSlot);
+			p->slot = keyEndNode->next;
+			p->depth++;
 			continue;
 		}
-
-		// does p->slot continue with another key?
-		//	return if not
-
-		if (p->slot->type == KeyEnd || p->slot->type == KeyPass)
-			return DB_OK;
-
-		// if so, splice in a KeyPass node to end our key
-		//	and continue with another existing key
-
-    	lockLatch(p->slot->latch);
-
-		if (p->slot->type == KeyEnd || p->slot->type == KeyPass) {
-    		unlockLatch(p->slot->latch);
-			return DB_OK;
+		case SpanNode: {
+			ARTSpan *spanNode = getObj(index->map, *p->oldSlot);
+			rt = insertKeySpan(spanNode, p);
+			break;
 		}
+		case Array4: {
+			ARTNode4 *radix4Node = getObj(index->map, *p->oldSlot);
+			rt = insertKeyNode4(radix4Node, p);
+			break;
+		}
+		case Array14: {
+			ARTNode14 *radix14Node = getObj(index->map, *p->oldSlot);
+			rt = insertKeyNode14(radix14Node, p);
+			break;
+		}
+		case Array64: {
+			ARTNode64 *radix64Node = getObj(index->map, *p->oldSlot);
+			rt = insertKeyNode64(radix64Node, p);
+			break;
+		}
+		case Array256: {
+			ARTNode256 *radix256Node = getObj(index->map, *p->oldSlot);
+			rt = insertKeyNode256(radix256Node, p);
+			break;
+		}
+		case UnusedSlot: {
+			// note this only occurs on the initial insert
+			// into an empty tree
 
-		if ((slot.bits = artAllocateNode(p->index, KeyPass, sizeof(ARTSplice)))) {
-			ARTSplice *splice = getObj(p->index->map, slot);
-			splice->next->bits = p->slot->bits & ~ADDR_MUTEX_SET;
-			p->slot->bits = slot.bits;
-	  	} else
-			return DB_ERROR_outofmemory;
+			lockLatch(p->slot->latch);
 
-		return DB_OK;
-	} while (restart);
+			// retry if node has changed.
 
-	return DB_OK;
-}
+			if (p->slot->bits != p->oldSlot->bits) {
+			  unlockLatch(p->slot->latch);
+			  continue;
+			}
 
-//  splice in a KeyPass node to continue the key past a KeyEnd
+			rt = fillKey(p, p->newSlot) ? EndSearch : ErrorSearch;
+			break;
+		}
+		default:
+			return DB_ERROR_indexnode;
 
-ReturnState prevEndKeySlot(ParamStruct *p) {
-ARTSplice *splice;
+	  }  // end switch
 
-	// obtain write lock on the node
+	  switch (rt) {
+		case ErrorSearch:		//	out of memory error
+		  return DB_ERROR_outofmemory;
 
-    lockLatch(p->slot->latch);
+		case RetrySearch:
+		  continue;
 
-    if ((p->newSlot->bits = artAllocateNode(p->index, KeyPass, sizeof(ARTSplice)
-)))
-        splice = getObj(p->index->map, *p->newSlot);
-    else
-        return ErrorSearch;
+		case RestartSearch:
+		  restart = true;
+		  break;
 
-    return fillKey(p, splice->next) ? EndSearch : ErrorSearch;
+		case ContinueSearch:
+		  if (p->binaryFlds)
+			p->fldLen--;
+
+		  p->off++;
+		  p->depth++;
+		  continue;
+
+		case EndSearch:
+		  // is there a new node, or a change?
+
+		  if (!p->newSlot->bits) {
+			unlockLatch(p->prev->latch);
+			return DB_OK;
+		  }
+
+		  // install new node value
+
+		  slot.bits = p->prev->bits;
+		  p->prev->bits = p->newSlot->bits;
+
+		  // add old slot to free/wait list
+
+		  if (slot.type)
+			if((!addSlotToFrame(index->map, listHead(index,slot.type), listTail(index,slot.type), slot.bits)))
+			  return DB_ERROR_outofmemory;
+
+		  return DB_OK;
+	  }  // end switch
+
+	  break;	// only restart comes here
+
+	}	// end while (p->off < p->keyLen)
+
+	if (restart) {
+	  pass = true;
+	  continue;
+	}
+
+	// does p->slot continue with another key?
+	//	return if not
+
+	if (p->slot->type == KeyEnd)
+	  return DB_OK;
+
+	// if so, splice in a KeyEnd node to end our key
+	//	and continue with another existing key
+
+	lockLatch(p->slot->latch);
+
+	if (p->slot->type == KeyEnd) {
+	  unlockLatch(p->slot->latch);
+	  return DB_OK;
+	}
+
+	if ((slot.bits = artAllocateNode(p->index, KeyEnd, sizeof(ARTKeyEnd)))) {
+	  ARTKeyEnd *keyEndNode = getObj(p->index->map, slot);
+	  keyEndNode->next->bits = p->slot->bits & ~ADDR_MUTEX_SET;
+	  p->slot->bits = slot.bits;
+	  return DB_OK;
+	} else
+	  return DB_ERROR_outofmemory;
+  } while (restart);
+
+  return DB_OK;
 }
 
 ReturnState insertKeyNode4(volatile ARTNode4 *node, ParamStruct *p) {
@@ -282,7 +319,6 @@ uint8_t bits;
 	  if (bits & 1)
 		if (p->ch == node->keys[idx]) {
 			p->slot = node->radix + idx;
-			p->off++;
 			return ContinueSearch;
 		}
 
@@ -310,7 +346,6 @@ uint8_t bits;
 		if (p->ch == node->keys[idx]) {
 			unlockLatch(p->slot->latch);
 			p->slot = node->radix + idx;
-			p->off++;
 			return ContinueSearch;
 		}
 
@@ -322,6 +357,9 @@ uint8_t bits;
 #else
 		idx = __builtin_ctz(~node->alloc);
 #endif
+
+		if (p->binaryFlds)
+		  p->fldLen--;
 
 		node->keys[idx] = p->ch;
 		p->off++;
@@ -370,6 +408,9 @@ uint8_t bits;
 	out = __builtin_ctz(~radix14Node->alloc);
 #endif
 
+	if (p->binaryFlds)
+	  p->fldLen--;
+
 	radix14Node->keys[out] = p->ch;
 	p->off++;
 
@@ -391,7 +432,6 @@ uint16_t bits;
 	  if (bits & 1)
 		if (p->ch == node->keys[idx]) {
 			p->slot = node->radix + idx;
-			p->off++;
 			return ContinueSearch;
 		}
 
@@ -419,7 +459,6 @@ uint16_t bits;
 		if (p->ch == node->keys[idx]) {
 			unlockLatch(p->slot->latch);
 			p->slot = node->radix + idx;
-			p->off++;
 			return ContinueSearch;
 		}
 
@@ -431,6 +470,9 @@ uint16_t bits;
 #else
 		idx = __builtin_ctz(~node->alloc);
 #endif
+
+		if (p->binaryFlds)
+		  p->fldLen--;
 
 		node->keys[idx] = p->ch;
 		p->off++;
@@ -479,6 +521,9 @@ uint16_t bits;
 	out = __builtin_ctzl(~radix64Node->alloc);
 #endif
 
+	if (p->binaryFlds)
+	  p->fldLen--;
+
 	radix64Node->keys[p->ch] = out;
 	p->off++;
 
@@ -499,7 +544,6 @@ uint32_t idx, out;
 
 	if (idx < 0xff ) {
 		p->slot = node->radix + idx;
-		p->off++;
 		return ContinueSearch;
 	}
 
@@ -527,7 +571,6 @@ uint32_t idx, out;
 	if (idx < 0xff ) {
 		unlockLatch(p->slot->latch);
 		p->slot = node->radix + idx;
-		p->off++;
 		return ContinueSearch;
 	}
 
@@ -539,6 +582,9 @@ uint32_t idx, out;
 #else
 		out = __builtin_ctzl(~node->alloc);
 #endif
+		if (p->binaryFlds)
+		  p->fldLen--;
+
 		p->off++;
 
 		if (!fillKey(p, node->radix + out))
@@ -574,10 +620,13 @@ uint32_t idx, out;
 
 	// fill in the rest of the key bytes into Span nodes
 
+	if (p->binaryFlds)
+	  p->fldLen--;
+
 	p->newSlot->nslot++;
 	p->off++;
 
-    return fillKey(p, radix256Node->radix + p->ch) ? EndSearch : ErrorSearch;
+	return fillKey(p, radix256Node->radix + p->ch) ? EndSearch : ErrorSearch;
 }
 
 ReturnState insertKeyNode256(volatile ARTNode256 *node, ParamStruct *p) {
@@ -586,10 +635,8 @@ ReturnState insertKeyNode256(volatile ARTNode256 *node, ParamStruct *p) {
 
 	p->slot = node->radix + p->ch;
 
-	if (node->radix[p->ch].type) {
-		p->off++;
-    	return ContinueSearch;
-	}
+	if (node->radix[p->ch].type)
+	  return ContinueSearch;
 
 	// lock and retry
 
@@ -597,11 +644,13 @@ ReturnState insertKeyNode256(volatile ARTNode256 *node, ParamStruct *p) {
 
 	if (node->radix[p->ch].type) {
 		unlockLatch(p->prev->latch);
-		p->off++;
-    	return ContinueSearch;
+		return ContinueSearch;
 	}
 
 	// fill-in empty radix slot
+
+	if (p->binaryFlds)
+	  p->fldLen--;
 
 	p->off++;
 
@@ -611,7 +660,7 @@ ReturnState insertKeyNode256(volatile ARTNode256 *node, ParamStruct *p) {
 	//	increment count of used radix slots
 
 	p->prev->nslot++;
-    return EndSearch;
+	return EndSearch;
 }
 
 ReturnState insertKeySpan(volatile ARTSpan *node, ParamStruct *p) {
@@ -622,17 +671,24 @@ DbAddr *contSlot = NULL;
 DbAddr *nxtSlot = NULL;
 ARTNode4 *radix4Node;
 
-	if (len > p->keylen - p->off)
-		len = p->keylen - p->off;
+	if (len > p->keyLen - p->off)
+		len = p->keyLen - p->off;
+
+	if (p->binaryFlds)
+	  if (len > p->fldLen)
+		len = p->fldLen;
 
 	for (idx = 0; idx < len; idx++)
 		if (p->key[p->off + idx] != node->bytes[idx])
 			break;
 
+	if (p->binaryFlds)
+		p->fldLen -= len;
+
 	// did we use the entire span node exactly?
 
 	if (idx == max) {
-		p->off += idx;
+		p->off += idx - 1;
 		p->slot = node->next;
 		return ContinueSearch;
 	}
@@ -681,7 +737,7 @@ ARTNode4 *radix4Node;
 		contSlot = nxtSlot;
 	} else {
 		// else replace the original span node with a radix4 node.
-		// note that p->off < p->keylen, which will set contSlot
+		// note that p->off < p->keyLen, which will set contSlot
 		nxtSlot = p->newSlot;
 	}
 
@@ -689,7 +745,7 @@ ARTNode4 *radix4Node;
 	// possible span2 for the next key byte and the next remaining original
 	// span byte (if any).  note:  max > idx
 
-	if (p->off < p->keylen) {
+	if (p->off < p->keyLen) {
 		if ( (nxtSlot->bits = artAllocateNode(p->index, Array4, sizeof(ARTNode4))) )
 			radix4Node = getObj(p->index->map,*nxtSlot);
 		else
@@ -738,6 +794,6 @@ ARTNode4 *radix4Node;
 
 	// fill in the rest of the key into the radix or overflow span node
 
-    return fillKey(p, contSlot) ? EndSearch : ErrorSearch;
+	return fillKey(p, contSlot) ? EndSearch : ErrorSearch;
 }
 

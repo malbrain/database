@@ -122,6 +122,7 @@ int slot64(int ch, uint64_t alloc, volatile uint8_t* keys) {
  */
 
 DbStatus artNextKey(DbCursor *dbCursor, DbMap *map) {
+bool binaryFlds = map->arenaDef->params[IdxBinary].boolVal;
 ArtCursor *cursor = (ArtCursor *)dbCursor;
 int slot, len;
 
@@ -142,28 +143,55 @@ int slot, len;
 	cursor->base->keyLen = stack->off;
 
 	switch (stack->slot->type < SpanNode ? stack->slot->type : SpanNode) {
-	  case KeyPass: {
-		ARTSplice* splice = getObj(map, *stack->slot);
+	  case FldEnd: {
+		//  this case only occurs with binaryFlds is true
+		ARTFldEnd* fldEndNode = getObj(map, *stack->slot);
+
+		// end this field and begin next one
 
 		if (stack->ch < 0) {
-			cursor->stack[cursor->depth].slot->bits = splice->next->bits;
-			cursor->stack[cursor->depth].addr = splice->next;
-			cursor->stack[cursor->depth].ch = -1;
-			cursor->stack[cursor->depth++].off = cursor->base->keyLen;
+		  int fldLen = cursor->base->keyLen - cursor->lastFld - 2;
+		  cursor->key[cursor->lastFld] = fldLen >> 8;
+		  cursor->key[cursor->lastFld + 1] = fldLen;
+		  cursor->lastFld = cursor->base->keyLen;
+		  cursor->base->keyLen += 2;
 
-  			cursor->base->state = CursorPosAt;
-			stack->ch = 0;
-			return DB_OK;
+		  cursor->stack[cursor->depth].slot->bits = fldEndNode->nextFld->bits;
+		  cursor->stack[cursor->depth].addr = fldEndNode->nextFld;
+		  cursor->stack[cursor->depth].ch = -1;
+		  cursor->stack[cursor->depth++].off = cursor->base->keyLen;
+		  stack->ch = 0;
+		  continue;
 		}
 
-		break;
+		// continue processing the current field bytes
+
+		cursor->stack[cursor->depth].slot->bits = fldEndNode->sameFld->bits;
+		cursor->stack[cursor->depth].addr = fldEndNode->sameFld;
+		cursor->stack[cursor->depth].off = cursor->base->keyLen;
+		cursor->stack[cursor->depth++].ch = -1;
+		continue;
 	  }
 
 	  case KeyEnd: {
+		ARTKeyEnd* keyEndNode = getObj(map, *stack->slot);
+
 		if (stack->ch < 0) {
-  			cursor->base->state = CursorPosAt;
-			stack->ch = 0;
-			return DB_OK;
+		  if (binaryFlds) {
+			int fldLen = cursor->base->keyLen - cursor->lastFld - 2;
+			cursor->key[cursor->lastFld] = fldLen >> 8;
+			cursor->key[cursor->lastFld + 1] = fldLen;
+		    cursor->lastFld = cursor->base->keyLen;
+		  }
+
+		  cursor->stack[cursor->depth].slot->bits = keyEndNode->next->bits;
+		  cursor->stack[cursor->depth].addr = keyEndNode->next;
+		  cursor->stack[cursor->depth].ch = -1;
+		  cursor->stack[cursor->depth++].off = cursor->base->keyLen;
+
+		  cursor->base->state = CursorPosAt;
+		  stack->ch = 0;
+		  return DB_OK;
 		}
 
 		break;
@@ -174,19 +202,19 @@ int slot, len;
 		len = stack->slot->nbyte + 1;
 
 		if (spanNode->timestamp > cursor->base->ts)
-			break;
+		  break;
 
 		//  continue into our next slot
 
 		if (stack->ch < 0) {
-			memcpy(cursor->key + cursor->base->keyLen, spanNode->bytes, len);
-			cursor->base->keyLen += len;
-			cursor->stack[cursor->depth].slot->bits = spanNode->next->bits;
-			cursor->stack[cursor->depth].addr = spanNode->next;
-			cursor->stack[cursor->depth].ch = -1;
-			cursor->stack[cursor->depth++].off = cursor->base->keyLen;
-			stack->ch = 0;
-			continue;
+		  memcpy(cursor->key + cursor->base->keyLen, spanNode->bytes, len);
+		  cursor->base->keyLen += len;
+		  cursor->stack[cursor->depth].slot->bits = spanNode->next->bits;
+		  cursor->stack[cursor->depth].addr = spanNode->next;
+		  cursor->stack[cursor->depth].ch = -1;
+		  cursor->stack[cursor->depth++].off = cursor->base->keyLen;
+		  stack->ch = 0;
+		  continue;
 		}
 
 		break;
@@ -196,11 +224,12 @@ int slot, len;
 		ARTNode4* radix4Node = getObj(map, *stack->slot);
 
 		if (radix4Node->timestamp > cursor->base->ts)
-			break;
+		  break;
 
 		slot = slot4x14(stack->ch, 4, radix4Node->alloc, radix4Node->keys);
+
 		if (slot >= 4)
-			break;
+		  break;
 
 		stack->ch = radix4Node->keys[slot];
 		cursor->key[cursor->base->keyLen++] = radix4Node->keys[slot];
@@ -216,11 +245,12 @@ int slot, len;
 		ARTNode14* radix14Node = getObj(map, *stack->slot);
 
 		if (radix14Node->timestamp > cursor->base->ts)
-			break;
+		  break;
 
 		slot = slot4x14(stack->ch, 14, radix14Node->alloc, radix14Node->keys);
+
 		if (slot >= 14)
-			break;
+		  break;
 
 		stack->ch = radix14Node->keys[slot];
 		cursor->key[cursor->base->keyLen++] = radix14Node->keys[slot];
@@ -235,11 +265,12 @@ int slot, len;
 		ARTNode64* radix64Node = getObj(map, *stack->slot);
 
 		if (radix64Node->timestamp > cursor->base->ts)
-			break;
+		  break;
 
 		stack->ch = slot64(stack->ch, radix64Node->alloc, radix64Node->keys);
+
 		if (stack->ch == 256)
-			break;
+		  break;
 
 		cursor->key[cursor->base->keyLen++] = stack->ch;
 		cursor->stack[cursor->depth].slot->bits = radix64Node->radix[radix64Node->keys[stack->ch]].bits;
@@ -253,16 +284,17 @@ int slot, len;
 		ARTNode256* radix256Node = getObj(map, *stack->slot);
 
 		if (radix256Node->timestamp > cursor->base->ts)
-			break;
+		  break;
 
 		while (stack->ch < 256) {
-			uint32_t idx = ++stack->ch;
-			if (idx < 256 && radix256Node->radix[idx].type)
-				break;
+		  uint32_t idx = ++stack->ch;
+
+		  if (idx < 256 && radix256Node->radix[idx].type)
+			break;
 		}
 
 		if (stack->ch == 256)
-			break;
+		  break;
 
 		cursor->key[cursor->base->keyLen++] = stack->ch;
 		cursor->stack[cursor->depth].slot->bits = radix256Node->radix[stack->ch].bits;
@@ -274,9 +306,9 @@ int slot, len;
 	}  // end switch
 
 	if (--cursor->depth) {
-		stack = &cursor->stack[cursor->depth];
-		cursor->base->keyLen = stack->off;
-		continue;
+	  stack = &cursor->stack[cursor->depth];
+	  cursor->base->keyLen = stack->off;
+	  continue;
 	}
 
 	break;
@@ -291,6 +323,7 @@ int slot, len;
  */
 
 DbStatus artPrevKey(DbCursor *dbCursor, DbMap *map) {
+bool binaryFlds = map->arenaDef->params[IdxBinary].boolVal;
 ArtCursor *cursor = (ArtCursor *)dbCursor;
 CursorStack *stack;
 int slot, len;
@@ -316,31 +349,59 @@ int slot, len;
 			break;
 	  }
 
-	  case KeyPass: {
-		ARTSplice* splice = getObj(map, *stack->slot);
+	  case FldEnd: {
+		// this node only occurs when binaryFlds is true
+		ARTFldEnd* fldEndNode = getObj(map, *stack->slot);
+		int fldLen;
+
+		// continue with sameFld before ending the current field
 
 		if (stack->ch > 255) {
-			cursor->stack[cursor->depth].slot->bits = splice->next->bits;
-			cursor->stack[cursor->depth].addr = splice->next;
-			cursor->stack[cursor->depth].ch = 256;
-			cursor->stack[cursor->depth++].off = cursor->base->keyLen;
-			stack->ch = 0;
-			continue;
+		  cursor->stack[cursor->depth].slot->bits = fldEndNode->sameFld->bits;
+		  cursor->stack[cursor->depth].addr = fldEndNode->sameFld;
+		  cursor->stack[cursor->depth].ch = 256;
+		  cursor->stack[cursor->depth++].off = cursor->base->keyLen;
+		  stack->ch = 0;
+		  continue;
 		}
 
-  		cursor->base->state = CursorPosAt;
-		stack->ch = -1;
-		return DB_OK;
+		// after finishing same field, end this field and start next
+
+		fldLen = cursor->base->keyLen - cursor->lastFld - 2;
+		cursor->key[cursor->lastFld] = fldLen >> 8;
+		cursor->key[cursor->lastFld + 1] = fldLen;
+		cursor->lastFld = cursor->base->keyLen;
+		cursor->base->keyLen += 2;
+
+		cursor->stack[cursor->depth].slot->bits = fldEndNode->nextFld->bits;
+		cursor->stack[cursor->depth].addr = fldEndNode->nextFld;
+		cursor->stack[cursor->depth].off = cursor->base->keyLen;
+		cursor->stack[cursor->depth++].ch = -1;
+		continue;
 	  }
 
 	  case KeyEnd: {
-		if (stack->ch == 256) {
-  			cursor->base->state = CursorPosAt;
-			stack->ch = -1;
-			return DB_OK;
+		ARTKeyEnd* keyEndNode = getObj(map, *stack->slot);
+
+		if (stack->ch > 255) {
+		  if (binaryFlds) {
+			int fldLen = cursor->base->keyLen - cursor->lastFld - 2;
+			cursor->key[cursor->lastFld] = fldLen >> 8;
+			cursor->key[cursor->lastFld + 1] = fldLen;
+		    cursor->lastFld = cursor->base->keyLen;
+		  }
+
+		  cursor->stack[cursor->depth].slot->bits = keyEndNode->next->bits;
+		  cursor->stack[cursor->depth].addr = keyEndNode->next;
+		  cursor->stack[cursor->depth].ch = 256;
+		  cursor->stack[cursor->depth++].off = cursor->base->keyLen;
+		  stack->ch = 0;
+		  continue;
 		}
 
-		break;
+		cursor->base->state = CursorPosAt;
+		stack->ch = -1;
+		return DB_OK;
 	  }
 
 	  case SpanNode: {
@@ -406,48 +467,48 @@ int slot, len;
 	  }
 
 	  case Array64: {
-	  	ARTNode64* radix64Node = getObj(map, *stack->slot);
+	 	ARTNode64* radix64Node = getObj(map, *stack->slot);
 
-	  	if (radix64Node->timestamp > cursor->base->ts)
-	  		break;
+		if (radix64Node->timestamp > cursor->base->ts)
+			break;
 
-	  	stack->ch = slotrev64(stack->ch, radix64Node->alloc, radix64Node->keys);
-	  	if (stack->ch < 0)
-	  		break;
+		stack->ch = slotrev64(stack->ch, radix64Node->alloc, radix64Node->keys);
+		if (stack->ch < 0)
+			break;
 
-	  	slot = radix64Node->keys[stack->ch];
-	  	cursor->key[cursor->base->keyLen++] = stack->ch;
+		slot = radix64Node->keys[stack->ch];
+		cursor->key[cursor->base->keyLen++] = stack->ch;
 
-	  	cursor->stack[cursor->depth].slot->bits = radix64Node->radix[slot].bits;
-	  	cursor->stack[cursor->depth].addr = &radix64Node->radix[slot];
-	  	cursor->stack[cursor->depth].off = cursor->base->keyLen;
-	  	cursor->stack[cursor->depth++].ch = 256;
-	  	continue;
+		cursor->stack[cursor->depth].slot->bits = radix64Node->radix[slot].bits;
+		cursor->stack[cursor->depth].addr = &radix64Node->radix[slot];
+		cursor->stack[cursor->depth].off = cursor->base->keyLen;
+		cursor->stack[cursor->depth++].ch = 256;
+		continue;
 	  }
 
 	  case Array256: {
-	  	ARTNode256* radix256Node = getObj(map, *stack->slot);
+		ARTNode256* radix256Node = getObj(map, *stack->slot);
 
-	  	if (radix256Node->timestamp > cursor->base->ts)
-	  		break;
+		if (radix256Node->timestamp > cursor->base->ts)
+			break;
 
-	  	while (--stack->ch >= 0) {
-	  		uint32_t idx = stack->ch;
-	  		if (radix256Node->radix[idx].type)
-	  			break;
-	  	}
+		while (--stack->ch >= 0) {
+			uint32_t idx = stack->ch;
+			if (radix256Node->radix[idx].type)
+				break;
+		}
 
-	  	if (stack->ch < 0)
-	  		break;
+		if (stack->ch < 0)
+			break;
 
-	  	slot = stack->ch;
-	  	cursor->key[cursor->base->keyLen++] = stack->ch;
+		slot = stack->ch;
+		cursor->key[cursor->base->keyLen++] = stack->ch;
 
-	  	cursor->stack[cursor->depth].slot->bits = radix256Node->radix[slot].bits;
-	  	cursor->stack[cursor->depth].addr = &radix256Node->radix[slot];
-	  	cursor->stack[cursor->depth].off = cursor->base->keyLen;
-	  	cursor->stack[cursor->depth++].ch = 256;
-	  	continue;
+		cursor->stack[cursor->depth].slot->bits = radix256Node->radix[slot].bits;
+		cursor->stack[cursor->depth].addr = &radix256Node->radix[slot];
+		cursor->stack[cursor->depth].off = cursor->base->keyLen;
+		cursor->stack[cursor->depth++].ch = 256;
+		continue;
 	  }
 	}  // end switch
 

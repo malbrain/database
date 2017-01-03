@@ -34,6 +34,9 @@ uint32_t xtra;
 
 	xtra = params[Size].intVal;
 
+	if (!xtra)
+		xtra = sizeof(Params) * MaxParam;
+
 	if ((rbEntry = rbNew(parent->db, name, nameLen, sizeof(ArenaDef) + xtra)))
 		arenaDef = (ArenaDef *)(rbEntry + 1);
 	else {

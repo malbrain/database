@@ -52,21 +52,14 @@ uint8_t ch;
 				rt = EndSearch;
 				break;
 			}
-			case KeyPass: {
-				DbAddr slot;
-				slot.bits = 0;
-				*slot.latch = KeyEnd;
-				stack->addr->bits = slot.bits;
+			case KeyEnd: {
+				ARTKeyEnd* keyEndNode = getObj(index->map, *stack->addr);
+				keyEndNode->next->bits = 0;
 
 				if(!addSlotToFrame(index->map, listHead(index,newSlot.type), listTail(index,newSlot.type), newSlot.bits))
 					rt = ErrorSearch;
 				else
 					rt = EndSearch;
-				break;
-			}
-
-			case KeyEnd: {
-				rt = EndSearch;
 				break;
 			}
 
