@@ -17,6 +17,7 @@ DbStatus artReturnCursor(DbCursor *dbCursor, DbMap *map) {
 }
 
 DbStatus artLeftKey(DbCursor *dbCursor, DbMap *map) {
+bool binaryFlds = map->arenaDef->params[IdxBinary].boolVal;
 ArtCursor *cursor = (ArtCursor *)dbCursor;
 CursorStack* stack;
 DbAddr *base;
@@ -25,10 +26,16 @@ DbAddr *base;
 	cursor->depth = 0;
 
 	stack = &cursor->stack[cursor->depth++];
+
 	stack->slot->bits = base->bits;
+	stack->lastFld = 0;
 	stack->addr = base;
 	stack->off = 0;
 	stack->ch = -1;
+
+	if (binaryFlds)
+		stack->off = 2;
+
 	return DB_OK;
 }
 
@@ -42,6 +49,7 @@ DbAddr *base;
 
 	stack = &cursor->stack[cursor->depth++];
 	stack->slot->bits = base->bits;
+	stack->lastFld = 0;
 	stack->addr = base;
 	stack->off = 0;
 	stack->ch = 256;
@@ -141,8 +149,13 @@ int slot, len;
   while (cursor->depth < MAX_cursor) {
 	CursorStack* stack = &cursor->stack[cursor->depth - 1];
 	cursor->base->keyLen = stack->off;
+	cursor->lastFld = stack->lastFld;
 
 	switch (stack->slot->type < SpanNode ? stack->slot->type : SpanNode) {
+	  case UnusedSlot: {
+			break;
+	  }
+
 	  case FldEnd: {
 		//  this case only occurs with binaryFlds is true
 		ARTFldEnd* fldEndNode = getObj(map, *stack->slot);
@@ -159,6 +172,7 @@ int slot, len;
 		  cursor->stack[cursor->depth].slot->bits = fldEndNode->nextFld->bits;
 		  cursor->stack[cursor->depth].addr = fldEndNode->nextFld;
 		  cursor->stack[cursor->depth].ch = -1;
+		  cursor->stack[cursor->depth].lastFld = cursor->lastFld;
 		  cursor->stack[cursor->depth++].off = cursor->base->keyLen;
 		  stack->ch = 0;
 		  continue;
@@ -166,10 +180,15 @@ int slot, len;
 
 		// continue processing the current field bytes
 
+		if (stack->ch > 255)
+			break;
+
 		cursor->stack[cursor->depth].slot->bits = fldEndNode->sameFld->bits;
 		cursor->stack[cursor->depth].addr = fldEndNode->sameFld;
 		cursor->stack[cursor->depth].off = cursor->base->keyLen;
+		cursor->stack[cursor->depth].lastFld = cursor->lastFld;
 		cursor->stack[cursor->depth++].ch = -1;
+		stack->ch = 256;
 		continue;
 	  }
 
@@ -187,6 +206,7 @@ int slot, len;
 		  cursor->stack[cursor->depth].slot->bits = keyEndNode->next->bits;
 		  cursor->stack[cursor->depth].addr = keyEndNode->next;
 		  cursor->stack[cursor->depth].ch = -1;
+		  cursor->stack[cursor->depth].lastFld = cursor->lastFld;
 		  cursor->stack[cursor->depth++].off = cursor->base->keyLen;
 
 		  cursor->base->state = CursorPosAt;
@@ -212,6 +232,7 @@ int slot, len;
 		  cursor->stack[cursor->depth].slot->bits = spanNode->next->bits;
 		  cursor->stack[cursor->depth].addr = spanNode->next;
 		  cursor->stack[cursor->depth].ch = -1;
+		  cursor->stack[cursor->depth].lastFld = cursor->lastFld;
 		  cursor->stack[cursor->depth++].off = cursor->base->keyLen;
 		  stack->ch = 0;
 		  continue;
@@ -237,6 +258,7 @@ int slot, len;
 		cursor->stack[cursor->depth].slot->bits = radix4Node->radix[slot].bits;
 		cursor->stack[cursor->depth].addr = &radix4Node->radix[slot];
 		cursor->stack[cursor->depth].off = cursor->base->keyLen;
+		cursor->stack[cursor->depth].lastFld = cursor->lastFld;
 		cursor->stack[cursor->depth++].ch = -1;
 		continue;
 	  }
@@ -257,6 +279,7 @@ int slot, len;
 		cursor->stack[cursor->depth].slot->bits = radix14Node->radix[slot].bits;
 		cursor->stack[cursor->depth].addr = &radix14Node->radix[slot];
 		cursor->stack[cursor->depth].ch = -1;
+		cursor->stack[cursor->depth].lastFld = cursor->lastFld;
 		cursor->stack[cursor->depth++].off = cursor->base->keyLen;
 		continue;
 	  }
@@ -276,6 +299,7 @@ int slot, len;
 		cursor->stack[cursor->depth].slot->bits = radix64Node->radix[radix64Node->keys[stack->ch]].bits;
 		cursor->stack[cursor->depth].addr = &radix64Node->radix[radix64Node->keys[stack->ch]];
 		cursor->stack[cursor->depth].ch = -1;
+		cursor->stack[cursor->depth].lastFld = cursor->lastFld;
 		cursor->stack[cursor->depth++].off = cursor->base->keyLen;
 		continue;
 	  }
@@ -300,6 +324,7 @@ int slot, len;
 		cursor->stack[cursor->depth].slot->bits = radix256Node->radix[stack->ch].bits;
 		cursor->stack[cursor->depth].addr = &radix256Node->radix[stack->ch];
 		cursor->stack[cursor->depth].ch = -1;
+		cursor->stack[cursor->depth].lastFld = cursor->lastFld;
 		cursor->stack[cursor->depth++].off = cursor->base->keyLen;
 		continue;
 	  }
@@ -343,6 +368,7 @@ int slot, len;
   while (cursor->depth) {
 	stack = &cursor->stack[cursor->depth - 1];
 	cursor->base->keyLen = stack->off;
+	cursor->lastFld = stack->lastFld;
 
 	switch (stack->slot->type < SpanNode ? stack->slot->type : SpanNode) {
 	  case UnusedSlot: {
@@ -360,6 +386,7 @@ int slot, len;
 		  cursor->stack[cursor->depth].slot->bits = fldEndNode->sameFld->bits;
 		  cursor->stack[cursor->depth].addr = fldEndNode->sameFld;
 		  cursor->stack[cursor->depth].ch = 256;
+		  cursor->stack[cursor->depth].lastFld = cursor->lastFld;
 		  cursor->stack[cursor->depth++].off = cursor->base->keyLen;
 		  stack->ch = 0;
 		  continue;
@@ -373,10 +400,15 @@ int slot, len;
 		cursor->lastFld = cursor->base->keyLen;
 		cursor->base->keyLen += 2;
 
+		if (stack->ch < 0)
+			break;
+
 		cursor->stack[cursor->depth].slot->bits = fldEndNode->nextFld->bits;
 		cursor->stack[cursor->depth].addr = fldEndNode->nextFld;
 		cursor->stack[cursor->depth].off = cursor->base->keyLen;
-		cursor->stack[cursor->depth++].ch = -1;
+		cursor->stack[cursor->depth].lastFld = cursor->lastFld;
+		cursor->stack[cursor->depth++].ch = 256;
+		stack->ch = -1;
 		continue;
 	  }
 
@@ -394,6 +426,7 @@ int slot, len;
 		  cursor->stack[cursor->depth].slot->bits = keyEndNode->next->bits;
 		  cursor->stack[cursor->depth].addr = keyEndNode->next;
 		  cursor->stack[cursor->depth].ch = 256;
+		  cursor->stack[cursor->depth].lastFld = cursor->lastFld;
 		  cursor->stack[cursor->depth++].off = cursor->base->keyLen;
 		  stack->ch = 0;
 		  continue;
@@ -419,6 +452,7 @@ int slot, len;
 			cursor->stack[cursor->depth].slot->bits = spanNode->next->bits;
 			cursor->stack[cursor->depth].addr = spanNode->next;
 			cursor->stack[cursor->depth].ch = 256;
+			cursor->stack[cursor->depth].lastFld = cursor->lastFld;
 			cursor->stack[cursor->depth++].off = cursor->base->keyLen;
 			stack->ch = 0;
 			continue;
@@ -442,6 +476,7 @@ int slot, len;
 		cursor->stack[cursor->depth].slot->bits = radix4Node->radix[slot].bits;
 		cursor->stack[cursor->depth].addr = &radix4Node->radix[slot];
 		cursor->stack[cursor->depth].off = cursor->base->keyLen;
+		cursor->stack[cursor->depth].lastFld = cursor->lastFld;
 		cursor->stack[cursor->depth++].ch = 256;
 		continue;
 	  }
@@ -462,6 +497,7 @@ int slot, len;
 		cursor->stack[cursor->depth].slot->bits = radix14Node->radix[slot].bits;
 		cursor->stack[cursor->depth].addr = &radix14Node->radix[slot];
 		cursor->stack[cursor->depth].off = cursor->base->keyLen;
+		cursor->stack[cursor->depth].lastFld = cursor->lastFld;
 		cursor->stack[cursor->depth++].ch = 256;
 		continue;
 	  }
@@ -482,6 +518,7 @@ int slot, len;
 		cursor->stack[cursor->depth].slot->bits = radix64Node->radix[slot].bits;
 		cursor->stack[cursor->depth].addr = &radix64Node->radix[slot];
 		cursor->stack[cursor->depth].off = cursor->base->keyLen;
+		cursor->stack[cursor->depth].lastFld = cursor->lastFld;
 		cursor->stack[cursor->depth++].ch = 256;
 		continue;
 	  }
@@ -507,6 +544,7 @@ int slot, len;
 		cursor->stack[cursor->depth].slot->bits = radix256Node->radix[slot].bits;
 		cursor->stack[cursor->depth].addr = &radix256Node->radix[slot];
 		cursor->stack[cursor->depth].off = cursor->base->keyLen;
+		cursor->stack[cursor->depth].lastFld = cursor->lastFld;
 		cursor->stack[cursor->depth++].ch = 256;
 		continue;
 	  }

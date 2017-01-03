@@ -99,16 +99,16 @@ typedef struct {
 typedef struct {
 	volatile DbAddr *addr;	// tree addr of slot
 	DbAddr slot[1];			// slot that points to node
+	uint16_t lastFld;		// previous field start
 	uint16_t off;			// offset within key
 	int16_t ch;				// character of key
-	bool dir;
 } CursorStack;
 
 typedef struct {
 	DbCursor base[1];				// common cursor header (must be first)
 	uint32_t depth;					// current depth of cursor
-	uint16_t fldLen;				// length remaining in current field
 	uint16_t lastFld;				// previous field start
+	uint16_t fldLen;				// length remaining in current field
 	uint8_t key[MAX_key];			// current cursor key
 	CursorStack stack[MAX_cursor];	// cursor stack
 } ArtCursor;

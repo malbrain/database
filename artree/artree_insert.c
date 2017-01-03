@@ -71,11 +71,9 @@ uint32_t len;
 
   while ( (len = (p->keyLen - p->off)) ) {
 	if (p->binaryFlds && !p->fldLen) {
-	  if (p->keyLen) {
-		if ((next->bits = artAllocateNode(p->index, FldEnd, sizeof(ARTFldEnd)))) {
-		  ARTFldEnd *fldEndNode = getObj(p->index->map, *next);
-		  next = fldEndNode->nextFld;
-		}
+	  if ((next->bits = artAllocateNode(p->index, FldEnd, sizeof(ARTFldEnd)))) {
+		ARTFldEnd *fldEndNode = getObj(p->index->map, *next);
+		next = fldEndNode->nextFld;
 	  }
 
 	  p->fldLen = p->key[p->off] << 8 | p->key[p->off + 1];
@@ -133,7 +131,7 @@ DbAddr slot;
 	p->key = key;
 	p->index = index;
 	p->keyLen = keyLen;
-	p->fldLen = -1;
+	p->fldLen = 0;
 	p->slot = artIndexAddr(index->map)->root;
 
 	//  we encountered a dead node
@@ -158,7 +156,7 @@ DbAddr slot;
 
 		  // splice-in a FldEnd?
 
-		  if (p->keyLen && p->slot->type != FldEnd) {
+		  if (p->off && p->slot->type != FldEnd) {
 			lockLatch(p->slot->latch);
 
 			// retry if node has changed.
@@ -684,15 +682,14 @@ ARTNode4 *radix4Node;
 		if (p->key[p->off + idx] != node->bytes[idx])
 			break;
 
-	if (p->binaryFlds)
-		p->fldLen -= len;
-
 	// did we use the entire span node exactly?
 
 	if (idx == max) {
-		p->off += idx - 1;
-		p->slot = node->next;
-		return ContinueSearch;
+	  if (p->binaryFlds)
+		p->fldLen -= idx - 1;
+	  p->off += idx - 1;
+	  p->slot = node->next;
+	  return ContinueSearch;
 	}
 
 	// obtain write lock on the node
@@ -719,6 +716,9 @@ ARTNode4 *radix4Node;
 		unlockLatch(node->next->latch);
 		return RestartSearch;
 	}
+
+	if (p->binaryFlds)
+		p->fldLen -= idx;
 
 	p->off += idx;
 
@@ -761,6 +761,9 @@ ARTNode4 *radix4Node;
 		nxtSlot = radix4Node->radix + 0;
 
 		// fill in second radix element with next byte of our search key
+
+		if (p->binaryFlds)
+			p->fldLen--;
 
 		radix4Node->keys[1] = p->key[p->off++];
 		radix4Node->alloc |= 2;

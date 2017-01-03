@@ -59,9 +59,10 @@ int off = 0;
 
 	while(off < len) {
 		int fldLen = key[off] << 8 | key[off + 1];
+		if (off)
+			fputc (':', file);
 		off += 2;
 		fwrite (key + off, fldLen, 1, file);
-		fputc (':', file);
 		off += fldLen;
 	}
 }
@@ -157,10 +158,17 @@ int stat;
 		if (docHndl->hndlBits)
 			addIndexes(docHndl);
 
+		if (binaryFlds)
+			len = 2;
+
 		if( !fopen_s (&in, args->inFile, "rb") )
 		  while( ch = getc(in), ch != EOF )
 			if( ch == '\n' )
 			{
+			  if (binaryFlds) {
+				key[lastFld] = (len - lastFld - 2) >> 8;
+				key[lastFld + 1] = (len - lastFld - 2);
+			  }
 #ifdef DEBUG
 			  if (!(line % 100000))
 				fprintf(stderr, "line %" PRIu64 "\n", line);
@@ -169,7 +177,8 @@ int stat;
 
 			  if ((stat = deleteDoc (docHndl, key, len, &objId, txnId)))
 				  fprintf(stderr, "Del Doc Error %d Line: %" PRIu64 "\n", stat, line), exit(0);
-			  len = 0;
+			  len = binaryFlds ? 2 : 0;
+			  lastFld = 0;
 			  continue;
 			}
 
@@ -205,6 +214,9 @@ int stat;
 		if (docHndl->hndlBits)
 			addIndexes(docHndl);
 
+		if (binaryFlds)
+			len = 2;
+
 		if((!fopen_s (&in, args->inFile, "r"))) {
 		  while( ch = getc(in), ch != EOF )
 			if( ch == '\n' )
@@ -226,7 +238,7 @@ int stat;
 				if ((stat = insertKey(index, key, len)))
 				  fprintf(stderr, "Insert Key Error %d Line: %" PRIu64 "\n", stat, line), exit(0);
 			  lastFld = 0;
-			  len = 0;
+			  len = binaryFlds ? 2 : 0;
 			}
 			else if( len < 4096 ) {
 			  if (binaryFlds)
@@ -262,9 +274,16 @@ int stat;
 
 		createCursor (cursor, index, args->params);
 
+		if (binaryFlds)
+			len = 2;
+
 		if((!fopen_s (&in, args->inFile, "rb"))) {
 		  while( ch = getc(in), ch != EOF )
 			if( ch == '\n' ) {
+			  if (binaryFlds) {
+				key[lastFld] = (len - lastFld - 2) >> 8;
+				key[lastFld + 1] = (len - lastFld - 2);
+			  }
 #ifdef DEBUG
 			  if (!(line % 100000))
 				fprintf(stderr, "line %" PRIu64 "\n", line);
@@ -289,7 +308,8 @@ int stat;
 			  }
 
 			  cnt++;
-			  len = 0;
+			  len = binaryFlds ? 2 : 0;
+			  lastFld = 0;
 			} else if( len < 4096 ) {
 			  if (binaryFlds)
 				if (ch == ':') {

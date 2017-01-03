@@ -34,8 +34,9 @@ CursorStack* stack;
 	else
 	  return DB_ERROR_cursoroverflow;
 
+	stack->slot->bits = slot->bits;
 	stack->off = cursor->base->keyLen;
-	stack->slot->bits = slot->bits;;
+	stack->lastFld = cursor->lastFld;
 	stack->ch = key[offset];
 	stack->addr = slot;
 
@@ -217,8 +218,9 @@ CursorStack* stack;
   else
 	return DB_ERROR_cursoroverflow;
 
+  stack->slot->bits = slot->bits;
   stack->off = cursor->base->keyLen;
-  stack->slot->bits = slot->bits;;
+  stack->lastFld = cursor->lastFld;
   stack->addr = slot;
   stack->ch = -1;
 
