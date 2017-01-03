@@ -23,8 +23,9 @@ CursorStack* stack;
   slot = artIndexAddr(map)->root;
 
   if (binaryFlds && !cursor->base->keyLen) {
-	cursor->fldLen = key[offset++] << 8 | key[offset++];
+	cursor->fldLen = key[offset] << 8 | key[offset + 1];
 	cursor->base->keyLen = 2;
+	offset += 2;
   }
 
   while (offset < keyLen) {
@@ -54,9 +55,10 @@ CursorStack* stack;
 
 		if (cursor) {
 		  cursor->lastFld = cursor->base->keyLen;
-		  cursor->fldLen = key[offset++] << 8 | key[offset++];
+		  cursor->fldLen = key[offset] << 8 | key[offset + 1];
 		  cursor->base->keyLen += 2;
 		  stack->ch = 256;
+		  offset += 2;
 		}
 
 		slot = fldEndNode->nextFld;

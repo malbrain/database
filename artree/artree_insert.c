@@ -78,7 +78,8 @@ uint32_t len;
 		}
 	  }
 
-	  p->fldLen = p->key[p->off++] << 8 | p->key[p->off++];
+	  p->fldLen = p->key[p->off] << 8 | p->key[p->off + 1];
+	  p->off += 2;
 	  continue;
 	}
 
@@ -175,7 +176,8 @@ DbAddr slot;
 			}
 		  }
 
-		  p->fldLen = p->key[p->off++] << 8 | p->key[p->off++];
+		  p->fldLen = p->key[p->off] << 8 | p->key[p->off + 1];
+		  p->off += 2;
 		  continue;
 		}
 
