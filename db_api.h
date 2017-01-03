@@ -32,7 +32,8 @@ ObjId beginTxn(DbHandle dbHndl[1], Params *param);
 DbStatus rollbackTxn(DbHandle dbHndl[1], ObjId txnId);
 DbStatus commitTxn(DbHandle dbHnd[1], ObjId txnId);
 
-DbStatus insertKey(DbHandle index[1], void *key, uint32_t len);
+DbStatus insertKey(DbHandle hndl[1], void *key, uint32_t len);
+DbStatus deleteKey(DbHandle hndl[1], void *key, uint32_t len);
 
 uint64_t arenaAlloc(DbHandle arenaHndl[1], uint32_t size, bool zeroit, bool dbArena);
 

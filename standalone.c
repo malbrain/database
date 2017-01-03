@@ -121,7 +121,7 @@ char *idxName;
 uint32_t foundLen = 0;
 int lastFld = 0;
 void *foundKey;
-ObjId objId;
+ObjId docId;
 ObjId txnId;
 Doc *doc;
 FILE *in;
@@ -141,7 +141,7 @@ int stat;
 
 	switch(ch | 0x20)
 	{
-/*
+
 	case 'd':
 		fprintf(stderr, "started delete for %s\n", args->inFile);
 
@@ -157,6 +157,8 @@ int stat;
 
 		if (docHndl->hndlBits)
 			addIndexes(docHndl);
+
+		createCursor (cursor, index, args->params);
 
 		if (binaryFlds)
 			len = 2;
@@ -175,8 +177,18 @@ int stat;
 #endif
 			  line++;
 
-			  if ((stat = deleteDoc (docHndl, key, len, &objId, txnId)))
+			  if (docHndl->hndlBits) {
+				if ((stat = positionCursor(cursor, OpFind, key,  len)))
+				  fprintf(stderr, "Delete Doc Error %d Syserr %d Line: %" PRIu64 "\n", stat, errno, line), exit(0);
+
+				if ((stat = docAtCursor(cursor, &doc)))
+				  fprintf(stderr, "Delete Doc Error %d Syserr %d Line: %" PRIu64 "\n", stat, errno, line), exit(0);
+				if ((stat = deleteDoc (docHndl, doc->ver->docId, txnId)))
 				  fprintf(stderr, "Del Doc Error %d Line: %" PRIu64 "\n", stat, line), exit(0);
+			  } else
+				if ((stat = deleteKey(index, key, len)))
+				  fprintf(stderr, "Delete Key Error %d Line: %" PRIu64 "\n", stat, line), exit(0);
+
 			  len = binaryFlds ? 2 : 0;
 			  lastFld = 0;
 			  continue;
@@ -194,9 +206,8 @@ int stat;
 			  key[len++] = ch;
 			}
 
-		fprintf(stderr, "finished %s for %d keys: %d reads %d writes %d found\n", args->inFile, line, bt->reads, bt->writes, bt->found);
+		fprintf(stderr, "finished %s for %" PRIu64 " keys, found %" PRIu64 "\n", args->inFile, line, cnt);
 		break;
-*/
 
 	case 'w':
 		fprintf(stderr, "started indexing keys from %s\n", args->inFile);
@@ -232,7 +243,7 @@ int stat;
 			  line++;
 
 			  if (docHndl->hndlBits) {
-				if ((stat = storeDoc (docHndl, key, len, &objId, txnId)))
+				if ((stat = storeDoc (docHndl, key, len, &docId, txnId)))
 				  fprintf(stderr, "Add Doc Error %d Line: %" PRIu64 "\n", stat, line), exit(0);
 			  } else
 				if ((stat = insertKey(index, key, len)))

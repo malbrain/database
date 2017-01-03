@@ -607,7 +607,6 @@ DbAddr addr;
 }
 
 DbStatus deleteDoc(DbHandle hndl[1], ObjId docId, ObjId txnId) {
-/*
 Handle *docHndl;
 Txn *txn = NULL;
 DbAddr *slot;
@@ -624,7 +623,7 @@ Doc *doc;
 
 	doc->state = DocDeleted;
 	releaseHandle(docHndl);
-*/
+
 	return DB_OK;
 }
 
@@ -646,6 +645,27 @@ Doc *doc;
 		docId->bits = doc->ver->docId.bits;
 
 	return DB_OK;
+}
+
+DbStatus deleteKey(DbHandle hndl[1], void *key, uint32_t len) {
+Handle *index;
+DbStatus stat;
+
+	if (!(index = bindHandle(hndl)))
+		return DB_ERROR_handleclosed;
+
+	switch (*index->map->arena->type) {
+	case Hndl_artIndex:
+		stat = artDeleteKey(index, key, len);
+		break;
+
+	case Hndl_btree1Index:
+		stat = btree1DeleteKey(index, key, len);
+		break;
+	}
+
+	releaseHandle(index);
+	return stat;
 }
 
 DbStatus insertKey(DbHandle hndl[1], void *key, uint32_t len) {

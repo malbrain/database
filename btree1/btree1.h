@@ -128,6 +128,7 @@ DbStatus btree1PrevKey (DbCursor *cursor, DbMap *map);
 
 DbStatus btree1Init(Handle *hndl, Params *params);
 DbStatus btree1InsertKey(Handle *hndl, void *key, uint32_t keyLen, uint8_t lvl, Btree1SlotType type);
+DbStatus btree1DeleteKey(Handle *hndl, void *key, uint32_t keyLen);
 
 DbStatus btree1LoadPage(DbMap *map, Btree1Set *set, void *key, uint32_t keyLen, uint8_t lvl, Btree1Lock lock, bool stopper);
 

@@ -156,7 +156,11 @@ DbAddr slot;
 
 		  // splice-in a FldEnd?
 
-		  if (p->off && p->slot->type != FldEnd) {
+		  if (p->off)
+		   if (p->slot->type == FldEnd) {
+			  ARTFldEnd *fldEndNode = getObj(index->map, *p->slot);
+			  p->slot = fldEndNode->nextFld;
+		   } else {
 			lockLatch(p->slot->latch);
 
 			// retry if node has changed.
@@ -168,9 +172,9 @@ DbAddr slot;
 
 			if ((slot.bits = artAllocateNode(p->index, FldEnd, sizeof(ARTFldEnd)))) {
 			  ARTFldEnd *fldEndNode = getObj(index->map, *p->newSlot);
-			  fldEndNode->nextFld->bits = p->slot->bits & ~ADDR_MUTEX_SET;
+			  fldEndNode->sameFld->bits = p->slot->bits & ~ADDR_MUTEX_SET;
 	  		  p->slot->bits = slot.bits;
-			  p->slot = fldEndNode->sameFld;
+			  p->slot = fldEndNode->nextFld;
 			}
 		  }
 
@@ -180,6 +184,12 @@ DbAddr slot;
 		}
 
 	  switch (p->oldSlot->type < SpanNode ? p->oldSlot->type : SpanNode) {
+		case FldEnd: {
+			ARTFldEnd *fldEndNode = getObj(index->map, *p->oldSlot);
+			p->slot = fldEndNode->sameFld;
+			p->depth++;
+			continue;
+		}
 		case KeyEnd: {
 			ARTKeyEnd *keyEndNode = getObj(index->map, *p->oldSlot);
 			p->slot = keyEndNode->next;
@@ -717,15 +727,15 @@ ARTNode4 *radix4Node;
 		return RestartSearch;
 	}
 
-	if (p->binaryFlds)
-		p->fldLen -= idx;
-
-	p->off += idx;
-
 	// copy matching prefix bytes to a new span node
 
 	if (idx) {
 		ARTSpan *spanNode2;
+		if (p->binaryFlds)
+			p->fldLen -= idx;
+
+		p->off += idx;
+		len -= idx;
 
 		if ((p->newSlot->bits = allocSpanNode(p, idx)))
 			spanNode2 = getObj(p->index->map,*p->newSlot);
@@ -747,7 +757,7 @@ ARTNode4 *radix4Node;
 	// possible span2 for the next key byte and the next remaining original
 	// span byte (if any).  note:  max > idx
 
-	if (p->off < p->keyLen) {
+	if (len) {
 		if ( (nxtSlot->bits = artAllocateNode(p->index, Array4, sizeof(ARTNode4))) )
 			radix4Node = getObj(p->index->map,*nxtSlot);
 		else
@@ -768,6 +778,15 @@ ARTNode4 *radix4Node;
 		radix4Node->keys[1] = p->key[p->off++];
 		radix4Node->alloc |= 2;
 		contSlot = radix4Node->radix + 1;
+	} else if (p->off < p->keyLen) { 		//	do we have an field end?
+	  if ((nxtSlot->bits = artAllocateNode(p->index, FldEnd, sizeof(ARTFldEnd)))) {
+		ARTFldEnd *fldEndNode = getObj(p->index->map, *nxtSlot);
+		contSlot = fldEndNode->nextFld;
+		nxtSlot = fldEndNode->sameFld;
+		p->fldLen = p->key[p->off] << 8 | p->key[p->off + 1];
+		p->off += 2;
+	  } else
+		return ErrorSearch;
 	}
 
 	// place original span bytes remaining after the preceeding node

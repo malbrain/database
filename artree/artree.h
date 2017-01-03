@@ -127,6 +127,7 @@ DbStatus artPrevKey(DbCursor *dbCursor, DbMap *map);
 
 DbStatus artInit(Handle *hndl, Params *params);
 DbStatus artInsertKey (Handle *hndl, void *key, uint32_t keyLen);
+DbStatus artDeleteKey (Handle *hndl, void *key, uint32_t keyLen);
 
 uint64_t artAllocateNode(Handle *index, int type, uint32_t size);
 
