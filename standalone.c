@@ -163,7 +163,7 @@ int stat;
 		if (binaryFlds)
 			len = 2;
 
-		if( !fopen_s (&in, args->inFile, "rb") )
+		if( !fopen_s (&in, args->inFile, "r") )
 		  while( ch = getc(in), ch != EOF )
 			if( ch == '\n' )
 			{
@@ -288,7 +288,7 @@ int stat;
 		if (binaryFlds)
 			len = 2;
 
-		if((!fopen_s (&in, args->inFile, "rb"))) {
+		if((!fopen_s (&in, args->inFile, "r"))) {
 		  while( ch = getc(in), ch != EOF )
 			if( ch == '\n' ) {
 			  if (binaryFlds) {

@@ -47,40 +47,61 @@ uint8_t ch;
 				pass = 1;
 
 			// obtain write lock on the node
+
 			lockLatch(stack->addr->latch);
 			newSlot.bits = stack->addr->bits;
 
 			if ((retry = newSlot.kill))
 				unlockLatch(stack->addr->latch);
-
 		} while (retry);
 
 		switch (newSlot.type < SpanNode ? newSlot.type : SpanNode) {
 			case UnusedSlot: {
-				rt = EndSearch;
+				continue;
+			}
+
+			case FldEnd: {
+				ARTFldEnd* fldEndNode = getObj(index->map, *stack->addr);
+				stack->addr->bits = fldEndNode->sameFld->bits;
+				fldEndNode->nextFld->bits = 0;
+
+				if(addSlotToFrame(index->map, listHead(index,newSlot.type), listTail(index,newSlot.type), newSlot.bits)) {
+				  if (stack->addr->type)
+					rt = EndSearch;
+				  else
+					continue;
+				} else
+				  rt = ErrorSearch;
+
 				break;
 			}
+
 			case KeyEnd: {
 				ARTKeyEnd* keyEndNode = getObj(index->map, *stack->addr);
+				stack->addr->bits = keyEndNode->next->bits;
 				keyEndNode->next->bits = 0;
 
-				if(!addSlotToFrame(index->map, listHead(index,newSlot.type), listTail(index,newSlot.type), newSlot.bits))
-					rt = ErrorSearch;
-				else
+				if(addSlotToFrame(index->map, listHead(index,newSlot.type), listTail(index,newSlot.type), newSlot.bits)) {
+				  if (stack->addr->type)
 					rt = EndSearch;
+				  else
+					continue;
+				} else
+				  rt = ErrorSearch;
+
 				break;
 			}
 
 			case SpanNode: {
 				stack->addr->bits = 0;
 
-				if(!addSlotToFrame(index->map, listHead(index,newSlot.type), listTail(index,newSlot.type), newSlot.bits))
-					rt = ErrorSearch;
-				else
+				if(addSlotToFrame(index->map, listHead(index,newSlot.type), listTail(index,newSlot.type), newSlot.bits))
 					continue;
 
+				rt = ErrorSearch;
 				break;
 			}
+
 			case Array4: {
 				ARTNode4 *node = getObj(index->map, *stack->addr);
 

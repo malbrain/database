@@ -210,9 +210,6 @@ CursorStack* stack;
   memcpy (cursor->key, key, cursor->base->keyLen);
   cursor->base->state = CursorPosAt;
 
-  if (slot->type == KeyEnd)
-	return DB_OK;
-
   if (cursor->depth < MAX_cursor)
 	stack = cursor->stack + cursor->depth++;
   else
