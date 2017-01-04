@@ -3,10 +3,12 @@
 #include "db_lock.h"
 
 //  number of elements in an array node
-//	max element idx = ARRAY_size * 256
+//	max element idx = ARRAY_size * ARRAY_lvl1
 
 #define ARRAY_size	256
-#define ARRAY_inuse	((2 * 256 - 1) / 64)
+#define ARRAY_lvl1	256
+#define ARRAY_inuse	((ARRAY_size + 64 - 1) / 64)
+#define ARRAY_first(objsize) ((ARRAY_inuse * sizeof(uint64_t) + (objsize) - 1) / (objsize))
 
 enum ObjType {
 	FrameType,

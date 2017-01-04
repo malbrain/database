@@ -106,14 +106,16 @@ DbAddr addr;
 	hndl->hndlType = type;
 	hndl->map = map;
 
-	if((hndl->maxType = map->arenaDef->numTypes)) {
+	//  allocate recycled frame queues
+
+	if ((hndl->maxType = map->arenaDef->numTypes)) {
 		idx = arrayAlloc(map, map->arena->listArray, sizeof(DbAddr) * amt * 3);
 		inUse = arrayBlk(map, map->arena->listArray, idx);
-		hndl->frames = (DbAddr *)(inUse + ARRAY_inuse) + ((idx % ARRAY_size) - ARRAY_inuse) * amt * 3;
+		hndl->frames = (DbAddr *)inUse + (idx % ARRAY_size) * amt * 3;
 		hndl->frameIdx = idx;
 	}
 
-	//	allocate and initialize a hndlCall for the handle
+	//	allocate and initialize hndlCall
 
 	idx = arrayAlloc(map->db, map->arenaDef->hndlCalls, sizeof(HndlCall));
 	hndl->calls.bits = arrayAddr(map->db, map->arenaDef->hndlCalls, idx);
@@ -231,14 +233,19 @@ int idx, seg;
 
 	for (idx = 0; idx <= array->maxidx; idx++) {
 	  uint64_t *inUse = getObj(map, addr[idx]);
-	  HndlCall *call = (HndlCall *)(inUse + ARRAY_inuse);
+	  HndlCall *call = (HndlCall *)inUse;
 
 	  for (seg = 0; seg < ARRAY_inuse; seg++) {
-		uint64_t bits = inUse[seg] >> ARRAY_inuse;
-		int slotIdx = ARRAY_inuse;
+		uint64_t bits = inUse[seg];
+		int slotIdx = 0;
+
+		if (seg == 0) {
+			slotIdx = ARRAY_first(sizeof(HndlCall));
+			bits >>= slotIdx;
+		}
 
 		do if (bits & 1) {
-		  hndlId.bits = call[seg * 64 + slotIdx - ARRAY_inuse].hndlId.bits;
+		  hndlId.bits = call[seg * 64 + slotIdx].hndlId.bits;
 		  slot = fetchIdSlot(hndlMap, hndlId);
 
 		  handle->bits = atomicExchange(&slot->addr->bits, 0);
@@ -270,19 +277,24 @@ int idx, seg;
 
 	for (idx = 0; idx <= array->maxidx; idx++) {
 	  uint64_t *inUse = getObj(map->db, addr[idx]);
-	  HndlCall *call = (HndlCall *)(inUse + ARRAY_inuse);
+	  HndlCall *call = (HndlCall *)inUse;
 
 	  for (seg = 0; seg < ARRAY_inuse; seg++) {
-		uint64_t bits = inUse[seg] >> ARRAY_inuse;
-		int slotIdx = ARRAY_inuse;
+		uint64_t bits = inUse[seg];
+		int slotIdx = 0;
+
+		if (seg == 0) {
+			slotIdx = ARRAY_first(sizeof(HndlCall));
+			bits >>= slotIdx;
+		}
 
 		do if (bits & 1) {
-		  HandleId *slot = fetchIdSlot(hndlMap, call[seg * 64 + slotIdx - ARRAY_inuse].hndlId);
+		  HandleId *slot = fetchIdSlot(hndlMap, call[seg * 64 + slotIdx].hndlId);
 
 		  if (!slot->bindCnt[0])
 			  continue;
 		  else
-			  lowTs = call[slotIdx - 1].entryTs;
+			  lowTs = call[slotIdx].entryTs;
 		} while (slotIdx++, bits /= 2);
 	  }
 	}
@@ -290,4 +302,3 @@ int idx, seg;
 
   return lowTs;
 }
-

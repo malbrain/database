@@ -11,8 +11,6 @@ DbAddr *addr;
 	if (!array->addr)
 		return NULL;
 
-	assert(idx % ARRAY_size >= ARRAY_inuse);
-
 	addr = getObj(map, *array);
 	return getObj(map, addr[idx / ARRAY_size]);
 }
@@ -25,8 +23,6 @@ DbAddr *addr;
 	if (!array->addr)
 		return 0;
 
-	assert(idx % ARRAY_size >= ARRAY_inuse);
-
 	addr = getObj(map, *array);
 	return addr[idx / ARRAY_size].bits;
 }
@@ -35,12 +31,11 @@ DbAddr *addr;
 
 void *arrayEntry (DbMap *map, DbAddr addr, uint16_t idx, size_t size) {
 uint64_t *inUse = getObj(map, addr);
-uint8_t *base;
+uint8_t *base = (uint8_t *)inUse;
 
-	assert(idx % ARRAY_size >= ARRAY_inuse);
+	assert(idx % ARRAY_size >= ARRAY_first(size));
 
-	base = (uint8_t *)(inUse + ARRAY_inuse);
-	base += size * ((idx % ARRAY_size) - ARRAY_inuse);
+	base += size * (idx % ARRAY_size);
 	return base;
 }
 
@@ -51,7 +46,7 @@ uint64_t *inUse;
 uint8_t *base;
 DbAddr *addr;
 
-	assert(idx % ARRAY_size >= ARRAY_inuse);
+	assert(idx % ARRAY_size >= ARRAY_first(size));
 
 	lockLatch(array->latch);
 
@@ -59,18 +54,18 @@ DbAddr *addr;
 	//	and fill it with the first array segment
 
 	if (!array->addr) {
-		array->bits = allocBlk(map, sizeof(DbAddr) * 256, true) | ADDR_MUTEX_SET;
+		array->bits = allocBlk(map, sizeof(DbAddr) * ARRAY_lvl1, true) | ADDR_MUTEX_SET;
 		addr = getObj(map, *array);
-		addr->bits = allocBlk(map, sizeof(uint64_t) * ARRAY_inuse + size * (ARRAY_size - ARRAY_inuse), true);
+		addr->bits = allocBlk(map, size * ARRAY_size, true);
 
-		// sluff first slots
+		// sluff first few slots used for allocation bit vector
 
 		inUse = getObj(map, *addr);
-		*inUse = (1ULL << ARRAY_inuse) - 1;
+		*inUse = (1ULL << ARRAY_first(size)) - 1;
 	} else
 		addr = getObj(map, *array);
 
-	//	fill-in missing slots
+	//	fill-in missing slots up to given idx
 
 	while (idx / ARRAY_size > array->maxidx)
 	  if (array->maxidx == 255) {
@@ -79,13 +74,16 @@ DbAddr *addr;
 #endif
 		return NULL;
 	  } else
-		addr[++array->maxidx].bits = allocBlk(map, sizeof(uint64_t) * ARRAY_inuse + size * (ARRAY_size - ARRAY_inuse), true);
+		addr[++array->maxidx].bits = allocBlk(map, size * ARRAY_size, true);
+
+	// get the allocation bit vector
+	// and reserve our bit slot
 
 	inUse = getObj(map, addr[idx / ARRAY_size]);
 	inUse[idx % ARRAY_size / 64] &= ~(1ULL << (idx % 64));
 
-	base = (uint8_t *)(inUse + ARRAY_inuse);
-	base += size * ((idx % ARRAY_size) - ARRAY_inuse);
+	base = (uint8_t *)inUse;
+	base += size * (idx % ARRAY_size);
 	unlockLatch(array->latch);
 
 	return base;
@@ -104,14 +102,14 @@ int idx, seg;
 	//	initialize empty array
 
 	if (!array->addr) {
-		array->bits = allocBlk(map, sizeof(DbAddr) * 256, true) | ADDR_MUTEX_SET;
+		array->bits = allocBlk(map, sizeof(DbAddr) * ARRAY_lvl1, true) | ADDR_MUTEX_SET;
 		addr = getObj(map, *array);
-		addr->bits = allocBlk(map, sizeof(uint64_t) * ARRAY_inuse + size * (ARRAY_size - ARRAY_inuse), true);
+		addr->bits = allocBlk(map, size * ARRAY_size, true);
 
 		// sluff first slots
 
 		inUse = getObj(map, *addr);
-		*inUse = (1ULL << ARRAY_inuse) - 1;
+		*inUse = (1ULL << ARRAY_first(size)) - 1;
 	} else
 		addr = getObj(map, *array);
 
@@ -148,14 +146,15 @@ int idx, seg;
 		exit(1);
 	 }
 
-	addr[++array->maxidx].bits = allocBlk(map, sizeof(uint64_t) * ARRAY_inuse + size * (ARRAY_size - ARRAY_inuse), true);
-	inUse = getObj(map, addr[idx]);
+	addr[++array->maxidx].bits = allocBlk(map, size * ARRAY_size, true);
+	inUse = getObj(map, addr[array->maxidx]);
 
-	inUse[0] = (1ULL << ARRAY_inuse) - 1;
-	inUse[0] |= 1ULL << ARRAY_inuse;
+	// sluff allocation vector and reserve first slot
+
+	inUse[0] = (1ULL << (ARRAY_first(size) + 1)) - 1;
 
 	unlockLatch(array->latch);
-	return array->maxidx * ARRAY_size + ARRAY_inuse;
+	return array->maxidx * ARRAY_size + ARRAY_first(size);
 }
 
 //	peel off 64 bit suffix value from key
