@@ -32,18 +32,25 @@ DbStatus stat;
 
 	switch (*map->arena->type) {
 	  case Hndl_artIndex: {
-		stat = artFindKey(cursor, map, key, keyLen);
+		if ((stat = artFindKey(cursor, map, key, keyLen)))
+			return stat;
+
+		if ((stat = artNextKey(cursor, map)))
+			return stat;
+
 		break;
 	  }
 
 	  case Hndl_btree1Index: {
-		stat = btree1FindKey(cursor, map, key, keyLen, onlyOne);
+		if ((stat = btree1FindKey(cursor, map, key, keyLen, onlyOne)))
+			return stat;
+
+		if ((stat = btree1NextKey(cursor, map)))
+			return stat;
+
 		break;
 	  }
 	}
-
-	if (stat)
-		return stat;
 
 	cursor->userLen = cursor->keyLen;
 

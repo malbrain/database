@@ -74,7 +74,10 @@ CursorStack* stack;
 		if (cursor)
 		  stack->ch = 256;
 
-		continue;
+		if (offset < keyLen)
+		  continue;
+
+		break;
 	  }
 
 	  case SpanNode: {
@@ -220,8 +223,5 @@ CursorStack* stack;
   stack->lastFld = cursor->lastFld;
   stack->addr = slot;
   stack->ch = -1;
-
-  //  complete the key
-
-  return artNextKey(dbCursor, map);
+  return DB_OK;
 }

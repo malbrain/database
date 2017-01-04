@@ -16,7 +16,7 @@ typedef enum {
 } ReturnState;
 
 DbStatus artDeleteKey(Handle *index, void *key, uint32_t keyLen) {
-ReturnState rt = EndSearch;
+ReturnState rt = ErrorSearch;
 ArtCursor cursor[1];
 DbAddr newSlot;
 DbStatus stat;
@@ -32,7 +32,9 @@ uint8_t ch;
 	//	now that we have the trie nodes in the cursor stack
 	//	we can go through them backwards to remove empties.
 
-	while (cursor->depth) {
+	if (cursor->depth)
+	 if (cursor->stack[cursor->depth - 1].addr->type == KeyEnd) {
+	  while (cursor->depth) {
 		CursorStack *stack = &cursor->stack[--cursor->depth];
 		uint32_t pass = 0;
 		bool retry = true;
@@ -222,7 +224,8 @@ uint8_t ch;
 		unlockLatch(stack->addr->latch);
 		break;
 
-	}	// end while
+	  }	// end while
+	}	// end if
 
 	return rt == EndSearch ? DB_OK : DB_ERROR_deletekey;
 }
