@@ -103,7 +103,6 @@ uint32_t len;
 	  return false;
 
 	next->nbyte = len - 1;
-	spanNode->timestamp = allocateTimestamp(p->index->map->db, en_writer);
 	memcpy(spanNode->bytes, p->key + p->off, len);
 
 	next = spanNode->next;
@@ -402,8 +401,6 @@ uint8_t bits;
 		return ErrorSearch;
 	}
 
-	radix14Node->timestamp = node->timestamp;
-
 	for (idx = 0; idx < 4; idx++) {
 		volatile DbAddr *slot = node->radix + idx;
 		lockLatch(slot->latch);
@@ -516,7 +513,6 @@ uint16_t bits;
 	// initialize all the keys as currently unassigned.
 
 	memset((void*)radix64Node->keys, 0xff, sizeof(radix64Node->keys));
-	radix64Node->timestamp = node->timestamp;
 
 	for (idx = 0; idx < 14; idx++) {
 		volatile DbAddr *slot = node->radix + idx;
@@ -623,8 +619,6 @@ uint32_t idx, out;
 		radix256Node = getObj(p->index->map,*p->newSlot);
 	else
 		return ErrorSearch;
-
-	radix256Node->timestamp = node->timestamp;
 
 	for (idx = 0; idx < 256; idx++)
 	  if (node->keys[idx] < 0xff) {
@@ -755,7 +749,6 @@ ARTNode4 *radix4Node;
 			return ErrorSearch;
 
 		memcpy(spanNode2->bytes, (void *)node->bytes, idx);
-		spanNode2->timestamp = node->timestamp;
 		p->newSlot->nbyte = idx - 1;
 		nxtSlot = spanNode2->next;
 		contSlot = nxtSlot;
@@ -777,7 +770,6 @@ ARTNode4 *radix4Node;
 
 		// fill in first radix element with first of the remaining span bytes
 
-		radix4Node->timestamp = node->timestamp;
 		radix4Node->keys[0] = node->bytes[idx++];
 		radix4Node->alloc |= 1;
 		nxtSlot = radix4Node->radix + 0;
@@ -814,7 +806,6 @@ ARTNode4 *radix4Node;
 		overflowSpanNode = getObj(p->index->map, *nxtSlot);
 		memcpy(overflowSpanNode->bytes, (char *)node->bytes + idx, max - idx);
 		overflowSpanNode->next->bits = node->next->bits & ~ADDR_MUTEX_SET;
-		overflowSpanNode->timestamp = node->timestamp;
 	} else {
 		// append second span node after span or radix node from above
 		// otherwise hook remainder of the trie into the

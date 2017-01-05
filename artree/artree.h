@@ -38,7 +38,6 @@ typedef struct {
  */
 
 typedef struct {
-	uint64_t timestamp;
 	uint8_t alloc;
 	uint8_t keys[4];
 	uint8_t filler[3];
@@ -50,7 +49,6 @@ typedef struct {
  */
 
 typedef struct {
-	uint64_t timestamp;
 	uint16_t alloc;
 	uint8_t keys[14];
 	DbAddr radix[14];
@@ -61,7 +59,6 @@ typedef struct {
  */
 
 typedef struct {
-	uint64_t timestamp;
 	uint64_t alloc;
 	uint8_t keys[256];
 	DbAddr radix[64];
@@ -72,7 +69,6 @@ typedef struct {
  */
 
 typedef struct {
-	uint64_t timestamp;
 	DbAddr radix[256];
 } ARTNode256;
 
@@ -82,7 +78,6 @@ typedef struct {
  */
 
 typedef struct {
-	uint64_t timestamp;
 	DbAddr next[1];		// next node after span
 	uint8_t bytes[8];
 } ARTSpan;

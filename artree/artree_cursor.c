@@ -221,9 +221,6 @@ int slot, len;
 		ARTSpan* spanNode = getObj(map, *stack->slot);
 		len = stack->slot->nbyte + 1;
 
-		if (spanNode->timestamp > cursor->base->ts)
-		  break;
-
 		//  continue into our next slot
 
 		if (stack->ch < 0) {
@@ -244,9 +241,6 @@ int slot, len;
 	  case Array4: {
 		ARTNode4* radix4Node = getObj(map, *stack->slot);
 
-		if (radix4Node->timestamp > cursor->base->ts)
-		  break;
-
 		slot = slot4x14(stack->ch, 4, radix4Node->alloc, radix4Node->keys);
 
 		if (slot >= 4)
@@ -266,9 +260,6 @@ int slot, len;
 	  case Array14: {
 		ARTNode14* radix14Node = getObj(map, *stack->slot);
 
-		if (radix14Node->timestamp > cursor->base->ts)
-		  break;
-
 		slot = slot4x14(stack->ch, 14, radix14Node->alloc, radix14Node->keys);
 
 		if (slot >= 14)
@@ -287,9 +278,6 @@ int slot, len;
 	  case Array64: {
 		ARTNode64* radix64Node = getObj(map, *stack->slot);
 
-		if (radix64Node->timestamp > cursor->base->ts)
-		  break;
-
 		stack->ch = slot64(stack->ch, radix64Node->alloc, radix64Node->keys);
 
 		if (stack->ch == 256)
@@ -306,9 +294,6 @@ int slot, len;
 
 	  case Array256: {
 		ARTNode256* radix256Node = getObj(map, *stack->slot);
-
-		if (radix256Node->timestamp > cursor->base->ts)
-		  break;
 
 		while (stack->ch < 256) {
 		  uint32_t idx = ++stack->ch;
@@ -441,9 +426,6 @@ int slot, len;
 		ARTSpan* spanNode = getObj(map, *stack->slot);
 		len = stack->slot->nbyte + 1;
 
-		if (spanNode->timestamp > cursor->base->ts)
-			break;
-
 		// examine next node under slot
 
 		if (stack->ch > 255) {
@@ -463,9 +445,6 @@ int slot, len;
 	  case Array4: {
 		ARTNode4* radix4Node = getObj(map, *stack->slot);
 
-		if (radix4Node->timestamp > cursor->base->ts)
-			break;
-
 		slot = slotrev4x14(stack->ch, 4, radix4Node->alloc, radix4Node->keys);
 		if (slot < 0)
 			break;
@@ -483,9 +462,6 @@ int slot, len;
 
 	  case Array14: {
 		ARTNode14* radix14Node = getObj(map, *stack->slot);
-
-		if (radix14Node->timestamp > cursor->base->ts)
-			break;
 
 		slot = slotrev4x14(stack->ch, 14, radix14Node->alloc, radix14Node->keys);
 		if (slot < 0)
@@ -505,9 +481,6 @@ int slot, len;
 	  case Array64: {
 	 	ARTNode64* radix64Node = getObj(map, *stack->slot);
 
-		if (radix64Node->timestamp > cursor->base->ts)
-			break;
-
 		stack->ch = slotrev64(stack->ch, radix64Node->alloc, radix64Node->keys);
 		if (stack->ch < 0)
 			break;
@@ -525,9 +498,6 @@ int slot, len;
 
 	  case Array256: {
 		ARTNode256* radix256Node = getObj(map, *stack->slot);
-
-		if (radix256Node->timestamp > cursor->base->ts)
-			break;
 
 		while (--stack->ch >= 0) {
 			uint32_t idx = stack->ch;
