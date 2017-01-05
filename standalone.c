@@ -33,6 +33,13 @@
 
 #endif
 
+#ifdef DEBUG
+extern uint64_t totalMemoryReq[1];
+extern uint64_t nodeAlloc[64];
+extern uint64_t nodeFree[64];
+extern uint64_t nodeWait[64];
+#endif
+
 double getCpuTime(int type);
 
 //  Interface function to evaluate a partial document
@@ -669,6 +676,33 @@ int num = 0;
 #endif
 
 	elapsed = getCpuTime(0) - start;
+
+#ifdef DEBUG
+	fputc(0x0a, stderr);
+
+	fprintf(stderr, "Total memory allocated: %lld\n", *totalMemoryReq);
+
+	fputc(0x0a, stderr);
+
+	for (idx = 0; idx < 64; idx++)
+	  if (nodeAlloc[idx])
+		fprintf(stderr, "Index type %d blks allocated: %.8lld\n", idx, nodeAlloc[idx]);
+
+	fputc(0x0a, stderr);
+
+	for (idx = 0; idx < 64; idx++)
+	  if (nodeFree[idx])
+		fprintf(stderr, "Index type %d blks freed    : %.8lld\n", idx, nodeFree[idx]);
+
+	fputc(0x0a, stderr);
+
+	for (idx = 0; idx < 64; idx++)
+	  if (nodeWait[idx])
+		fprintf(stderr, "Index type %d blks recycled : %.8lld\n", idx, nodeWait[idx]);
+
+	fputc(0x0a, stderr);
+#endif
+
 	fprintf(stderr, " real %dm%.3fs\n", (int)(elapsed/60), elapsed - (int)(elapsed/60)*60);
 	elapsed = getCpuTime(1);
 	fprintf(stderr, " user %dm%.3fs\n", (int)(elapsed/60), elapsed - (int)(elapsed/60)*60);

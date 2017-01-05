@@ -110,7 +110,7 @@ int hndl, flags;
 #endif
 
 #ifdef _WIN32
-	hndl = CreateFile(path, GENERIC_READ | GENERIC_WRITE | DELETE, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+	hndl = CreateFile(path, GENERIC_READ | GENERIC_WRITE | DELETE, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL |  FILE_FLAG_RANDOM_ACCESS, NULL);
 
 	if (hndl == INVALID_HANDLE_VALUE) {
 		fprintf(stderr, "Unable to create/open %s, error = %d\n", path, (int)GetLastError());

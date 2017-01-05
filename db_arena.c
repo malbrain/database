@@ -20,6 +20,8 @@ bool mapSeg (DbMap *map, uint32_t currSeg);
 void mapZero(DbMap *map, uint64_t size);
 void mapAll (DbMap *map);
 
+uint64_t totalMemoryReq[1];
+
 extern DbMap memMap[1];
 DbAddr openMaps[1];
 
@@ -438,6 +440,10 @@ uint64_t max, addr;
 
 	size += 7;
 	size &= -8;
+
+#ifdef DEBUG
+	atomicAdd64 (totalMemoryReq, size);
+#endif
 
 	// see if existing segment has space
 	// otherwise allocate a new segment.

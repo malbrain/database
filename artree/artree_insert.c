@@ -38,10 +38,19 @@ ReturnState insertKeyNode14(volatile ARTNode14*, ParamStruct *);
 ReturnState insertKeyNode64(volatile ARTNode64*, ParamStruct *);
 ReturnState insertKeyNode256(volatile ARTNode256*, ParamStruct *);
 
+#ifdef DEBUG
+uint64_t nodeAlloc[64];
+uint64_t nodeFree[64];
+uint64_t nodeWait[64];
+#endif
+
 uint64_t artAllocateNode(Handle *index, int type, uint32_t size) {
 DbAddr *free = listFree(index,type);
 DbAddr *tail = listTail(index,type);
 
+#ifdef DEBUG
+	atomicAdd64(&nodeAlloc[type], 1ULL);;
+#endif
 	return allocObj(index->map, free, tail, type, size, true);
 }
 
@@ -109,7 +118,7 @@ uint32_t len;
   if (!(next->bits = artAllocateNode(p->index, KeyEnd, sizeof(ARTKeyEnd))))
 	return false;
 
-  //  splice into caller's tree
+  //  splice initial span node into caller's pending tree modification
 
   slot->bits = fill->bits;
   return true;
@@ -141,6 +150,9 @@ DbAddr slot;
 	  yield();
 	}
 
+	//	loop invariant: p->slot points
+	//	to node to process next
+
 	while (p->off < p->keyLen) {
 	  ReturnState rt;
 
@@ -153,12 +165,11 @@ DbAddr slot;
 
 	  if (p->binaryFlds)
 		if (!p->fldLen) {
+		  ARTFldEnd *fldEndNode;
 
-		  // splice-in a FldEnd?
-
-		  if (p->off)
+		  if (p->off)			// splice-in a FldEnd?
 		   if (p->slot->type == FldEnd) {
-			  ARTFldEnd *fldEndNode = getObj(index->map, *p->slot);
+			  fldEndNode = getObj(index->map, *p->slot);
 			  p->slot = fldEndNode->nextFld;
 		   } else {
 			lockLatch(p->slot->latch);
@@ -171,7 +182,7 @@ DbAddr slot;
 			}
 
 			if ((slot.bits = artAllocateNode(p->index, FldEnd, sizeof(ARTFldEnd)))) {
-			  ARTFldEnd *fldEndNode = getObj(index->map, *p->newSlot);
+			  fldEndNode = getObj(index->map, slot);
 			  fldEndNode->sameFld->bits = p->slot->bits & ~ADDR_MUTEX_SET;
 	  		  p->slot->bits = slot.bits;
 			  p->slot = fldEndNode->nextFld;
@@ -223,7 +234,7 @@ DbAddr slot;
 		}
 		case UnusedSlot: {
 			// note this only occurs on the initial insert
-			// into an empty tree
+			// into an empty tree, or after a newly inserted FldEnd
 
 			lockLatch(p->slot->latch);
 
@@ -262,9 +273,7 @@ DbAddr slot;
 		  continue;
 
 		case EndSearch:
-		  // is there a new node, or a change?
-
-		  if (!p->newSlot->bits) {
+		  if (!p->newSlot->bits) { // is there a new node, or a change?
 			unlockLatch(p->prev->latch);
 			return DB_OK;
 		  }
@@ -276,9 +285,13 @@ DbAddr slot;
 
 		  // add old slot to free/wait list
 
-		  if (slot.type)
+		  if (slot.type) {
 			if((!addSlotToFrame(index->map, listHead(index,slot.type), listTail(index,slot.type), slot.bits)))
 			  return DB_ERROR_outofmemory;
+			#ifdef DEBUG
+			atomicAdd64(&nodeFree[slot.type], 1ULL);;
+			#endif
+		  }
 
 		  return DB_OK;
 	  }  // end switch
@@ -292,8 +305,7 @@ DbAddr slot;
 	  continue;
 	}
 
-	// does p->slot continue with another key?
-	//	return if not
+	// does p->slot end the current key?
 
 	if (p->slot->type == KeyEnd)
 	  return DB_OK;
@@ -778,7 +790,7 @@ ARTNode4 *radix4Node;
 		radix4Node->keys[1] = p->key[p->off++];
 		radix4Node->alloc |= 2;
 		contSlot = radix4Node->radix + 1;
-	} else if (p->off < p->keyLen) { 		//	do we have an field end?
+	} else if (p->off < p->keyLen) { 	//	we have a field end before KeyEnd
 	  if ((nxtSlot->bits = artAllocateNode(p->index, FldEnd, sizeof(ARTFldEnd)))) {
 		ARTFldEnd *fldEndNode = getObj(p->index->map, *nxtSlot);
 		contSlot = fldEndNode->nextFld;

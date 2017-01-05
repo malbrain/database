@@ -7,6 +7,12 @@
 uint64_t getFreeFrame(DbMap *map);
 uint64_t allocFrame( DbMap *map);
 
+#ifdef DEBUG
+extern uint64_t nodeAlloc[64];
+extern uint64_t nodeFree[64];
+extern uint64_t nodeWait[64];
+#endif
+
 //	fill in new frame with new available objects
 //	return false if out of memory
 
@@ -286,6 +292,10 @@ Frame *frame;
 
 		tail->bits = frame->prev.addr | ADDR_MUTEX_SET;
 		prevFrame->next.bits = 0;
+
+		#ifdef DEBUG
+		atomicAdd64(&nodeWait[prevFrame->slots[0].type], (uint64_t)FrameSlots);
+		#endif
 
 		// advance to next candidate
 
