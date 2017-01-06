@@ -72,12 +72,11 @@ ArenaDef arenaDef[1];
 
 uint64_t makeHandle(DbMap *map, uint32_t xtraSize, HandleType type) {
 HndlCall *hndlCall;
-uint64_t *inUse;
+DbAddr *listArray;
 HandleId *slot;
 ObjId hndlId;
 Handle *hndl;
 uint32_t amt;
-uint16_t idx;
 DbAddr addr;
 
 	// first call?
@@ -85,7 +84,7 @@ DbAddr addr;
 	if (!(*hndlInit & TYPE_BITS))
 		initHndlMap(NULL, 0, NULL, 0, true);
 
-	// total size of the Handle
+	// total size of the Handle structure
 
 	amt = sizeof(Handle) + xtraSize;
 
@@ -107,21 +106,20 @@ DbAddr addr;
 	hndl->map = map;
 
 	//  allocate recycled frame queues
+	//	three times the number of node types
+	//	for the index type
 
 	if ((hndl->maxType = map->arenaDef->numTypes)) {
-		idx = arrayAlloc(map, map->arena->listArray, sizeof(DbAddr) * amt * 3);
-		inUse = arrayBlk(map, map->arena->listArray, idx);
-		hndl->frames = (DbAddr *)inUse + (idx % ARRAY_size) * amt * 3;
-		hndl->frameIdx = idx;
+		hndl->frameIdx = arrayAlloc(map, map->listArray, sizeof(DbAddr) * hndl->maxType * 3);
+		listArray = arrayAddr(map, map->listArray, hndl->frameIdx);
+		hndl->frames = listArray + (hndl->frameIdx % ARRAY_size) * hndl->maxType * 3;
 	}
 
 	//	allocate and initialize hndlCall
 
-	idx = arrayAlloc(map->db, map->arenaDef->hndlCalls, sizeof(HndlCall));
-	hndl->calls.bits = arrayAddr(map->db, map->arenaDef->hndlCalls, idx);
-	hndl->callIdx = idx;
+	hndl->callIdx = arrayAlloc(map->db, map->arenaDef->hndlCalls, sizeof(HndlCall));
 
-	hndlCall = arrayEntry(map->db, hndl->calls, idx, sizeof(HndlCall));
+	hndlCall = arrayEntry(map->db, map->arenaDef->hndlCalls, hndl->callIdx, sizeof(HndlCall));
 	hndlCall->hndlId.bits = hndlId.bits;
 
 	//  install in HandleId slot
@@ -145,10 +143,10 @@ uint64_t *inUse;
 	// release handle freeList
 
 	if (hndl->maxType) {
-		lockLatch(map->arena->listArray->latch);
-		inUse = arrayBlk(map, map->arena->listArray, hndl->frameIdx);
+		lockLatch(map->listArray->latch);
+		inUse = arrayBlk(map, map->listArray, hndl->frameIdx);
 		inUse[hndl->frameIdx % ARRAY_size / 64] &= ~(1ULL << (hndl->frameIdx % 64));
-		unlockLatch(map->arena->listArray->latch);
+		unlockLatch(map->listArray->latch);
 	}
 
 	freeBlk (hndlMap, *addr);
@@ -199,7 +197,7 @@ uint32_t cnt;
 	//	set the entryTs if so.
 
 	if (cnt == 1) {
-		hndlCall = arrayEntry(hndl->map->db, hndl->calls, hndl->callIdx, sizeof(HndlCall));
+		hndlCall = arrayEntry(hndl->map->db, hndl->map->arenaDef->hndlCalls, hndl->callIdx, sizeof(HndlCall));
 		hndlCall->entryTs = atomicAdd64(&hndl->map->arena->nxtTs, 1);
 	}
 
@@ -229,11 +227,11 @@ ObjId hndlId;
 int idx, seg;
 
   if (array->addr) {
-	addr = getObj(map, *array);
+	addr = getObj(map->db, *array);
 
 	for (idx = 0; idx <= array->maxidx; idx++) {
-	  uint64_t *inUse = getObj(map, addr[idx]);
-	  HndlCall *call = (HndlCall *)inUse;
+	  uint64_t *inUse = getObj(map->db, addr[idx]);
+	  HndlCall *hndlCall = (HndlCall *)inUse;
 
 	  for (seg = 0; seg < ARRAY_inuse; seg++) {
 		uint64_t bits = inUse[seg];
@@ -245,7 +243,7 @@ int idx, seg;
 		}
 
 		do if (bits & 1) {
-		  hndlId.bits = call[seg * 64 + slotIdx].hndlId.bits;
+		  hndlId.bits = hndlCall[seg * 64 + slotIdx].hndlId.bits;
 		  slot = fetchIdSlot(hndlMap, hndlId);
 
 		  handle->bits = atomicExchange(&slot->addr->bits, 0);
@@ -277,7 +275,7 @@ int idx, seg;
 
 	for (idx = 0; idx <= array->maxidx; idx++) {
 	  uint64_t *inUse = getObj(map->db, addr[idx]);
-	  HndlCall *call = (HndlCall *)inUse;
+	  HndlCall *hndlCall = (HndlCall *)inUse;
 
 	  for (seg = 0; seg < ARRAY_inuse; seg++) {
 		uint64_t bits = inUse[seg];
@@ -289,12 +287,12 @@ int idx, seg;
 		}
 
 		do if (bits & 1) {
-		  HandleId *slot = fetchIdSlot(hndlMap, call[seg * 64 + slotIdx].hndlId);
+		  HandleId *slot = fetchIdSlot(hndlMap, hndlCall[seg * 64 + slotIdx].hndlId);
 
 		  if (!slot->bindCnt[0])
 			  continue;
 		  else
-			  lowTs = call[slotIdx].entryTs;
+			  lowTs = hndlCall[slotIdx].entryTs;
 		} while (slotIdx++, bits /= 2);
 	  }
 	}

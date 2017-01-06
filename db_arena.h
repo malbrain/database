@@ -5,8 +5,6 @@
 #include <windows.h>
 #endif
 
-#include "db_redblack.h"
-
 #define MAX_segs  1000
 #define MIN_segbits	 17
 #define MIN_segsize  (1ULL << MIN_segbits)
@@ -30,7 +28,6 @@ struct DbArena_ {
 	DbSeg segs[MAX_segs]; 			// segment meta-data
 	int64_t lowTs, delTs, nxtTs;	// low hndl ts, Incr on delete
 	DbAddr freeBlk[MAX_blk];		// free blocks in frames
-	DbAddr listArray[1];			// free lists array for handles
 	DbAddr freeFrame[1];			// free frames in frames
 	DbAddr redblack[1];				// our redblack entry addr
 	uint64_t objCount;				// overall number of objects
@@ -44,6 +41,48 @@ struct DbArena_ {
 
 	char filler[256];
 };
+
+//	skip list head
+
+struct SkipHead_ {
+	DbAddr head[1];		// list head
+	RWLock lock[1];		// reader/writer lock
+};
+
+//	Skip list entry
+
+struct SkipEntry_ {
+	uint64_t key[1];	// entry key
+	uint64_t val[1];	// entry value
+};
+
+//	size of skip list entry array
+
+typedef struct {
+	DbAddr next[1];		// next block of keys
+	SkipEntry array[0];	// array of key/value pairs
+} SkipNode;
+
+//  arena creation specifications
+//	data is permanent in database arena
+
+typedef struct {
+	uint64_t id;				// our id in parent children
+	uint64_t ver;				// current arena version
+	int64_t childId;			// highest child Id we've issued
+	uint32_t localSize;			// extra space after DbMap
+	uint32_t baseSize;			// extra space after DbArena
+	uint32_t objSize;			// size of ObjectId array slot
+	uint32_t mapIdx;			// index in openMap array
+	uint8_t arenaType;			// type of the arena
+	uint8_t numTypes;			// number of node types
+	char dead[1];				// arena being deleted
+	DbAddr parentAddr;			// address of parent's red-black entry
+	DbAddr nameTree[1];			// child arena name red/black tree
+	SkipHead idList[1];			// child skiplist of names by id
+	DbAddr hndlCalls[1];		// array of bound handle counts
+	Params params[MaxParam];	// parameter array for rest of object
+} ArenaDef;
 
 //	per instance arena structure
 
@@ -60,11 +99,16 @@ struct DbMap_ {
 	DbMap *parent, *db;		// ptr to parent and database
 	SkipHead childMaps[1];	// skipList of child DbMaps
 	ArenaDef *arenaDef;		// our arena definition
+	DbAddr listArray[1];	// free lists array for handles
 	int32_t openCnt[1];		// count of open children
 	uint16_t pathLen;		// length of arena path
 	uint16_t numSeg;		// number of mapped segments
 	char mapMutex[1];		// segment mapping mutex
 };
+
+#define skipSize(addr) (((1ULL << addr->type) - sizeof(SkipNode)) / sizeof(SkipEntry))
+
+#define SKIP_node 15
 
 //	database variables
 

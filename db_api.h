@@ -6,6 +6,7 @@
 #include <stdbool.h>
 
 #include "db_error.h"
+#include "db_redblack.h"
 
 void initialize(void);
 

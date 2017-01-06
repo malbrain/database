@@ -21,7 +21,6 @@ typedef struct {
 
 struct Handle_ {
 	DbMap *map;			// pointer to map, zeroed on close
-	DbAddr calls;		// current handle timestamp
 	ObjId hndlId;		// object Id entry in catalog
 	DbAddr *frames;		// frames ready and waiting to be recycled
 	uint16_t arenaIdx;	// arena handle table entry index
@@ -33,7 +32,7 @@ struct Handle_ {
 };
 
 typedef struct {
-	DbAddr addr[1];
+	DbAddr addr[1];		// address of the handle in the catalog
 	int32_t bindCnt[1];	// count of outstanding handle binds
 } HandleId;
 

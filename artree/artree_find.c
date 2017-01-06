@@ -1,8 +1,8 @@
 #include "../db.h"
-#include "../db_object.h"
-#include "../db_index.h"
 #include "../db_arena.h"
 #include "../db_map.h"
+#include "../db_object.h"
+#include "../db_index.h"
 #include "artree.h"
 
 DbStatus artFindKey( DbCursor *dbCursor, DbMap *map, void *findKey, uint32_t keyLen) {

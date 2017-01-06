@@ -17,24 +17,25 @@ DbAddr *addr;
 
 //	return addr of array segment for array index
 
-uint64_t arrayAddr(DbMap *map, DbAddr *array, uint16_t idx) {
+DbAddr *arrayAddr(DbMap *map, DbAddr *array, uint16_t idx) {
 DbAddr *addr;
 
 	if (!array->addr)
 		return 0;
 
 	addr = getObj(map, *array);
-	return addr[idx / ARRAY_size].bits;
+	return &addr[idx / ARRAY_size];
 }
 
 //	return payload address for an idx from an array segment
 
-void *arrayEntry (DbMap *map, DbAddr addr, uint16_t idx, size_t size) {
-uint64_t *inUse = getObj(map, addr);
-uint8_t *base = (uint8_t *)inUse;
+void *arrayEntry (DbMap *map, DbAddr *array, uint16_t idx, size_t size) {
+DbAddr *addr = getObj(map, *array);
+uint8_t *base;
 
 	assert(idx % ARRAY_size >= ARRAY_first(size));
 
+	base = getObj(map, *addr);
 	base += size * (idx % ARRAY_size);
 	return base;
 }

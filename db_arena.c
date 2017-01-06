@@ -12,9 +12,10 @@
 
 #include "db.h"
 #include "db_map.h"
-#include "db_object.h"
 #include "db_arena.h"
+#include "db_object.h"
 #include "db_frame.h"
+#include "db_redblack.h"
 
 bool mapSeg (DbMap *map, uint32_t currSeg);
 void mapZero(DbMap *map, uint64_t size);

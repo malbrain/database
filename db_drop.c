@@ -3,12 +3,13 @@
 #include "db_object.h"
 #include "db_arena.h"
 #include "db_handle.h"
+#include "db_redblack.h"
 
 extern DbAddr openMaps[1];
 extern DbMap memMap[1];
 extern DbMap *hndlMap;
 
-// drop an arena and recursively its children
+// drop an arena from a db, and recursively its children
 
 void dropArenaDef(DbMap *db, ArenaDef *arenaDef, ArenaDef *parentArena, bool dropDefs, char *path, uint32_t pathLen) {
 uint32_t childIdMax, len;

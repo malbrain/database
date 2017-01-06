@@ -9,14 +9,14 @@ typedef struct {
 	DbAddr entry[RB_bits];	// stacked tree nodes
 } PathStk;
 
-typedef struct RedBlack_ {
+struct RedBlack_ {
 	DbAddr left, right;		// next nodes down
 	DbAddr addr;			// this entry addr in map
 	uint32_t payLoad;		// length of payload following
 	uint32_t keyLen;		// length of key after payload
 	char latch[1];			// this entry latch
 	char red;				// is tree node red?
-} RedBlack;
+};
 
 #define rbkey(entry) ((char *)(entry + 1) + entry->payLoad)
 

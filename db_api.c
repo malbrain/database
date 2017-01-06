@@ -25,7 +25,6 @@ char *hndlNames[] = {
 };
 
 int cursorSize[8] = {0, 0, 0, 0, sizeof(ArtCursor), sizeof(Btree1Cursor), 0};
-int maxType[8] = {0, 0, 0, 0, MaxARTType, MAXBtree1Type, 0};
 
 extern void memInit(void);
 extern char hndlInit[1];
@@ -172,7 +171,6 @@ Handle *ds;
 
 DbStatus createIndex(DbHandle hndl[1], DbHandle docHndl[1], char *name, uint32_t nameLen, Params *params) {
 int type = params[IdxType].intVal + Hndl_artIndex;
-uint32_t baseSize = 0;
 DbMap *map, *parent;
 Handle *parentHndl;
 ArenaDef *arenaDef;
@@ -187,27 +185,27 @@ Handle *index;
 
 	parent = parentHndl->map;
 
-	switch (type) {
-	case Hndl_artIndex:
-		baseSize = sizeof(ArtIndex);
-		break;
-	case Hndl_btree1Index:
-		baseSize = sizeof(Btree1Index);
-		break;
-	default:
-		releaseHandle(parentHndl);
-		return DB_ERROR_indextype;
-	}
-
 	//  create the index
 
 	rbEntry = procParam(parent, name, nameLen, params);
 
 	arenaDef = (ArenaDef *)(rbEntry + 1);
 	arenaDef->objSize = sizeof(ObjId);
-	arenaDef->numTypes = maxType[type];
-	arenaDef->baseSize = baseSize;
 	arenaDef->arenaType = type;
+
+	switch (type) {
+	case Hndl_artIndex:
+		arenaDef->numTypes = MaxARTType;
+		arenaDef->baseSize = sizeof(ArtIndex);
+		break;
+	case Hndl_btree1Index:
+		arenaDef->numTypes = MAXBtree1Type;
+		arenaDef->baseSize = sizeof(Btree1Index);
+		break;
+	default:
+		releaseHandle(parentHndl);
+		return DB_ERROR_indextype;
+	}
 
 	if (!(map = arenaRbMap(parent, rbEntry)))
 	  return DB_ERROR_createindex;

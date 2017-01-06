@@ -9,6 +9,8 @@
 #include <stdlib.h>
 
 #include "db_error.h"
+#include "db_malloc.h"
+#include "db_lock.h"
 
 #define MAX_key		4096	// maximum key size in bytes
 
@@ -74,6 +76,10 @@ typedef union {
 	uint64_t bits;
 } ObjId;
 
+typedef struct SkipEntry_ SkipEntry;
+typedef struct SkipHead_ SkipHead;
+typedef struct RedBlack_ RedBlack;
+typedef struct DbArena_ DbArena;
 typedef struct DbArena_ DbArena;
 typedef struct Handle_ Handle;
 typedef struct DbMap_ DbMap;

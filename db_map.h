@@ -1,8 +1,5 @@
 #pragma once
 
-#include "db_object.h"
-#include "db_malloc.h"
-
 /**
  *	map allocations
  */
@@ -35,6 +32,17 @@ void waitZero(volatile char *zero);
 void waitZero32(volatile int32_t *zero);
 void waitZero64(volatile int64_t *zero);
 void art_yield(void);
+
+/**
+ *	skip lists
+ */
+
+SkipEntry *skipSearch(SkipEntry *array, int high, uint64_t key);
+uint64_t skipDel(DbMap *map, DbAddr *skip, uint64_t key);
+uint64_t *skipFind(DbMap *map, DbAddr *skip, uint64_t key);
+uint64_t *skipPush(DbMap *map, DbAddr *skip, uint64_t key);
+uint64_t *skipAdd(DbMap *map, DbAddr *skip, uint64_t key);
+uint64_t skipInit(DbMap *map, int numEntries);
 
 /**
  * atomic integer ops
