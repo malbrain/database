@@ -193,8 +193,6 @@ int slot, len;
 	  }
 
 	  case KeyEnd: {
-		ARTKeyEnd* keyEndNode = getObj(map, *stack->slot);
-
 		if (stack->ch < 0) {
 		  if (binaryFlds) {
 			int fldLen = cursor->base->keyLen - cursor->lastFld - 2;
@@ -203,11 +201,15 @@ int slot, len;
 		    cursor->lastFld = cursor->base->keyLen;
 		  }
 
-		  cursor->stack[cursor->depth].slot->bits = keyEndNode->next->bits;
-		  cursor->stack[cursor->depth].addr = keyEndNode->next;
-		  cursor->stack[cursor->depth].ch = -1;
-		  cursor->stack[cursor->depth].lastFld = cursor->lastFld;
-		  cursor->stack[cursor->depth++].off = cursor->base->keyLen;
+		  if (stack->slot->keyEnd) {  // was there a continuation?
+			ARTKeyEnd* keyEndNode = getObj(map, *stack->slot);
+
+		    cursor->stack[cursor->depth].slot->bits = keyEndNode->next->bits;
+		    cursor->stack[cursor->depth].addr = keyEndNode->next;
+		    cursor->stack[cursor->depth].ch = -1;
+		    cursor->stack[cursor->depth].lastFld = cursor->lastFld;
+		    cursor->stack[cursor->depth++].off = cursor->base->keyLen;
+		  }
 
 		  cursor->base->state = CursorPosAt;
 		  stack->ch = 0;
@@ -398,8 +400,6 @@ int slot, len;
 	  }
 
 	  case KeyEnd: {
-		ARTKeyEnd* keyEndNode = getObj(map, *stack->slot);
-
 		if (stack->ch > 255) {
 		  if (binaryFlds) {
 			int fldLen = cursor->base->keyLen - cursor->lastFld - 2;
@@ -408,13 +408,17 @@ int slot, len;
 		    cursor->lastFld = cursor->base->keyLen;
 		  }
 
-		  cursor->stack[cursor->depth].slot->bits = keyEndNode->next->bits;
-		  cursor->stack[cursor->depth].addr = keyEndNode->next;
-		  cursor->stack[cursor->depth].ch = 256;
-		  cursor->stack[cursor->depth].lastFld = cursor->lastFld;
-		  cursor->stack[cursor->depth++].off = cursor->base->keyLen;
-		  stack->ch = 0;
-		  continue;
+		  if (stack->slot->keyEnd) {
+			ARTKeyEnd* keyEndNode = getObj(map, *stack->slot);
+
+		    cursor->stack[cursor->depth].slot->bits = keyEndNode->next->bits;
+		    cursor->stack[cursor->depth].addr = keyEndNode->next;
+		    cursor->stack[cursor->depth].ch = 256;
+		    cursor->stack[cursor->depth].lastFld = cursor->lastFld;
+		    cursor->stack[cursor->depth++].off = cursor->base->keyLen;
+		    stack->ch = 0;
+		    continue;
+		  }
 		}
 
 		cursor->base->state = CursorPosAt;

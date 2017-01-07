@@ -74,9 +74,9 @@ uint64_t id;
 
 	//  wait for handles to exit
 
-	lockLatch(arenaDef->hndlCalls->latch);
-	disableHndls(db, arenaDef->hndlCalls);
-	unlockLatch(arenaDef->hndlCalls->latch);
+	lockLatch(arenaDef->hndlIds->latch);
+	disableHndls(db, arenaDef->hndlIds);
+	unlockLatch(arenaDef->hndlIds->latch);
 
 	//	close map if we are open in this process
 	//	otherwise try to delete it

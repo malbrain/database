@@ -204,7 +204,7 @@ void lockLatch(volatile char* latch) {
 }
 
 void unlockLatch(volatile char* latch) {
-	*latch = *latch & ~MUTEX_BIT;
+	*latch &= ~MUTEX_BIT;
 }
 
 void lockAddr(volatile uint64_t* bits) {

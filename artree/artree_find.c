@@ -67,15 +67,15 @@ CursorStack* stack;
 	  }
 
 	  case KeyEnd: {
-	   	ARTKeyEnd* keyEndNode = getObj(map, *slot);
+		if (slot->keyEnd) {	// do key bytes fork here?
+	   	  ARTKeyEnd* keyEndNode = getObj(map, *slot);
+		  slot = keyEndNode->next;
 
-		slot = keyEndNode->next;
+		  if (cursor)
+			stack->ch = 256;
+		}
 
-		if (cursor)
-		  stack->ch = 256;
-
-		if (offset < keyLen)
-		  continue;
+		// otherwise our key isn't here
 
 		break;
 	  }

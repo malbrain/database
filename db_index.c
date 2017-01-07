@@ -22,10 +22,10 @@ ObjId hndlId;
 	//	and return the handle
 
 	if ((hndlId.bits = skipDel(docHndl->map, docStore->indexes->head, *entry->val))) {
-		HandleId *slot = slotHandle(hndlId.bits);
+		DbAddr *slot = slotHandle(hndlId);
 
-		lockLatch(slot->addr->latch);
-		destroyHandle(docHndl->map, slot->addr);
+		lockLatch(slot->latch);
+		destroyHandle(docHndl->map, slot);
 	}
 }
 

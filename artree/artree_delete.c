@@ -79,17 +79,20 @@ uint8_t ch;
 			}
 
 			case KeyEnd: {
-				ARTKeyEnd* keyEndNode = getObj(index->map, *stack->addr);
-				stack->addr->bits = keyEndNode->next->bits;
-				keyEndNode->next->bits = 0;
+				if (newSlot.keyEnd) { // 
+				  ARTKeyEnd* keyEndNode = getObj(index->map, *stack->addr);
+				  stack->addr->bits = keyEndNode->next->bits;
+				  keyEndNode->next->bits = 0;
+				  stack->addr->keyEnd = 0;
 
-				if(addSlotToFrame(index->map, listHead(index,newSlot.type), listTail(index,newSlot.type), newSlot.bits)) {
-				  if (stack->addr->type)
-					rt = EndSearch;
-				  else
-					continue;
-				} else
-				  rt = ErrorSearch;
+				  if(addSlotToFrame(index->map, listHead(index,newSlot.type), listTail(index,newSlot.type), newSlot.bits)) {
+				    if (stack->addr->type)
+					  rt = EndSearch;
+				    else
+					  continue;
+				  } else
+				    rt = ErrorSearch;
+				}
 
 				break;
 			}

@@ -286,21 +286,21 @@ Txn *txn;
 }
 
 DbStatus closeHandle(DbHandle dbHndl[1]) {
-HandleId *slot;
+DbAddr *slot;
 Handle *hndl;
 ObjId hndlId;
 
 	hndlId.bits = dbHndl->hndlBits;
 	slot = fetchIdSlot (hndlMap, hndlId);
 
-	lockLatch(slot->addr->latch);
+	lockLatch(slot->latch);
 
-	if (*slot->addr->latch & KILL_BIT) {
-		*slot->addr->latch = KILL_BIT;
+	if (*slot->latch & KILL_BIT) {
+		*slot->latch = KILL_BIT;
 		return DB_ERROR_handleclosed;
 	}
 
-	hndl = getObj(hndlMap, *slot->addr);
+	hndl = getObj(hndlMap, *slot);
 
 	//  specific handle cleanup
 
@@ -309,7 +309,7 @@ ObjId hndlId;
 		dbCloseCursor((void *)(hndl + 1), hndl->map);
 	}
 
-	destroyHandle (hndl->map, slot->addr);
+	destroyHandle (hndl->map, slot);
 	return DB_OK;
 }
 
@@ -317,13 +317,13 @@ ObjId hndlId;
 
 DbStatus deleteHandle(DbHandle dbHndl[1]) {
 DbStatus stat = DB_OK;
-HandleId *slot;
+DbAddr *slot;
 ObjId hndlId;
 
 	hndlId.bits = dbHndl->hndlBits;
 	slot = fetchIdSlot (hndlMap, hndlId);
 
-	if (*slot->addr->latch & KILL_BIT)
+	if (*slot->latch & KILL_BIT)
 	  stat = closeHandle(dbHndl);
 
 	freeId(hndlMap, hndlId);

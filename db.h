@@ -48,6 +48,7 @@ typedef union {
 			uint8_t nbyte;		// number of bytes in a span node
 			uint8_t nslot;		// number of frame slots in use
 			uint8_t maxidx;		// maximum slot index in use
+			uint8_t keyEnd;		// node continues the key
 			uint8_t ttype;		// index transaction type
 			int8_t rbcmp;		// red/black comparison
 		};
@@ -59,6 +60,7 @@ typedef union {
 	};
 } DbAddr;
 
+#define TYPE_SHIFT (6*8)		// number of bits to shift type left
 #define MUTEX_BIT  0x80
 #define KILL_BIT   0x40
 #define TYPE_BITS  0x3f
@@ -155,7 +157,7 @@ typedef struct {
 } Doc;
 
 // user's DbHandle
-//	contains the HandleId ObjId bits
+//	contains the Handle ObjId bits
 
 typedef struct {
 	uint64_t hndlBits;
