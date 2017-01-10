@@ -26,7 +26,7 @@ union Handle_ {
 	uint8_t maxType;		// number of arena list entries
 	uint8_t relaxTs;
   };
-  filler[64];	// fill cache line
+  char filler[64];	// fill cache line
 };
 
 void disableHndls(DbMap *db, DbAddr *hndlCalls);
