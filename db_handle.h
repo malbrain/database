@@ -11,18 +11,22 @@
 //	Local Handle for an arena
 //	these live in red/black entries.
 
-struct Handle_ {
-	DbMap *map;			// pointer to map, zeroed on close
-	ObjId hndlId;		// object Id entry in catalog
-	DbAddr *frames;		// frames ready and waiting to be recycled
-	uint64_t entryTs;	// time stamp of first api call
-	int32_t bindCnt[1];	// count of open api calls (handle binds)
-	uint16_t arenaIdx;	// arena handle table entry index
-	uint16_t xtraSize;	// size of following structure
-	uint16_t frameIdx;	// arena free frames entry index
-	uint8_t hndlType;	// type of handle
-	uint8_t maxType;	// number of arena list entries
+union Handle_ {
+  struct {
+	DbMap *map;				// pointer to map, zeroed on close
+	ObjId hndlId;			// object Id entry in catalog
+	DbAddr *frames;			// frames ready and waiting to be recycled
+	uint64_t entryTs;		// time stamp of first api call
+	int32_t bindCnt[1];		// count of open api calls (handle binds)
+	int32_t lockedDocs[1];	// count of open api calls (handle binds)
+	uint16_t arenaIdx;		// arena handle table entry index
+	uint16_t xtraSize;		// size of following structure
+	uint16_t frameIdx;		// arena free frames entry index
+	uint8_t hndlType;		// type of handle
+	uint8_t maxType;		// number of arena list entries
 	uint8_t relaxTs;
+  };
+  filler[64];	// fill cache line
 };
 
 void disableHndls(DbMap *db, DbAddr *hndlCalls);

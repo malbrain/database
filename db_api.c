@@ -534,6 +534,23 @@ DbStatus stat;
 	return stat;
 }
 
+//	fetch document from a docStore by docId
+
+DbStatus fetchDoc(DbHandle hndl[1], Doc **doc, ObjId docId) {
+Handle *docHndl;
+DbAddr *slot;
+
+	if (!(docHndl = bindHandle(hndl)))
+		return DB_ERROR_handleclosed;
+
+	slot = fetchIdSlot(docHndl->map, docId);
+	*doc = getObj(docHndl->map, *slot);
+
+	atomicAdd32 (docHndl->lockedEntries, 1);
+	releaseHandle(docHndl);
+	return DB_OK;
+}
+
 // install new document in docId slot
 
 DbStatus installDoc(Handle *docHndl, Doc *doc, Txn *txn) {

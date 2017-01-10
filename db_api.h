@@ -42,6 +42,7 @@ DbStatus allocDoc(DbHandle hndl[1], Doc **doc, uint32_t objSize);
 DbStatus assignDoc(DbHandle hndl[1], Doc *doc, ObjId txnId);
 DbStatus storeDoc(DbHandle hndl[1], void *obj, uint32_t objSize, ObjId *docId, ObjId txnId);
 DbStatus deleteDoc(DbHandle hndl[1], ObjId docId, ObjId txnId);
+DbStatus fetchDoc(DbHandle hndl[1], Doc **doc, ObjId docId);
 
 DbStatus createIterator(DbHandle hndl[1], DbHandle docHndl[1], Params *params);
 Ver *iteratorSeek(DbHandle hndl[1], ObjId objId,  uint32_t *offset);

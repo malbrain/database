@@ -210,9 +210,11 @@ uint64_t initSize = arenaDef->params[InitSize].intVal;
 uint32_t segOffset;
 uint32_t bits;
 
+	//	compute seg zero size multiple of cache line size
+
 	segOffset = sizeof(DbArena) + arenaDef->baseSize;
-	segOffset += 7;
-	segOffset &= -8;
+	segOffset += 63;
+	segOffset &= -64;
 
 	if (initSize < segOffset)
 		initSize = segOffset;
@@ -318,7 +320,7 @@ uint64_t nextSize;
 	map->arena->segs[nextSeg].size = nextSize - off;
 	map->arena->segs[nextSeg].nextId.seg = nextSeg;
 	map->arena->segs[nextSeg].nextObject.segment = nextSeg;
-	map->arena->segs[nextSeg].nextObject.offset = nextSeg ? 0 : 1;
+	map->arena->segs[nextSeg].nextObject.offset = 0;
 
 	//  extend the disk file, windows does this automatically
 
@@ -432,15 +434,17 @@ void* getObj(DbMap *map, DbAddr slot) {
 //  or return 0 if out of memory.
 
 uint64_t allocMap(DbMap *map, uint32_t size) {
-uint64_t max, addr;
+uint64_t max, addr, off;
 
 	lockLatch(map->arena->mutex);
 
 	max = map->arena->segs[map->arena->currSeg].size
 		  - map->arena->segs[map->arena->objSeg].nextId.index * map->arena->objSize;
 
-	size += 7;
-	size &= -8;
+	// round request up to cache line size
+
+	size += 63;
+	size &= -64;
 
 #ifdef DEBUG
 	atomicAdd64 (totalMemoryReq, size);
@@ -449,13 +453,21 @@ uint64_t max, addr;
 	// see if existing segment has space
 	// otherwise allocate a new segment.
 
-	if (map->arena->segs[map->arena->currSeg].nextObject.offset * 8ULL + size > max) {
+	off = map->arena->segs[map->arena->currSeg].nextObject.offset:
+
+	// round up to cache line size
+
+	off += 7;
+	off &= -8;
+
+	if (off * 8ULL + size > max) {
 		if (!newSeg(map, size)) {
 			unlockLatch (map->arena->mutex);
 			return 0;
 		}
 	}
 
+	map->arena->segs[map->arena->currSeg].nextObject.offset = off:
 	addr = map->arena->segs[map->arena->currSeg].nextObject.bits;
 	map->arena->segs[map->arena->currSeg].nextObject.offset += size >> 3;
 	unlockLatch(map->arena->mutex);

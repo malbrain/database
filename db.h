@@ -83,7 +83,7 @@ typedef struct SkipHead_ SkipHead;
 typedef struct RedBlack_ RedBlack;
 typedef struct DbArena_ DbArena;
 typedef struct DbArena_ DbArena;
-typedef struct Handle_ Handle;
+typedef union Handle_ Handle;
 typedef struct DbMap_ DbMap;
 
 //	param slots
@@ -151,7 +151,7 @@ typedef struct {
 	DbAddr addr;		// doc arena address
 	ObjId delId;		// delete txn ID
 	uint32_t verCnt;	// number of versions
-	uint32_t size;		// total size
+	uint32_t lastVer;	// offset of last version
 	DocState state;		// document state
 	Ver ver[1];			// base version
 } Doc;
