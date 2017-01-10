@@ -396,7 +396,7 @@ int stat;
 		  }
 		else
 		  while (!(stat = nextDoc(cursor, &doc))) {
-            fwrite (doc + 1, doc->size, 1, stdout);
+            fwrite (doc->ver + 1, doc->ver->size, 1, stdout);
             fputc ('\n', stdout);
             cnt++;
 		  }
@@ -454,7 +454,7 @@ int stat;
 		  }
 		else
 		  while (!(stat = prevDoc(cursor, &doc))) {
-            fwrite (doc + 1, doc->size, 1, stdout);
+            fwrite (doc->ver + 1, doc->ver->size, 1, stdout);
             fputc ('\n', stdout);
             cnt++;
 		  }

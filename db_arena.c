@@ -453,7 +453,7 @@ uint64_t max, addr, off;
 	// see if existing segment has space
 	// otherwise allocate a new segment.
 
-	off = map->arena->segs[map->arena->currSeg].nextObject.offset:
+	off = map->arena->segs[map->arena->currSeg].nextObject.offset;
 
 	// round up to cache line size
 
@@ -467,7 +467,7 @@ uint64_t max, addr, off;
 		}
 	}
 
-	map->arena->segs[map->arena->currSeg].nextObject.offset = off:
+	map->arena->segs[map->arena->currSeg].nextObject.offset = off;
 	addr = map->arena->segs[map->arena->currSeg].nextObject.bits;
 	map->arena->segs[map->arena->currSeg].nextObject.offset += size >> 3;
 	unlockLatch(map->arena->mutex);

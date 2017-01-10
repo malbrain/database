@@ -546,7 +546,7 @@ DbAddr *slot;
 	slot = fetchIdSlot(docHndl->map, docId);
 	*doc = getObj(docHndl->map, *slot);
 
-	atomicAdd32 (docHndl->lockedEntries, 1);
+	atomicAdd32 (docHndl->lockedDocs, 1);
 	releaseHandle(docHndl);
 	return DB_OK;
 }
@@ -609,13 +609,12 @@ DbAddr addr;
 		return DB_ERROR_outofmemory;
 
 	memset (*doc, 0, sizeof(Doc));
-	(*doc)->size = sizeof(Doc) + objSize;
 	(*doc)->addr.bits = addr.bits;
+	(*doc)->lastVer = sizeof(Doc) - sizeof(Ver);
 
-	(*doc)->ver->offset = sizeof(Doc);
+	(*doc)->ver->offset = sizeof(Doc) - sizeof(Ver);
 	(*doc)->ver->size = objSize;
 	(*doc)->ver->version = 1;
-	(*doc)->size = objSize;
 
 	releaseHandle(docHndl);
 	return DB_OK;
