@@ -39,7 +39,9 @@ DbStatus deleteKey(DbHandle hndl[1], void *key, uint32_t len);
 uint64_t arenaAlloc(DbHandle arenaHndl[1], uint32_t size, bool zeroit, bool dbArena);
 
 DbStatus storeDoc(DbHandle hndl[1], void *obj, uint32_t objSize, ObjId *docId, ObjId txnId, bool idxDoc);
+DbStatus allocDoc(Handle *docHndl, Doc **doc, uint32_t objSize);
 DbStatus deleteDoc(DbHandle hndl[1], ObjId docId, ObjId txnId);
+DbStatus installDoc (Handle *docHndl, Doc *doc, bool idxDoc);
 DbStatus fetchDoc(DbHandle hndl[1], Doc **doc, ObjId docId);
 
 DbStatus createIterator(DbHandle hndl[1], DbHandle docHndl[1], ObjId txnId, Params *params);
