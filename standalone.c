@@ -116,6 +116,7 @@ unsigned __stdcall index_file (void *arg)
 uint64_t line = 0, cnt = 0;
 ThreadArg *args = arg;
 DbHandle database[1];
+DbHandle iterator[1];
 DbHandle docHndl[1];
 DbHandle cursor[1];
 DbHandle index[1];
@@ -131,6 +132,7 @@ void *foundKey;
 ObjId docId;
 ObjId txnId;
 Doc *doc;
+Ver *ver;
 FILE *in;
 int stat;
 
@@ -217,19 +219,24 @@ int stat;
 		break;
 
 	case 'w':
-		fprintf(stderr, "started indexing keys from %s\n", args->inFile);
 
-		if (args->params[NoDocs].boolVal)
-			parent = database;
-		else {
-			openDocStore(docHndl, database, "documents", strlen("documents"), args->params);
-			parent = docHndl;
+		fprintf(stderr, "started writing from %s\n", args->inFile);
+		parent = database;
+
+		if (!args->params[NoDocs].boolVal) {
+		  if ((stat = openDocStore(docHndl, database, "documents", strlen("documents"), args->params)))
+			fprintf(stderr, "openDocStore Error %d name: %s\n", stat, "documents"), exit(0);
+		  parent = docHndl;
 		}
 
-		if ((stat = createIndex(index, parent, idxName, strlen(idxName), args->params)))
-		  fprintf(stderr, "createIndex Error %d name: %s\n", stat, idxName), exit(0);
+		if (!args->params[NoIdx].boolVal)
+		  if ((stat = createIndex(index, parent, idxName, strlen(idxName), args->params)))
+			fprintf(stderr, "createIndex Error %d name: %s\n", stat, idxName), exit(0);
 
-		if (docHndl->hndlBits)
+		if (args->params[NoDocs].boolVal && args->params[NoIdx].boolVal)
+		  fprintf(stderr, "Cannot specify both -noDocs and -noIdx\n"), exit(0);
+
+		if (!args->params[NoDocs].boolVal && !args->params[NoIdx].boolVal)
 			addIndexes(docHndl);
 
 		if (binaryFlds)
@@ -250,9 +257,9 @@ int stat;
 			  line++;
 
 			  if (docHndl->hndlBits) {
-				if ((stat = storeDoc (docHndl, key, len, &docId, txnId)))
+				if ((stat = storeDoc (docHndl, key, len, &docId, txnId, !args->params[NoIdx].boolVal)))
 				  fprintf(stderr, "Add Doc Error %d Line: %" PRIu64 "\n", stat, line), exit(0);
-			  } else
+			  } else if (index->hndlBits)
 				if ((stat = insertKey(index, key, len)))
 				  fprintf(stderr, "Insert Key Error %d Line: %" PRIu64 "\n", stat, line), exit(0);
 			  lastFld = 0;
@@ -271,7 +278,7 @@ int stat;
 			}
 		}
 
-		fprintf(stderr, " Total keys indexed %" PRIu64 "\n", line);
+		fprintf(stderr, " Total records processed %" PRIu64 "\n", line);
 		break;
 
 	case 'f':
@@ -344,8 +351,29 @@ int stat;
 		fprintf(stderr, "finished %s for %" PRIu64 " keys, found %" PRIu64 "\n", args->inFile, line, cnt);
 		break;
 
+	case 'i':
+		fprintf(stderr, "started iterator scan\n");
+
+		if (args->params[NoDocs].boolVal)
+		  fprintf(stderr, "Cannot specify noDocs with iterator scan\n"), exit(0);
+
+		if ((stat = openDocStore(docHndl, database, "documents", strlen("documents"), args->params)))
+		  fprintf(stderr, "openDocStore Error %d\n", stat), exit(0);
+
+		if ((stat = createIterator(iterator, docHndl, txnId, args->params)))
+		  fprintf(stderr, "createIterator Error %d\n", stat), exit(0);
+
+		while ((ver = iteratorNext(iterator))) {
+            fwrite (ver + 1, ver->size, 1, stdout);
+            fputc ('\n', stdout);
+            cnt++;
+		}
+
+		fprintf(stderr, " Total docs read %" PRIu64 "\n", cnt);
+		break;
+
 	case 's':
-		fprintf(stderr, "started scanning");
+		fprintf(stderr, "started index scanning");
 
 		if (args->minKey)
 			fprintf(stderr, " min key: %s", args->minKey);
@@ -547,15 +575,16 @@ int num = 0;
 	fprintf(stderr, "PageSize: %d, # Processors: %d, Allocation Granularity: %d\n\n", (int)info->dwPageSize, (int)info->dwNumberOfProcessors, (int)info->dwAllocationGranularity);
 #endif
 	if( argc < 3 ) {
-		fprintf (stderr, "Usage: %s db_name -cmds=[crwsdf]... -idxType=[012] -bits=# -xtra=# -inMem -txns -noDocs -keyLen=# -minKey=abcd -maxKey=abce -drop -idxBinary src_file1 src_file2 ... ]\n", argv[0]);
+		fprintf (stderr, "Usage: %s db_name -cmds=[crwsdfi]... -idxType=[012] -bits=# -xtra=# -inMem -txns -noDocs -noIdx -keyLen=# -minKey=abcd -maxKey=abce -drop -idxBinary src_file1 src_file2 ... ]\n", argv[0]);
 		fprintf (stderr, "  where db_name is the prefix name of the database file\n");
-		fprintf (stderr, "  cmds is a string of (c)ount/(r)ev scan/(w)rite/(s)can/(d)elete/(f)ind, with a one character command for each input src_file, or a no-input command.\n");
+		fprintf (stderr, "  cmds is a string of (c)ount/(r)ev scan/(w)rite/(s)can/(d)elete/(f)ind/(i)terate, with a one character command for each input src_file, or a no-input command.\n");
 		fprintf (stderr, "  idxType is the type of index: 0 = ART, 1 = btree1, 2 = btree2\n");
 		fprintf (stderr, "  keyLen is key size, zero for whole line\n");
 		fprintf (stderr, "  bits is the btree page size in bits\n");
 		fprintf (stderr, "  xtra is the btree leaf page extra bits\n");
 		fprintf (stderr, "  inMem specifies no disk files\n");
 		fprintf (stderr, "  noDocs specifies keys only\n");
+		fprintf (stderr, "  noIdx specifies documents only\n");
 		fprintf (stderr, "  txns indicates use of transactions\n");
 		fprintf (stderr, "  minKey specifies beginning cursor key\n");
 		fprintf (stderr, "  maxKey specifies ending cursor key\n");
@@ -598,6 +627,8 @@ int num = 0;
 			params[IdxBinary].boolVal = true;
 	  else if (!memcmp(argv[0], "-txns", 5))
 			params[UseTxn].boolVal = true;
+	  else if (!memcmp(argv[0], "-noIdx", 6))
+			params[NoIdx].boolVal = true;
 	  else if (!memcmp(argv[0], "-noDocs", 7))
 			params[NoDocs].boolVal = true;
 	  else if (!memcmp(argv[0], "-minKey=", 8))

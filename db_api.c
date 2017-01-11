@@ -551,57 +551,11 @@ DbAddr *slot;
 	return DB_OK;
 }
 
-// install new document in docId slot
+//	internal function to allocate a new document
 
-DbStatus installDoc(Handle *docHndl, Doc *doc, Txn *txn) {
-DbStatus stat;
-DbAddr *slot;
-
-	slot = fetchIdSlot(docHndl->map, doc->ver->docId);
-	slot->bits = doc->addr.bits;
-
-	if ((stat = installIndexes(docHndl)))
-		return stat;
-
-	//	add keys for the document
-	//	enumerate children (e.g. indexes)
-
-	installIndexKeys(docHndl, doc->ver);
-
-	if (txn)
-		addVerToTxn(docHndl->map->db, txn, doc->ver, TxnAddDoc); 
-
-	return DB_OK;
-}
-
-DbStatus assignDoc(DbHandle hndl[1], Doc *doc, ObjId txnId) {
-DocArena *docArena;
-Handle *docHndl;
-Txn *txn = NULL;
-DbStatus stat;
-
-	if (!(docHndl = bindHandle(hndl)))
-		return DB_ERROR_handleclosed;
-
-	docArena = docarena(docHndl->map);
-
-	if ((doc->ver->txnId.bits = txnId.bits))
-		txn = fetchIdSlot(docHndl->map->db, doc->ver->txnId);
-
-	doc->ver->docId.bits = allocObjId(docHndl->map, listFree(docHndl,0), listTail(docHndl,0), docArena->docIdx);
-
-	stat = installDoc(docHndl, doc, txn);
-	releaseHandle(docHndl);
-
-	return stat;
-}
-
-DbStatus allocDoc(DbHandle hndl[1], Doc **doc, uint32_t objSize) {
-Handle *docHndl;
+DbStatus allocDoc(Handle *docHndl, Doc **doc, uint32_t objSize) {
+DocArena *docArena = docarena(docHndl->map);
 DbAddr addr;
-
-	if (!(docHndl = bindHandle(hndl)))
-		return DB_ERROR_handleclosed;
 
 	if ((addr.bits = allocObj(docHndl->map, listFree(docHndl,0), listTail(docHndl,0), -1, objSize + sizeof(Doc), false)))
 		*doc = getObj(docHndl->map, addr);
@@ -611,12 +565,12 @@ DbAddr addr;
 	memset (*doc, 0, sizeof(Doc));
 	(*doc)->addr.bits = addr.bits;
 	(*doc)->lastVer = sizeof(Doc) - sizeof(Ver);
+	(*doc)->verCnt = 1;
 
+	(*doc)->ver->docId.bits = allocObjId(docHndl->map, listFree(docHndl,0), listTail(docHndl,0), docArena->docIdx);
 	(*doc)->ver->offset = sizeof(Doc) - sizeof(Ver);
 	(*doc)->ver->size = objSize;
 	(*doc)->ver->version = 1;
-
-	releaseHandle(docHndl);
 	return DB_OK;
 }
 
@@ -641,24 +595,57 @@ Doc *doc;
 	return DB_OK;
 }
 
-DbStatus storeDoc(DbHandle hndl[1], void *obj, uint32_t objSize, ObjId *docId, ObjId txnId) {
+//	Entry point to store a new document
+
+DbStatus storeDoc(DbHandle hndl[1], void *obj, uint32_t objSize, ObjId *docId, ObjId txnId, bool idxDoc) {
+DocArena *docArena;
+Handle *docHndl;
+Txn *txn = NULL;
 DbStatus stat;
+DbAddr *slot;
 Doc *doc;
 
-	if ((stat = allocDoc(hndl, &doc, objSize)))
+	if (!(docHndl = bindHandle(hndl)))
+		return DB_ERROR_handleclosed;
+
+	if ((stat = allocDoc(docHndl, &doc, objSize)))
 		return stat;
 
 	memcpy(doc + 1, obj, objSize);
 
-	if ((stat = assignDoc (hndl, doc, txnId)))
-		return stat;
+	docArena = docarena(docHndl->map);
 
-	//  return the docId
+	doc->ver->docId.bits = allocObjId(docHndl->map, listFree(docHndl,0), listTail(docHndl,0), docArena->docIdx);
+
+	//  return the docId to the caller
 
 	if (docId)
 		docId->bits = doc->ver->docId.bits;
 
-	return DB_OK;
+	// install the document in the ObjId array
+
+	slot = fetchIdSlot(docHndl->map, doc->ver->docId);
+	slot->bits = doc->addr.bits;
+
+	//	add the version to the txn
+
+	if ((doc->ver->txnId.bits = txnId.bits)) {
+		txn = fetchIdSlot(docHndl->map->db, doc->ver->txnId);
+		addVerToTxn(docHndl->map->db, txn, doc->ver, TxnAddDoc); 
+	}
+
+	if (!idxDoc)
+		return DB_OK;
+
+	//	compute and apply indexes
+
+	if ((stat = installIndexes(docHndl)))
+		return stat;
+
+	//	add keys for the document
+	//	enumerate children (e.g. indexes)
+
+	return installIndexKeys(docHndl, doc->ver);
 }
 
 DbStatus deleteKey(DbHandle hndl[1], void *key, uint32_t len) {

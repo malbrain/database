@@ -3,6 +3,7 @@
 #include "db_handle.h"
 #include "db_arena.h"
 #include "db_map.h"
+#include "db_api.h"
 #include "db_txn.h"
 #include "db_iterator.h"
 
@@ -10,10 +11,9 @@
 // create and position the start of an iterator
 //
 
-DbStatus createIterator(DbHandle hndl[1], DbHandle docHndl[1], uint64_t txnBits) {
+DbStatus createIterator(DbHandle hndl[1], DbHandle docHndl[1], ObjId txnId, Params *params) {
 Handle *docStore;
 Iterator *it;
-ObjId txnId;
 Txn *txn;
 
 	memset (hndl, 0, sizeof(DbHandle));
@@ -25,11 +25,19 @@ Txn *txn;
 
 	it = (Iterator *)(getHandle(hndl) + 1);
 
-	if ((txnId.bits = txnBits)) {
+	if (txnId.bits) {
 		txn = fetchIdSlot(docStore->map->db, txnId);
 		it->ts = txn->timestamp;
 	} else
 		it->ts = allocateTimestamp(docStore->map->db, en_reader);
+
+	if (params[IteratorEnd].boolVal) {
+		it->docId.bits = docStore->map->arena->segs[docStore->map->arena->currSeg].nextId.bits;
+		it->state = IterRightEof;
+	} else {
+		it->docId.bits = 0;
+		it->state = IterLeftEof;
+	}
 
 	it->txnId.bits = txnId.bits;
 	releaseHandle(docStore);
@@ -80,8 +88,6 @@ ObjId start = it->docId;
 //  advance iterator forward
 //
 
-//  TODO:  lock the record
-
 Ver *iteratorNext(DbHandle hndl[1]) {
 Handle *docStore;
 Txn *txn = NULL;
@@ -107,8 +113,6 @@ Iterator *it;
 //  advance iterator backward
 //
 
-//  TODO:  lock the record
-
 Ver *iteratorPrev(DbHandle hndl[1]) {
 Handle *docStore;
 Txn *txn = NULL;
@@ -132,9 +136,10 @@ Iterator *it;
 
 //
 //  set iterator to specific objectId
+//	return most recent mvcc version
 //
 
-Ver *iteratorSeek(DbHandle hndl[1], uint64_t objBits) {
+Ver *iteratorSeek(DbHandle hndl[1], ObjId docId) {
 Handle *docStore;
 Txn *txn = NULL;
 Ver *ver = NULL;
@@ -148,7 +153,7 @@ Iterator *it;
 	if (it->txnId.bits)
 		txn = fetchIdSlot(docStore->map->db, it->txnId);
 
-	it->docId.bits = objBits;
+	it->docId.bits = docId.bits;
 
 	ver = findDocVer(docStore->map, it->docId, txn);
 

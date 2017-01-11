@@ -94,6 +94,7 @@ typedef enum {
 	InitSize,		// initial arena size
 	UseTxn,			// transactions used
 	NoDocs,			// no documents, just indexes
+	NoIdx,			// no indexes, just documents
 	DropDb,			// drop the database
 
 	IdxKeySpec = 10,	// offset of key document
@@ -110,7 +111,9 @@ typedef enum {
 	CursorStart,
 	CursorEnd,
 
-	MaxParam = 30	// param array size
+	IteratorEnd = 30,  // position iterator at end?
+
+	MaxParam = 40	// param array size
 } ParamSlot;
 
 typedef union {
