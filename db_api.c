@@ -634,18 +634,20 @@ Doc *doc;
 		addVerToTxn(docHndl->map->db, txn, doc->ver, TxnAddDoc); 
 	}
 
-	if (!idxDoc)
-		return DB_OK;
-
 	//	compute and apply indexes
 
-	if ((stat = installIndexes(docHndl)))
+	if (idxDoc) {
+	  if ((stat = installIndexes(docHndl)))
 		return stat;
 
-	//	add keys for the document
-	//	enumerate children (e.g. indexes)
+	  //	add keys for the document
+	  //	enumerate children (e.g. indexes)
 
-	return installIndexKeys(docHndl, doc->ver);
+	  stat = installIndexKeys(docHndl, doc->ver);
+	}
+
+	releaseHandle(docHndl);
+	return stat;
 }
 
 DbStatus deleteKey(DbHandle hndl[1], void *key, uint32_t len) {
