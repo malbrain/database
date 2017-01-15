@@ -30,7 +30,12 @@ int sys_futex(void *addr1, int op, int val1, struct timespec *timeout, void *add
 #endif
 
 #ifdef unix
+#ifdef apple
+#include <libkern/OSAtomic.h>
+#define pause() OSMemoryBarrier()
+#else
 #define pause() asm volatile("pause\n": : : "memory")
+#endif
 
 void lock_sleep (int cnt) {
 struct timespec ts[1];
@@ -108,7 +113,7 @@ uint32_t spinCount = 0;
 }
 
 void mutex_unlock(Mutex* mutex) {
-	asm volatile ("" ::: "memory");
+	//asm volatile ("" ::: "memory");
 	*mutex->lock = 0;
 }
 #else

@@ -8,6 +8,10 @@
 #include "db_error.h"
 #include "db_redblack.h"
 
+#ifdef apple 
+#define DbStatus int
+#endif
+
 void initialize(void);
 
 DbStatus openDatabase(DbHandle hndl[1], char *name, uint32_t len, Params *params);

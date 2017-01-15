@@ -156,7 +156,6 @@ uint64_t *inUse;
 //	return false if handle closed
 
 Handle *bindHandle(DbHandle *dbHndl) {
-ObjId *hndlIdx;
 DbAddr *slot;
 Handle *hndl;
 ObjId hndlId;

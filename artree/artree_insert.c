@@ -164,7 +164,7 @@ DbAddr slot;
 		if (!p->fldLen) {
 		  ARTFldEnd *fldEndNode;
 
-		  if (p->off)			// splice-in a FldEnd?
+		  if (p->off) {			// splice-in a FldEnd?
 		   if (p->slot->type == FldEnd) {
 			  fldEndNode = getObj(index->map, *p->slot);
 			  p->slot = fldEndNode->nextFld;
@@ -190,6 +190,7 @@ DbAddr slot;
 		  p->off += 2;
 		  continue;
 		}
+      }
 
 	  switch (p->oldSlot->type < SpanNode ? p->oldSlot->type : SpanNode) {
 		case FldEnd: {

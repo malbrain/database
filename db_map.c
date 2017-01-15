@@ -13,8 +13,13 @@
 #include <errno.h>
 #include <sched.h>
 
-//#ifndef apple
+#ifdef apple
+#include <libkern/OSAtomic.h>
+#define pause() OSMemoryBarrier()
+#else
 #define pause() asm volatile("pause\n": : : "memory")
+#endif
+
 //#else
 //#define pause() asm( "volatile pause : : : memory" )
 //#endif

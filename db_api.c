@@ -635,7 +635,7 @@ Doc *doc;
 // install document in the ObjId array
 
 DbStatus installDoc (Handle *docHndl, Doc *doc, bool idxDoc) {
-DbStatus stat;
+DbStatus stat = DB_OK;
 DbAddr *slot;
 
 	slot = fetchIdSlot(docHndl->map, doc->ver->docId);

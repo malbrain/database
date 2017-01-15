@@ -3,9 +3,9 @@
 #include "db_object.h"
 #include "db_handle.h"
 #include "db_arena.h"
+#include "db_api.h"
 #include "db_index.h"
 #include "db_map.h"
-#include "db_api.h"
 #include "btree1/btree1.h"
 #include "artree/artree.h"
 
