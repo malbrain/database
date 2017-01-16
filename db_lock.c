@@ -2,6 +2,7 @@
 //	by Karl Malbrain, malbrain@cal.berkeley.edu
 //	20 JUN 2016
 
+#define _GNU_SOURCE
 #include <stdlib.h>
 #include <stdint.h>
 #include <limits.h>
@@ -29,12 +30,12 @@ int sys_futex(void *addr1, int op, int val1, struct timespec *timeout, void *add
 }
 #endif
 
-#ifdef unix
+#ifndef _WIN32
 #ifdef apple
 #include <libkern/OSAtomic.h>
 #define pause() OSMemoryBarrier()
 #else
-#define pause() asm volatile("pause\n": : : "memory")
+#define pause() __asm __volatile("pause\n": : : "memory")
 #endif
 
 void lock_sleep (int cnt) {
@@ -102,7 +103,7 @@ volatile int idx;
 //	mutex implementation
 
 #ifndef FUTEX
-#ifdef unix
+#ifndef _WIN32
 void mutex_lock(Mutex* mutex) {
 uint32_t spinCount = 0;
 
@@ -337,7 +338,7 @@ void writeUnlock (RWLock *lock)
 void readLock (RWLock *lock)
 {
 	mutex_lock(lock->xcl);
-#ifdef unix
+#ifndef _WIN32
 	if( !__sync_fetch_and_add (lock->readers, 1) )
 #else
 	if( !(_InterlockedIncrement16 (lock->readers)-1) )
@@ -349,7 +350,7 @@ void readLock (RWLock *lock)
 
 void readUnlock (RWLock *lock)
 {
-#ifdef unix
+#ifndef _WIN32
 	if( !__sync_sub_and_fetch (lock->readers, 1) )
 #else
 	if( !_InterlockedDecrement16 (lock->readers) )
@@ -369,7 +370,7 @@ void writeLock (RWLock *lock)
 uint32_t spinCount = 0;
 uint16_t w, r, tix;
 
-#ifdef unix
+#ifndef _WIN32
 	tix = __sync_fetch_and_add (lock->ticket, 1);
 #else
 	tix = _InterlockedExchangeAdd16 (lock->ticket, 1);
@@ -384,7 +385,7 @@ uint16_t w, r, tix;
 
 	spinCount = 0;
 	w = PRES | (tix & PHID);
-#ifdef  unix
+#ifndef _WIN32
 	r = __sync_fetch_and_add (lock->rin, w);
 #else
 	r = _InterlockedExchangeAdd16 (lock->rin, w);
@@ -397,7 +398,7 @@ uint16_t w, r, tix;
 
 void writeUnlock (RWLock *lock)
 {
-#ifdef unix
+#ifndef _WIN32
 	__sync_fetch_and_and (lock->rin, ~MASK);
 #else
 	_InterlockedAnd16 (lock->rin, ~MASK);
@@ -410,7 +411,7 @@ void readLock (RWLock *lock)
 uint32_t spinCount = 0;
 uint16_t w;
 
-#ifdef unix
+#ifndef _WIN32
 	w = __sync_fetch_and_add (lock->rin, RINC) & MASK;
 #else
 	w = _InterlockedExchangeAdd16 (lock->rin, RINC) & MASK;
@@ -423,7 +424,7 @@ uint16_t w;
 
 void readUnlock (RWLock *lock)
 {
-#ifdef unix
+#ifndef _WIN32
 	__sync_fetch_and_add (lock->rout, RINC);
 #else
 	_InterlockedExchangeAdd16 (lock->rout, RINC);
@@ -437,7 +438,7 @@ void readUnlock (RWLock *lock)
 //	Latch Manager -- pthreads locks
 
 void initLock(RWLock *latch) {
-#ifdef unix
+#ifndef _WIN32
 pthread_rwlockattr_t rwattr[1];
 
 	pthread_rwlockattr_init (rwattr);
@@ -452,7 +453,7 @@ pthread_rwlockattr_t rwattr[1];
 
 void readLock(RWLock *latch)
 {
-#ifdef unix
+#ifndef _WIN32
 	pthread_rwlock_rdlock (latch->lock);
 #else
 	AcquireSRWLockShared (latch->srw);
@@ -461,7 +462,7 @@ void readLock(RWLock *latch)
 
 void readUnlock(RWLock *latch)
 {
-#ifdef unix
+#ifndef _WIN32
 	pthread_rwlock_unlock (latch->lock);
 #else
 	ReleaseSRWLockShared (latch->srw);
@@ -472,7 +473,7 @@ void readUnlock(RWLock *latch)
 
 void writeLock(RWLock *latch)
 {
-#ifdef unix
+#ifndef _WIN32
 	pthread_rwlock_wrlock (latch->lock);
 #else
 	AcquireSRWLockExclusive (latch->srw);
@@ -481,7 +482,7 @@ void writeLock(RWLock *latch)
 
 void writeUnlock(RWLock *latch)
 {
-#ifdef unix
+#ifndef _WIN32
 	pthread_rwlock_unlock (latch->lock);
 #else
 	ReleaseSRWLockExclusive (latch->srw);

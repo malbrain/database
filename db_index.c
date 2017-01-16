@@ -107,6 +107,7 @@ int idx;
 //	call with docStore handle
 
 DbStatus installIndexKey(Handle *docHndl, SkipEntry *entry, Ver *ver) {
+DbStatus stat = DB_OK;
 ArenaDef *arenaDef;
 char key[MAX_key];
 DbHandle hndl[1];
@@ -114,7 +115,6 @@ uint64_t *verPtr;
 ParamVal *spec;
 int keyLen = 0;
 Handle *index;
-DbStatus stat;
 DbAddr keys;
 
 	hndl->hndlBits = *entry->val;

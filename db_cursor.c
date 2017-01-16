@@ -67,7 +67,7 @@ DbStatus stat;
 //	position cursor before first key
 
 DbStatus dbLeftKey(DbCursor *cursor, DbMap *map) {
-DbStatus stat;
+DbStatus stat = DB_OK;
 
 	switch (*map->arena->type) {
 	  case Hndl_artIndex: {
@@ -91,7 +91,7 @@ DbStatus stat;
 //	position cursor after last key
 
 DbStatus dbRightKey(DbCursor *cursor, DbMap *map) {
-DbStatus stat;
+DbStatus stat = DB_OK;
 
 	switch (*map->arena->type) {
 	  case Hndl_artIndex: {

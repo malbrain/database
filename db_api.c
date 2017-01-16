@@ -244,9 +244,9 @@ createXit:
 
 DbStatus createCursor(DbHandle hndl[1], DbHandle idxHndl[1], Params *params) {
 Handle *index, *cursorHndl;
+DbStatus stat = DB_OK;
 uint64_t timestamp;
 DbCursor *cursor;
-DbStatus stat;
 ObjId txnId;
 Txn *txn;
 
@@ -576,7 +576,7 @@ DbAddr addr;
 
 DbStatus deleteDoc(DbHandle hndl[1], ObjId docId, ObjId txnId) {
 Handle *docHndl;
-Txn *txn = NULL;
+//Txn *txn = NULL;
 DbAddr *slot;
 Doc *doc;
 
@@ -586,8 +586,8 @@ Doc *doc;
 	slot = fetchIdSlot(docHndl->map, docId);
 	doc = getObj(docHndl->map, *slot);
 
-	if ((doc->delId.bits = txnId.bits))
-		txn = fetchIdSlot(docHndl->map->db, txnId);
+//	if ((doc->delId.bits = txnId.bits))
+//		txn = fetchIdSlot(docHndl->map->db, txnId);
 
 	doc->state = DocDeleted;
 	releaseHandle(docHndl);
@@ -658,8 +658,8 @@ DbAddr *slot;
 }
 
 DbStatus deleteKey(DbHandle hndl[1], void *key, uint32_t len) {
+DbStatus stat = DB_OK;
 Handle *index;
-DbStatus stat;
 
 	if (!(index = bindHandle(hndl)))
 		return DB_ERROR_handleclosed;
@@ -679,8 +679,8 @@ DbStatus stat;
 }
 
 DbStatus insertKey(DbHandle hndl[1], void *key, uint32_t len) {
+DbStatus stat = DB_OK;
 Handle *index;
-DbStatus stat;
 
 	if (!(index = bindHandle(hndl)))
 		return DB_ERROR_handleclosed;

@@ -1,11 +1,9 @@
-#ifdef linux
-#define _GNU_SOURCE
-#endif
-
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #else
+#define _GNU_SOURCE
+
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/mman.h>
@@ -17,13 +15,8 @@
 #include <libkern/OSAtomic.h>
 #define pause() OSMemoryBarrier()
 #else
-#define pause() asm volatile("pause\n": : : "memory")
+#define pause() __asm __volatile("pause\n": : : "memory")
 #endif
-
-//#else
-//#define pause() asm( "volatile pause : : : memory" )
-//#endif
-
 #endif
 
 #include <inttypes.h>
@@ -279,7 +272,7 @@ void *mem;
 int flags = MAP_SHARED;
 
 	if( map->hndl < 0 ) {
-		flags |= MAP_ANON;
+		flags |= MAP_ANONYMOUS;
 		offset = 0;
 	}
 

@@ -126,8 +126,8 @@ uint32_t size = btree1->pageSize;
 Btree1Page *frame, *rightPage;
 uint8_t lvl = set->page->lvl;
 uint32_t totLen, keyLen;
+uint8_t *key = NULL;
 DbAddr right, addr;
-uint8_t *key;
 bool stopper;
 DbStatus stat;
 
