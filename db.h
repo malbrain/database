@@ -113,7 +113,7 @@ typedef enum {
 
 	IteratorEnd = 30,  // position iterator at end?
 
-	MaxParam = 40	// param array size
+	MaxParam = 40	// maximum param array in use
 } ParamSlot;
 
 typedef union {

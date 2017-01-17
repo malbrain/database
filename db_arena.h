@@ -81,7 +81,7 @@ typedef struct {
 	DbAddr parentAddr;			// address of parent's red-black entry
 	DbAddr nameTree[1];			// child arena name red/black tree
 	SkipHead idList[1];			// child skiplist of names by id
-	Params params[MaxParam];	// parameter array for rest of object
+	Params params[MaxParam + 1];	// parameter array for rest of object
 } ArenaDef;
 
 //	per instance arena structure

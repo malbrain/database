@@ -99,7 +99,7 @@ DbMap *map;
 	}
 
 	unlockLatch(catalog->dbList->latch);
-	memcpy (arenaDef->params, params, sizeof(Params) * MaxParam);
+	memcpy (arenaDef->params, params, sizeof(Params) * (MaxParam + 1));
 
 	arenaDef->mapIdx = arrayAlloc(hndlMap, catalog->openMap, sizeof(void *));
 	arenaDef->baseSize = sizeof(DataBase);
