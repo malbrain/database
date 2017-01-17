@@ -2,7 +2,6 @@
 //	by Karl Malbrain, malbrain@cal.berkeley.edu
 //	20 JUN 2016
 
-#define _GNU_SOURCE
 #include <stdlib.h>
 #include <stdint.h>
 #include <limits.h>
