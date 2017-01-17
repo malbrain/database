@@ -121,18 +121,23 @@ typedef struct {
 
 //	catalog structure
 
-typedef struct {
+typedef union {
+  struct {
 	DbAddr openMap[1];		// process openMap array index assignments
+	DbAddr storeId[1];		// array of document store ids
 	DbAddr dbList[1];		// red/black tree of database names & versions
-	char filler[256];
+  };
+  char filler[256];
 } Catalog;
 
 //	docarena variables
 
-typedef struct {
-	uint16_t docIdx;		// our map index for txn
+typedef union {
+  struct {
+	uint16_t storeId;		// our map index for txn
 	uint8_t init;			// set on init
-	char filler[256];
+  };
+  char filler[256];
 } DocArena;
 
 #define docarena(map) ((DocArena *)(map->arena + 1))

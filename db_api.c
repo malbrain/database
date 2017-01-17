@@ -31,8 +31,24 @@ extern char hndlInit[1];
 extern DbMap *hndlMap;
 extern char *hndlPath;
 
+//	managed by catalog
+
+DbHandle docStores[65536];
+
 void initialize(void) {
 	memInit();
+}
+
+void *docStoreObj(DbAddr addr) {
+Handle *arena;
+void *ptr;
+
+	if (!(arena = bindHandle(&docStores[addr.storeId])))
+		return NULL;
+
+	ptr = getObj(arena->map, addr);
+	releaseHandle(arena);
+	return ptr;
 }
 
 uint64_t arenaAlloc(DbHandle arenaHndl[1], uint32_t size, bool zeroit, bool dbArena) {
@@ -126,6 +142,7 @@ DocStore *docStore;
 DocArena *docArena;
 ArenaDef *arenaDef;
 RedBlack *rbEntry;
+Catalog *catalog;
 DataBase *db;
 Handle *ds;
 
@@ -135,6 +152,7 @@ Handle *ds;
 		return DB_ERROR_handleclosed;
 
 	parent = database->map, db = database(parent);
+	catalog = (Catalog *)(hndlMap + 1);
 
 	//  create the docArena and assign database txn idx
 
@@ -151,11 +169,10 @@ Handle *ds;
 	else
 		return DB_ERROR_arenadropped;
 
-	//	allocate a map index for use in TXN document steps
+	//	allocate a catalog storeId for use in TXN steps and DocIds
 
 	if (!*map->arena->type)
-	  if (parent)
-		docArena->docIdx = arrayAlloc(parent, db->txnIdx, sizeof(uint64_t));
+		docArena->storeId = arrayAlloc(hndlMap, catalog->storeId, sizeof(uint16_t));
 
 	releaseHandle(database);
 
@@ -166,6 +183,7 @@ Handle *ds;
 	docStore = (DocStore *)(ds + 1);
 	initLock(docStore->indexes->lock);
 
+	docStores[docArena->storeId].hndlBits = hndl->hndlBits;
 	return DB_OK;
 }
 
@@ -286,6 +304,7 @@ Txn *txn;
 }
 
 DbStatus closeHandle(DbHandle dbHndl[1]) {
+DocArena *docArena;
 DbAddr *slot;
 Handle *hndl;
 ObjId hndlId;
@@ -307,6 +326,11 @@ ObjId hndlId;
 	switch (hndl->hndlType) {
 	case Hndl_cursor:
 		dbCloseCursor((void *)(hndl + 1), hndl->map);
+		break;
+	case Hndl_docStore:
+		docArena = docarena(hndl->map);
+		docStores[docArena->storeId].hndlBits = 0;
+		break;
 	}
 
 	destroyHandle (hndl->map, slot);
@@ -567,7 +591,7 @@ DbAddr addr;
 	(*doc)->lastVer = sizeof(Doc) - sizeof(Ver);
 	(*doc)->verCnt = 1;
 
-	(*doc)->ver->docId.bits = allocObjId(docHndl->map, listFree(docHndl,0), listTail(docHndl,0), docArena->docIdx);
+	(*doc)->ver->docId.bits = allocObjId(docHndl->map, listFree(docHndl,0), listTail(docHndl,0), docArena->storeId);
 	(*doc)->ver->offset = sizeof(Doc) - sizeof(Ver);
 	(*doc)->ver->size = objSize;
 	(*doc)->ver->version = 1;
@@ -613,7 +637,7 @@ Doc *doc;
 
 	docArena = docarena(docHndl->map);
 
-	doc->ver->docId.bits = allocObjId(docHndl->map, listFree(docHndl,0), listTail(docHndl,0), docArena->docIdx);
+	doc->ver->docId.bits = allocObjId(docHndl->map, listFree(docHndl,0), listTail(docHndl,0), docArena->storeId);
 
 	//	add the new document to the txn
 

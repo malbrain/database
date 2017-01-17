@@ -56,7 +56,7 @@ typedef union {
 	uint64_t bits;
 	struct {
 		uint64_t addr:48;		// segment/offset
-		uint64_t coll:16;		// collection  number
+		uint64_t storeId:16;	// doc store idx from catalog
 	};
 } DbAddr;
 
@@ -73,7 +73,7 @@ typedef union {
 		uint32_t index;		// record ID in the segment
 		uint16_t seg:10;	// arena segment number
 		uint16_t cmd:6;		// for use in txn
-		uint16_t idx;		// document store arena idx
+		uint16_t store;		// document store idx from catalog
 	};
 	uint64_t bits;
 } ObjId;

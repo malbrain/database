@@ -523,7 +523,7 @@ ObjId objId;
 			}
 	}
 
-	objId.idx = idx;
+	objId.store = idx;
 	unlockLatch(free->latch);
 	return objId.bits;
 }

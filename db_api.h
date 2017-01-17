@@ -53,6 +53,8 @@ Ver *iteratorSeek(DbHandle hndl[1], ObjId objId);
 Ver *iteratorNext(DbHandle hndl[1]);
 Ver *iteratorPrev(DbHandle hndl[1]);
 
+void *docStoreObj(DbAddr addr);
+
 //	callback functions
 
 uint16_t keyGenerator(char *key, Ver *ver, ParamVal *spec, Params *param);
