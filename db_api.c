@@ -127,7 +127,6 @@ DocArena *docArena;
 ArenaDef *arenaDef;
 RedBlack *rbEntry;
 Catalog *catalog;
-DataBase *db;
 Handle *ds;
 
 	memset (hndl, 0, sizeof(DbHandle));
@@ -135,8 +134,8 @@ Handle *ds;
 	if (!(database = bindHandle(dbHndl)))
 		return DB_ERROR_handleclosed;
 
-	parent = database->map, db = database(parent);
 	catalog = (Catalog *)(hndlMap + 1);
+	parent = database->map;
 
 	//  create the docArena and assign database txn idx
 
@@ -286,7 +285,6 @@ Txn *txn;
 }
 
 DbStatus closeHandle(DbHandle dbHndl[1], uint16_t *storeId) {
-DocArena *docArena;
 DbAddr *slot;
 Handle *hndl;
 ObjId hndlId;
@@ -309,13 +307,14 @@ ObjId hndlId;
 	case Hndl_cursor:
 		dbCloseCursor((void *)(hndl + 1), hndl->map);
 		break;
-	case Hndl_docStore:
+	case Hndl_docStore: {
 		DocArena *docArena = docarena(hndl->map);
 		Catalog *catalog = (Catalog *)(hndlMap + 1);
 		uint16_t *id = arrayEntry(hndlMap, catalog->storeId, docArena->storeId, sizeof(uint16_t));
 		*storeId = *id;
 		*id = 0;
 		break;
+	}
 	}
 
 	destroyHandle (hndl->map, slot);
