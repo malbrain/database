@@ -31,24 +31,8 @@ extern char hndlInit[1];
 extern DbMap *hndlMap;
 extern char *hndlPath;
 
-//	managed by catalog
-
-DbHandle docStores[65536];
-
 void initialize(void) {
 	memInit();
-}
-
-void *docStoreObj(DbAddr addr) {
-Handle *arena;
-void *ptr;
-
-	if (!(arena = bindHandle(&docStores[addr.storeId])))
-		return NULL;
-
-	ptr = getObj(arena->map, addr);
-	releaseHandle(arena);
-	return ptr;
 }
 
 uint64_t arenaAlloc(DbHandle arenaHndl[1], uint32_t size, bool zeroit, bool dbArena) {
@@ -169,10 +153,10 @@ Handle *ds;
 	else
 		return DB_ERROR_arenadropped;
 
-	//	allocate a catalog storeId for use in TXN steps and DocIds
+	//	allocate a catalog storeId for use in TXN steps and Doc references
 
 	if (!*map->arena->type)
-		docArena->storeId = arrayAlloc(hndlMap, catalog->storeId, sizeof(uint16_t));
+		params[DocStoreId].intVal = docArena->storeId = arrayAlloc(hndlMap, catalog->storeId, sizeof(uint16_t));
 
 	releaseHandle(database);
 
@@ -182,8 +166,6 @@ Handle *ds;
 	ds = getHandle(hndl);
 	docStore = (DocStore *)(ds + 1);
 	initLock(docStore->indexes->lock);
-
-	docStores[docArena->storeId].hndlBits = hndl->hndlBits;
 	return DB_OK;
 }
 
@@ -303,7 +285,7 @@ Txn *txn;
 	return stat;
 }
 
-DbStatus closeHandle(DbHandle dbHndl[1]) {
+DbStatus closeHandle(DbHandle dbHndl[1], uint16_t *storeId) {
 DocArena *docArena;
 DbAddr *slot;
 Handle *hndl;
@@ -328,8 +310,11 @@ ObjId hndlId;
 		dbCloseCursor((void *)(hndl + 1), hndl->map);
 		break;
 	case Hndl_docStore:
-		docArena = docarena(hndl->map);
-		docStores[docArena->storeId].hndlBits = 0;
+		DocArena *docArena = docarena(hndl->map);
+		Catalog *catalog = (Catalog *)(hndlMap + 1);
+		uint16_t *id = arrayEntry(hndlMap, catalog->storeId, docArena->storeId, sizeof(uint16_t));
+		*storeId = *id;
+		*id = 0;
 		break;
 	}
 
@@ -339,7 +324,7 @@ ObjId hndlId;
 
 //	delete unreferenced handle
 
-DbStatus deleteHandle(DbHandle dbHndl[1]) {
+DbStatus deleteHandle(DbHandle dbHndl[1], uint16_t *storeId) {
 DbStatus stat = DB_OK;
 DbAddr *slot;
 ObjId hndlId;
@@ -348,7 +333,7 @@ ObjId hndlId;
 	slot = fetchIdSlot (hndlMap, hndlId);
 
 	if (*slot->latch & KILL_BIT)
-	  stat = closeHandle(dbHndl);
+	  stat = closeHandle(dbHndl, storeId);
 
 	freeId(hndlMap, hndlId);
 	return stat;

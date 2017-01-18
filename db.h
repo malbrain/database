@@ -96,6 +96,7 @@ typedef enum {
 	NoDocs,			// no documents, just indexes
 	NoIdx,			// no indexes, just documents
 	DropDb,			// drop the database
+	DocStoreId,		// document store ID
 
 	IdxKeySpec = 10,	// offset of key document
 	IdxKeyUnique,
