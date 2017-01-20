@@ -155,8 +155,8 @@ Handle *ds;
 	//	allocate a catalog storeId for use in TXN steps and Doc references
 
 	if (!*map->arena->type)
-		params[DocStoreId].intVal = docArena->storeId = arrayAlloc(hndlMap, catalog->storeId, sizeof(uint16_t));
-
+		docArena->storeId = arrayAlloc(hndlMap, catalog->storeId, sizeof(uint16_t));
+	params[DocStoreId].intVal = docArena->storeId;
 	releaseHandle(database);
 
 	map->arena->type[0] = Hndl_docStore;
