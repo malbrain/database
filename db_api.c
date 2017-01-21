@@ -284,22 +284,28 @@ Txn *txn;
 	return stat;
 }
 
+//	close arena handle
+
 DbStatus closeHandle(DbHandle dbHndl[1], uint16_t *storeId) {
 DbAddr *slot;
 Handle *hndl;
 ObjId hndlId;
 
-	hndlId.bits = dbHndl->hndlBits;
-	slot = fetchIdSlot (hndlMap, hndlId);
+	if ((hndlId.bits = dbHndl->hndlBits))
+		slot = fetchIdSlot (hndlMap, hndlId);
+	else
+		return DB_OK;
+
+	dbHndl->hndlBits = 0;
 
 	lockLatch(slot->latch);
 
-	if (*slot->latch & KILL_BIT) {
-		*slot->latch = KILL_BIT;
-		return DB_ERROR_handleclosed;
+	if (slot->addr)
+		hndl = getObj(hndlMap, *slot);
+	else {
+		unlockLatch(slot->latch);
+		return DB_OK;
 	}
-
-	hndl = getObj(hndlMap, *slot);
 
 	//  specific handle cleanup
 
@@ -320,25 +326,6 @@ ObjId hndlId;
 	destroyHandle (hndl->map, slot);
 	return DB_OK;
 }
-
-//	delete unreferenced handle
-
-DbStatus deleteHandle(DbHandle dbHndl[1], uint16_t *storeId) {
-DbStatus stat = DB_OK;
-DbAddr *slot;
-ObjId hndlId;
-
-	hndlId.bits = dbHndl->hndlBits;
-	slot = fetchIdSlot (hndlMap, hndlId);
-
-	if (*slot->latch & KILL_BIT)
-	  stat = closeHandle(dbHndl, storeId);
-
-	freeId(hndlMap, hndlId);
-	return stat;
-}
-
-//	close handle
 
 //	position cursor on a key
 

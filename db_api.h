@@ -19,7 +19,6 @@ DbStatus openDocStore(DbHandle hndl[1], DbHandle dbHndl[1], char *name, uint32_t
 DbStatus createIndex(DbHandle hndl[1], DbHandle docHndl[1], char *name, uint32_t len, Params *params);
 DbStatus cloneHandle(DbHandle hndl[1], DbHandle fromHndl[1]);
 DbStatus closeHandle(DbHandle dbHndl[1], uint16_t *storeId);
-DbStatus deleteHandle(DbHandle hndl[1], uint16_t *storeId);
 DbStatus dropArena(DbHandle hndl[1], bool dropDefinitions);
 DbStatus addIndexes(DbHandle docHndl[1]);
 

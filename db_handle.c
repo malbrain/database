@@ -161,8 +161,10 @@ Handle *hndl;
 ObjId hndlId;
 uint32_t cnt;
 
-	hndlId.bits = dbHndl->hndlBits;
-	slot = fetchIdSlot (hndlMap, hndlId);
+	if ((hndlId.bits = dbHndl->hndlBits))
+		slot = fetchIdSlot (hndlMap, hndlId);
+	else
+		return NULL;
 
 	if ((*slot->latch & KILL_BIT))
 		return NULL;
@@ -177,13 +179,17 @@ uint32_t cnt;
 	//	exit if it was reclaimed?
 
 	if ((*slot->latch & KILL_BIT)) {
+		dbHndl->hndlBits = 0;
+		lockLatch(slot->latch);
 		atomicAdd32(hndl->bindCnt, -1);
+		destroyHandle (hndl->map, slot);
 		return NULL;
 	}
 
 	//	is there a DROP request for this arena?
 
 	if (hndl->map->arena->mutex[0] & KILL_BIT) {
+		dbHndl->hndlBits = 0;
 		lockLatch(slot->latch);
 		atomicAdd32(hndl->bindCnt, -1);
 		destroyHandle (hndl->map, slot);
@@ -209,7 +215,6 @@ void releaseHandle(Handle *hndl) {
 //	by scanning HndlId array
 
 void disableHndls(DbMap *map, DbAddr *array) {
-DbAddr handle[1];
 DbAddr *addr;
 ObjId hndlId;
 int idx, seg;
@@ -234,16 +239,20 @@ int idx, seg;
 		  hndlId.bits = hndlIdx[seg * 64 + slotIdx].bits;
 		  DbAddr *slot = fetchIdSlot(hndlMap, hndlId);
 		  Handle *hndl = getObj(hndlMap, *slot);
+		  DbAddr handle[1];
+
+		  // take control of the handle slot
 
 		  handle->bits = atomicExchange(&slot->bits, 0);
 
 		  //  wait for outstanding activity to finish
-
-		  waitZero32 (hndl->bindCnt);
-
 		  //  destroy the handle
 
-		  destroyHandle(map, slot);
+		  if (handle->addr) {
+			waitZero32 (hndl->bindCnt);
+		  	destroyHandle(map, handle);
+		  }
+
 		} while (slotIdx++, bits /= 2);
 	  }
 	}
