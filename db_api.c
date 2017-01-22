@@ -88,7 +88,7 @@ DbMap *map;
 
 	//	find/create our database in the catalog
 
-	catalog = (Catalog *)(hndlMap + 1);
+	catalog = (Catalog *)(hndlMap->arena + 1);
 	lockLatch(catalog->dbList->latch);
 
 	if ((rbEntry = rbFind(hndlMap, catalog->dbList, name, nameLen, pathStk)))
@@ -134,10 +134,10 @@ Handle *ds;
 	if (!(database = bindHandle(dbHndl)))
 		return DB_ERROR_handleclosed;
 
-	catalog = (Catalog *)(hndlMap + 1);
+	catalog = (Catalog *)(hndlMap->arena + 1);
 	parent = database->map;
 
-	//  create the docArena and assign database txn idx
+	//  process the docStore parameters
 
 	rbEntry = procParam(parent, name, nameLen, params);
 
@@ -146,6 +146,8 @@ Handle *ds;
 	arenaDef->arenaType = Hndl_docStore;
 	arenaDef->objSize = sizeof(ObjId);
 	arenaDef->numTypes = MAX_blk + 1;
+
+	//  open/create the docStore arena
 
 	if ((map = arenaRbMap(parent, rbEntry)))
 		docArena = docarena(map);
@@ -315,7 +317,7 @@ ObjId hndlId;
 		break;
 	case Hndl_docStore: {
 		DocArena *docArena = docarena(hndl->map);
-		Catalog *catalog = (Catalog *)(hndlMap + 1);
+		Catalog *catalog = (Catalog *)(hndlMap->arena + 1);
 		uint16_t *id = arrayEntry(hndlMap, catalog->storeId, docArena->storeId, sizeof(uint16_t));
 		*storeId = *id;
 		*id = 0;

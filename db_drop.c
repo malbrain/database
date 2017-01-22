@@ -108,7 +108,7 @@ PathStk pathStk[1];
 	if (dropDefs) {
 	  if (map->arena->type[0] == Hndl_database) {
 		RedBlack *entry = getObj(hndlMap, *map->arena->redblack);
-		Catalog *catalog = (Catalog *)(hndlMap + 1);
+		Catalog *catalog = (Catalog *)(hndlMap->arena + 1);
 		lockLatch(catalog->dbList->latch);
 
 		// advance database version number
