@@ -169,31 +169,11 @@ Iterator *it;
 	  case PosBegin:
 		it->docId.bits = 0;
 		it->state = IterLeftEof;
-
-		while (incrObjId(it, docStore->map))
-		  if ((ver = findDocVer(docStore->map, it->docId, txn)))
-			break;
-
-		if (ver)
-			it->state = IterPosAt;
-		else
-			it->state = IterRightEof;
-
 		break;
 
 	  case PosEnd:
 		it->docId.bits = docStore->map->arena->segs[docStore->map->arena->currSeg].nextId.bits;
 		it->state = IterRightEof;
-
-		while (decrObjId(it, docStore->map))
-		  if ((ver = findDocVer(docStore->map, it->docId, txn)))
-			break;
-
-		if (ver)
-			it->state = IterPosAt;
-		else
-			it->state = IterLeftEof;
-
 		break;
 
 	  case PosAt:
