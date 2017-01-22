@@ -29,6 +29,7 @@ struct DbArena_ {
 	int64_t lowTs, delTs, nxtTs;	// low hndl ts, Incr on delete
 	DbAddr freeBlk[MAX_blk];		// free blocks in frames
 	DbAddr freeFrame[1];			// free frames in frames
+	DbAddr listArray[1];			// free lists array for handles
 	DbAddr redblack[1];				// our redblack entry addr
 	uint64_t objCount;				// overall number of objects
 	uint64_t objSpace;				// overall size of objects
@@ -99,7 +100,6 @@ struct DbMap_ {
 	DbMap *parent, *db;		// ptr to parent and database
 	SkipHead childMaps[1];	// skipList of child DbMaps
 	ArenaDef *arenaDef;		// our arena definition
-	DbAddr listArray[1];	// free lists array for handles
 	int32_t openCnt[1];		// count of open children
 	uint16_t pathLen;		// length of arena path
 	uint16_t numSeg;		// number of mapped segments
