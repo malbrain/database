@@ -166,7 +166,7 @@ Iterator *it;
 		txn = fetchIdSlot(docStore->map->db, it->txnId);
 
 	switch (pos) {
-	  case SeekBegin:
+	  case PosBegin:
 		it->docId.bits = 0;
 		it->state = IterLeftEof;
 
@@ -181,7 +181,7 @@ Iterator *it;
 
 		break;
 
-	  case SeekEnd:
+	  case PosEnd:
 		it->docId.bits = docStore->map->arena->segs[docStore->map->arena->currSeg].nextId.bits;
 		it->state = IterRightEof;
 
@@ -196,7 +196,7 @@ Iterator *it;
 
 		break;
 
-	  case SeekPos:
+	  case PosAt:
 		it->docId.bits = docId.bits;
 		it->state = IterNone;
 

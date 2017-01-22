@@ -11,9 +11,9 @@
 // Iterator Seek Type
 
 typedef enum {
-	SeekBegin,
-	SeekEnd,
-	SeekPos
+	PosBegin,
+	PosEnd,
+	PosAt
 } IteratorPos;
 
 #ifdef apple 
