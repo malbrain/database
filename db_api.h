@@ -8,6 +8,14 @@
 #include "db_error.h"
 #include "db_redblack.h"
 
+// Iterator Seek Type
+
+typedef enum {
+	SeekBegin,
+	SeekEnd,
+	SeekPos
+} IteratorPos;
+
 #ifdef apple 
 #define DbStatus int
 #endif
@@ -49,7 +57,7 @@ DbStatus installDoc (Handle *docHndl, Doc *doc, bool idxDoc);
 DbStatus fetchDoc(DbHandle hndl[1], Doc **doc, ObjId docId);
 
 DbStatus createIterator(DbHandle hndl[1], DbHandle docHndl[1], ObjId txnId, Params *params);
-Ver *iteratorSeek(DbHandle hndl[1], ObjId objId);
+Ver *iteratorSeek(DbHandle hndl[1], IteratorPos pos, ObjId objId);
 Ver *iteratorNext(DbHandle hndl[1]);
 Ver *iteratorPrev(DbHandle hndl[1]);
 

@@ -106,6 +106,12 @@ Iterator *it;
 		if ((ver = findDocVer(docStore->map, it->docId, txn)))
 			break;
 
+	if (ver)
+		it->state = IterPosAt;
+	else
+		it->state = IterRightEof;
+
+	releaseHandle(docStore);
 	return ver;
 }
 
@@ -131,6 +137,12 @@ Iterator *it;
 		if ((ver = findDocVer(docStore->map, it->docId, txn)))
 			break;
 
+	if (ver)
+		it->state = IterPosAt;
+	else
+		it->state = IterLeftEof;
+
+	releaseHandle(docStore);
 	return ver;
 }
 
@@ -139,7 +151,7 @@ Iterator *it;
 //	return most recent mvcc version
 //
 
-Ver *iteratorSeek(DbHandle hndl[1], ObjId docId) {
+Ver *iteratorSeek(DbHandle hndl[1], IteratorPos pos, ObjId docId) {
 Handle *docStore;
 Txn *txn = NULL;
 Ver *ver = NULL;
@@ -153,9 +165,46 @@ Iterator *it;
 	if (it->txnId.bits)
 		txn = fetchIdSlot(docStore->map->db, it->txnId);
 
-	it->docId.bits = docId.bits;
+	switch (pos) {
+	  case SeekBegin:
+		it->docId.bits = 0;
+		it->state = IterLeftEof;
 
-	ver = findDocVer(docStore->map, it->docId, txn);
+		while (incrObjId(it, docStore->map))
+		  if ((ver = findDocVer(docStore->map, it->docId, txn)))
+			break;
+
+		if (ver)
+			it->state = IterPosAt;
+		else
+			it->state = IterRightEof;
+
+		break;
+
+	  case SeekEnd:
+		it->docId.bits = docStore->map->arena->segs[docStore->map->arena->currSeg].nextId.bits;
+		it->state = IterRightEof;
+
+		while (decrObjId(it, docStore->map))
+		  if ((ver = findDocVer(docStore->map, it->docId, txn)))
+			break;
+
+		if (ver)
+			it->state = IterPosAt;
+		else
+			it->state = IterLeftEof;
+
+		break;
+
+	  case SeekPos:
+		it->docId.bits = docId.bits;
+		it->state = IterNone;
+
+		if ((ver = findDocVer(docStore->map, it->docId, txn)))
+			it->state = IterPosAt;
+
+		break;
+	}
 
 	releaseHandle(docStore);
 	return ver;
