@@ -288,7 +288,7 @@ Txn *txn;
 
 //	close arena handle
 
-DbStatus closeHandle(DbHandle dbHndl[1], uint16_t *storeId) {
+DbStatus closeHandle(DbHandle dbHndl[1]) {
 DbAddr *slot;
 Handle *hndl;
 ObjId hndlId;
@@ -315,14 +315,6 @@ ObjId hndlId;
 	case Hndl_cursor:
 		dbCloseCursor((void *)(hndl + 1), hndl->map);
 		break;
-	case Hndl_docStore: {
-		DocArena *docArena = docarena(hndl->map);
-		Catalog *catalog = (Catalog *)(hndlMap->arena + 1);
-		uint16_t *id = arrayEntry(hndlMap, catalog->storeId, docArena->storeId, sizeof(uint16_t));
-		*storeId = *id;
-		*id = 0;
-		break;
-	}
 	}
 
 	destroyHandle (hndl->map, slot);
