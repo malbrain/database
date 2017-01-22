@@ -107,8 +107,8 @@ DbAddr addr;
 	//	for the index type
 
 	if ((hndl->maxType = map->arenaDef->numTypes)) {
-		hndl->frameIdx = arrayAlloc(map, map->listArray, sizeof(DbAddr) * hndl->maxType * 3);
-		listArray = arrayAddr(map, map->listArray, hndl->frameIdx);
+		hndl->frameIdx = arrayAlloc(map, map->arena->listArray, sizeof(DbAddr) * hndl->maxType * 3);
+		listArray = arrayAddr(map, map->arena->listArray, hndl->frameIdx);
 		hndl->frames = listArray + (hndl->frameIdx % ARRAY_size) * hndl->maxType * 3;
 	}
 
@@ -140,10 +140,10 @@ uint64_t *inUse;
 	// release handle freeList
 
 	if (hndl->maxType) {
-		lockLatch(map->listArray->latch);
-		inUse = arrayBlk(map, map->listArray, hndl->frameIdx);
+		lockLatch(map->arena->listArray->latch);
+		inUse = arrayBlk(map, map->arena->listArray, hndl->frameIdx);
 		inUse[hndl->frameIdx % ARRAY_size / 64] &= ~(1ULL << (hndl->frameIdx % 64));
-		unlockLatch(map->listArray->latch);
+		unlockLatch(map->arena->listArray->latch);
 	}
 
 	// release handle Id slot
