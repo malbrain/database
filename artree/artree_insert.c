@@ -564,7 +564,7 @@ uint16_t bits;
 #ifdef _WIN32
 			_BitScanForward64((DWORD *)&out, ~radix64Node->alloc);
 #else
-			out = __builtin_ctzl(~radix64Node->alloc);
+			out = __builtin_ctzll(~radix64Node->alloc);
 #endif
 			radix64Node->alloc |= 1ULL << out;
 			radix64Node->radix[out].bits = slot->bits & ~ADDR_MUTEX_SET;
@@ -578,7 +578,7 @@ uint16_t bits;
 #ifdef _WIN32
 	_BitScanForward64((DWORD *)&out, ~radix64Node->alloc);
 #else
-	out = __builtin_ctzl(~radix64Node->alloc);
+	out = __builtin_ctzll(~radix64Node->alloc);
 #endif
 
 	if (p->binaryFlds)
@@ -640,7 +640,7 @@ uint32_t idx, out;
 #ifdef _WIN32
 		_BitScanForward64((DWORD *)&out, ~node->alloc);
 #else
-		out = __builtin_ctzl(~node->alloc);
+		out = __builtin_ctzll(~node->alloc);
 #endif
 		if (p->binaryFlds)
 		  p->fldLen--;
@@ -666,6 +666,7 @@ uint32_t idx, out;
 	  if (node->keys[idx] < 0xff) {
 		volatile DbAddr *slot = node->radix + node->keys[idx];
 		lockLatch(slot->latch);
+
 		if (!slot->kill) {
 			radix256Node->radix[idx].bits = slot->bits & ~ADDR_MUTEX_SET;
 			p->newSlot->nslot++;

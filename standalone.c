@@ -165,7 +165,7 @@ int stat;
 		}
 
 		if ((stat = createIndex(index, parent, idxName, strlen(idxName), args->params)))
-		  fprintf(stderr, "createIndex Error %d name: %s\n", stat, idxName), exit(0);
+		  fprintf(stderr, "createIndex %s Error %d name: %s\n", args->inFile, stat, idxName), exit(0);
 
 		createCursor (cursor, index, args->params);
 
@@ -188,15 +188,15 @@ int stat;
 
 			  if (docHndl->hndlBits) {
 				if ((stat = positionCursor(cursor, OpFind, key,  len)))
-				  fprintf(stderr, "Delete Doc Error %d Syserr %d Line: %" PRIu64 "\n", stat, errno, line), exit(0);
+				  fprintf(stderr, "Delete Doc %s Error %d Syserr %d Line: %" PRIu64 "\n", args->inFile, stat, errno, line), exit(0);
 
 				if ((stat = docAtCursor(cursor, &doc)))
-				  fprintf(stderr, "Delete Doc Error %d Syserr %d Line: %" PRIu64 "\n", stat, errno, line), exit(0);
+				  fprintf(stderr, "Delete Doc %s Error %d Syserr %d Line: %" PRIu64 "\n", args->inFile, stat, errno, line), exit(0);
 				if ((stat = deleteDoc (docHndl, doc->ver->docId, txnId)))
-				  fprintf(stderr, "Del Doc Error %d Line: %" PRIu64 "\n", stat, line), exit(0);
+				  fprintf(stderr, "Del Doc %s Error %d Line: %" PRIu64 "\n", args->inFile, stat, line), exit(0);
 			  } else
 				if ((stat = deleteKey(index, key, len)))
-				  fprintf(stderr, "Delete Key Error %d Line: %" PRIu64 "\n", stat, line), exit(0);
+				  fprintf(stderr, "Delete Key %s Error %d Line: %" PRIu64 "\n", args->inFile, stat, line), exit(0);
 
 			  len = binaryFlds ? 2 : 0;
 			  lastFld = 0;
@@ -225,13 +225,13 @@ int stat;
 
 		if (!args->params[NoDocs].boolVal) {
 		  if ((stat = openDocStore(docHndl, database, "documents", strlen("documents"), args->params)))
-			fprintf(stderr, "openDocStore Error %d name: %s\n", stat, "documents"), exit(0);
+			fprintf(stderr, "openDocStore %s Error %d name: %s\n", args->inFile, stat, "documents"), exit(0);
 		  parent = docHndl;
 		}
 
 		if (!args->params[NoIdx].boolVal)
 		  if ((stat = createIndex(index, parent, idxName, strlen(idxName), args->params)))
-			fprintf(stderr, "createIndex Error %d name: %s\n", stat, idxName), exit(0);
+			fprintf(stderr, "createIndex %s Error %d name: %s\n", args->inFile, stat, idxName), exit(0);
 
 		if (args->params[NoDocs].boolVal && args->params[NoIdx].boolVal)
 		  fprintf(stderr, "Cannot specify both -noDocs and -noIdx\n"), exit(0);
@@ -255,10 +255,10 @@ int stat;
 
 			  if (docHndl->hndlBits)
 				if ((stat = storeDoc (docHndl, key, len, &docId, txnId, !args->params[NoIdx].boolVal)))
-				  fprintf(stderr, "Add Doc Error %d Line: %" PRIu64 "\n", stat, line), exit(0);
+				  fprintf(stderr, "Add Doc %s Error %d Line: %" PRIu64 "\n", args->inFile, stat, line), exit(0);
 			  if (index->hndlBits)
 				if ((stat = insertKey(index, key, len)))
-				  fprintf(stderr, "Insert Key Error %d Line: %" PRIu64 "\n", stat, line), exit(0);
+				  fprintf(stderr, "Insert Key %s Error %d Line: %" PRIu64 "\n", args->inFile, stat, line), exit(0);
 
 			  lastFld = 0;
 			  len = binaryFlds ? 2 : 0;
@@ -290,7 +290,7 @@ int stat;
 		}
 
 		if ((stat = createIndex(index, parent, idxName, strlen(idxName), args->params)))
-		  fprintf(stderr, "createIndex Error %d name: %s\n", stat, idxName), exit(0);
+		  fprintf(stderr, "createIndex %s Error %d name: %s\n", args->inFile, stat, idxName), exit(0);
 
 		createCursor (cursor, index, args->params);
 
@@ -314,17 +314,17 @@ int stat;
 				len = args->params[IdxKeySpec].intVal;
 
 			  if ((stat = positionCursor (cursor, OpOne, key, len)))
-				fprintf(stderr, "findKey Error %d Syserr %d Line: %" PRIu64 "\n", stat, errno, line), exit(0);
+				fprintf(stderr, "findKey %s Error %d Syserr %d Line: %" PRIu64 "\n", args->inFile, stat, errno, line), exit(0);
 
 			  if ((stat = keyAtCursor (cursor, &foundKey, &foundLen)))
-				fprintf(stderr, "findKey Error %d Syserr %d Line: %" PRIu64 "\n", stat, errno, line), exit(0);
+				fprintf(stderr, "findKey %s Error %d Syserr %d Line: %" PRIu64 "\n", args->inFile, stat, errno, line), exit(0);
 
 			  if (!binaryFlds) {
 			   if (foundLen != len)
-				fprintf(stderr, "findKey Error len mismatch: Line: %" PRIu64 " keyLen: %d, foundLen: %d\n", line, len, foundLen), exit(0);
+				fprintf(stderr, "findKey %s Error len mismatch: Line: %" PRIu64 " keyLen: %d, foundLen: %d\n", args->inFile, line, len, foundLen), exit(0);
 
 			   if (memcmp(foundKey, key, foundLen))
-				fprintf(stderr, "findKey not Found: line: %" PRIu64 " expected: %.*s \n", line, len, key), exit(0);
+				fprintf(stderr, "findKey %s not Found: line: %" PRIu64 " expected: %.*s \n", args->inFile, line, len, key), exit(0);
 			  }
 
 			  cnt++;
