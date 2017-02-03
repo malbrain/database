@@ -82,7 +82,6 @@ typedef struct SkipEntry_ SkipEntry;
 typedef struct SkipHead_ SkipHead;
 typedef struct RedBlack_ RedBlack;
 typedef struct DbArena_ DbArena;
-typedef struct DbArena_ DbArena;
 typedef union Handle_ Handle;
 typedef struct DbMap_ DbMap;
 
