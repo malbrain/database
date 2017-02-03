@@ -35,6 +35,9 @@ DbStatus stat;
 		if ((stat = artFindKey(cursor, map, key, keyLen)))
 			return stat;
 
+		// the ART interface needs to complete a full key
+		//  but the btree1 interface doesn't
+
 		if ((stat = artNextKey(cursor, map)))
 			return stat;
 
@@ -43,9 +46,6 @@ DbStatus stat;
 
 	  case Hndl_btree1Index: {
 		if ((stat = btree1FindKey(cursor, map, key, keyLen, onlyOne)))
-			return stat;
-
-		if ((stat = btree1NextKey(cursor, map)))
 			return stat;
 
 		break;
@@ -115,7 +115,6 @@ DbStatus stat = DB_OK;
 //  position cursor at next doc visible under MVCC
 
 DbStatus dbNextDoc(DbCursor *cursor, DbMap *map) {
-uint64_t *version;
 Txn *txn = NULL;
 DbStatus stat;
 
@@ -123,16 +122,20 @@ DbStatus stat;
 	if ((stat = dbNextKey(cursor, map)))
 		return stat;
 
+	if (cursor->maxKeyLen) {
+		int len = cursor->userLen;
+
+		if (len > cursor->maxKeyLen)
+			len = cursor->maxKeyLen;
+
+		if (memcmp(cursor->key, cursor->minKey, len) > 0)
+			return DB_CURSOR_eof;
+	}
+
 	if (!txn && cursor->txnId.bits)
 		txn = fetchIdSlot(map->db, cursor->txnId);
 
-	if (!(cursor->ver = findDocVer(map->parent, cursor->docId, txn)))
-		continue;
-
-	//  find version in verKeys skip list
-
-	if ((version = skipFind(map->parent, cursor->ver->verKeys, map->arenaDef->id)))
-	  if (*version == cursor->version)
+	if ((cursor->ver = findDocVer(map->parent, cursor->docId, txn)))
 		return DB_OK;
   }
 }
@@ -140,7 +143,6 @@ DbStatus stat;
 //  position cursor at prev doc visible under MVCC
 
 DbStatus dbPrevDoc(DbCursor *cursor, DbMap *map) {
-uint64_t *version;
 Txn *txn = NULL;
 DbStatus stat;
 
@@ -154,20 +156,14 @@ DbStatus stat;
 		if (len > cursor->minKeyLen)
 			len = cursor->minKeyLen;
 
-		if (memcmp(cursor->key, cursor->minKey, len) <= 0)
+		if (memcmp(cursor->key, cursor->minKey, len) < 0)
 			return DB_CURSOR_eof;
 	}
 
 	if (!txn && cursor->txnId.bits)
 		txn = fetchIdSlot(map->db, cursor->txnId);
 
-	if (!(cursor->ver = findDocVer(map->parent, cursor->docId, txn)))
-		continue;
-
-	//  find version in verKeys skip list
-
-	if ((version = skipFind(map->parent, cursor->ver->verKeys, map->arenaDef->id)))
-	  if (*version == cursor->version)
+	if ((cursor->ver = findDocVer(map->parent, cursor->docId, txn)))
 		return DB_OK;
   }
 }

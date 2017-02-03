@@ -1,3 +1,4 @@
+#define _BSD_SOURCE
 #include <errno.h>
 #include <string.h>
 #include <inttypes.h>
@@ -39,6 +40,8 @@ extern uint64_t nodeAlloc[64];
 extern uint64_t nodeFree[64];
 extern uint64_t nodeWait[64];
 #endif
+
+bool debug = false;
 
 double getCpuTime(int type);
 
@@ -164,9 +167,6 @@ int stat;
 		if ((stat = createIndex(index, parent, idxName, strlen(idxName), args->params)))
 		  fprintf(stderr, "createIndex Error %d name: %s\n", stat, idxName), exit(0);
 
-		if (docHndl->hndlBits)
-			addIndexes(docHndl);
-
 		createCursor (cursor, index, args->params);
 
 		if (binaryFlds)
@@ -180,10 +180,10 @@ int stat;
 				key[lastFld] = (len - lastFld - 2) >> 8;
 				key[lastFld + 1] = (len - lastFld - 2);
 			  }
-#ifdef DEBUG
-			  if (!(line % 100000))
+
+			  if (debug && !(line % 100000))
 				fprintf(stderr, "line %" PRIu64 "\n", line);
-#endif
+
 			  line++;
 
 			  if (docHndl->hndlBits) {
@@ -236,9 +236,6 @@ int stat;
 		if (args->params[NoDocs].boolVal && args->params[NoIdx].boolVal)
 		  fprintf(stderr, "Cannot specify both -noDocs and -noIdx\n"), exit(0);
 
-		if (!args->params[NoDocs].boolVal && !args->params[NoIdx].boolVal)
-			addIndexes(docHndl);
-
 		if (binaryFlds)
 			len = 2;
 
@@ -250,18 +247,19 @@ int stat;
 				key[lastFld] = (len - lastFld - 2) >> 8;
 				key[lastFld + 1] = (len - lastFld - 2);
 			  }
-#ifdef DEBUG
-			  if (!(line % 100000))
+
+			  if (debug && !(line % 100000))
 				fprintf(stderr, "line %" PRIu64 "\n", line);
-#endif
+
 			  line++;
 
-			  if (docHndl->hndlBits) {
+			  if (docHndl->hndlBits)
 				if ((stat = storeDoc (docHndl, key, len, &docId, txnId, !args->params[NoIdx].boolVal)))
 				  fprintf(stderr, "Add Doc Error %d Line: %" PRIu64 "\n", stat, line), exit(0);
-			  } else if (index->hndlBits)
+			  if (index->hndlBits)
 				if ((stat = insertKey(index, key, len)))
 				  fprintf(stderr, "Insert Key Error %d Line: %" PRIu64 "\n", stat, line), exit(0);
+
 			  lastFld = 0;
 			  len = binaryFlds ? 2 : 0;
 			}
@@ -294,9 +292,6 @@ int stat;
 		if ((stat = createIndex(index, parent, idxName, strlen(idxName), args->params)))
 		  fprintf(stderr, "createIndex Error %d name: %s\n", stat, idxName), exit(0);
 
-		if (docHndl->hndlBits)
-			addIndexes(docHndl);
-
 		createCursor (cursor, index, args->params);
 
 		if (binaryFlds)
@@ -309,10 +304,10 @@ int stat;
 				key[lastFld] = (len - lastFld - 2) >> 8;
 				key[lastFld + 1] = (len - lastFld - 2);
 			  }
-#ifdef DEBUG
-			  if (!(line % 100000))
+
+			  if (debug && !(line % 100000))
 				fprintf(stderr, "line %" PRIu64 "\n", line);
-#endif
+
 			  line++;
 
 			  if (args->params[IdxKeySpec].intVal)
@@ -393,9 +388,6 @@ int stat;
 		if ((stat = createIndex(index, parent, idxName, strlen(idxName), args->params)))
 		  fprintf(stderr, "createIndex Error %d name: %s\n", stat, idxName), exit(0);
 
-		if (docHndl->hndlBits)
-			addIndexes(docHndl);
-
 		// create forward cursor
 
 		createCursor (cursor, index, args->params);
@@ -455,9 +447,6 @@ int stat;
 
 		if ((stat = createIndex(index, parent, idxName, strlen(idxName), args->params)))
 		  fprintf(stderr, "createIndex Error %d name: %s\n", stat, idxName), exit(0);
-
-		if (docHndl->hndlBits)
-			addIndexes(docHndl);
 
 		// create reverse cursor
 
@@ -551,7 +540,6 @@ int main (int argc, char **argv)
 {
 Params params[MaxParam];
 int idx, cnt, err;
-int idxType = 0;
 char *minKey = NULL;
 char *maxKey = NULL;
 char *dbName = NULL;
@@ -575,7 +563,7 @@ int num = 0;
 	fprintf(stderr, "PageSize: %d, # Processors: %d, Allocation Granularity: %d\n\n", (int)info->dwPageSize, (int)info->dwNumberOfProcessors, (int)info->dwAllocationGranularity);
 #endif
 	if( argc < 3 ) {
-		fprintf (stderr, "Usage: %s db_name -cmds=[crwsdfi]... -idxType=[012] -bits=# -xtra=# -inMem -txns -noDocs -noIdx -keyLen=# -minKey=abcd -maxKey=abce -drop -idxBinary src_file1 src_file2 ... ]\n", argv[0]);
+		fprintf (stderr, "Usage: %s db_name -cmds=[crwsdfi]... -idxType=[012] -bits=# -xtra=# -inMem -txns -debug -noDocs -noIdx -keyLen=# -minKey=abcd -maxKey=abce -drop -idxBinary src_file1 src_file2 ... ]\n", argv[0]);
 		fprintf (stderr, "  where db_name is the prefix name of the database file\n");
 		fprintf (stderr, "  cmds is a string of (c)ount/(r)ev scan/(w)rite/(s)can/(d)elete/(f)ind/(i)terate, with a one character command for each input src_file, or a no-input command.\n");
 		fprintf (stderr, "  idxType is the type of index: 0 = ART, 1 = btree1, 2 = btree2\n");
@@ -617,6 +605,8 @@ int num = 0;
 			params[Btree1Bits].intVal = atoi(argv[0] + 6);
 	  else if (!memcmp(argv[0], "-cmds=", 6))
 			cmds = argv[0] + 6;
+	  else if (!memcmp(argv[0], "-debug", 6))
+			debug = true;
 	  else if (!memcmp(argv[0], "-idxType=", 9))
 			params[IdxType].intVal = atoi(argv[0] + 9);
 	  else if (!memcmp(argv[0], "-inMem", 6))

@@ -2,6 +2,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #else
+#define _GNU_SOURCE
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/mman.h>
@@ -34,7 +35,7 @@ void yield() {
 #ifndef _WIN32
 			pause();
 #else
-			Yield();
+			YieldProcessor();
 #endif
 }
 
@@ -134,7 +135,7 @@ void waitZero(volatile char *zero) {
 #ifndef _WIN32
 			pause();
 #else
-			Yield();
+			YieldProcessor();
 #endif
 }
 
@@ -143,7 +144,7 @@ void waitZero32(volatile int32_t *zero) {
 #ifndef _WIN32
 			pause();
 #else
-			Yield();
+			YieldProcessor();
 #endif
 }
 
@@ -152,7 +153,7 @@ void waitZero64(volatile int64_t *zero) {
 #ifndef _WIN32
 			pause();
 #else
-			Yield();
+			YieldProcessor();
 #endif
 }
 
@@ -161,7 +162,7 @@ void waitNonZero(volatile char *zero) {
 #ifndef _WIN32
 			pause();
 #else
-			Yield();
+			YieldProcessor();
 #endif
 }
 
@@ -170,7 +171,7 @@ void waitNonZero32(volatile int32_t *zero) {
 #ifndef _WIN32
 			pause();
 #else
-			Yield();
+			YieldProcessor();
 #endif
 }
 
@@ -179,7 +180,7 @@ void waitNonZero64(volatile int64_t *zero) {
 #ifndef _WIN32
 			pause();
 #else
-			Yield();
+			YieldProcessor();
 #endif
 }
 
@@ -193,14 +194,19 @@ void lockLatch(volatile char* latch) {
 #ifndef _WIN32
 			pause();
 #else
-			Yield();
+			YieldProcessor();
 #endif
 		while (*latch & MUTEX_BIT);
 	}
 }
 
 void unlockLatch(volatile char* latch) {
-	*latch &= ~MUTEX_BIT;
+//	*latch &= ~MUTEX_BIT;
+#ifndef _WIN32
+	__sync_fetch_and_and(latch, ~MUTEX_BIT);
+#else
+	_InterlockedAnd8(latch, ~MUTEX_BIT);
+#endif
 }
 
 void lockAddr(volatile uint64_t* bits) {
@@ -213,7 +219,7 @@ void lockAddr(volatile uint64_t* bits) {
 #ifndef _WIN32
 			pause();
 #else
-			Yield();
+			YieldProcessor();
 #endif
 		while (*bits & ADDR_MUTEX_SET);
 	}

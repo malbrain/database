@@ -13,7 +13,7 @@ enum ARTNodeType {
 	FldEnd,							// 5: node ends a binary string field
 	KeyEnd,							// 6: node ends a complete key value
 	SpanNode,						// 7: node contains up to 8 key bytes
-	MaxARTType = SpanNode + 16		//23: node spans up to 256 bytes
+	MaxARTType = SpanNode + 1 + 16	// 8-23: node spans up to 256 bytes
 };
 
 /**

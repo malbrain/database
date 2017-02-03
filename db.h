@@ -141,7 +141,6 @@ typedef enum {
 } DocState;
 
 typedef struct {
-	DbAddr verKeys[1];	// skiplist of versions with Id key
 	uint64_t version;	// document version
 	uint32_t offset;	// offset from origin
 	uint32_t size;		// version size

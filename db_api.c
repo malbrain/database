@@ -234,8 +234,6 @@ Handle *index;
 		break;
 	}
 
-	*map->arena->type = type;
-
 createXit:
 	releaseHandle(parentHndl);
 	return DB_OK;
@@ -474,14 +472,14 @@ DbStatus stat;
 }
 
 DbStatus cloneHandle(DbHandle newHndl[1], DbHandle oldHndl[1]) {
-Handle *arena;
+Handle *hndl;
 
-	if (!(arena = bindHandle(oldHndl)))
+	if (!(hndl = bindHandle(oldHndl)))
 		return DB_ERROR_handleclosed;
 
-	newHndl->hndlBits = makeHandle(arena->map, arena->xtraSize, arena->hndlType);
+	newHndl->hndlBits = makeHandle(hndl->map, hndl->xtraSize, hndl->hndlType);
 
-	releaseHandle(arena);
+	releaseHandle(hndl);
 	return DB_OK;
 }
 
@@ -495,7 +493,7 @@ Txn *txn;
 	if (!(database = bindHandle(hndl)))
 		return txnId;
 
-	txnId.bits = allocObjId(database->map, listFree(database,0), listTail(database,0), 0);
+	txnId.bits = allocObjId(database->map, listFree(database,0), listWait(database,0), 0);
 	txn = fetchIdSlot(database->map, txnId);
 	txn->timestamp = allocateTimestamp(database->map, en_reader);
 
@@ -546,7 +544,7 @@ DbStatus allocDoc(Handle *docHndl, Doc **doc, uint32_t objSize) {
 DocArena *docArena = docarena(docHndl->map);
 DbAddr addr;
 
-	if ((addr.bits = allocObj(docHndl->map, listFree(docHndl,0), listTail(docHndl,0), -1, objSize + sizeof(Doc), false)))
+	if ((addr.bits = allocObj(docHndl->map, listFree(docHndl,0), listWait(docHndl,0), -1, objSize + sizeof(Doc), false)))
 		*doc = getObj(docHndl->map, addr);
 	else
 		return DB_ERROR_outofmemory;
@@ -556,7 +554,7 @@ DbAddr addr;
 	(*doc)->lastVer = sizeof(Doc) - sizeof(Ver);
 	(*doc)->verCnt = 1;
 
-	(*doc)->ver->docId.bits = allocObjId(docHndl->map, listFree(docHndl,0), listTail(docHndl,0), docArena->storeId);
+	(*doc)->ver->docId.bits = allocObjId(docHndl->map, listFree(docHndl,0), listWait(docHndl,0), docArena->storeId);
 	(*doc)->ver->offset = sizeof(Doc) - sizeof(Ver);
 	(*doc)->ver->size = objSize;
 	(*doc)->ver->version = 1;
@@ -590,6 +588,7 @@ DbStatus storeDoc(DbHandle hndl[1], void *obj, uint32_t objSize, ObjId *docId, O
 DocArena *docArena;
 Handle *docHndl;
 DbStatus stat;
+DbAddr *slot;
 Doc *doc;
 
 	if (!(docHndl = bindHandle(hndl)))
@@ -602,7 +601,7 @@ Doc *doc;
 
 	docArena = docarena(docHndl->map);
 
-	doc->ver->docId.bits = allocObjId(docHndl->map, listFree(docHndl,0), listTail(docHndl,0), docArena->storeId);
+	doc->ver->docId.bits = allocObjId(docHndl->map, listFree(docHndl,0), listWait(docHndl,0), docArena->storeId);
 
 	//	add the new document to the txn
 
@@ -616,34 +615,11 @@ Doc *doc;
 	if (docId)
 		docId->bits = doc->ver->docId.bits;
 
-	stat = installDoc (docHndl, doc, idxDoc);
-	releaseHandle(docHndl);
-	return DB_OK;
-}
-
-// install document in the ObjId array
-
-DbStatus installDoc (Handle *docHndl, Doc *doc, bool idxDoc) {
-DbStatus stat = DB_OK;
-DbAddr *slot;
-
 	slot = fetchIdSlot(docHndl->map, doc->ver->docId);
 	slot->bits = doc->addr.bits;
 
-	//	compute and apply indexes
-
-	if (idxDoc) {
-	  if ((stat = installIndexes(docHndl)))
-		return stat;
-
-	  //	add keys for the document
-	  //	enumerate children (e.g. indexes)
-
-	  stat = installIndexKeys(docHndl, doc->ver);
-	}
-
 	releaseHandle(docHndl);
-	return stat;
+	return DB_OK;
 }
 
 DbStatus deleteKey(DbHandle hndl[1], void *key, uint32_t len) {

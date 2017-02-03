@@ -2,7 +2,9 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #else
+#define _XOPEN_SOURCE 500
 #include <unistd.h>
+#include <stdlib.h>
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <errno.h>
@@ -44,7 +46,9 @@ DbMap *map;
 	if ((map = (DbMap *)*childMap))
 		waitNonZero(map->arena->type);
 	else {
+		writeLock(parent->childMaps->lock);
 		map = openMap(parent, rbkey(rbEntry), rbEntry->keyLen, arenaDef, &rbEntry->addr);
+		writeUnlock(parent->childMaps->lock);
 		atomicAdd32(parent->openCnt, 1);
 		*childMap = map;
 	}
@@ -343,7 +347,7 @@ uint64_t nextSize;
 //  allocate an object from frame list
 //  return 0 if out of memory.
 
-uint64_t allocObj(DbMap* map, DbAddr *free, DbAddr *tail, int type, uint32_t size, bool zeroit ) {
+uint64_t allocObj(DbMap* map, DbAddr *free, DbAddr *wait, int type, uint32_t size, bool zeroit ) {
 uint32_t bits, amt;
 DbAddr slot;
 
@@ -370,15 +374,15 @@ DbAddr slot;
 
 		free += type;
 
-		if (tail)
-			tail += type;
+		if (wait)
+			wait += type;
 	} else
 		amt = size;
 
 	lockLatch(free->latch);
 
 	while (!(slot.bits = getNodeFromFrame(map, free))) {
-	  if (!getNodeWait(map, free, tail))
+	  if (!getNodeWait(map, free, wait))
 		if (!initObjFrame(map, free, type, size)) {
 			unlockLatch(free->latch);
 			return 0;
@@ -465,9 +469,9 @@ uint64_t max, addr, off;
 			unlockLatch (map->arena->mutex);
 			return 0;
 		}
-	}
+	} else
+		map->arena->segs[map->arena->currSeg].nextObject.offset = off;
 
-	map->arena->segs[map->arena->currSeg].nextObject.offset = off;
 	addr = map->arena->segs[map->arena->currSeg].nextObject.bits;
 	map->arena->segs[map->arena->currSeg].nextObject.offset += size >> 3;
 	unlockLatch(map->arena->mutex);
@@ -501,14 +505,14 @@ void *fetchIdSlot (DbMap *map, ObjId objId) {
 // allocate next available object id
 //
 
-uint64_t allocObjId(DbMap *map, DbAddr *free, DbAddr *tail, uint16_t idx) {
+uint64_t allocObjId(DbMap *map, DbAddr *free, DbAddr *wait, uint16_t idx) {
 ObjId objId;
 
 	if (free)
 		free += ObjIdType;
 
-	if (tail)
-		tail += ObjIdType;
+	if (wait)
+		wait += ObjIdType;
 
 	lockLatch(free->latch);
 
@@ -516,7 +520,7 @@ ObjId objId;
 	// otherwise create a new frame of new objects
 
 	while (!(objId.bits = getNodeFromFrame(map, free))) {
-		if (!getNodeWait(map, free, tail))
+		if (!getNodeWait(map, free, wait))
 			if (!initObjIdFrame(map, free)) {
 				unlockLatch(free->latch);
 				return 0;

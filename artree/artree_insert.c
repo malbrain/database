@@ -45,12 +45,12 @@ uint64_t nodeWait[64];
 
 uint64_t artAllocateNode(Handle *index, int type, uint32_t size) {
 DbAddr *free = listFree(index,type);
-DbAddr *tail = listTail(index,type);
+DbAddr *wait = listWait(index,type);
 
 #ifdef DEBUG
 	atomicAdd64(&nodeAlloc[type], 1ULL);;
 #endif
-	return allocObj(index->map, free, tail, type, size, true);
+	return allocObj(index->map, free, wait, type, size, true);
 }
 
 uint64_t allocSpanNode(ParamStruct *p, uint32_t len) {
@@ -309,7 +309,7 @@ DbAddr slot;
 		  // add old node to free/wait list
 
 		  if (slot.type != UnusedSlot && !(slot.type == KeyEnd && !slot.keyEnd)) {
-			if((!addSlotToFrame(index->map, listHead(index,slot.type), listTail(index,slot.type), slot.bits)))
+			if((!addSlotToFrame(index->map, listHead(index,slot.type), listWait(index,slot.type), slot.bits)))
 			  return DB_ERROR_outofmemory;
 			#ifdef DEBUG
 			atomicAdd64(&nodeFree[slot.type], 1ULL);;

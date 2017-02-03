@@ -1,11 +1,11 @@
 #pragma once
 
 //  listHead:		frame of newest nodes waiting to be recycled
-//	listTail:		frame of oldest nodes waiting to be recycled
+//	listWait:		frame of oldest nodes waiting to be recycled
 //	listFree;		frames of available free objects
 
 #define listHead(hndl, type) (&hndl->frames[type])
-#define listTail(hndl, type) (&hndl->frames[type + hndl->maxType])
+#define listWait(hndl, type) (&hndl->frames[type + hndl->maxType])
 #define listFree(hndl, type) (&hndl->frames[type + 2 * hndl->maxType])
 
 //	Local Handle for an arena

@@ -48,7 +48,6 @@ typedef struct {
 #define dbindex(map) ((DbIndex *)(map->arena + 1))
 
 DbStatus installIndexes(Handle *docHndl);
-DbStatus installIndexKeys(Handle *docHndl, Ver *ver);
 
 DbStatus dbFindKey(DbCursor *cursor, DbMap *map, void *key, uint32_t keyLen, bool onlyOne);
 DbStatus dbNextKey(DbCursor *cursor, DbMap *map);
