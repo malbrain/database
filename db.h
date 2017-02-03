@@ -108,8 +108,6 @@ typedef enum {
 	Btree1Xtra,
 
 	CursorTxn = 25,
-	CursorStart,
-	CursorEnd,
 
 	IteratorEnd = 30,  // position iterator at end?
 
