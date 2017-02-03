@@ -176,7 +176,6 @@ DbMap *map, *parent;
 Handle *parentHndl;
 ArenaDef *arenaDef;
 RedBlack *rbEntry;
-DbIndex *dbIndex;
 Handle *index;
 
 	memset (hndl, 0, sizeof(DbHandle));
@@ -215,9 +214,6 @@ Handle *index;
 
 	if (*map->arena->type)
 		goto createXit;
-
-	dbIndex = dbindex(map);
-	dbIndex->idxKeys = compileKeys(map, params);
 
 	index = getHandle(hndl);
 

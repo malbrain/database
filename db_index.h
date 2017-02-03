@@ -4,7 +4,6 @@
 
 typedef struct {
 	uint64_t numEntries[1];	// number of keys in index
-	DbAddr idxKeys;			// address of the IndexKey array
 } DbIndex;
 
 // database cursor handle extension to index

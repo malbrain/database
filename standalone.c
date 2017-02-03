@@ -45,25 +45,6 @@ bool debug = false;
 
 double getCpuTime(int type);
 
-//  Interface function to evaluate a partial document
-
-bool evalPartial(Ver *ver, Params *params) {
-	return true;
-}
-
-//  Interface function to create a document key
-//	from a document and a key length
-
-uint16_t keyGenerator (char *key, Ver *ver, ParamVal *spec, Params *params) {
-uint16_t keyLen;
-
-	if (!(keyLen = params[IdxKeySpec].intVal))
-		keyLen = ver->size;
-
-	memcpy(key, ver + 1, keyLen);
-	return keyLen;
-}
-
 void printBinary(char *key, int len, FILE *file) {
 int off = 0;
 
@@ -75,13 +56,6 @@ int off = 0;
 		fwrite (key + off, fldLen, 1, file);
 		off += fldLen;
 	}
-}
-
-DbAddr compileKeys(DbMap *map, Params *params) {
-DbAddr addr;
-
-	addr.bits = 0;
-	return addr;
 }
 
 typedef struct {
