@@ -125,13 +125,6 @@ typedef union {
 	void *obj;
 } Params;
 
-//	Param key docs and partial docs
-
-typedef struct {
-	uint32_t len;
-	char val[];
-} ParamVal;
-
 typedef enum {
 	DocUnused = 0,
 	DocActive,
