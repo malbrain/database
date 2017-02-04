@@ -52,10 +52,10 @@ struct SkipHead_ {
 
 //	Skip list entry
 
-struct SkipEntry_ {
+typedef struct SkipEntry_ {
 	uint64_t key[1];	// entry key
 	uint64_t val[1];	// entry value
-};
+} SkipEntry;
 
 //	size of skip list entry array
 

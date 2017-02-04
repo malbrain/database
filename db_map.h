@@ -38,11 +38,11 @@ void art_yield(void);
  */
 
 SkipEntry *skipSearch(SkipEntry *array, int high, uint64_t key);
-uint64_t skipDel(DbMap *map, DbAddr *skip, uint64_t key);
-uint64_t *skipFind(DbMap *map, DbAddr *skip, uint64_t key);
-uint64_t *skipPush(DbMap *map, DbAddr *skip, uint64_t key);
-uint64_t *skipAdd(DbMap *map, DbAddr *skip, uint64_t key);
+SkipEntry *skipFind(DbMap *map, DbAddr *skip, uint64_t key);
+SkipEntry *skipPush(DbMap *map, DbAddr *skip, uint64_t key);
+SkipEntry *skipAdd(DbMap *map, DbAddr *skip, uint64_t key);
 uint64_t skipInit(DbMap *map, int numEntries);
+uint64_t skipDel(DbMap *map, DbAddr *skip, uint64_t key);
 
 /**
  * atomic integer ops

@@ -126,30 +126,33 @@ DbAddr addr;
 }
 
 //	destroy handle
-//	call with id slot (addr) locked
 
-void destroyHandle(DbMap *map, DbAddr *addr) {
-Handle *hndl = getObj(hndlMap, *addr);
+void destroyHandle(Handle *hndl) {
+DbAddr *slot = fetchIdSlot (hndlMap, hndl->hndlId);
 uint64_t *inUse;
+
+	lockLatch(slot->latch);
 
 	//	already destroyed?
 
-	if (!addr->addr)
+	if (!slot->addr) {
+		slot->bits = 0;
 		return;
+	}
 
 	// release handle freeList
 
 	if (hndl->maxType) {
-		lockLatch(map->arena->listArray->latch);
-		inUse = arrayBlk(map, map->arena->listArray, hndl->frameIdx);
+		lockLatch(hndl->map->arena->listArray->latch);
+		inUse = arrayBlk(hndl->map, hndl->map->arena->listArray, hndl->frameIdx);
 		inUse[hndl->frameIdx % ARRAY_size / 64] &= ~(1ULL << (hndl->frameIdx % 64));
-		unlockLatch(map->arena->listArray->latch);
+		unlockLatch(hndl->map->arena->listArray->latch);
 	}
 
 	// release handle Id slot
 
-	freeBlk (hndlMap, *addr);
-	addr->bits = 0;
+	freeBlk (hndlMap, *slot);
+	slot->bits = 0;
 }
 
 //	bind handle for use in API call
@@ -180,9 +183,8 @@ uint32_t cnt;
 
 	if ((*slot->latch & KILL_BIT)) {
 		dbHndl->hndlBits = 0;
-		lockLatch(slot->latch);
-		atomicAdd32(hndl->bindCnt, -1);
-		destroyHandle (hndl->map, slot);
+		if (!atomicAdd32(hndl->bindCnt, -1))
+			destroyHandle (hndl);
 		return NULL;
 	}
 
@@ -190,9 +192,8 @@ uint32_t cnt;
 
 	if (hndl->map->arena->mutex[0] & KILL_BIT) {
 		dbHndl->hndlBits = 0;
-		lockLatch(slot->latch);
-		atomicAdd32(hndl->bindCnt, -1);
-		destroyHandle (hndl->map, slot);
+		if (!atomicAdd32(hndl->bindCnt, -1))
+			destroyHandle (hndl);
 		return NULL;
 	}
 
@@ -250,7 +251,7 @@ int idx, seg;
 
 		  if (handle->addr) {
 			waitZero32 (hndl->bindCnt);
-		  	destroyHandle(map, handle);
+		  	destroyHandle(hndl);
 		  }
 
 		} while (slotIdx++, bits /= 2);

@@ -1,8 +1,8 @@
 //	skip list implementation
 
 #include "db.h"
-#include "db_map.h"
 #include "db_arena.h"
+#include "db_map.h"
 
 //	initialize initial skip list node
 
@@ -15,7 +15,7 @@ uint64_t skipInit(DbMap *map, int numEntries) {
 
 //	find key value in skiplist, return entry address
 
-uint64_t *skipFind(DbMap *map, DbAddr *skip, uint64_t key) {
+SkipEntry *skipFind(DbMap *map, DbAddr *skip, uint64_t key) {
 DbAddr *next = skip;
 SkipNode *skipNode;
 SkipEntry *entry;
@@ -27,7 +27,7 @@ SkipEntry *entry;
 	  entry = skipSearch(skipNode->array, next->nslot, key);
 
 	  if (*entry->key == key)
-		return entry->val;
+		return entry;
 
 	  return NULL;
 	}
@@ -90,7 +90,7 @@ uint64_t val;
 //	Push new maximal key onto head of skip list
 //	return the value slot address
 
-uint64_t *skipPush(DbMap *map, DbAddr *skip, uint64_t key) {
+SkipEntry *skipPush(DbMap *map, DbAddr *skip, uint64_t key) {
 SkipNode *skipNode;
 SkipEntry *entry;
 uint64_t next;
@@ -107,14 +107,14 @@ uint64_t next;
 
 	entry = skipNode->array + skip->nslot++;
 	*entry->key = key;
-	return entry->val;
+	return entry;
 }
 
 //	Add arbitrary key to skip list
 //	call with skip hdr locked
-//	return val address
+//	return entry address
 
-uint64_t *skipAdd(DbMap *map, DbAddr *skip, uint64_t key) {
+SkipEntry *skipAdd(DbMap *map, DbAddr *skip, uint64_t key) {
 SkipNode *skipNode = NULL, *nextNode;
 DbAddr *next = skip;
 uint64_t prevBits;
@@ -137,7 +137,7 @@ int min, max;
 	  //  does key already exist?
 
 	  if (*entry->key == key)
-		return entry->val;
+		return entry;
 
 	  min = ++entry - skipNode->array;
 	} else
@@ -168,7 +168,7 @@ int min, max;
 	//  fill in key and return value slot
 
 	*skipNode->array[max].key = key;
-	return skipNode->array[max].val;
+	return skipNode->array + max;
   }
 
   // initialize empty list
@@ -179,7 +179,7 @@ int min, max;
   *skipNode->array->key = key;
   skip->nslot = 1;
 
-  return skipNode->array->val;
+  return skipNode->array;
 }
 
 //	search Skip node for key value

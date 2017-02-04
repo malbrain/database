@@ -311,7 +311,7 @@ ObjId hndlId;
 		break;
 	}
 
-	destroyHandle (hndl->map, slot);
+	destroyHandle (hndl);
 	return DB_OK;
 }
 
@@ -534,7 +534,7 @@ DbAddr *slot;
 	return DB_OK;
 }
 
-//	API entry to allocate a new document
+//	helper function to allocate a new document
 
 DbStatus allocDoc(Handle *docHndl, Doc **doc, uint32_t objSize) {
 DocArena *docArena = docarena(docHndl->map);

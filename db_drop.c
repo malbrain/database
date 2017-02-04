@@ -1,7 +1,7 @@
 #include "db.h"
+#include "db_arena.h"
 #include "db_map.h"
 #include "db_object.h"
-#include "db_arena.h"
 #include "db_handle.h"
 #include "db_redblack.h"
 
@@ -13,7 +13,7 @@ extern DbMap *hndlMap;
 
 void dropArenaDef(DbMap *db, ArenaDef *arenaDef, ArenaDef *parentArena, bool dropDefs, char *path, uint32_t pathLen) {
 uint32_t childIdMax, len;
-uint64_t *skipPayLoad;
+SkipEntry *skipPayLoad;
 DbAddr *next, addr;
 RedBlack *entry;
 SkipNode *node;
@@ -37,7 +37,7 @@ uint64_t id;
 	  } else {
 		arenaDef->id = atomicAdd64(&parentArena->childId, 1);
 		skipPayLoad = skipAdd (db, parentArena->idList->head, arenaDef->id);
-		*skipPayLoad = entry->addr.bits;
+		*skipPayLoad->val = entry->addr.bits;
 	  }
 
 	  writeUnlock(parentArena->idList->lock);

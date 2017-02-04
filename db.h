@@ -75,10 +75,10 @@ typedef union {
 		uint16_t cmd:6;		// for use in txn
 		uint16_t store;		// document store idx from catalog
 	};
+	uint64_t addr:42;		// address part of struct above
 	uint64_t bits;
 } ObjId;
 
-typedef struct SkipEntry_ SkipEntry;
 typedef struct SkipHead_ SkipHead;
 typedef struct RedBlack_ RedBlack;
 typedef struct DbArena_ DbArena;

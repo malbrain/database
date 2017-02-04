@@ -14,7 +14,7 @@ extern DbMap *hndlMap;
 //	from the parent.
 
 RedBlack *procParam(DbMap *parent, char *name, int nameLen, Params *params) {
-uint64_t *skipPayLoad;
+SkipEntry *skipPayLoad;
 ArenaDef *arenaDef;
 PathStk pathStk[1];
 RedBlack *rbEntry;
@@ -63,7 +63,7 @@ uint32_t xtra;
 
 	writeLock(parent->arenaDef->idList->lock);
 	skipPayLoad = skipAdd (parent->db, parent->arenaDef->idList->head, arenaDef->id);
-	*skipPayLoad = rbEntry->addr.bits;
+	*skipPayLoad->val = rbEntry->addr.bits;
 	writeUnlock(parent->arenaDef->idList->lock);
 
 	unlockLatch(parent->arenaDef->nameTree->latch);

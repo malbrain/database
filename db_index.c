@@ -9,31 +9,11 @@
 #include "db_index.h"
 #include "db_map.h"
 
-//	remove a dropped index from the docStore child skiplist
-//	call with child delete skiplist entry
-
-void removeIdx(Handle *docHndl, SkipEntry *entry) {
-DocStore *docStore;
-ObjId hndlId;
-
-	docStore = (DocStore *)(docHndl + 1);
-
-	//	find the childId in our indexes skiplist
-	//	and return the handle
-
-	if ((hndlId.bits = skipDel(docHndl->map, docStore->indexes->head, *entry->val))) {
-		DbAddr *slot = slotHandle(hndlId);
-
-		lockLatch(slot->latch);
-		destroyHandle(docHndl->map, slot);
-	}
-}
-
 //  open and install index DbHandle in docHndl cache
 //	call with docStore handle and arenaDef address.
 
 void installIdx(Handle *docHndl, SkipEntry *entry) {
-uint64_t *hndlAddr;
+SkipEntry *skipEntry;
 DocStore *docStore;
 RedBlack *rbEntry;
 HandleType type;
@@ -42,7 +22,7 @@ DbMap *child;
 
 	docStore = (DocStore *)(docHndl + 1);
 
-	hndlAddr = skipAdd(docHndl->map, docStore->indexes->head, *entry->key);
+	skipEntry = skipAdd(docHndl->map, docStore->indexes->head, *entry->key);
 
 	rbAddr.bits = *entry->val;
 	rbEntry = getObj(docHndl->map->db, rbAddr);
@@ -50,7 +30,7 @@ DbMap *child;
 	child = arenaRbMap(docHndl->map, rbEntry);
 	type = *child->arena->type;
 
-	*hndlAddr = makeHandle(child, 0, type);
+	*skipEntry->val = makeHandle(child, 0, type);
 }
 
 //	create new index handles based on children of the docStore.
