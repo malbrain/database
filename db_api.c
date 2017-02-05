@@ -505,18 +505,6 @@ DbStatus commitTxn(DbHandle hndl[1], ObjId txnId) {
 	return DB_OK;
 }
 
-DbStatus addIndexes(DbHandle hndl[1]) {
-Handle *docHndl;
-DbStatus stat;
-
-	if (!(docHndl = bindHandle(hndl)))
-		return DB_ERROR_handleclosed;
-
-	stat = installIndexes(docHndl);
-	releaseHandle(docHndl);
-	return stat;
-}
-
 //	fetch document from a docStore by docId
 
 DbStatus fetchDoc(DbHandle hndl[1], Doc **doc, ObjId docId) {

@@ -9,10 +9,19 @@
 #include "db_index.h"
 #include "db_map.h"
 
+//	allocate docStore power-of-two memory
+
+uint64_t dbAllocDocStore(Handle *docHndl, uint32_t size, bool zeroit) {
+DbAddr *free = listFree(docHndl,0);
+DbAddr *wait = listWait(docHndl,0);
+
+	return allocObj(docHndl->map, free, wait, -1, size, zeroit);
+}
+
 //  open and install index DbHandle in docHndl cache
 //	call with docStore handle and arenaDef address.
 
-void installIdx(Handle *docHndl, SkipEntry *entry) {
+void dbInstallIdx(Handle *docHndl, SkipEntry *entry) {
 SkipEntry *skipEntry;
 DocStore *docStore;
 RedBlack *rbEntry;
@@ -36,7 +45,7 @@ DbMap *child;
 //	create new index handles based on children of the docStore.
 //	call with docStore handle.
 
-DbStatus installIndexes(Handle *docHndl) {
+DbStatus dbInstallIndexes(Handle *docHndl) {
 ArenaDef *arenaDef = docHndl->map->arenaDef;
 DocStore *docStore;
 uint64_t maxId = 0;
@@ -69,7 +78,7 @@ int idx;
 
 		while (idx--)
 		  if (*skipNode->array[idx].key > docStore->childId) {
-			  installIdx(docHndl, &skipNode->array[idx]);
+			  dbInstallIdx(docHndl, &skipNode->array[idx]);
 			  docStore->idxCnt++;
 		  } else
 			break;

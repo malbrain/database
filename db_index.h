@@ -39,7 +39,7 @@ typedef struct {
 // database docStore handle extension to collection
 
 typedef struct {
-	SkipHead indexes[1];	// index handles by Id
+	SkipHead indexes[1];	// index DbHandles by docStore childId
 	SkipHead txnVers[1];	// pending doc versions by ObjId
 	uint64_t childId;		// highest child idx installed
 	uint32_t idxCnt;		// number of indexes
@@ -47,7 +47,8 @@ typedef struct {
 
 #define dbindex(map) ((DbIndex *)(map->arena + 1))
 
-DbStatus installIndexes(Handle *docHndl);
+DbStatus dbInstallIndexes(Handle *docHndl);
+uint64_t dbAllocDocStore(Handle *docHndl, uint32_t amt, bool zeroit);
 
 DbStatus dbFindKey(DbCursor *cursor, DbMap *map, void *key, uint32_t keyLen, bool onlyOne);
 DbStatus dbNextKey(DbCursor *cursor, DbMap *map);
