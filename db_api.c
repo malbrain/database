@@ -237,15 +237,12 @@ createXit:
 
 //	create new cursor
 
-DbStatus createCursor(DbHandle hndl[1], DbHandle idxHndl[1], Params *params) {
+DbStatus createCursor(DbHandle hndl[1], DbHandle idxHndl[1], Params *params, ObjId txnId) {
 Handle *index, *cursorHndl;
 DbStatus stat = DB_OK;
 uint64_t timestamp;
 DbCursor *cursor;
-ObjId txnId;
 Txn *txn;
-
-	txnId.bits = params[CursorTxn].intVal;
 
 	memset (hndl, 0, sizeof(DbHandle));
 

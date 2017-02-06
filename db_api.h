@@ -30,7 +30,7 @@ DbStatus createIndex(DbHandle hndl[1], DbHandle docHndl[1], char *name, uint32_t
 DbStatus cloneHandle(DbHandle hndl[1], DbHandle fromHndl[1]);
 DbStatus dropArena(DbHandle hndl[1], bool dropDefinitions);
 
-DbStatus createCursor(DbHandle hndl[1], DbHandle idxHndl[1], Params *params);
+DbStatus createCursor(DbHandle hndl[1], DbHandle idxHndl[1], Params *params, ObjId txnId);
 DbStatus positionCursor(DbHandle hndl[1], CursorOp op, void *key, uint32_t keyLen);
 DbStatus moveCursor(DbHandle hndl[1], CursorOp op);
 DbStatus setCursorMax(DbHandle hndl[1], void *max, uint32_t maxLen);

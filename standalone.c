@@ -141,7 +141,7 @@ int stat;
 		if ((stat = createIndex(index, parent, idxName, strlen(idxName), args->params)))
 		  fprintf(stderr, "createIndex %s Error %d name: %s\n", args->inFile, stat, idxName), exit(0);
 
-		createCursor (cursor, index, args->params);
+		createCursor (cursor, index, args->params, txnId);
 
 		if (binaryFlds)
 			len = 2;
@@ -266,7 +266,7 @@ int stat;
 		if ((stat = createIndex(index, parent, idxName, strlen(idxName), args->params)))
 		  fprintf(stderr, "createIndex %s Error %d name: %s\n", args->inFile, stat, idxName), exit(0);
 
-		createCursor (cursor, index, args->params);
+		createCursor (cursor, index, args->params, txnId);
 
 		if (binaryFlds)
 			len = 2;
@@ -364,7 +364,7 @@ int stat;
 
 		// create forward cursor
 
-		createCursor (cursor, index, args->params);
+		createCursor (cursor, index, args->params, txnId);
 
 		if (args->maxKey)
 			setCursorMax (cursor, args->maxKey, strlen(args->maxKey));
@@ -424,7 +424,7 @@ int stat;
 
 		// create reverse cursor
 
-		createCursor (cursor, index, args->params);
+		createCursor (cursor, index, args->params, txnId);
 
 		if (args->maxKey)
 			setCursorMax (cursor, args->maxKey, strlen(args->maxKey));
@@ -479,7 +479,7 @@ int stat;
 
 		//  create forward cursor
 
-		createCursor (cursor, index, args->params);
+		createCursor (cursor, index, args->params, txnId);
 
 		if (args->maxKey)
 			setCursorMax (cursor, args->maxKey, strlen(args->maxKey));
