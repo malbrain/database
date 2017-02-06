@@ -38,6 +38,6 @@ void releaseHandle(Handle *hndl);
 Handle *getHandle(DbHandle *hndl);
 DbAddr *slotHandle(ObjId hndlId);
 
-void destroyHandle(Handle *hndl);
+void destroyHandle(Handle *hndl, DbAddr *slot);
 void initHndlMap(char *path, int pathLen, char *name, int nameLen, bool onDisk);
 
