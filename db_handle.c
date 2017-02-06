@@ -148,6 +148,14 @@ uint64_t *inUse;
 		unlockLatch(hndl->map->arena->listArray->latch);
 	}
 
+	//  specific handle cleanup
+
+	switch (hndl->hndlType) {
+	case Hndl_cursor:
+		dbCloseCursor((void *)(hndl + 1), hndl->map);
+		break;
+	}
+
 	// release handle Id slot
 
 	freeBlk (hndlMap, *slot);

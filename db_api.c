@@ -280,42 +280,6 @@ Txn *txn;
 	return stat;
 }
 
-//	close arena handle
-
-DbStatus closeHandle(DbHandle dbHndl[1]) {
-DbAddr *slot;
-Handle *hndl;
-ObjId hndlId;
-
-	if ((hndlId.bits = dbHndl->hndlBits))
-		slot = fetchIdSlot (hndlMap, hndlId);
-	else
-		return DB_OK;
-
-	dbHndl->hndlBits = 0;
-
-	if ((*slot->latch & KILL_BIT))
-		return DB_OK;
-
-	if (slot->addr)
-		hndl = getObj(hndlMap, *slot);
-	else {
-		unlockLatch(slot->latch);
-		return DB_OK;
-	}
-
-	//  specific handle cleanup
-
-	switch (hndl->hndlType) {
-	case Hndl_cursor:
-		dbCloseCursor((void *)(hndl + 1), hndl->map);
-		break;
-	}
-
-	destroyHandle (hndl, slot);
-	return DB_OK;
-}
-
 //	position cursor on a key
 
 DbStatus positionCursor(DbHandle hndl[1], CursorOp op, void *key, uint32_t keyLen) {
