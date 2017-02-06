@@ -53,11 +53,8 @@ typedef union {
 			int8_t rbcmp;		// red/black comparison
 		};
 	};
+	uint64_t addr:48;			// segment/offset
 	uint64_t bits;
-	struct {
-		uint64_t addr:48;		// segment/offset
-		uint64_t storeId:16;	// doc store idx from catalog
-	};
 } DbAddr;
 
 #define TYPE_SHIFT (6*8)		// number of bits to shift type left
@@ -71,8 +68,8 @@ typedef union {
 typedef union {
 	struct {
 		uint32_t index;		// record ID in the segment
-		uint16_t seg:10;	// arena segment number
-		uint16_t cmd:6;		// for use in txn
+		uint16_t seg:12;	// arena segment number
+		uint16_t cmd:4;		// for use in txn
 		uint16_t store;		// document store idx from catalog
 	};
 	uint64_t addr:42;		// address part of struct above
