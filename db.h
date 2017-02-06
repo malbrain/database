@@ -127,7 +127,7 @@ typedef enum {
 	DocDeleted
 } DocState;
 
-typedef struct {
+typedef struct Ver_ {
 	uint64_t version;	// document version
 	uint32_t offset;	// offset from origin
 	uint32_t size;		// version size

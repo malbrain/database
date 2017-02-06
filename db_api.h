@@ -1,5 +1,7 @@
 //	database API interface
 
+#pragma once
+
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
