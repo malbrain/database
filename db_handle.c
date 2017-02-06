@@ -127,8 +127,7 @@ DbAddr addr;
 
 //	destroy handle
 
-void destroyHandle(Handle *hndl) {
-DbAddr *slot = fetchIdSlot (hndlMap, hndl->hndlId);
+void destroyHandle(Handle *hndl, DbAddr *slot) {
 uint64_t *inUse;
 
 	lockLatch(slot->latch);
@@ -183,17 +182,22 @@ uint32_t cnt;
 
 	if ((*slot->latch & KILL_BIT)) {
 		dbHndl->hndlBits = 0;
+
 		if (!atomicAdd32(hndl->bindCnt, -1))
-			destroyHandle (hndl);
+			destroyHandle (hndl, slot);
+
 		return NULL;
 	}
 
 	//	is there a DROP request for this arena?
 
 	if (hndl->map->arena->mutex[0] & KILL_BIT) {
+		atomicOr8(slot->latch, KILL_BIT);
 		dbHndl->hndlBits = 0;
+
 		if (!atomicAdd32(hndl->bindCnt, -1))
-			destroyHandle (hndl);
+			destroyHandle (hndl, slot);
+
 		return NULL;
 	}
 
@@ -250,8 +254,9 @@ int idx, seg;
 		  //  destroy the handle
 
 		  if (handle->addr) {
+			atomicOr8(slot->latch, KILL_BIT);
 			waitZero32 (hndl->bindCnt);
-		  	destroyHandle(hndl);
+		  	destroyHandle(hndl, slot);
 		  }
 
 		} while (slotIdx++, bits /= 2);

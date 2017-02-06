@@ -294,7 +294,8 @@ ObjId hndlId;
 
 	dbHndl->hndlBits = 0;
 
-	lockLatch(slot->latch);
+	if ((*slot->latch & KILL_BIT))
+		return DB_OK;
 
 	if (slot->addr)
 		hndl = getObj(hndlMap, *slot);
@@ -311,7 +312,7 @@ ObjId hndlId;
 		break;
 	}
 
-	destroyHandle (hndl);
+	destroyHandle (hndl, slot);
 	return DB_OK;
 }
 
