@@ -50,6 +50,8 @@ typedef struct {
 DbStatus dbInstallIndexes(Handle *docHndl);
 uint64_t dbAllocDocStore(Handle *docHndl, uint32_t amt, bool zeroit);
 
+DbStatus dbInsertKey (Handle *idxHndl, void *keyBytes, uint32_t keyLen);
+
 DbStatus dbFindKey(DbCursor *cursor, DbMap *map, void *key, uint32_t keyLen, bool onlyOne);
 DbStatus dbNextKey(DbCursor *cursor, DbMap *map);
 DbStatus dbPrevKey(DbCursor *cursor, DbMap *map);
