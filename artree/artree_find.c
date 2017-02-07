@@ -211,7 +211,11 @@ CursorStack* stack;
   }  // end while (offset < keylen)
 
   memcpy (cursor->key, key, cursor->base->keyLen);
-  cursor->base->state = CursorPosAt;
+
+  if (offset < keyLen)
+  	cursor->base->state = CursorPosBefore;
+  else
+  	cursor->base->state = CursorPosAt;
 
   if (cursor->depth < MAX_cursor)
 	stack = cursor->stack + cursor->depth++;

@@ -171,7 +171,7 @@ Sample cursor scan count of 40M pennysort records:
 
 Sample cursor scan with min and max values:
 
-    [karl@test7x64 xlink]$ ./dbtest tstdb -cmds=s -startKey=aaaA -endKey=aaaK -noDocs
+    [karl@test7x64 xlink]$ ./dbtest tstdb -cmds=s -minKey=aaaA -maxKey=aaaK -noDocs
     started scanning min key: aaaA max key: aaaK
     aaaATP)O4j
     aaaBx&\7,4

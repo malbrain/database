@@ -13,7 +13,8 @@ typedef enum {
 	CursorNone,
 	CursorLeftEof,
 	CursorRightEof,
-	CursorPosAt
+	CursorPosBefore,	// cursor is before a key
+	CursorPosAt			// cursor is at a key
 } PosState;
 
 typedef struct {
@@ -43,7 +44,7 @@ DbStatus dbInstallIndexes(Handle *docHndl);
 
 DbStatus dbInsertKey (Handle *idxHndl, void *keyBytes, uint32_t keyLen);
 
-DbStatus dbFindKey(DbCursor *cursor, DbMap *map, void *key, uint32_t keyLen, bool onlyOne);
+DbStatus dbFindKey(DbCursor *cursor, DbMap *map, void *key, uint32_t keyLen, CursorOp op);
 DbStatus dbNextKey(DbCursor *cursor, DbMap *map);
 DbStatus dbPrevKey(DbCursor *cursor, DbMap *map);
 DbStatus dbRightKey(DbCursor *cursor, DbMap *map);

@@ -368,7 +368,7 @@ int stat;
 			stat = moveCursor (cursor, reverse ? OpRight : OpLeft);
 
 		if (stat)
-			fprintf(stderr, "positionCursor Position Error %d\n", stat), exit(0);
+			fprintf(stderr, "positionCursor Error %d\n", stat), exit(0);
 
 		while (!(stat = moveCursor(cursor, reverse ? OpPrev : OpNext))) {
 			if ((stat = keyAtCursor (cursor, &foundKey, &foundLen)))

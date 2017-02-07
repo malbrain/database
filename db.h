@@ -156,12 +156,14 @@ typedef struct {
 // cursor positioning operations
 
 typedef enum {
-	OpLeft	= 'l',
-	OpRight = 'r',
-	OpNext	= 'n',
-	OpPrev	= 'p',
-	OpFind	= 'f',
-	OpOne	= 'o'
+	OpLeft		= 'l',
+	OpRight 	= 'r',
+	OpNext		= 'n',
+	OpPrev		= 'p',
+	OpFind		= 'f',
+	OpOne		= 'o',
+	OpBefore	= 'b',
+	OpAfter		= 'a'
 } CursorOp;
 
 uint32_t get64(char *key, uint32_t len, uint64_t *result);

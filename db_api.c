@@ -290,10 +290,16 @@ DbStatus stat;
 
 	switch (op) {
 	  case OpFind:
-		stat = dbFindKey(cursor, idxHndl->map, key, keyLen, false);
+		stat = dbFindKey(cursor, idxHndl->map, key, keyLen, op);
 		break;
 	  case OpOne:
-		stat = dbFindKey(cursor, idxHndl->map, key, keyLen, true);
+		stat = dbFindKey(cursor, idxHndl->map, key, keyLen, op);
+		break;
+	  case OpBefore:
+		stat = dbFindKey(cursor, idxHndl->map, key, keyLen, op);
+		break;
+	  case OpAfter:
+		stat = dbFindKey(cursor, idxHndl->map, key, keyLen, op);
 		break;
 	  default:
 		stat = DB_ERROR_cursorop;

@@ -27,7 +27,7 @@ DbStatus stat = DB_ERROR_indextype;
 
 //	position cursor
 
-DbStatus dbFindKey(DbCursor *cursor, DbMap *map, void *key, uint32_t keyLen, bool onlyOne) {
+DbStatus dbFindKey(DbCursor *cursor, DbMap *map, void *key, uint32_t keyLen, CursorOp op) {
 DbStatus stat;
 
 	switch (*map->arena->type) {
@@ -35,18 +35,37 @@ DbStatus stat;
 		if ((stat = artFindKey(cursor, map, key, keyLen)))
 			return stat;
 
-		// the ART interface needs to complete a full key
-		//  but the btree1 interface doesn't
+		if (op == OpBefore) {
+		  if (cursor->state == CursorPosBefore)
+			return DB_OK;
+		  else
+			return artPrevKey(cursor, map);
+		}
 
-		if ((stat = artNextKey(cursor, map)))
+		if (op == OpAfter)
+		  if ((stat = artNextKey(cursor, map)))
 			return stat;
 
 		break;
 	  }
 
 	  case Hndl_btree1Index: {
-		if ((stat = btree1FindKey(cursor, map, key, keyLen, onlyOne)))
+		if ((stat = btree1FindKey(cursor, map, key, keyLen, op == OpOne)))
 			return stat;
+
+		if (op == OpAfter) {
+		  if (memcmp (cursor->key, key, keyLen) <= 0)
+			return btree1NextKey (cursor, map);
+		  else
+			return DB_OK;
+		}
+
+		if (op == OpBefore) {
+		  if (memcmp (cursor->key, key, keyLen) >= 0)
+			return btree1PrevKey (cursor, map);
+		  else
+			return DB_OK;
+		}
 
 		break;
 	  }
