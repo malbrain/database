@@ -3,6 +3,7 @@
 #include "db_object.h"
 #include "db_handle.h"
 #include "db_arena.h"
+#include "db_index.h"
 #include "db_map.h"
 
 //	Catalog/Handle arena

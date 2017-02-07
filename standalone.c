@@ -104,6 +104,8 @@ char key[4096];
 char *idxName;
 
 uint32_t foundLen = 0;
+bool reverse = false;
+bool cntOnly = true;
 int lastFld = 0;
 void *foundKey;
 ObjId docId;
@@ -129,14 +131,8 @@ int stat;
 	{
 
 	case 'd':
-		fprintf(stderr, "started delete for %s\n", args->inFile);
-
-		if (args->params[NoDocs].boolVal)
-			parent = database;
-		else {
-			openDocStore(docHndl, database, "documents", strlen("documents"), args->params);
-			parent = docHndl;
-		}
+		fprintf(stderr, "started delete key for %s\n", args->inFile);
+		parent = database;
 
 		if ((stat = createIndex(index, parent, idxName, strlen(idxName), args->params)))
 		  fprintf(stderr, "createIndex %s Error %d name: %s\n", args->inFile, stat, idxName), exit(0);
@@ -160,16 +156,7 @@ int stat;
 
 			  line++;
 
-			  if (docHndl->hndlBits) {
-				if ((stat = positionCursor(cursor, OpFind, key,  len)))
-				  fprintf(stderr, "Delete Doc %s Error %d Syserr %d Line: %" PRIu64 "\n", args->inFile, stat, errno, line), exit(0);
-
-				if ((stat = docAtCursor(cursor, &doc)))
-				  fprintf(stderr, "Delete Doc %s Error %d Syserr %d Line: %" PRIu64 "\n", args->inFile, stat, errno, line), exit(0);
-				if ((stat = deleteDoc (docHndl, doc->ver->docId, txnId)))
-				  fprintf(stderr, "Del Doc %s Error %d Line: %" PRIu64 "\n", args->inFile, stat, line), exit(0);
-			  } else
-				if ((stat = deleteKey(index, key, len)))
+			  if ((stat = deleteKey(index, key, len)))
 				  fprintf(stderr, "Delete Key %s Error %d Line: %" PRIu64 "\n", args->inFile, stat, line), exit(0);
 
 			  len = binaryFlds ? 2 : 0;
@@ -189,7 +176,7 @@ int stat;
 			  key[len++] = ch;
 			}
 
-		fprintf(stderr, "finished %s for %" PRIu64 " keys, found %" PRIu64 "\n", args->inFile, line, cnt);
+		fprintf(stderr, "finished delete %s for %" PRIu64 " keys, found %" PRIu64 "\n", args->inFile, line, cnt);
 		break;
 
 	case 'w':
@@ -341,68 +328,15 @@ int stat;
 		fprintf(stderr, " Total docs read %" PRIu64 "\n", cnt);
 		break;
 
-	case 's':
-		fprintf(stderr, "started index scanning");
-
-		if (args->minKey)
-			fprintf(stderr, " min key: %s", args->minKey);
-
-		if (args->maxKey)
-			fprintf(stderr, " max key: %s", args->maxKey);
-
-		fprintf(stderr, "\n");
-
-		if (args->params[NoDocs].boolVal)
-			parent = database;
-		else {
-			openDocStore(docHndl, database, "documents", strlen("documents"), args->params);
-			parent = docHndl;
-		}
-
-		if ((stat = createIndex(index, parent, idxName, strlen(idxName), args->params)))
-		  fprintf(stderr, "createIndex Error %d name: %s\n", stat, idxName), exit(0);
-
-		// create forward cursor
-
-		createCursor (cursor, index, args->params, txnId);
-
-		if (args->maxKey)
-			setCursorMax (cursor, args->maxKey, strlen(args->maxKey));
-
-		if (args->minKey)
-			setCursorMin (cursor, args->minKey, strlen(args->minKey));
-
-		if ((stat = moveCursor (cursor, OpLeft)))
-			fprintf(stderr, "positionCursor OpLeft Error %d\n", stat), exit(0);
-
-		if (args->params[NoDocs].boolVal)
-		  while (!(stat = moveCursor(cursor, OpNext))) {
-			if ((stat = keyAtCursor (cursor, &foundKey, &foundLen)))
-			  fprintf(stderr, "keyAtCursor Error %d\n", stat), exit(0);
-
-			if (binaryFlds)
-			  printBinary(foundKey, foundLen, stdout);
-			else
-			  fwrite (foundKey, foundLen, 1, stdout);
-
-			fputc ('\n', stdout);
-			cnt++;
-		  }
-		else
-		  while (!(stat = nextDoc(cursor, &doc))) {
-            fwrite (doc->ver + 1, doc->ver->size, 1, stdout);
-            fputc ('\n', stdout);
-            cnt++;
-		  }
-
-		if (stat != DB_CURSOR_eof)
-		  fprintf(stderr, "fwdScan: Error %d Syserr %d Line: %" PRIu64 "\n", stat, errno, cnt), exit(0);
-
-		fprintf(stderr, " Total keys read %" PRIu64 "\n", cnt);
-		break;
-
 	case 'r':
-		fprintf(stderr, "started reverse scanning");
+		reverse = true;
+	case 's':
+		cntOnly = false;
+	case 'c':
+		if (reverse)
+			fprintf(stderr, "started reverse cursor");
+		else
+			fprintf(stderr, "started forward cursor");
 
 		if (args->minKey)
 			fprintf(stderr, " min key: %s", args->minKey);
@@ -412,7 +346,7 @@ int stat;
 
 		fprintf(stderr, "\n");
 
-		if (args->params[NoDocs].boolVal)
+		if (cntOnly || args->params[NoDocs].boolVal)
 			parent = database;
 		else {
 			openDocStore(docHndl, database, "documents", strlen("documents"), args->params);
@@ -422,82 +356,54 @@ int stat;
 		if ((stat = createIndex(index, parent, idxName, strlen(idxName), args->params)))
 		  fprintf(stderr, "createIndex Error %d name: %s\n", stat, idxName), exit(0);
 
-		// create reverse cursor
+		// create cursor
 
 		createCursor (cursor, index, args->params, txnId);
 
-		if (args->maxKey)
-			setCursorMax (cursor, args->maxKey, strlen(args->maxKey));
+		if (!reverse && args->minKey)
+			stat = positionCursor (cursor, OpFind, args->minKey, strlen(args->minKey));
+		else if (reverse && args->maxKey)
+			stat = positionCursor (cursor, OpOne, args->maxKey, strlen(args->maxKey));
+		else 
+			stat = moveCursor (cursor, reverse ? OpRight : OpLeft);
 
-		if (args->minKey)
-			setCursorMin (cursor, args->minKey, strlen(args->minKey));
+		if (stat)
+			fprintf(stderr, "positionCursor Position Error %d\n", stat), exit(0);
 
-		if ((stat = moveCursor (cursor, OpRight)))
-			fprintf(stderr, "positionCursor OpRight Error %d\n", stat), exit(0);
-
-		if (args->params[NoDocs].boolVal)
-		  while (!(stat = moveCursor(cursor, OpPrev))) {
+		while (!(stat = moveCursor(cursor, reverse ? OpPrev : OpNext))) {
 			if ((stat = keyAtCursor (cursor, &foundKey, &foundLen)))
 			  fprintf(stderr, "keyAtCursor Error %d\n", stat), exit(0);
-			fwrite (foundKey, foundLen, 1, stdout);
-			fputc ('\n', stdout);
+
+			if (reverse && args->minKey)
+			  if (memcmp(foundKey, args->minKey, strlen(args->minKey)) < 0)
+				break;
+			if (!reverse && args->maxKey)
+			  if (memcmp(foundKey, args->maxKey, strlen(args->maxKey)) > 0)
+				break;
+
 			cnt++;
-		  }
-		else
-		  while (!(stat = prevDoc(cursor, &doc))) {
-            fwrite (doc->ver + 1, doc->ver->size, 1, stdout);
-            fputc ('\n', stdout);
-            cnt++;
-		  }
 
-		if (stat != DB_CURSOR_eof)
-		  fprintf(stderr, "revScan: Error %d Syserr %d Line: %" PRIu64 "\n", stat, errno, cnt), exit(0);
+			if (cntOnly)
+				continue;
 
-		fprintf(stderr, " Total keys read %" PRIu64 "\n", cnt);
-		break;
+			if (args->params[NoDocs].boolVal)
+			 if (binaryFlds)
+			  printBinary(foundKey, foundLen, stdout);
+			 else
+			  fwrite (foundKey, foundLen, 1, stdout);
+			else {
+			  get64(foundKey, foundLen, &docId.bits);
+			  fetchDoc(docHndl, &doc, docId);
+			  fwrite (doc->ver + 1, doc->ver->size, 1, stdout);
+			}
 
-	case 'c':
-		fprintf(stderr, "started counting");
-
-		if (args->minKey)
-			fprintf(stderr, " min key: %s", args->minKey);
-
-		if (args->maxKey)
-			fprintf(stderr, " max key: %s", args->maxKey);
-
-		fprintf(stderr, "\n");
-
-		if (args->params[NoDocs].boolVal)
-			parent = database;
-		else {
-			openDocStore(docHndl, database, "documents", strlen("documents"), args->params);
-			parent = docHndl;
+			fputc ('\n', stdout);
 		}
 
-		if ((stat = createIndex(index, parent, idxName, strlen(idxName), args->params)))
-		  fprintf(stderr, "createIndex Error %d name: %s\n", stat, idxName), exit(0);
+		if (stat && stat != DB_CURSOR_eof)
+		  fprintf(stderr, "Scan: Error %d Syserr %d Line: %" PRIu64 "\n", stat, errno, cnt), exit(0);
 
-		//  create forward cursor
-
-		createCursor (cursor, index, args->params, txnId);
-
-		if (args->maxKey)
-			setCursorMax (cursor, args->maxKey, strlen(args->maxKey));
-
-		if (args->minKey)
-			setCursorMin (cursor, args->minKey, strlen(args->minKey));
-
-		if ((stat = moveCursor (cursor, OpLeft)))
-			fprintf(stderr, "positionCursor OpLeft Error %d\n", stat), exit(0);
-
-		if (args->params[NoDocs].boolVal)
-	  	  while (!(stat = moveCursor(cursor, OpNext)))
-			cnt++;
-		else
-	  	  while (!(stat = nextDoc(cursor, &doc)))
-			cnt++;
-
-		fprintf(stderr, " Total keys counted %" PRIu64 "\n", cnt);
+		fprintf(stderr, " Total keys %" PRIu64 "\n", cnt);
 		break;
 	}
 

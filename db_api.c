@@ -176,7 +176,7 @@ DbMap *map, *parent;
 Handle *parentHndl;
 ArenaDef *arenaDef;
 RedBlack *rbEntry;
-Handle *index;
+Handle *idxHndl;
 
 	memset (hndl, 0, sizeof(DbHandle));
 
@@ -215,15 +215,15 @@ Handle *index;
 	if (*map->arena->type)
 		goto createXit;
 
-	index = getHandle(hndl);
+	idxHndl = getHandle(hndl);
 
 	switch (type) {
 	  case Hndl_artIndex:
-		artInit(index, params);
+		artInit(idxHndl, params);
 		break;
 
 	  case Hndl_btree1Index:
-		btree1Init(index, params);
+		btree1Init(idxHndl, params);
 		break;
 
 	  default:
@@ -237,8 +237,8 @@ createXit:
 
 //	create new cursor
 
-DbStatus createCursor(DbHandle hndl[1], DbHandle idxHndl[1], Params *params, ObjId txnId) {
-Handle *index, *cursorHndl;
+DbStatus createCursor(DbHandle hndl[1], DbHandle dbIdxHndl[1], Params *params, ObjId txnId) {
+Handle *idxHndl, *cursorHndl;
 DbStatus stat = DB_OK;
 uint64_t timestamp;
 DbCursor *cursor;
@@ -246,34 +246,33 @@ Txn *txn;
 
 	memset (hndl, 0, sizeof(DbHandle));
 
-	if (!(index = bindHandle(idxHndl)))
+	if (!(idxHndl = bindHandle(dbIdxHndl)))
 		return DB_ERROR_handleclosed;
 
 	if (txnId.bits) {
-		txn = fetchIdSlot(index->map->db, txnId);
+		txn = fetchIdSlot(idxHndl->map->db, txnId);
 		timestamp = txn->timestamp;
 	} else
-		timestamp = allocateTimestamp(index->map->db, en_reader);
+		timestamp = allocateTimestamp(idxHndl->map->db, en_reader);
 
-	hndl->hndlBits = makeHandle(index->map, cursorSize[(uint8_t)*index->map->arena->type], Hndl_cursor);
+	hndl->hndlBits = makeHandle(idxHndl->map, cursorSize[(uint8_t)*idxHndl->map->arena->type], Hndl_cursor);
 
 	cursorHndl = getHandle(hndl);
 	cursor = (DbCursor *)(cursorHndl + 1);
-	cursor->noDocs = params[NoDocs].boolVal;
 	cursor->txnId.bits = txnId.bits;
 	cursor->ts = timestamp;
 
-	switch (*index->map->arena->type) {
+	switch (*idxHndl->map->arena->type) {
 	case Hndl_artIndex:
-		stat = artNewCursor((ArtCursor *)cursor, index->map);
+		stat = artNewCursor((ArtCursor *)cursor, idxHndl->map);
 		break;
 
 	case Hndl_btree1Index:
-		stat = btree1NewCursor((Btree1Cursor *)cursor, index->map);
+		stat = btree1NewCursor((Btree1Cursor *)cursor, idxHndl->map);
 		break;
 	}
 
-	releaseHandle(index);
+	releaseHandle(idxHndl);
 	return stat;
 }
 
@@ -281,26 +280,26 @@ Txn *txn;
 
 DbStatus positionCursor(DbHandle hndl[1], CursorOp op, void *key, uint32_t keyLen) {
 DbCursor *cursor;
-Handle *index;
+Handle *idxHndl;
 DbStatus stat;
 
-	if (!(index = bindHandle(hndl)))
+	if (!(idxHndl = bindHandle(hndl)))
 		return DB_ERROR_handleclosed;
 
-	cursor = (DbCursor *)(index + 1);
+	cursor = (DbCursor *)(idxHndl + 1);
 
 	switch (op) {
 	  case OpFind:
-		stat = dbFindKey(cursor, index->map, key, keyLen, false);
+		stat = dbFindKey(cursor, idxHndl->map, key, keyLen, false);
 		break;
 	  case OpOne:
-		stat = dbFindKey(cursor, index->map, key, keyLen, true);
+		stat = dbFindKey(cursor, idxHndl->map, key, keyLen, true);
 		break;
 	  default:
 		stat = DB_ERROR_cursorop;
 	}
 
-	releaseHandle(index);
+	releaseHandle(idxHndl);
 	return stat;
 }
 
@@ -308,39 +307,33 @@ DbStatus stat;
 
 DbStatus moveCursor(DbHandle hndl[1], CursorOp op) {
 DbCursor *cursor;
-Handle *index;
+Handle *idxHndl;
 DbStatus stat;
 
-	if (!(index = bindHandle(hndl)))
+	if (!(idxHndl = bindHandle(hndl)))
 		return DB_ERROR_handleclosed;
 
-	cursor = (DbCursor *)(index + 1);
+	cursor = (DbCursor *)(idxHndl + 1);
 
 	switch (op) {
 	  case OpLeft:
-		if (cursor->minKeyLen)
-			stat = dbFindKey(cursor, index->map, cursor->minKey, cursor->minKeyLen, false);
-		else
-			stat = dbLeftKey(cursor, index->map);
+		stat = dbLeftKey(cursor, idxHndl->map);
 		break;
 	  case OpRight:
-		if (cursor->maxKeyLen)
-			stat = dbFindKey(cursor, index->map, cursor->maxKey, cursor->maxKeyLen, false);
-		else
-			stat = dbRightKey(cursor, index->map);
+		stat = dbRightKey(cursor, idxHndl->map);
 		break;
 	  case OpNext:
-		stat = dbNextKey(cursor, index->map);
+		stat = dbNextKey(cursor, idxHndl->map);
 		break;
 	  case OpPrev:
-		stat = dbPrevKey(cursor, index->map);
+		stat = dbPrevKey(cursor, idxHndl->map);
 		break;
 	  default:
 		stat = DB_ERROR_cursorop;
 		break;
 	}
 
-	releaseHandle(index);
+	releaseHandle(idxHndl);
 	return stat;
 }
 
@@ -357,7 +350,7 @@ DbCursor *cursor;
 			*key = cursor->key;
 
 		if (keyLen)
-			*keyLen = cursor->userLen;
+			*keyLen = cursor->keyLen;
 
 		return DB_OK;
 
@@ -366,67 +359,6 @@ DbCursor *cursor;
 	}
 
 	return DB_CURSOR_notpositioned;
-}
-
-DbStatus docAtCursor(DbHandle *hndl, Doc **doc) {
-DbCursor *cursor;
-
-	cursor = (DbCursor *)(getHandle(hndl) + 1);
-
-	switch (cursor->state) {
-	case CursorPosAt:
-		if (doc)
-			*doc = cursor->doc;
-
-		return DB_OK;
-
-	default:
-		break;
-	}
-
-	return DB_CURSOR_notpositioned;
-}
-
-//	iterate cursor to next document
-
-DbStatus nextDoc(DbHandle hndl[1], Doc **doc) {
-DbCursor *cursor;
-Handle *index;
-DbStatus stat;
-
-	if (!(index = bindHandle(hndl)))
-		return DB_ERROR_handleclosed;
-
-	cursor = (DbCursor *)(index + 1);
-
-	stat = dbNextDoc(cursor, index->map);
-
-	if (!stat && doc)
-		*doc = cursor->doc;
-
-	releaseHandle(index);
-	return stat;
-}
-
-//	iterate cursor to previous document
-
-DbStatus prevDoc(DbHandle hndl[1], Doc **doc) {
-DbCursor *cursor;
-Handle *index;
-DbStatus stat;
-
-	if (!(index = bindHandle(hndl)))
-		return DB_ERROR_handleclosed;
-
-	cursor = (DbCursor *)(index + 1);
-
-	stat = dbPrevDoc(cursor, index->map);
-
-	if (!stat && doc)
-		*doc = cursor->doc;
-
-	releaseHandle(index);
-	return stat;
 }
 
 DbStatus cloneHandle(DbHandle newHndl[1], DbHandle oldHndl[1]) {
@@ -570,60 +502,42 @@ Doc *doc;
 
 DbStatus deleteKey(DbHandle hndl[1], void *key, uint32_t len) {
 DbStatus stat = DB_OK;
-Handle *index;
+Handle *idxHndl;
 
-	if (!(index = bindHandle(hndl)))
+	if (!(idxHndl = bindHandle(hndl)))
 		return DB_ERROR_handleclosed;
 
-	switch (*index->map->arena->type) {
+	switch (*idxHndl->map->arena->type) {
 	case Hndl_artIndex:
-		stat = artDeleteKey(index, key, len);
+		stat = artDeleteKey(idxHndl, key, len);
 		break;
 
 	case Hndl_btree1Index:
-		stat = btree1DeleteKey(index, key, len);
+		stat = btree1DeleteKey(idxHndl, key, len);
 		break;
 	}
 
-	releaseHandle(index);
+	releaseHandle(idxHndl);
 	return stat;
 }
 
 DbStatus insertKey(DbHandle hndl[1], void *key, uint32_t len) {
 DbStatus stat = DB_OK;
-Handle *index;
+Handle *idxHndl;
 
-	if (!(index = bindHandle(hndl)))
+	if (!(idxHndl = bindHandle(hndl)))
 		return DB_ERROR_handleclosed;
 
-	switch (*index->map->arena->type) {
+	switch (*idxHndl->map->arena->type) {
 	case Hndl_artIndex:
-		stat = artInsertKey(index, key, len);
+		stat = artInsertKey(idxHndl, key, len);
 		break;
 
 	case Hndl_btree1Index:
-		stat = btree1InsertKey(index, key, len, 0, Btree1_indexed);
+		stat = btree1InsertKey(idxHndl, key, len, 0, Btree1_indexed);
 		break;
 	}
 
-	releaseHandle(index);
+	releaseHandle(idxHndl);
 	return stat;
-}
-
-DbStatus setCursorMax(DbHandle hndl[1], void *max, uint32_t maxLen) {
-DbCursor *cursor;
-
-	cursor = (DbCursor *)(getHandle(hndl) + 1);
-	cursor->maxKey = max;
-	cursor->maxKeyLen = maxLen;
-	return DB_OK;
-}
-
-DbStatus setCursorMin(DbHandle hndl[1], void *min, uint32_t minLen) {
-DbCursor *cursor;
-
-	cursor = (DbCursor *)(getHandle(hndl) + 1);
-	cursor->minKey = min;
-	cursor->minKeyLen = minLen;
-	return DB_OK;
 }

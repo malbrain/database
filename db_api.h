@@ -32,14 +32,8 @@ DbStatus dropArena(DbHandle hndl[1], bool dropDefinitions);
 
 DbStatus createCursor(DbHandle hndl[1], DbHandle idxHndl[1], Params *params, ObjId txnId);
 DbStatus positionCursor(DbHandle hndl[1], CursorOp op, void *key, uint32_t keyLen);
-DbStatus moveCursor(DbHandle hndl[1], CursorOp op);
-DbStatus setCursorMax(DbHandle hndl[1], void *max, uint32_t maxLen);
-DbStatus setCursorMin(DbHandle hndl[1], void *min, uint32_t minLen);
-
 DbStatus keyAtCursor(DbHandle cursor[1], void **key, uint32_t *keyLen);
-DbStatus docAtCursor(DbHandle cursor[1], Doc **doc);
-DbStatus nextDoc(DbHandle cursor[1], Doc **doc);
-DbStatus prevDoc(DbHandle cursor[1], Doc **doc);
+DbStatus moveCursor(DbHandle hndl[1], CursorOp op);
 
 ObjId beginTxn(DbHandle dbHndl[1], Params *param);
 DbStatus rollbackTxn(DbHandle dbHndl[1], ObjId txnId);

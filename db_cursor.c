@@ -52,15 +52,6 @@ DbStatus stat;
 	  }
 	}
 
-	cursor->userLen = cursor->keyLen;
-
-	if (cursor->noDocs)
-		return DB_OK;
-
-	if (cursor->useTxn)
-		cursor->userLen = get64(cursor->key, cursor->userLen, &cursor->version);
-
-	cursor->userLen = get64(cursor->key, cursor->userLen, &cursor->docId.bits);
 	return DB_OK;
 }
 
@@ -112,62 +103,6 @@ DbStatus stat = DB_OK;
 	return DB_OK;
 }
 
-//  position cursor at next doc visible under MVCC
-
-DbStatus dbNextDoc(DbCursor *cursor, DbMap *map) {
-Txn *txn = NULL;
-DbStatus stat;
-
-  while (true) {
-	if ((stat = dbNextKey(cursor, map)))
-		return stat;
-
-	if (cursor->maxKeyLen) {
-		int len = cursor->userLen;
-
-		if (len > cursor->maxKeyLen)
-			len = cursor->maxKeyLen;
-
-		if (memcmp(cursor->key, cursor->minKey, len) > 0)
-			return DB_CURSOR_eof;
-	}
-
-	if (!txn && cursor->txnId.bits)
-		txn = fetchIdSlot(map->db, cursor->txnId);
-
-	if ((cursor->ver = findDocVer(map->parent, cursor->docId, txn)))
-		return DB_OK;
-  }
-}
-
-//  position cursor at prev doc visible under MVCC
-
-DbStatus dbPrevDoc(DbCursor *cursor, DbMap *map) {
-Txn *txn = NULL;
-DbStatus stat;
-
-  while (true) {
-	if ((stat = dbPrevKey(cursor, map)))
-		return stat;
-
-	if (cursor->minKeyLen) {
-		int len = cursor->userLen;
-
-		if (len > cursor->minKeyLen)
-			len = cursor->minKeyLen;
-
-		if (memcmp(cursor->key, cursor->minKey, len) < 0)
-			return DB_CURSOR_eof;
-	}
-
-	if (!txn && cursor->txnId.bits)
-		txn = fetchIdSlot(map->db, cursor->txnId);
-
-	if ((cursor->ver = findDocVer(map->parent, cursor->docId, txn)))
-		return DB_OK;
-  }
-}
-
 DbStatus dbNextKey(DbCursor *cursor, DbMap *map) {
 DbStatus stat;
 
@@ -187,25 +122,6 @@ DbStatus stat;
 
 	if (stat)
 		return stat;
-
-	cursor->userLen = cursor->keyLen;
-
-	if (!cursor->noDocs) {
-	  if (cursor->useTxn)
-		cursor->userLen = get64(cursor->key, cursor->userLen, &cursor->version);
-
-	  cursor->userLen = get64(cursor->key, cursor->userLen, &cursor->docId.bits);
-	}
-
-	if (cursor->maxKeyLen) {
-		int len = cursor->userLen;
-
-		if (len > cursor->maxKeyLen)
-			len = cursor->maxKeyLen;
-
-		if (memcmp(cursor->key, cursor->maxKey, len) >= 0)
-			return DB_CURSOR_eof;
-	}
 
 	return DB_OK;
 }
@@ -229,25 +145,6 @@ DbStatus stat;
 
 	if (stat)
 		return stat;
-
-	cursor->userLen = cursor->keyLen;
-
-	if (!cursor->noDocs) {
-	  if (cursor->useTxn)
-		cursor->userLen = get64(cursor->key, cursor->userLen, &cursor->version);
-
-	  cursor->userLen = get64(cursor->key, cursor->userLen, &cursor->docId.bits);
-	}
-
-	if (cursor->minKeyLen) {
-		int len = cursor->userLen;
-
-		if (len > cursor->minKeyLen)
-			len = cursor->minKeyLen;
-
-		if (memcmp(cursor->key, cursor->minKey, len) < 0)
-			return DB_CURSOR_eof;
-	}
 
 	return DB_OK;
 }

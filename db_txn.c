@@ -14,9 +14,9 @@ void addVerToTxn(DbMap *database, Txn *txn, Ver *ver, TxnCmd cmd) {
 
 //  find appropriate document version per txn beginning timestamp
 
-Ver *findDocVer(DbMap *docStore, ObjId docId, Txn *txn) {
-DbAddr *addr = fetchIdSlot(docStore, docId);
-DbMap *db = docStore->db;
+Ver *findDocVer(DbMap *map, ObjId docId, Txn *txn) {
+DbAddr *addr = fetchIdSlot(map, docId);
+DbMap *db = map->db;
 uint32_t offset;
 uint64_t txnTs;
 Txn *docTxn;
@@ -27,7 +27,7 @@ Ver *ver;
   //	examine prior versions
 
   while (addr->bits) {
-	doc = getObj(docStore, *addr);
+	doc = getObj(map, *addr);
 	offset = sizeof(Doc);
 
 	for (verIdx = 0; verIdx < doc->verCnt; verIdx++) {
@@ -39,7 +39,7 @@ Ver *ver;
 	  else
 		ver = doc->ver;
 
-	  if (!txn || ver->txnId.bits == txn->txnId.bits)
+	  if (txn && ver->txnId.bits == txn->txnId.bits)
 		return ver;
 
 	  // is the version permanent?

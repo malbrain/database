@@ -17,23 +17,13 @@ typedef enum {
 } PosState;
 
 typedef struct {
-	Ver *ver;			// cursor doc version
 	uint64_t ts;		// cursor timestamp
 	uint64_t version;	// cursor version #
 	ObjId txnId;		// cursor transaction
-	ObjId docId;		// current doc ID
-	void *key;
-	Doc *doc;			// current document
-	uint32_t keyLen;	// raw key length
-	uint32_t userLen;	// user's key length
-	void *minKey;		// minimum key value
-	void *maxKey;		// maximum key value
-	uint32_t minKeyLen;
-	uint32_t maxKeyLen;
+	void *key;			// cursor key bytes
+	uint32_t keyLen;	// cursor key length
 	PosState state:8;	// cursor position state enum
 	uint8_t foundKey;	// cursor position found the key
-	uint8_t useTxn;		// txn being used
-	uint8_t noDocs;		// no document ID's on keys
 } DbCursor;
 
 // database docStore handle extension to collection
@@ -47,17 +37,15 @@ typedef struct {
 
 #define dbindex(map) ((DbIndex *)(map->arena + 1))
 
-DbStatus dbInstallIndexes(Handle *docHndl);
 uint64_t dbAllocDocStore(Handle *docHndl, uint32_t amt, bool zeroit);
+DbStatus dbCloseCursor(DbCursor *cursor, DbMap *map);
+DbStatus dbInstallIndexes(Handle *docHndl);
 
 DbStatus dbInsertKey (Handle *idxHndl, void *keyBytes, uint32_t keyLen);
 
 DbStatus dbFindKey(DbCursor *cursor, DbMap *map, void *key, uint32_t keyLen, bool onlyOne);
 DbStatus dbNextKey(DbCursor *cursor, DbMap *map);
 DbStatus dbPrevKey(DbCursor *cursor, DbMap *map);
-
-DbStatus dbNextDoc(DbCursor *cursor, DbMap *map);
-DbStatus dbPrevDoc(DbCursor *cursor, DbMap *map);
 DbStatus dbRightKey(DbCursor *cursor, DbMap *map);
 DbStatus dbLeftKey(DbCursor *cursor, DbMap *map);
 DbStatus dbCloseCursor(DbCursor *cursor, DbMap *map);
