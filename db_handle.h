@@ -21,7 +21,7 @@ union Handle_ {
 	int32_t lockedDocs[1];	// count of open api calls (handle binds)
 	uint16_t arenaIdx;		// arena handle table entry index
 	uint16_t xtraSize;		// size of following structure
-	uint16_t frameIdx;		// arena free frames entry index
+	uint16_t listIdx;		// arena free frames entry index
 	uint8_t hndlType;		// type of handle
 	uint8_t maxType;		// number of arena list entries
 	uint8_t relaxTs;
@@ -33,8 +33,8 @@ void disableHndls(DbMap *db, DbAddr *hndlCalls);
 uint64_t scanHandleTs(DbMap *map);
 
 uint64_t makeHandle(DbMap *map, uint32_t xtraSize, HandleType type);
+void releaseHandle(Handle *hndl, DbHandle *dbHndl);
 Handle *bindHandle(DbHandle *dbHndl);
-void releaseHandle(Handle *hndl);
 Handle *getHandle(DbHandle *hndl);
 DbAddr *slotHandle(ObjId hndlId);
 

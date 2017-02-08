@@ -40,7 +40,7 @@ Txn *txn;
 	}
 
 	it->txnId.bits = txnId.bits;
-	releaseHandle(docStore);
+	releaseHandle(docStore, docHndl);
 	return DB_OK;
 }
 
@@ -111,7 +111,7 @@ Iterator *it;
 	else
 		it->state = IterRightEof;
 
-	releaseHandle(docStore);
+	releaseHandle(docStore, hndl);
 	return ver;
 }
 
@@ -142,7 +142,7 @@ Iterator *it;
 	else
 		it->state = IterLeftEof;
 
-	releaseHandle(docStore);
+	releaseHandle(docStore, hndl);
 	return ver;
 }
 
@@ -186,6 +186,6 @@ Iterator *it;
 		break;
 	}
 
-	releaseHandle(docStore);
+	releaseHandle(docStore, hndl);
 	return ver;
 }

@@ -117,6 +117,11 @@ int stat;
 
 	cloneHandle(database, args->database);
 
+	iterator->hndlBits = 0;
+	docHndl->hndlBits = 0;
+	cursor->hndlBits = 0;
+	index->hndlBits = 0;
+
 	idxName = indexNames[args->params[IdxType].intVal];
 	binaryFlds = args->params[IdxBinary].boolVal;
 	docHndl->hndlBits = 0;
@@ -215,7 +220,7 @@ int stat;
 			  line++;
 
 			  if (docHndl->hndlBits)
-				if ((stat = storeDoc (docHndl, key, len, &docId, txnId, !args->params[NoIdx].boolVal)))
+				if ((stat = storeDoc (docHndl, key, len, &docId, txnId)))
 				  fprintf(stderr, "Add Doc %s Error %d Line: %" PRIu64 "\n", args->inFile, stat, line), exit(0);
 			  if (index->hndlBits)
 				if ((stat = insertKey(index, key, len)))
@@ -406,6 +411,17 @@ int stat;
 		fprintf(stderr, " Total keys %" PRIu64 "\n", cnt);
 		break;
 	}
+
+	if (iterator->hndlBits)
+		closeHandle(iterator);
+	if (docHndl->hndlBits)
+		closeHandle(docHndl);
+	if (cursor->hndlBits)
+		closeHandle(cursor);
+	if (index->hndlBits)
+		closeHandle(index);
+
+	closeHandle(database);
 
 #ifndef _WIN32
 	return NULL;

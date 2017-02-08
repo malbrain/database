@@ -40,3 +40,4 @@ void *arrayEntry(DbMap *map, DbAddr *array, uint16_t idx, size_t size);
 uint16_t arrayAlloc(DbMap *map, DbAddr *array, size_t size);
 uint64_t *arrayBlk(DbMap *map, DbAddr *array, uint16_t idx);
 DbAddr* arrayAddr(DbMap *map, DbAddr *array, uint16_t idx);
+void arrayRelease(DbMap *map, DbAddr *array, uint16_t idx);

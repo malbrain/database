@@ -40,6 +40,28 @@ uint8_t *base;
 	return base;
 }
 
+//	free an array element index
+
+void arrayRelease(DbMap *map, DbAddr *array, uint16_t idx) {
+uint64_t *inUse;
+DbAddr *addr;
+
+	lockLatch(array->latch);
+
+	if (!array->addr) {
+		fprintf(stderr, "Empty Array release: %s\n", map->arenaPath);
+		exit(1);
+	}
+
+	addr = getObj(map, *array);
+	inUse = getObj(map, addr[idx / ARRAY_size]);
+
+	//	clear our bit
+
+	inUse[idx % ARRAY_size / 64] &= ~(1ULL << (idx % 64));
+	unlockLatch(array->latch);
+}
+
 //	return payload address for an array element idx
 
 void *arrayElement(DbMap *map, DbAddr *array, uint16_t idx, size_t size) {
@@ -59,7 +81,7 @@ DbAddr *addr;
 		addr = getObj(map, *array);
 		addr->bits = allocBlk(map, size * ARRAY_size, true);
 
-		// sluff first few slots used for allocation bit vector
+		// alloc first few slots used for inUse bit vector
 
 		inUse = getObj(map, *addr);
 		*inUse = (1ULL << ARRAY_first(size)) - 1;
@@ -81,7 +103,7 @@ DbAddr *addr;
 	// and reserve our bit slot
 
 	inUse = getObj(map, addr[idx / ARRAY_size]);
-	inUse[idx % ARRAY_size / 64] &= ~(1ULL << (idx % 64));
+	inUse[idx % ARRAY_size / 64] |= 1ULL << (idx % 64);
 
 	base = (uint8_t *)inUse;
 	base += size * (idx % ARRAY_size);

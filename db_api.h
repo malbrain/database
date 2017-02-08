@@ -29,6 +29,7 @@ DbStatus openDocStore(DbHandle hndl[1], DbHandle dbHndl[1], char *name, uint32_t
 DbStatus createIndex(DbHandle hndl[1], DbHandle docHndl[1], char *name, uint32_t len, Params *params);
 DbStatus cloneHandle(DbHandle hndl[1], DbHandle fromHndl[1]);
 DbStatus dropArena(DbHandle hndl[1], bool dropDefinitions);
+DbStatus closeHandle(DbHandle dbHndl[1]);
 
 DbStatus createCursor(DbHandle hndl[1], DbHandle idxHndl[1], Params *params, ObjId txnId);
 DbStatus positionCursor(DbHandle hndl[1], CursorOp op, void *key, uint32_t keyLen);
@@ -44,7 +45,7 @@ DbStatus deleteKey(DbHandle hndl[1], void *key, uint32_t len);
 
 uint64_t arenaAlloc(DbHandle arenaHndl[1], uint32_t size, bool zeroit, bool dbArena);
 
-DbStatus storeDoc(DbHandle hndl[1], void *obj, uint32_t objSize, ObjId *docId, ObjId txnId, bool idxDoc);
+DbStatus storeDoc(DbHandle hndl[1], void *obj, uint32_t objSize, ObjId *docId, ObjId txnId);
 DbStatus deleteDoc(DbHandle hndl[1], ObjId docId, ObjId txnId);
 DbStatus fetchDoc(DbHandle hndl[1], Doc **doc, ObjId docId);
 

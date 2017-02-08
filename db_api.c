@@ -49,7 +49,7 @@ DbMap *map;
 		map = map->db;
 
 	bits = allocBlk(map, size, zeroit);
-	releaseHandle(arena);
+	releaseHandle(arena, arenaHndl);
 	return bits;
 }
 
@@ -62,7 +62,7 @@ DbMap *map;
 
 	map = arena->map;
 
-	releaseHandle(arena);
+	releaseHandle(arena, hndl);
 
 	//	wait until arena is created
 
@@ -159,7 +159,7 @@ Handle *ds;
 	if (!*map->arena->type)
 		docArena->storeId = arrayAlloc(hndlMap, catalog->storeId, sizeof(uint16_t));
 	params[DocStoreId].intVal = docArena->storeId;
-	releaseHandle(database);
+	releaseHandle(database, dbHndl);
 
 	map->arena->type[0] = Hndl_docStore;
 	hndl->hndlBits = makeHandle(map, sizeof(DocStore), Hndl_docStore);
@@ -203,7 +203,7 @@ Handle *idxHndl;
 		arenaDef->baseSize = sizeof(Btree1Index);
 		break;
 	default:
-		releaseHandle(parentHndl);
+		releaseHandle(parentHndl, docHndl);
 		return DB_ERROR_indextype;
 	}
 
@@ -231,7 +231,7 @@ Handle *idxHndl;
 	}
 
 createXit:
-	releaseHandle(parentHndl);
+	releaseHandle(parentHndl, docHndl);
 	return DB_OK;
 }
 
@@ -272,7 +272,7 @@ Txn *txn;
 		break;
 	}
 
-	releaseHandle(idxHndl);
+	releaseHandle(idxHndl, dbIdxHndl);
 	return stat;
 }
 
@@ -287,25 +287,8 @@ DbStatus stat;
 		return DB_ERROR_handleclosed;
 
 	cursor = (DbCursor *)(idxHndl + 1);
-
-	switch (op) {
-	  case OpFind:
-		stat = dbFindKey(cursor, idxHndl->map, key, keyLen, op);
-		break;
-	  case OpOne:
-		stat = dbFindKey(cursor, idxHndl->map, key, keyLen, op);
-		break;
-	  case OpBefore:
-		stat = dbFindKey(cursor, idxHndl->map, key, keyLen, op);
-		break;
-	  case OpAfter:
-		stat = dbFindKey(cursor, idxHndl->map, key, keyLen, op);
-		break;
-	  default:
-		stat = DB_ERROR_cursorop;
-	}
-
-	releaseHandle(idxHndl);
+	stat = dbFindKey(cursor, idxHndl->map, key, keyLen, op);
+	releaseHandle(idxHndl, hndl);
 	return stat;
 }
 
@@ -339,7 +322,7 @@ DbStatus stat;
 		break;
 	}
 
-	releaseHandle(idxHndl);
+	releaseHandle(idxHndl, hndl);
 	return stat;
 }
 
@@ -367,6 +350,27 @@ DbCursor *cursor;
 	return DB_CURSOR_notpositioned;
 }
 
+DbStatus closeHandle(DbHandle dbHndl[1]) {
+	Handle *hndl;
+	ObjId hndlId;
+	DbAddr *slot;
+
+	if ((hndlId.bits = dbHndl->hndlBits))
+		slot = slotHandle (hndlId);
+	else
+		return DB_ERROR_handleclosed;
+
+	hndl = getObj(hndlMap, *slot);
+	dbHndl->hndlBits = 0;
+
+	atomicOr8(slot->latch, KILL_BIT);
+
+	if (!hndl->bindCnt[0]);
+  		destroyHandle(hndl, slot);
+
+	return DB_OK;
+}
+
 DbStatus cloneHandle(DbHandle newHndl[1], DbHandle oldHndl[1]) {
 Handle *hndl;
 
@@ -374,8 +378,7 @@ Handle *hndl;
 		return DB_ERROR_handleclosed;
 
 	newHndl->hndlBits = makeHandle(hndl->map, hndl->xtraSize, hndl->hndlType);
-
-	releaseHandle(hndl);
+	releaseHandle(hndl, oldHndl);
 	return DB_OK;
 }
 
@@ -393,7 +396,7 @@ Txn *txn;
 	txn = fetchIdSlot(database->map, txnId);
 	txn->timestamp = allocateTimestamp(database->map, en_reader);
 
-	releaseHandle(database);
+	releaseHandle(database, hndl);
 	return txnId;
 }
 
@@ -418,7 +421,7 @@ DbAddr *slot;
 	*doc = getObj(docHndl->map, *slot);
 
 	atomicAdd32 (docHndl->lockedDocs, 1);
-	releaseHandle(docHndl);
+	releaseHandle(docHndl, hndl);
 	return DB_OK;
 }
 
@@ -461,14 +464,14 @@ Doc *doc;
 //		txn = fetchIdSlot(docHndl->map->db, txnId);
 
 	doc->state = DocDeleted;
-	releaseHandle(docHndl);
+	releaseHandle(docHndl, hndl);
 
 	return DB_OK;
 }
 
 //	Entry point to store a new document
 
-DbStatus storeDoc(DbHandle hndl[1], void *obj, uint32_t objSize, ObjId *docId, ObjId txnId, bool idxDoc) {
+DbStatus storeDoc(DbHandle hndl[1], void *obj, uint32_t objSize, ObjId *docId, ObjId txnId) {
 DocArena *docArena;
 Handle *docHndl;
 DbStatus stat;
@@ -502,7 +505,7 @@ Doc *doc;
 	slot = fetchIdSlot(docHndl->map, doc->ver->docId);
 	slot->bits = doc->addr.bits;
 
-	releaseHandle(docHndl);
+	releaseHandle(docHndl, hndl);
 	return DB_OK;
 }
 
@@ -523,7 +526,7 @@ Handle *idxHndl;
 		break;
 	}
 
-	releaseHandle(idxHndl);
+	releaseHandle(idxHndl, hndl);
 	return stat;
 }
 
@@ -544,6 +547,6 @@ Handle *idxHndl;
 		break;
 	}
 
-	releaseHandle(idxHndl);
+	releaseHandle(idxHndl, hndl);
 	return stat;
 }
