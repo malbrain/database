@@ -5,7 +5,6 @@
 #include "db_map.h"
 
 extern DbAddr openMaps[1];
-extern DbMap memMap[1];
 extern DbMap *hndlMap;
 
 //	if this is a new map file, copy param

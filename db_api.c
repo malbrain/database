@@ -115,6 +115,7 @@ DbMap *map;
 	else
 		return DB_ERROR_createdatabase;
 
+	arrayActivate(hndlMap, catalog->openMap, arenaDef->mapIdx);
 	hndl->hndlBits = makeHandle(map, sizeof(Txn), Hndl_database);
 	return DB_OK;
 }
@@ -156,18 +157,25 @@ Handle *ds;
 
 	//	allocate a catalog storeId for use in TXN steps and Doc references
 
-	if (!*map->arena->type)
-		docArena->storeId = arrayAlloc(hndlMap, catalog->storeId, sizeof(uint16_t));
+	if (!*map->arena->type) {
+		docArena->storeId = arrayAlloc(hndlMap, catalog->storeId, 0);
+		arrayActivate(hndlMap, catalog->storeId, docArena->storeId);
+	}
+	
 	params[DocStoreId].intVal = docArena->storeId;
 	releaseHandle(database, dbHndl);
 
 	map->arena->type[0] = Hndl_docStore;
 	hndl->hndlBits = makeHandle(map, sizeof(DocStore), Hndl_docStore);
 
-	ds = getHandle(hndl);
-	docStore = (DocStore *)(ds + 1);
-	initLock(docStore->indexes->lock);
-	return DB_OK;
+	if ((ds = bindHandle(hndl))) {
+		docStore = (DocStore *)(ds + 1);
+		initLock(docStore->indexes->lock);
+		releaseHandle(ds, hndl);
+		return DB_OK;
+	}
+
+	return DB_ERROR_handleclosed;
 }
 
 DbStatus createIndex(DbHandle hndl[1], DbHandle docHndl[1], char *name, uint32_t nameLen, Params *params) {
@@ -215,9 +223,8 @@ Handle *idxHndl;
 	if (*map->arena->type)
 		goto createXit;
 
-	idxHndl = getHandle(hndl);
-
-	switch (type) {
+	if ((idxHndl = bindHandle(hndl)))
+	  switch (type) {
 	  case Hndl_artIndex:
 		artInit(idxHndl, params);
 		break;
@@ -228,7 +235,11 @@ Handle *idxHndl;
 
 	  default:
 		break;
-	}
+	  }
+	else
+		return DB_ERROR_handleclosed;
+
+	releaseHandle(idxHndl, hndl);
 
 createXit:
 	releaseHandle(parentHndl, docHndl);
@@ -257,8 +268,11 @@ Txn *txn;
 
 	hndl->hndlBits = makeHandle(idxHndl->map, cursorSize[(uint8_t)*idxHndl->map->arena->type], Hndl_cursor);
 
-	cursorHndl = getHandle(hndl);
-	cursor = (DbCursor *)(cursorHndl + 1);
+	if ((cursorHndl = bindHandle(hndl)))
+		cursor = (DbCursor *)(cursorHndl + 1);
+	else
+		return DB_ERROR_handleclosed;
+
 	cursor->txnId.bits = txnId.bits;
 	cursor->ts = timestamp;
 
@@ -273,6 +287,7 @@ Txn *txn;
 	}
 
 	releaseHandle(idxHndl, dbIdxHndl);
+	releaseHandle(cursorHndl, hndl);
 	return stat;
 }
 
@@ -330,8 +345,12 @@ DbStatus stat;
 
 DbStatus keyAtCursor(DbHandle *hndl, void **key, uint32_t *keyLen) {
 DbCursor *cursor;
+Handle *idxHndl;
 
-	cursor = (DbCursor *)(getHandle(hndl) + 1);
+	if ((idxHndl = bindHandle(hndl)))
+		cursor = (DbCursor *)(idxHndl + 1);
+	else
+		return DB_ERROR_handleclosed;
 
 	switch (cursor->state) {
 	case CursorPosAt:
@@ -341,6 +360,7 @@ DbCursor *cursor;
 		if (keyLen)
 			*keyLen = cursor->keyLen;
 
+		releaseHandle(idxHndl, hndl);
 		return DB_OK;
 
 	default:
@@ -363,7 +383,7 @@ DbStatus closeHandle(DbHandle dbHndl[1]) {
 	hndl = getObj(hndlMap, *slot);
 	dbHndl->hndlBits = 0;
 
-	atomicOr8(slot->latch, KILL_BIT);
+	atomicOr8((volatile char *)hndl->status, KILL_BIT);
 
 	if (!hndl->bindCnt[0]);
   		destroyHandle(hndl, slot);

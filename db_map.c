@@ -229,7 +229,7 @@ void unlockAddr(volatile uint64_t* bits) {
 	*bits = *bits & ~ADDR_MUTEX_SET;
 }
 
-int8_t atomicOr8(volatile char *value, char amt) {
+char atomicOr8(volatile char *value, char amt) {
 #ifndef _WIN32
 	return __sync_fetch_and_or(value, amt);
 #else
@@ -334,7 +334,16 @@ uint64_t atomicExchange(uint64_t *target, uint64_t swapVal) {
 #ifndef _WIN32
 	return __sync_lock_test_and_set(target, swapVal);
 #else
-	return _InterlockedExchange64((volatile __int64*)target, swapVal);
+	return _InterlockedExchange64((volatile int64_t*)target, swapVal);
+#endif
+}
+
+
+char atomicExchange8(volatile char *target, char swapVal) {
+#ifndef _WIN32
+	return __sync_lock_test_and_set(target, swapVal);
+#else
+	return _InterlockedExchange8(target, swapVal);
 #endif
 }
 

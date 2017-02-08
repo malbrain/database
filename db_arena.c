@@ -498,6 +498,9 @@ void *fetchIdSlot (DbMap *map, ObjId objId) {
 		exit(1);
 	}
 
+	if (objId.seg >= map->numSeg)
+		mapAll(map);
+
 	return map->base[objId.seg] + map->arena->segs[objId.seg].size - objId.index * map->arena->objSize;
 }
 

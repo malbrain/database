@@ -36,17 +36,13 @@ DbStatus stat;
 			return stat;
 
 		if (op == OpBefore) {
-		  if (cursor->state == CursorPosBefore)
-			return DB_OK;
-		  else
-			return artPrevKey(cursor, map);
+			if (cursor->state == CursorPosBefore)
+			  return DB_OK;
+			else
+			  return artPrevKey(cursor, map);
 		}
 
-		if (op == OpAfter)
-		  if ((stat = artNextKey(cursor, map)))
-			return stat;
-
-		break;
+		return artNextKey(cursor, map);
 	  }
 
 	  case Hndl_btree1Index: {

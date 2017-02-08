@@ -12,7 +12,7 @@
 //
 
 DbStatus createIterator(DbHandle hndl[1], DbHandle docHndl[1], ObjId txnId, Params *params) {
-Handle *docStore;
+Handle *docStore, *iterator;
 Iterator *it;
 Txn *txn;
 
@@ -23,7 +23,12 @@ Txn *txn;
 
 	hndl->hndlBits = makeHandle(docStore->map, sizeof(Iterator), Hndl_iterator);
 
-	it = (Iterator *)(getHandle(hndl) + 1);
+	if ((iterator = bindHandle(hndl)))
+		it = (Iterator *)(iterator + 1);
+	else {
+		releaseHandle(docStore, docHndl);
+		return DB_ERROR_handleclosed;
+	}
 
 	if (txnId.bits) {
 		txn = fetchIdSlot(docStore->map->db, txnId);
@@ -41,6 +46,7 @@ Txn *txn;
 
 	it->txnId.bits = txnId.bits;
 	releaseHandle(docStore, docHndl);
+	releaseHandle(iterator, hndl);
 	return DB_OK;
 }
 

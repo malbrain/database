@@ -153,7 +153,7 @@ typedef struct {
 	uint64_t hndlBits;
 } DbHandle;
 
-// cursor positioning operations
+// cursor move/positioning operations
 
 typedef enum {
 	OpLeft		= 'l',

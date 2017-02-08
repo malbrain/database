@@ -9,9 +9,9 @@ DbStatus artFindKey( DbCursor *dbCursor, DbMap *map, void *findKey, uint32_t key
 bool binaryFlds = map->arenaDef->params[IdxBinary].boolVal;
 ArtCursor *cursor = (ArtCursor *)dbCursor;
 uint32_t idx, offset = 0, spanMax;
+CursorStack* stack = NULL;
 uint8_t *key = findKey;
 volatile DbAddr *slot;
-CursorStack* stack;
 
   cursor->base->keyLen = 0;
   cursor->lastFld = 0;
@@ -212,10 +212,12 @@ CursorStack* stack;
 
   memcpy (cursor->key, key, cursor->base->keyLen);
 
-  if (offset < keyLen)
-  	cursor->base->state = CursorPosBefore;
-  else
+  //  did we end on a complete key?
+
+  if (slot->type == KeyEnd)
   	cursor->base->state = CursorPosAt;
+  else
+  	cursor->base->state = CursorPosBefore;
 
   if (cursor->depth < MAX_cursor)
 	stack = cursor->stack + cursor->depth++;

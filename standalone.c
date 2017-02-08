@@ -219,9 +219,12 @@ int stat;
 
 			  line++;
 
-			  if (docHndl->hndlBits)
+			  if (docHndl->hndlBits) {
 				if ((stat = storeDoc (docHndl, key, len, &docId, txnId)))
 				  fprintf(stderr, "Add Doc %s Error %d Line: %" PRIu64 "\n", args->inFile, stat, line), exit(0);
+				len += store64(key, len, docId.bits);
+			  }
+
 			  if (index->hndlBits)
 				if ((stat = insertKey(index, key, len)))
 				  fprintf(stderr, "Insert Key %s Error %d Line: %" PRIu64 "\n", args->inFile, stat, line), exit(0);
@@ -366,9 +369,9 @@ int stat;
 		createCursor (cursor, index, args->params, txnId);
 
 		if (!reverse && args->minKey)
-			stat = positionCursor (cursor, OpFind, args->minKey, strlen(args->minKey));
+			stat = positionCursor (cursor, OpBefore, args->minKey, strlen(args->minKey));
 		else if (reverse && args->maxKey)
-			stat = positionCursor (cursor, OpOne, args->maxKey, strlen(args->maxKey));
+			stat = positionCursor (cursor, OpAfter, args->maxKey, strlen(args->maxKey));
 		else 
 			stat = moveCursor (cursor, reverse ? OpRight : OpLeft);
 

@@ -32,7 +32,11 @@ ArenaDef arenaDef[1];
 	memMap->hndl = -1;
 #endif
 
+	//	set up memory arena and handle addr ObjId
+
 	memset (arenaDef, 0, sizeof(arenaDef));
+	arenaDef->objSize = sizeof(DbAddr);
+
 	initArena(memMap, arenaDef, "malloc", 6, NULL);
 }
 

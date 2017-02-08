@@ -78,10 +78,10 @@ typedef struct {
 	uint8_t arenaType;			// type of the arena
 	uint8_t numTypes;			// number of node types
 	char dead[1];				// arena being deleted
-	DbAddr hndlIds[1];			// array of handleID for this arena
 	DbAddr parentAddr;			// address of parent's red-black entry
 	DbAddr nameTree[1];			// child arena name red/black tree
 	SkipHead idList[1];			// child skiplist of names by id
+	DbAddr hndlArray[1];			// array of handle addr for this arena
 	Params params[MaxParam + 1];	// parameter array for rest of object
 } ArenaDef;
 
