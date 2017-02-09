@@ -66,6 +66,7 @@ typedef struct {
 	char *maxKey;
 	Params *params;
 	DbHandle *database;
+	int keyLen;
 	int num;
 } ThreadArg;
 
@@ -279,8 +280,7 @@ int stat;
 
 			  line++;
 
-			  if (args->params[IdxKeySpec].intVal)
-				len = args->params[IdxKeySpec].intVal;
+			  len = args->keyLen;
 
 			  if ((stat = positionCursor (cursor, OpOne, key, len)))
 				fprintf(stderr, "findKey %s Error %d Syserr %d Line: %" PRIu64 "\n", args->inFile, stat, errno, line), exit(0);
@@ -443,6 +443,7 @@ char *minKey = NULL;
 char *maxKey = NULL;
 char *dbName = NULL;
 char *cmds = NULL;
+int keyLen = 10;
 
 #ifndef _WIN32
 pthread_t *threads;
@@ -491,7 +492,6 @@ int num = 0;
 	memset (params, 0, sizeof(params));
 	params[Btree1Bits].intVal = 14;
 	params[OnDisk].boolVal = true;
-	params[IdxKeySpec].intVal = 10;
 
 	// process configuration arguments
 
@@ -499,7 +499,7 @@ int num = 0;
 	  if (!memcmp(argv[0], "-xtra=", 6))
 			params[Btree1Xtra].intVal = atoi(argv[0] + 6);
 	  else if (!memcmp(argv[0], "-keyLen=", 8))
-			params[IdxKeySpec].intVal = atoi(argv[0] + 8);
+			keyLen = atoi(argv[0] + 8);
 	  else if (!memcmp(argv[0], "-bits=", 6))
 			params[Btree1Bits].intVal = atoi(argv[0] + 6);
 	  else if (!memcmp(argv[0], "-cmds=", 6))
@@ -559,6 +559,7 @@ int num = 0;
 	  args[idx].minKey = minKey;
 	  args[idx].maxKey = maxKey;
 	  args[idx].params = params;
+	  args[idx].keyLen = keyLen;
 	  args[idx].cmds = cmds;
 	  args[idx].num = num;
 	  args[idx].idx = idx;

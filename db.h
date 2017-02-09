@@ -94,8 +94,7 @@ typedef enum {
 	DropDb,			// drop the database
 	DocStoreId,		// document store ID
 
-	IdxKeySpec = 10,	// offset of key document
-	IdxKeyUnique,
+	IdxKeyUnique = 10,
 	IdxKeySparse,
 	IdxKeyPartial,		// offset of partial document
 	IdxBinary,			// treat string fields as binary
