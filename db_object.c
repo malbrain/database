@@ -173,6 +173,8 @@ int64_t tst64 = recId >> 9;
 uint32_t xtraBytes = 0;
 uint32_t idx, signBit;
 
+	//  set high order bit to one for positive values
+
 	signBit = (int64_t)recId < 0 ? 0 : 1;
 
 	while (tst64)
@@ -181,16 +183,22 @@ uint32_t idx, signBit;
 	  else
 		xtraBytes++, tst64 >>= 8;
 
-    key[keyLen + xtraBytes + 1] = (recId & 0x1f) << 3 | xtraBytes;
+	//	store low order 5 bits
 
+    key[keyLen + xtraBytes + 1] = (recId & 0x1f) << 3 | xtraBytes;
     recId >>= 5;
+
+	//	store complete bytes
+	//	up to 56 bits worth
 
     for (idx = xtraBytes; idx; idx--) {
         key[keyLen + idx] = (recId & 0xff);
         recId >>= 8;
     }
 
-    key[keyLen] = recId | (xtraBytes << 4);
+	//	store final 3 bits
+
+    key[keyLen] = (recId & 0x7) | (xtraBytes << 3);
 	key[keyLen] |= signBit << 7;
 
     return xtraBytes + 2;
