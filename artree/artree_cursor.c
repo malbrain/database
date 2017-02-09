@@ -209,6 +209,8 @@ int slot, len;
 		    cursor->stack[cursor->depth].ch = -1;
 		    cursor->stack[cursor->depth].lastFld = cursor->lastFld;
 		    cursor->stack[cursor->depth++].off = cursor->base->keyLen;
+		    stack->ch = 0;
+		    continue;
 		  }
 
 		  cursor->base->state = CursorPosAt;
@@ -419,11 +421,13 @@ int slot, len;
 		    stack->ch = 0;
 		    continue;
 		  }
+
+		  cursor->base->state = CursorPosAt;
+		  stack->ch = 0;
+		  return DB_OK;
 		}
 
-		cursor->base->state = CursorPosAt;
-		stack->ch = -1;
-		return DB_OK;
+		break;
 	  }
 
 	  case SpanNode: {
