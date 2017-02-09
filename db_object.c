@@ -134,13 +134,18 @@ uint16_t idx;
 
 uint32_t get64(char *key, uint32_t len, uint64_t *where) {
 uint32_t xtraBytes = key[len - 1] & 0x7;
-int idx = 0, signBit;
-uint64_t result = 0;
+uint64_t result;
+int idx = 0;
+
+	//	set len to the number start
 
 	len -= xtraBytes + 2;
-	signBit = key[len] & 0x80 ? 1 : 0;
 
-	if (signBit)
+	//  get sign of the result
+
+	if (key[len] & 0x80)
+		result = 0;
+	else
 		result = -1;
 
 	result <<= 4;
