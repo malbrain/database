@@ -10,10 +10,12 @@
 #define ARRAY_lvl1	(256 - 2)	// adjust to power of two sizeround
 
 //	define the number of inUse slots per level zero block
+
 #define ARRAY_inuse	((ARRAY_size + 64 - 1) / 64)
 
 //  define the number of sluffed indexes because of inUse bit maps
-#define ARRAY_first(objsize) ((ARRAY_inuse * sizeof(uint64_t) + (objsize) - 1) / (objsize))
+
+#define ARRAY_first(objsize) (objsize ? (ARRAY_inuse * sizeof(uint64_t) + (objsize) - 1) / (objsize) : 0)
 
 //	Arrays
 
