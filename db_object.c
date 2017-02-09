@@ -130,18 +130,19 @@ uint16_t idx;
 }
 
 //	peel off 64 bit suffix value from key
-//	return number of key bytes remaining
+//	return number of key bytes taken
 
 uint32_t get64(char *key, uint32_t len, uint64_t *where) {
 uint32_t xtraBytes = key[len - 1] & 0x7;
-int signBit = key[0] & 0x80 ? 1 : 0;
+int idx = 0, signBit;
 uint64_t result = 0;
-int idx = 0;
+
+	len -= xtraBytes + 2;
+	signBit = key[len] & 0x80 ? 1 : 0;
 
 	if (signBit)
 		result = -1;
 
-	len -= xtraBytes + 2;
 	result <<= 4;
 	result |= key[len] & 0x0f;
 
@@ -156,11 +157,11 @@ int idx = 0;
 	if (where)
 		*where = result;
 
-	return len;
+	return xtraBytes + 2;
 }
 
 // concatenate key with 64 bit value
-// returns length of concatenated key
+// returns number of bytes concatenated
 
 uint32_t store64(char *key, uint32_t keyLen, uint64_t recId) {
 int64_t tst64 = recId >> 9;
@@ -187,7 +188,7 @@ uint32_t idx, signBit;
     key[keyLen] = recId | (xtraBytes << 4);
 	key[keyLen] |= signBit << 7;
 
-    return keyLen + xtraBytes + 2;
+    return xtraBytes + 2;
 }
 
 //	allocate a new timestamp
