@@ -179,12 +179,12 @@ uint32_t store64(uint8_t *key, uint32_t keyLen, int64_t recId) {
 int64_t tst64 = recId >> 8;
 uint32_t xtraBytes = 0;
 uint32_t idx;
-bool signed;
+bool neg;
 
-	signed = (int64_t)recId < 0;
+	neg = (int64_t)recId < 0;
 
 	while (tst64)
-	  if (signed && tst64 == -1)
+	  if (neg && tst64 == -1)
 		break;
 	  else
 		xtraBytes++, tst64 >>= 8;
