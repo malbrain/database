@@ -164,7 +164,7 @@ int idx = 0;
 	//	add in low order 5 bits
 
 	result <<= 5;
-	result |= key[len + xtraBytes] >> 3;
+	result |= key[len + xtraBytes + 1] >> 3;
 
 	if (where)
 		*where = result;
