@@ -45,7 +45,7 @@ bool debug = false;
 
 double getCpuTime(int type);
 
-void printBinary(char *key, int len, FILE *file) {
+void printBinary(uint8_t *key, int len, FILE *file) {
 int off = 0;
 
 	while(off < len) {
@@ -99,9 +99,10 @@ DbHandle docHndl[1];
 DbHandle cursor[1];
 DbHandle index[1];
 DbHandle *parent;
+
+uint8_t key[4096];
 int ch, len = 0;
 bool binaryFlds; 
-char key[4096];
 char *idxName;
 
 uint32_t foundLen = 0;
