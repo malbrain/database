@@ -133,25 +133,25 @@ uint16_t idx;
 //	return number of key bytes taken
 
 uint32_t get64(uint8_t *key, uint32_t len, uint64_t *where) {
-uint32_t xtraBytes = key[len - 1] & 0x7;
+int idx = 0, xtraBytes = key[len - 1] & 0x7;
 uint64_t result;
-int idx = 0;
 
 	//	set len to the number start
 
 	len -= xtraBytes + 2;
 
 	//  get sign of the result
+	// 	positive has high bit set
 
 	if (key[len] & 0x80)
 		result = 0;
 	else
 		result = -1;
 
-	// get high order 3 bits
+	// get high order 4 bits
 
-	result <<= 3;
-	result |= key[len] & 0x07;
+	result <<= 4;
+	result |= key[len] & 0x0f;
 
 	//	assemble complete bytes
 	//	up to 56 bits
@@ -161,10 +161,10 @@ int idx = 0;
 	  result |= key[len + idx];
 	}
 
-	//	add in low order 5 bits
+	//	add in low order 4 bits
 
-	result <<= 5;
-	result |= key[len + xtraBytes + 1] >> 3;
+	result <<= 4;
+	result |= key[len + xtraBytes + 1] >> 4;
 
 	if (where)
 		*where = result;
@@ -175,25 +175,24 @@ int idx = 0;
 // concatenate key with 64 bit value
 // returns number of bytes concatenated
 
-uint32_t store64(uint8_t *key, uint32_t keyLen, uint64_t recId) {
-int64_t tst64 = recId >> 9;
+uint32_t store64(uint8_t *key, uint32_t keyLen, int64_t recId) {
+int64_t tst64 = recId >> 8;
 uint32_t xtraBytes = 0;
-uint32_t idx, signBit;
+uint32_t idx;
+bool signed;
 
-	//  set high order bit to one for positive values
-
-	signBit = (int64_t)recId < 0 ? 0 : 1;
+	signed = (int64_t)recId < 0;
 
 	while (tst64)
-	  if (!signBit && tst64 == -1)
+	  if (signed && tst64 == -1)
 		break;
 	  else
 		xtraBytes++, tst64 >>= 8;
 
-	//	store low order 5 bits
+	//	store low order 4 bits
 
-    key[keyLen + xtraBytes + 1] = (recId & 0x1f) << 3 | xtraBytes;
-    recId >>= 5;
+    key[keyLen + xtraBytes + 1] = (recId & 0xf) << 4 | xtraBytes;
+    recId >>= 4;
 
 	//	store complete bytes
 	//	up to 56 bits worth
@@ -203,10 +202,17 @@ uint32_t idx, signBit;
         recId >>= 8;
     }
 
-	//	store high order 3 bits
+	//	store high order 4 bits and
+	//	the 3 bits of xtraBytes
+	//	and the sign bit
 
-    key[keyLen] = (recId & 0x7) | (xtraBytes << 3);
-	key[keyLen] |= signBit << 7;
+    key[keyLen] = (recId & 0xf) | (xtraBytes << 4) | 0x80;
+
+	//	if neg, complement the sign bit & xtraBytes bits to
+	//	make negative numbers lexically smaller than positive ones
+
+	if (neg)
+		key[keyLen] ^= 0xf0;
 
     return xtraBytes + 2;
 }
