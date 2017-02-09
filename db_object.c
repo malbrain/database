@@ -148,13 +148,20 @@ int idx = 0;
 	else
 		result = -1;
 
-	result <<= 4;
-	result |= key[len] & 0x0f;
+	// get high order 3 bits
+
+	result <<= 3;
+	result |= key[len] & 0x07;
+
+	//	assemble complete bytes
+	//	up to 56 bits
 
 	while (idx++ < xtraBytes) {
 	  result <<= 8;
 	  result |= key[len + idx];
 	}
+
+	//	add in low order 5 bits
 
 	result <<= 5;
 	result |= key[len + xtraBytes] >> 3;
@@ -196,7 +203,7 @@ uint32_t idx, signBit;
         recId >>= 8;
     }
 
-	//	store final 3 bits
+	//	store high order 3 bits
 
     key[keyLen] = (recId & 0x7) | (xtraBytes << 3);
 	key[keyLen] |= signBit << 7;
