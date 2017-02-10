@@ -13,7 +13,7 @@ typedef struct {
 	DbAddr oldSlot[1];
 	DbAddr newSlot[1];
 
-	char *key;
+	uint8_t *key;
 	Handle *index;
 
 	uint32_t keyLen;	// length of the key
@@ -849,7 +849,7 @@ ARTNode4 *radix4Node;
 			return ErrorSearch;
 
 		overflowSpanNode = getObj(p->index->map, *nxtSlot);
-		memcpy(overflowSpanNode->bytes, (char *)node->bytes + idx, max - idx);
+		memcpy(overflowSpanNode->bytes, (uint8_t *)node->bytes + idx, max - idx);
 		overflowSpanNode->next->bits = node->next->bits & ~ADDR_MUTEX_SET;
 	} else {
 		// append second span node after span or radix node from above

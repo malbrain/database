@@ -1,1 +1,1 @@
-cc -std=c11 -O2 -D GNU_SOURCE -g -o dbtest db*.c artree/*.c btree1/*.c standalone.c -lpthread
+cc -std=c11 -D _GNU_SOURCE -O2 -g -o dbtest db*.c artree/*.c btree1/*.c standalone.c -lpthread
