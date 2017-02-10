@@ -185,11 +185,11 @@ DbAddr slot;
 			  p->slot = fldEndNode->nextFld;
 			}
 		  }
-
-		  p->fldLen = p->key[p->off] << 8 | p->key[p->off + 1];
-		  p->off += 2;
-		  continue;
 		}
+
+		p->fldLen = p->key[p->off] << 8 | p->key[p->off + 1];
+		p->off += 2;
+		continue;
       }
 
 	  switch (p->oldSlot->type < SpanNode ? p->oldSlot->type : SpanNode) {

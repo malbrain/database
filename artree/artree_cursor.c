@@ -40,6 +40,7 @@ DbAddr *base;
 }
 
 DbStatus artRightKey(DbCursor *dbCursor, DbMap *map) {
+bool binaryFlds = map->arenaDef->params[IdxBinary].boolVal;
 ArtCursor *cursor = (ArtCursor *)dbCursor;
 CursorStack* stack;
 DbAddr *base;
@@ -53,6 +54,10 @@ DbAddr *base;
 	stack->addr = base;
 	stack->off = 0;
 	stack->ch = 256;
+
+	if (binaryFlds)
+		stack->off = 2;
+
 	return DB_OK;
 }
 
