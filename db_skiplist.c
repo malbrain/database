@@ -24,7 +24,7 @@ SkipEntry *entry;
 	skipNode = getObj(map, *next);
 
 	if (*skipNode->array[next->nslot-1].key >= key) {
-	  entry = skipSearch(skipNode->array, next->nslot, key);
+	  entry = skipNode->array + skipSearch(skipNode->array, next->nslot, key);
 
 	  if (*entry->key == key)
 		return entry;
@@ -52,7 +52,7 @@ uint64_t val;
 	skipNode = getObj(map, *next);
 
 	if (*skipNode->array[next->nslot-1].key >= key) {
-	  entry = skipSearch(skipNode->array, next->nslot, key);
+	  entry = skipNode->array + skipSearch(skipNode->array, next->nslot, key);
 
 	  if (*entry->key == key)
 		val = *entry->val;
@@ -126,22 +126,22 @@ int min, max;
 
 	//  find skipList node that covers key
 
-	if (skipNode->next->bits && *skipNode->array[next->nslot-1].key < key) {
-	  next = skipNode->next;
-	  continue;
-	}
+	if (*skipNode->array[next->nslot-1].key < key)
+	  if (skipNode->next->bits) {
+		next = skipNode->next;
+		continue;
+	  }
 
-	if (*skipNode->array[next->nslot-1].key >= key) {
-	  entry = skipSearch(skipNode->array, next->nslot, key);
+	// we belong in this skipNode
+	//  find the first entry .ge. to our new key
+
+	min = skipSearch(skipNode->array, next->nslot, key);
+	entry = skipNode->array + min;
 	
-	  //  does key already exist?
+	//  does key already exist?
 
-	  if (*entry->key == key)
+	if (*entry->key == key)
 		return entry;
-
-	  min = ++entry - skipNode->array;
-	} else
-	  min = 0;
 
 	//  split node if already full
 
@@ -158,7 +158,7 @@ int min, max;
 	  continue;
 	}
 
-	//  insert new entry slot
+	//  insert new entry slot at min
 
 	max = next->nslot++;
 
@@ -167,8 +167,8 @@ int min, max;
 
 	//  fill in key and return value slot
 
-	*skipNode->array[max].key = key;
-	return skipNode->array + max;
+	*skipNode->array[min].key = key;
+	return skipNode->array + min;
   }
 
   // initialize empty list
@@ -182,21 +182,22 @@ int min, max;
   return skipNode->array;
 }
 
-//	search Skip node for key value
-//	return highest entry <= key
+//	search Skip node for idx of key value slot
+//	e.g. key value is <= entry[idx]
 
-SkipEntry *skipSearch(SkipEntry *array, int high, uint64_t key) {
+int skipSearch(SkipEntry *array, int high, uint64_t key) {
 int low = 0, diff;
 
-	//	key < high
-	//	key >= low
+	//  invariants:
+	//	key <= entry[high]
+	//	key > entry[low-1]
 
 	while ((diff = (high - low) / 2))
-		if (key < *array[low + diff].key)
+		if (key <= *array[low + diff].key)
 			high = low + diff;
 		else
 			low += diff;
 
-	return array + low;
+	return low;
 }
 

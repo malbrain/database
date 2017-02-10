@@ -37,7 +37,7 @@ void art_yield(void);
  *	skip lists
  */
 
-SkipEntry *skipSearch(SkipEntry *array, int high, uint64_t key);
+int skipSearch(SkipEntry *array, int high, uint64_t key);
 SkipEntry *skipFind(DbMap *map, DbAddr *skip, uint64_t key);
 SkipEntry *skipPush(DbMap *map, DbAddr *skip, uint64_t key);
 SkipEntry *skipAdd(DbMap *map, DbAddr *skip, uint64_t key);
