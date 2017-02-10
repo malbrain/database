@@ -24,7 +24,7 @@ SkipEntry *entry;
 	skipNode = getObj(map, *next);
 
 	if (*skipNode->array[next->nslot-1].key >= key) {
-	  entry = skipNode->array + skipSearch(skipNode->array, next->nslot, key);
+	  entry = skipNode->array + skipSearch(skipNode->array, next->nslot-1, key);
 
 	  if (*entry->key == key)
 		return entry;
@@ -52,7 +52,7 @@ uint64_t val;
 	skipNode = getObj(map, *next);
 
 	if (*skipNode->array[next->nslot-1].key >= key) {
-	  entry = skipNode->array + skipSearch(skipNode->array, next->nslot, key);
+	  entry = skipNode->array + skipSearch(skipNode->array, next->nslot-1, key);
 
 	  if (*entry->key == key)
 		val = *entry->val;
@@ -133,14 +133,14 @@ int min, max;
 	  }
 
 	// we belong in this skipNode
-	//  find the first entry .ge. to our new key
+	//  find the first entry .ge. to the new key
 
 	min = skipSearch(skipNode->array, next->nslot, key);
 	entry = skipNode->array + min;
 	
 	//  does key already exist?
 
-	if (*entry->key == key)
+	if (min < next->nslot && *entry->key == key)
 		return entry;
 
 	//  split node if already full
@@ -162,8 +162,8 @@ int min, max;
 
 	max = next->nslot++;
 
-	while (max > min)
-	  skipNode->array[max] = skipNode->array[max - 1], max--;
+	while (--max > min)
+	  skipNode->array[max + 1] = skipNode->array[max];
 
 	//  fill in key and return value slot
 
@@ -189,7 +189,7 @@ int skipSearch(SkipEntry *array, int high, uint64_t key) {
 int low = 0, diff;
 
 	//  invariants:
-	//	key <= entry[high-1]
+	//	key <= entry[high]
 	//	key > entry[low-1]
 
 	while (high > low) {
@@ -201,6 +201,6 @@ int low = 0, diff;
 			low += diff + 1;
 	}
 
-	return high - 1;
+	return high;
 }
 
