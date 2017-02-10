@@ -273,6 +273,7 @@ Txn *txn;
 	else
 		return DB_ERROR_handleclosed;
 
+	cursor->binaryFlds = idxHndl->map->arenaDef->params[IdxBinary].boolVal;
 	cursor->txnId.bits = txnId.bits;
 	cursor->ts = timestamp;
 

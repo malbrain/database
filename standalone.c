@@ -224,7 +224,7 @@ int stat;
 			  if (docHndl->hndlBits) {
 				if ((stat = storeDoc (docHndl, key, len, &docId, txnId)))
 				  fprintf(stderr, "Add Doc %s Error %d Line: %" PRIu64 "\n", args->inFile, stat, line), exit(0);
-				len += store64(key, len, docId.bits);
+				len += store64(key, len, docId.bits, false);
 			  }
 
 			  if (index->hndlBits)
@@ -401,7 +401,7 @@ int stat;
 			 else
 			  fwrite (foundKey, foundLen, 1, stdout);
 			else {
-			  get64(foundKey, foundLen, &docId.bits);
+			  get64(foundKey, foundLen, &docId.bits, false);
 			  fetchDoc(docHndl, &doc, docId);
 			  fwrite (doc->ver + 1, doc->ver->size, 1, stdout);
 			}

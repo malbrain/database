@@ -165,7 +165,7 @@ typedef enum {
 	OpAfter		= 'a'
 } CursorOp;
 
-uint32_t get64(uint8_t *key, uint32_t len, uint64_t *result);
-uint32_t store64(uint8_t *key, uint32_t keylen, int64_t what);
+uint32_t get64(uint8_t *key, uint32_t len, uint64_t *result, bool binaryFlds);
+uint32_t store64(uint8_t *key, uint32_t keylen, int64_t what, bool binaryFlds);
 void *getParamOff(Params *params, uint32_t off);
 void *getParamIdx(Params *params, uint32_t idx);

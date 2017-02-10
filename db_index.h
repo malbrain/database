@@ -25,6 +25,7 @@ typedef struct {
 	uint32_t keyLen;	// cursor key length
 	PosState state:8;	// cursor position state enum
 	uint8_t foundKey;	// cursor position found the key
+	uint8_t binaryFlds;	// index keys have fields
 } DbCursor;
 
 // database docStore handle extension to collection

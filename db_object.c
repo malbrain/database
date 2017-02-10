@@ -132,8 +132,9 @@ uint16_t idx;
 //	peel off 64 bit suffix value from key
 //	return number of key bytes taken
 
-uint32_t get64(uint8_t *key, uint32_t len, uint64_t *where) {
+uint32_t get64(uint8_t *key, uint32_t len, uint64_t *where, bool binaryFlds) {
 int idx = 0, xtraBytes = key[len - 1] & 0x7;
+int off = binaryFlds ? 2 : 0;
 uint64_t result;
 
 	//	set len to the number start
@@ -169,16 +170,17 @@ uint64_t result;
 	if (where)
 		*where = result;
 
-	return xtraBytes + 2;
+	return off + xtraBytes + 2;
 }
 
 // concatenate key with 64 bit value
 // returns number of bytes concatenated
 
-uint32_t store64(uint8_t *key, uint32_t keyLen, int64_t recId) {
+uint32_t store64(uint8_t *key, uint32_t keyLen, int64_t recId, bool binaryFlds) {
+int off = binaryFlds ? 2 : 0;
 int64_t tst64 = recId >> 8;
 uint32_t xtraBytes = 0;
-uint32_t idx;
+uint32_t idx, len;
 bool neg;
 
 	neg = (int64_t)recId < 0;
@@ -191,14 +193,14 @@ bool neg;
 
 	//	store low order 4 bits
 
-    key[keyLen + xtraBytes + 1] = (recId & 0xf) << 4 | xtraBytes;
+    key[keyLen + xtraBytes + off + 1] = (recId & 0xf) << 4 | xtraBytes;
     recId >>= 4;
 
 	//	store complete bytes
 	//	up to 56 bits worth
 
     for (idx = xtraBytes; idx; idx--) {
-        key[keyLen + idx] = (recId & 0xff);
+        key[keyLen + off + idx] = (recId & 0xff);
         recId >>= 8;
     }
 
@@ -206,15 +208,22 @@ bool neg;
 	//	the 3 bits of xtraBytes
 	//	and the sign bit
 
-    key[keyLen] = (recId & 0xf) | (xtraBytes << 4) | 0x80;
+    key[keyLen + off] = (recId & 0xf) | (xtraBytes << 4) | 0x80;
 
 	//	if neg, complement the sign bit & xtraBytes bits to
 	//	make negative numbers lexically smaller than positive ones
 
 	if (neg)
-		key[keyLen] ^= 0xf0;
+		key[keyLen + off] ^= 0xf0;
 
-    return xtraBytes + 2;
+    len = xtraBytes + 2;
+
+	if (binaryFlds) {
+		key[keyLen] = len >> 8;
+		key[keyLen + 1] = len;
+	}
+
+    return len + off;
 }
 
 //	allocate a new timestamp
