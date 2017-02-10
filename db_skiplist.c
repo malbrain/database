@@ -189,15 +189,18 @@ int skipSearch(SkipEntry *array, int high, uint64_t key) {
 int low = 0, diff;
 
 	//  invariants:
-	//	key <= entry[high]
+	//	key <= entry[high-1]
 	//	key > entry[low-1]
 
-	while ((diff = (high - low) / 2))
+	while (high > low) {
+		int diff = (high - 1 - low) / 2;
+
 		if (key <= *array[low + diff].key)
 			high = low + diff;
 		else
-			low += diff;
+			low += diff + 1;
+	}
 
-	return low;
+	return high - 1;
 }
 
