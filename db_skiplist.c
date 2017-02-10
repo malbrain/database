@@ -186,7 +186,7 @@ int min, max;
 //	e.g. key value is <= entry[idx]
 
 int skipSearch(SkipEntry *array, int high, uint64_t key) {
-int low = 0, diff;
+int low = 0;
 
 	//  invariants:
 	//	key <= entry[high]
