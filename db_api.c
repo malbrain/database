@@ -239,6 +239,9 @@ Handle *idxHndl;
 	else
 		return DB_ERROR_handleclosed;
 
+	if (*parent->arena->type == Hndl_docStore)
+		dbInstallIndexes(parentHndl);
+
 	releaseHandle(idxHndl, hndl);
 
 createXit:
@@ -273,7 +276,7 @@ Txn *txn;
 	else
 		return DB_ERROR_handleclosed;
 
-	cursor->binaryFlds = idxHndl->map->arenaDef->params[IdxBinary].boolVal;
+	cursor->binaryFlds = idxHndl->map->arenaDef->params[IdxKeyFlds].boolVal;
 	cursor->txnId.bits = txnId.bits;
 	cursor->ts = timestamp;
 

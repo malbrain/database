@@ -125,7 +125,7 @@ int stat;
 	index->hndlBits = 0;
 
 	idxName = indexNames[args->params[IdxType].intVal];
-	binaryFlds = args->params[IdxBinary].boolVal;
+	binaryFlds = args->params[IdxKeyFlds].boolVal;
 	docHndl->hndlBits = 0;
 	txnId.bits = 0;
 
@@ -514,7 +514,7 @@ int num = 0;
 	  else if (!memcmp(argv[0], "-drop", 5))
 			params[DropDb].boolVal = true;
 	  else if (!memcmp(argv[0], "-idxBinary", 10))
-			params[IdxBinary].boolVal = true;
+			params[IdxKeyFlds].boolVal = true;
 	  else if (!memcmp(argv[0], "-txns", 5))
 			params[UseTxn].boolVal = true;
 	  else if (!memcmp(argv[0], "-noIdx", 6))

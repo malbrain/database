@@ -69,15 +69,3 @@ uint32_t xtra;
 	return rbEntry;
 }
 
-void *getParamOff(Params *params, uint32_t off) {
-	return (char *)params + off;
-}
-
-void *getParamIdx(Params *params, uint32_t idx) {
-uint32_t off;
-
-	if ((off = params[idx].offset))
-		return (char *)params + off;
-
-	return NULL;
-}

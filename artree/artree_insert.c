@@ -72,8 +72,6 @@ int segments;
 //	with remaining key bytes
 //	return false if out of memory
 
-int found;
-
 bool fillKey(ParamStruct *p, volatile DbAddr *slot) {
 DbAddr fill[1], *next = fill;
 ARTSpan *spanNode;
@@ -106,9 +104,6 @@ uint32_t len;
 	next->nbyte = len - 1;
 	memcpy(spanNode->bytes, p->key + p->off, len);
 
-    if(!memcmp(spanNode->bytes, "AsfAGHM5", 8))
-		found++;
-
 	next = spanNode->next;
 	p->off += len;
 
@@ -127,7 +122,7 @@ ParamStruct p[1];
 DbAddr slot;
 
   memset(p, 0, sizeof(p));
-  p->binaryFlds = index->map->arenaDef->params[IdxBinary].boolVal;
+  p->binaryFlds = index->map->arenaDef->params[IdxKeyFlds].boolVal;
 
   do {
 	restart = false;

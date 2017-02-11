@@ -95,9 +95,10 @@ typedef enum {
 	DocStoreId,		// document store ID
 
 	IdxKeyUnique = 10,
+	IdxKeyAddr,			// index key definition address
 	IdxKeySparse,
 	IdxKeyPartial,		// offset of partial document
-	IdxBinary,			// treat string fields as binary
+	IdxKeyFlds,			// store field lengths in keys
 	IdxType,			// 0 for artree, 1 & 2 for btree
 
 	Btree1Bits = 20,	// Btree1 set
@@ -115,6 +116,7 @@ typedef union {
 	uint32_t offset;
 	double dblVal;
 	bool boolVal;
+	DbAddr addr;
 	void *obj;
 } Params;
 
@@ -167,5 +169,3 @@ typedef enum {
 
 uint32_t get64(uint8_t *key, uint32_t len, uint64_t *result, bool binaryFlds);
 uint32_t store64(uint8_t *key, uint32_t keylen, int64_t what, bool binaryFlds);
-void *getParamOff(Params *params, uint32_t off);
-void *getParamIdx(Params *params, uint32_t idx);
