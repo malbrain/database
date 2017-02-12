@@ -455,18 +455,18 @@ DbStatus allocDoc(Handle *docHndl, Doc **doc, uint32_t objSize) {
 DocArena *docArena = docarena(docHndl->map);
 DbAddr addr;
 
-	if ((addr.bits = allocObj(docHndl->map, listFree(docHndl,0), listWait(docHndl,0), -1, objSize + sizeof(Doc), false)))
+	if ((addr.bits = allocObj(docHndl->map, listFree(docHndl,0), listWait(docHndl,0), -1, objSize + sizeof(Doc) + sizeof(Ver), false)))
 		*doc = getObj(docHndl->map, addr);
 	else
 		return DB_ERROR_outofmemory;
 
-	memset (*doc, 0, sizeof(Doc));
+	memset (*doc, 0, sizeof(Doc) + sizeof(Ver));
 	(*doc)->addr.bits = addr.bits;
-	(*doc)->lastVer = sizeof(Doc) - sizeof(Ver);
+	(*doc)->lastVer = sizeof(Doc);
 	(*doc)->verCnt = 1;
 
 	(*doc)->ver->docId.bits = allocObjId(docHndl->map, listFree(docHndl,0), listWait(docHndl,0), docArena->storeId);
-	(*doc)->ver->offset = sizeof(Doc) - sizeof(Ver);
+	(*doc)->ver->offset = sizeof(Doc);
 	(*doc)->ver->size = objSize;
 	(*doc)->ver->version = 1;
 	return DB_OK;

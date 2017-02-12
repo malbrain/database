@@ -28,7 +28,7 @@ Ver *ver;
 
   while (addr->bits) {
 	doc = getObj(map, *addr);
-	offset = sizeof(Doc);
+	offset = sizeof(Doc) + sizeof(Ver);
 
 	for (verIdx = 0; verIdx < doc->verCnt; verIdx++) {
 	  // is this outside a txn? or

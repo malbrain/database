@@ -144,7 +144,7 @@ typedef struct {
 	uint32_t verCnt;	// number of versions
 	uint32_t lastVer;	// offset of last version
 	DocState state;		// document state
-	Ver ver[1];			// base version
+	Ver ver[];			// base version
 } Doc;
 
 // user's DbHandle
