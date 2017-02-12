@@ -89,7 +89,7 @@ typedef enum {
 	OnDisk,			// Arena resides on disk
 	InitSize,		// initial arena size
 	HndlXtra,		// extra bytes in handle struct
-	ObjSize,		// size of arena ObjId array element
+	ObjIdSize,		// size of arena ObjId array element
 
 	IdxKeyUnique = 10,
 	IdxKeyAddr,			// index key definition address

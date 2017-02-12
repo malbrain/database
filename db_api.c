@@ -73,7 +73,7 @@ DbMap *map;
 }
 
 DbStatus openDatabase(DbHandle hndl[1], char *name, uint32_t nameLen, Params *params) {
-uint32_t xtra = params[ObjSize].intVal;
+uint32_t xtra = params[ObjIdSize].intVal;
 ArenaDef arenaDef[1];
 uint64_t dbVer = 0;
 PathStk pathStk[1];
