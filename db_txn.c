@@ -28,16 +28,13 @@ Ver *ver;
 
   while (addr->bits) {
 	doc = getObj(map, *addr);
-	offset = sizeof(Doc) + sizeof(Ver);
+	offset = sizeof(Doc);
 
 	for (verIdx = 0; verIdx < doc->verCnt; verIdx++) {
 	  // is this outside a txn? or
 	  // is version in same txn?
 
-	  if (verIdx)
-		ver = (Ver *)((uint8_t *)doc + offset);
-	  else
-		ver = doc->ver;
+	  ver = (Ver *)((uint8_t *)doc + offset);
 
 	  if (txn && ver->txnId.bits == txn->txnId.bits)
 		return ver;
