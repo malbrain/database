@@ -1,12 +1,12 @@
 #include "db.h"
-#include "db_txn.h"
 #include "db_malloc.h"
 #include "db_object.h"
 #include "db_handle.h"
 #include "db_arena.h"
-#include "db_index.h"
 #include "db_map.h"
 #include "db_api.h"
+#include "db_index.h"
+#include "db_iterator.h"
 #include "btree1/btree1.h"
 #include "artree/artree.h"
 
@@ -73,12 +73,16 @@ DbMap *map;
 }
 
 DbStatus openDatabase(DbHandle hndl[1], char *name, uint32_t nameLen, Params *params) {
+uint32_t xtra = params[ObjSize].intVal;
 ArenaDef arenaDef[1];
 uint64_t dbVer = 0;
 PathStk pathStk[1];
 RedBlack *rbEntry;
 Catalog *catalog;
 DbMap *map;
+
+	if (!xtra)
+		xtra = sizeof(DbAddr);
 
 	memset (arenaDef, 0, sizeof(ArenaDef));
 	memset (hndl, 0, sizeof(DbHandle));
@@ -105,7 +109,7 @@ DbMap *map;
 	arenaDef->baseSize = sizeof(DataBase);
 	arenaDef->arenaType = Hndl_database;
 	arenaDef->numTypes = ObjIdType + 1;
-	arenaDef->objSize = sizeof(Txn);
+	arenaDef->objSize = xtra;
 	arenaDef->ver = dbVer;
 
 	//  create the database
@@ -116,7 +120,7 @@ DbMap *map;
 		return DB_ERROR_createdatabase;
 
 	arrayActivate(hndlMap, catalog->openMap, arenaDef->mapIdx);
-	hndl->hndlBits = makeHandle(map, sizeof(Txn), Hndl_database);
+	hndl->hndlBits = makeHandle(map, 0, Hndl_database);
 	return DB_OK;
 }
 
@@ -162,7 +166,6 @@ Handle *ds;
 		arrayActivate(hndlMap, catalog->storeId, docArena->storeId);
 	}
 	
-	params[DocStoreId].intVal = docArena->storeId;
 	releaseHandle(database, dbHndl);
 
 	map->arena->type[0] = Hndl_docStore;
@@ -249,27 +252,101 @@ createXit:
 	return DB_OK;
 }
 
+//
+// create and position the start of an iterator
+//
+
+DbStatus createIterator(DbHandle hndl[1], DbHandle docHndl[1], Params *params) {
+uint32_t xtra = params[HndlXtra].intVal;
+Handle *parentHndl, *iterator;
+Iterator *it;
+
+	memset (hndl, 0, sizeof(DbHandle));
+
+	if (!(parentHndl = bindHandle(docHndl)))
+		return DB_ERROR_handleclosed;
+
+	hndl->hndlBits = makeHandle(parentHndl->map, sizeof(Iterator) + xtra, Hndl_iterator);
+
+	if ((iterator = bindHandle(hndl)))
+		it = (Iterator *)(iterator + 1);
+	else {
+		releaseHandle(parentHndl, docHndl);
+		return DB_ERROR_handleclosed;
+	}
+
+	it->xtra = xtra;
+
+	if (params[IteratorEnd].boolVal) {
+		it->docId.bits = parentHndl->map->arena->segs[parentHndl->map->arena->currSeg].nextId.bits;
+		it->state = IterRightEof;
+	} else {
+		it->docId.bits = 0;
+		it->state = IterLeftEof;
+	}
+
+	releaseHandle(parentHndl, docHndl);
+	releaseHandle(iterator, hndl);
+	return DB_OK;
+}
+
+//	advance/reverse iterator
+
+DbStatus moveIterator (DbHandle hndl[1], IteratorOp op, void **doc, ObjId *docId) {
+Handle *docHndl;
+DbStatus stat;
+Iterator *it;
+
+	if (!(docHndl = bindHandle(hndl)))
+		return DB_ERROR_handleclosed;
+
+	it = (Iterator *)(docHndl + 1);
+
+	switch (op) {
+	  case IterNext:
+		if ((*doc = iteratorNext(docHndl)))
+			stat = DB_OK;
+		else
+			stat = DB_ITERATOR_eof;
+
+		break;
+	  case IterPrev:
+		if ((*doc = iteratorPrev(docHndl)))
+			stat = DB_OK;
+		else
+			stat = DB_ITERATOR_eof;
+
+		break;
+	  case IterSeek:
+	  case IterBegin:
+	  case IterEnd:
+		if ((*doc = iteratorSeek(docHndl, op, *docId)))
+			stat = DB_OK;
+		else
+			stat = DB_ITERATOR_notfound;
+
+		break;
+	}
+
+	docId->bits = it->docId.bits;
+	releaseHandle(docHndl, hndl);
+	return stat;
+}
+
 //	create new cursor
 
-DbStatus createCursor(DbHandle hndl[1], DbHandle dbIdxHndl[1], Params *params, ObjId txnId) {
+DbStatus createCursor(DbHandle hndl[1], DbHandle dbIdxHndl[1], Params *params) {
+uint32_t xtra = params[HndlXtra].intVal;
 Handle *idxHndl, *cursorHndl;
 DbStatus stat = DB_OK;
-uint64_t timestamp;
 DbCursor *cursor;
-Txn *txn;
 
 	memset (hndl, 0, sizeof(DbHandle));
 
 	if (!(idxHndl = bindHandle(dbIdxHndl)))
 		return DB_ERROR_handleclosed;
 
-	if (txnId.bits) {
-		txn = fetchIdSlot(idxHndl->map->db, txnId);
-		timestamp = txn->timestamp;
-	} else
-		timestamp = allocateTimestamp(idxHndl->map->db, en_reader);
-
-	hndl->hndlBits = makeHandle(idxHndl->map, cursorSize[(uint8_t)*idxHndl->map->arena->type], Hndl_cursor);
+	hndl->hndlBits = makeHandle(idxHndl->map, xtra + cursorSize[*idxHndl->map->arena->type], Hndl_cursor);
 
 	if ((cursorHndl = bindHandle(hndl)))
 		cursor = (DbCursor *)(cursorHndl + 1);
@@ -277,16 +354,15 @@ Txn *txn;
 		return DB_ERROR_handleclosed;
 
 	cursor->binaryFlds = idxHndl->map->arenaDef->params[IdxKeyFlds].boolVal;
-	cursor->txnId.bits = txnId.bits;
-	cursor->ts = timestamp;
+	cursor->xtra = xtra + cursorSize[*idxHndl->map->arena->type];
 
 	switch (*idxHndl->map->arena->type) {
 	case Hndl_artIndex:
-		stat = artNewCursor((ArtCursor *)cursor, idxHndl->map);
+		stat = artNewCursor(cursor, idxHndl->map);
 		break;
 
 	case Hndl_btree1Index:
-		stat = btree1NewCursor((Btree1Cursor *)cursor, idxHndl->map);
+		stat = btree1NewCursor(cursor, idxHndl->map);
 		break;
 	}
 
@@ -294,6 +370,32 @@ Txn *txn;
 	releaseHandle(cursorHndl, hndl);
 	return stat;
 }
+
+//	release cursor resources
+
+DbStatus closeCursor(DbHandle hndl[1]) {
+DbStatus stat = DB_ERROR_indextype;
+DbCursor *cursor;
+Handle *idxHndl;
+
+	if (!(idxHndl = bindHandle(hndl)))
+		return DB_ERROR_handleclosed;
+
+	cursor = (DbCursor *)(idxHndl + 1);
+
+	switch (*idxHndl->map->arena->type) {
+	case Hndl_artIndex:
+		stat = artReturnCursor(cursor, idxHndl->map);
+		break;
+
+	case Hndl_btree1Index:
+		stat = btree1ReturnCursor(cursor, idxHndl->map);
+		break;
+	}
+
+	return stat;
+}
+
 
 //	position cursor on a key
 
@@ -374,23 +476,23 @@ Handle *idxHndl;
 	return DB_CURSOR_notpositioned;
 }
 
-DbStatus closeHandle(DbHandle dbHndl[1]) {
-	Handle *hndl;
+DbStatus closeHandle(DbHandle hndl[1]) {
+	Handle *handle;
 	ObjId hndlId;
 	DbAddr *slot;
 
-	if ((hndlId.bits = dbHndl->hndlBits))
+	if ((hndlId.bits = hndl->hndlBits))
 		slot = slotHandle (hndlId);
 	else
 		return DB_ERROR_handleclosed;
 
-	hndl = getObj(hndlMap, *slot);
-	dbHndl->hndlBits = 0;
+	handle = getObj(hndlMap, *slot);
+	hndl->hndlBits = 0;
 
-	atomicOr8((volatile char *)hndl->status, KILL_BIT);
+	atomicOr8((volatile char *)handle->status, KILL_BIT);
 
-	if (!hndl->bindCnt[0]);
-  		destroyHandle(hndl, slot);
+	if (!handle->bindCnt[0]);
+  		destroyHandle(handle, slot);
 
 	return DB_OK;
 }
@@ -406,35 +508,9 @@ Handle *hndl;
 	return DB_OK;
 }
 
-ObjId beginTxn(DbHandle hndl[1], Params *params) {
-Handle *database;
-ObjId txnId;
-Txn *txn;
-
-	txnId.bits = 0;
-
-	if (!(database = bindHandle(hndl)))
-		return txnId;
-
-	txnId.bits = allocObjId(database->map, listFree(database,0), listWait(database,0), 0);
-	txn = fetchIdSlot(database->map, txnId);
-	txn->timestamp = allocateTimestamp(database->map, en_reader);
-
-	releaseHandle(database, hndl);
-	return txnId;
-}
-
-DbStatus rollbackTxn(DbHandle hndl[1], ObjId txnId) {
-	return DB_OK;
-}
-
-DbStatus commitTxn(DbHandle hndl[1], ObjId txnId) {
-	return DB_OK;
-}
-
 //	fetch document from a docStore by docId
 
-DbStatus fetchDoc(DbHandle hndl[1], Doc **doc, ObjId docId) {
+DbStatus fetchDoc(DbHandle hndl[1], void **doc, ObjId docId) {
 Handle *docHndl;
 DbAddr *slot;
 
@@ -449,45 +525,17 @@ DbAddr *slot;
 	return DB_OK;
 }
 
-//	helper function to allocate a new document
-
-DbStatus allocDoc(Handle *docHndl, Doc **doc, uint32_t objSize) {
-DocArena *docArena = docarena(docHndl->map);
-DbAddr addr;
-
-	if ((addr.bits = allocObj(docHndl->map, listFree(docHndl,0), listWait(docHndl,0), -1, objSize + sizeof(Doc) + sizeof(Ver), false)))
-		*doc = getObj(docHndl->map, addr);
-	else
-		return DB_ERROR_outofmemory;
-
-	memset (*doc, 0, sizeof(Doc) + sizeof(Ver));
-	(*doc)->addr.bits = addr.bits;
-	(*doc)->lastVer = sizeof(Doc);
-	(*doc)->verCnt = 1;
-
-	(*doc)->ver->docId.bits = allocObjId(docHndl->map, listFree(docHndl,0), listWait(docHndl,0), docArena->storeId);
-	(*doc)->ver->offset = sizeof(Doc);
-	(*doc)->ver->size = objSize;
-	(*doc)->ver->version = 1;
-	return DB_OK;
-}
-
-DbStatus deleteDoc(DbHandle hndl[1], ObjId docId, ObjId txnId) {
+DbStatus deleteDoc(DbHandle hndl[1], ObjId docId) {
 Handle *docHndl;
-//Txn *txn = NULL;
 DbAddr *slot;
-Doc *doc;
 
 	if (!(docHndl = bindHandle(hndl)))
 		return DB_ERROR_handleclosed;
 
 	slot = fetchIdSlot(docHndl->map, docId);
-	doc = getObj(docHndl->map, *slot);
+	freeBlk(docHndl->map, *slot);
+	slot->bits = 0;
 
-//	if ((doc->delId.bits = txnId.bits))
-//		txn = fetchIdSlot(docHndl->map->db, txnId);
-
-	doc->state = DocDeleted;
 	releaseHandle(docHndl, hndl);
 
 	return DB_OK;
@@ -495,39 +543,29 @@ Doc *doc;
 
 //	Entry point to store a new document
 
-DbStatus storeDoc(DbHandle hndl[1], void *obj, uint32_t objSize, ObjId *docId, ObjId txnId) {
+DbStatus storeDoc(DbHandle hndl[1], void *obj, uint32_t objSize, ObjId *docId) {
 DocArena *docArena;
+DbAddr *slot, addr;
 Handle *docHndl;
 DbStatus stat;
-DbAddr *slot;
-Doc *doc;
+void *doc;
 
 	if (!(docHndl = bindHandle(hndl)))
 		return DB_ERROR_handleclosed;
 
-	if ((stat = allocDoc(docHndl, &doc, objSize)))
-		return stat;
+	if ((addr.bits = allocObj(docHndl->map, listFree(docHndl,0), listWait(docHndl,0), -1, objSize, false)))
+		doc = getObj(docHndl->map, addr);
+	else
+		return DB_ERROR_outofmemory;
 
-	memcpy(doc + 1, obj, objSize);
+	memcpy(doc, obj, objSize);
 
 	docArena = docarena(docHndl->map);
 
-	doc->ver->docId.bits = allocObjId(docHndl->map, listFree(docHndl,0), listWait(docHndl,0), docArena->storeId);
+	docId->bits = allocObjId(docHndl->map, listFree(docHndl,0), listWait(docHndl,0), docArena->storeId);
 
-	//	add the new document to the txn
-
-	if ((doc->ver->txnId.bits = txnId.bits)) {
-		Txn *txn = fetchIdSlot(docHndl->map->db, doc->ver->txnId);
-		addVerToTxn(docHndl->map->db, txn, doc->ver, TxnAddDoc); 
-	}
-
-	//  return the docId to the caller
-
-	if (docId)
-		docId->bits = doc->ver->docId.bits;
-
-	slot = fetchIdSlot(docHndl->map, doc->ver->docId);
-	slot->bits = doc->addr.bits;
+	slot = fetchIdSlot(docHndl->map, *docId);
+	slot->bits = addr.bits;
 
 	releaseHandle(docHndl, hndl);
 	return DB_OK;

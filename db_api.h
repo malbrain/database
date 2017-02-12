@@ -10,13 +10,22 @@
 #include "db_error.h"
 #include "db_redblack.h"
 
-// Iterator Seek Type
+typedef enum {
+	IterNone,
+	IterLeftEof,
+	IterRightEof,
+	IterPosAt
+} IterState;
+
+//	Iterator operations
 
 typedef enum {
-	PosBegin,
-	PosEnd,
-	PosAt
-} IteratorPos;
+	IterNext  = 'n',
+	IterPrev  = 'p',
+	IterBegin = 'b',
+	IterEnd   = 'e',
+	IterSeek  = 's',
+} IteratorOp;
 
 #ifdef apple 
 #define DbStatus int
@@ -31,27 +40,21 @@ DbStatus cloneHandle(DbHandle hndl[1], DbHandle fromHndl[1]);
 DbStatus dropArena(DbHandle hndl[1], bool dropDefinitions);
 DbStatus closeHandle(DbHandle dbHndl[1]);
 
-DbStatus createCursor(DbHandle hndl[1], DbHandle idxHndl[1], Params *params, ObjId txnId);
+DbStatus createCursor(DbHandle hndl[1], DbHandle idxHndl[1], Params *params);
 DbStatus positionCursor(DbHandle hndl[1], CursorOp op, void *key, uint32_t keyLen);
 DbStatus keyAtCursor(DbHandle cursor[1], void **key, uint32_t *keyLen);
 DbStatus moveCursor(DbHandle hndl[1], CursorOp op);
-
-ObjId beginTxn(DbHandle dbHndl[1], Params *param);
-DbStatus rollbackTxn(DbHandle dbHndl[1], ObjId txnId);
-DbStatus commitTxn(DbHandle dbHnd[1], ObjId txnId);
 
 DbStatus insertKey(DbHandle hndl[1], void *key, uint32_t len);
 DbStatus deleteKey(DbHandle hndl[1], void *key, uint32_t len);
 
 uint64_t arenaAlloc(DbHandle arenaHndl[1], uint32_t size, bool zeroit, bool dbArena);
 
-DbStatus storeDoc(DbHandle hndl[1], void *obj, uint32_t objSize, ObjId *docId, ObjId txnId);
-DbStatus deleteDoc(DbHandle hndl[1], ObjId docId, ObjId txnId);
-DbStatus fetchDoc(DbHandle hndl[1], Doc **doc, ObjId docId);
+DbStatus storeDoc(DbHandle hndl[1], void *obj, uint32_t objSize, ObjId *docId);
+DbStatus deleteDoc(DbHandle hndl[1], ObjId docId);
+DbStatus fetchDoc(DbHandle hndl[1], void **doc, ObjId docId);
 
-DbStatus createIterator(DbHandle hndl[1], DbHandle docHndl[1], ObjId txnId, Params *params);
-Ver *iteratorSeek(DbHandle hndl[1], IteratorPos pos, ObjId objId);
-Ver *iteratorNext(DbHandle hndl[1]);
-Ver *iteratorPrev(DbHandle hndl[1]);
+DbStatus createIterator(DbHandle hndl[1], DbHandle docHndl[1], Params *params);
+DbStatus moveIterator (DbHandle hndl[1], IteratorOp op, void **doc, ObjId *docId);
 
 void *docStoreObj(DbAddr addr);

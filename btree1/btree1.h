@@ -108,7 +108,7 @@ typedef struct {
 
 #define btree1index(map) ((Btree1Index *)(map->arena + 1))
 
-DbStatus btree1NewCursor(Btree1Cursor *cursor, DbMap *map);
+DbStatus btree1NewCursor(DbCursor *cursor, DbMap *map);
 DbStatus btree1ReturnCursor(DbCursor *dbCursor, DbMap *map);
 
 DbStatus btree1LeftKey(DbCursor *cursor, DbMap *map);

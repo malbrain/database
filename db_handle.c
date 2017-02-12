@@ -63,8 +63,8 @@ ArenaDef arenaDef[1];
 
 uint64_t makeHandle(DbMap *map, uint32_t xtraSize, HandleType type) {
 DbAddr *hndlAddr, *slot;
+Handle *handle;
 ObjId hndlId;
-Handle *hndl;
 uint32_t amt;
 DbAddr addr;
 
@@ -85,32 +85,32 @@ DbAddr addr;
 	slot = fetchIdSlot (memMap, hndlId);
 
 	addr.bits = allocBlk(hndlMap, amt, true);
-	hndl = getObj(hndlMap, addr);
+	handle = getObj(hndlMap, addr);
 
 	//  initialize the new Handle
 
-	hndl->addr.bits = addr.bits;
-	hndl->xtraSize = xtraSize;	// size of following structure
-	hndl->hndlType = type;
-	hndl->map = map;
+	handle->addr.bits = addr.bits;
+	handle->xtraSize = xtraSize;	// size of following structure
+	handle->hndlType = type;
+	handle->map = map;
 
 	//  allocate recycled frame queues
 	//	three times the number of node types
 	//	for the handle type
 
-	if ((*hndl->maxType = map->arenaDef->numTypes)) {
-		hndl->listIdx = arrayAlloc(map, map->arena->listArray, sizeof(DbAddr) * *hndl->maxType * 3);
-		hndl->frames = arrayEntry(map, map->arena->listArray, hndl->listIdx);
-		arrayActivate(map, map->arena->listArray, hndl->listIdx);
+	if ((*handle->maxType = map->arenaDef->numTypes)) {
+		handle->listIdx = arrayAlloc(map, map->arena->listArray, sizeof(DbAddr) * *handle->maxType * 3);
+		handle->frames = arrayEntry(map, map->arena->listArray, handle->listIdx);
+		arrayActivate(map, map->arena->listArray, handle->listIdx);
 	}
 
 	//	allocate hndlId array
 
-	hndl->arrayIdx = arrayAlloc(map->db, map->arenaDef->hndlArray, sizeof(ObjId));
-	hndlAddr = arrayEntry(map->db, map->arenaDef->hndlArray, hndl->arrayIdx);
+	handle->arrayIdx = arrayAlloc(map->db, map->arenaDef->hndlArray, sizeof(ObjId));
+	hndlAddr = arrayEntry(map->db, map->arenaDef->hndlArray, handle->arrayIdx);
 	hndlAddr->bits = addr.bits;
 
-	arrayActivate(map->db, map->arenaDef->hndlArray, hndl->arrayIdx);
+	arrayActivate(map->db, map->arenaDef->hndlArray, handle->arrayIdx);
 
 	//  install ObjId slot in local memory
 
@@ -123,16 +123,16 @@ DbAddr addr;
 //	called by setter of the status KILL_BIT
 //	after bindcnt goes to zero
 
-void disableHndl(Handle *hndl) {
-	char maxType = atomicExchange8((char *)hndl->maxType, 0);
+void disableHndl(Handle *handle) {
+	char maxType = atomicExchange8((char *)handle->maxType, 0);
 
 	if (maxType)
-		arrayRelease(hndl->map, hndl->map->arena->listArray, hndl->listIdx);
+		arrayRelease(handle->map, handle->map->arena->listArray, handle->listIdx);
 }
 
 //	destroy handle
 
-void destroyHandle(Handle *hndl, DbAddr *slot) {
+void destroyHandle(Handle *handle, DbAddr *slot) {
 DbAddr addr;
 
 	lockLatch(slot->latch);
@@ -144,19 +144,19 @@ DbAddr addr;
 		return;
 	}
 
-	disableHndl(hndl);
+	disableHndl(handle);
 
 	//  specific handle cleanup
 
-	switch (hndl->hndlType) {
+	switch (handle->hndlType) {
 	case Hndl_cursor:
-		dbCloseCursor((void *)(hndl + 1), hndl->map);
+		dbCloseCursor((void *)(handle + 1), handle->map);
 		break;
 	}
 
 	// release the hndlAddr reservation in the arena
 
-	arrayRelease(hndl->map->db, hndl->map->arenaDef->hndlArray, hndl->arrayIdx);
+	arrayRelease(handle->map->db, handle->map->arenaDef->hndlArray, handle->arrayIdx);
 
 	// zero the handle Id slot
 
@@ -173,8 +173,8 @@ DbAddr addr;
 //	return NULL if handle closed
 
 Handle *bindHandle(DbHandle *dbHndl) {
+Handle *handle;
 DbAddr *slot;
-Handle *hndl;
 ObjId hndlId;
 uint32_t cnt;
 
@@ -187,28 +187,28 @@ uint32_t cnt;
 	//	and capture timestamp if we are the
 	//	first handle bind
 
-	hndl = getObj(hndlMap, *slot);
-	cnt = atomicAdd32(hndl->bindCnt, 1);
+	handle = getObj(hndlMap, *slot);
+	cnt = atomicAdd32(handle->bindCnt, 1);
 
 	//	exit if it is being closed
 
-	if ((*hndl->status & KILL_BIT)) {
+	if ((*handle->status & KILL_BIT)) {
 		dbHndl->hndlBits = 0;
 
-		if (!atomicAdd32(hndl->bindCnt, -1))
-			destroyHandle (hndl, slot);
+		if (!atomicAdd32(handle->bindCnt, -1))
+			destroyHandle (handle, slot);
 
 		return NULL;
 	}
 
 	//	is there a DROP request for this arena?
 
-	if (hndl->map->arena->mutex[0] & KILL_BIT) {
-		atomicOr8((volatile char *)hndl->status, KILL_BIT);
+	if (handle->map->arena->mutex[0] & KILL_BIT) {
+		atomicOr8((volatile char *)handle->status, KILL_BIT);
 		dbHndl->hndlBits = 0;
 
-		if (!atomicAdd32(hndl->bindCnt, -1))
-			destroyHandle (hndl, slot);
+		if (!atomicAdd32(handle->bindCnt, -1))
+			destroyHandle (handle, slot);
 
 		return NULL;
 	}
@@ -217,31 +217,31 @@ uint32_t cnt;
 	//	set the entryTs if so.
 
 	if (cnt == 1)
-		hndl->entryTs = atomicAdd64(&hndl->map->arena->nxtTs, 1);
+		handle->entryTs = atomicAdd64(&handle->map->arena->nxtTs, 1);
 
-	return hndl;
+	return handle;
 }
 
 //	release handle binding
 
-void releaseHandle(Handle *hndl, DbHandle dbHndl[1]) {
+void releaseHandle(Handle *handle, DbHandle dbHndl[1]) {
 ObjId hndlId;
 DbAddr *slot;
 
-	if ((*hndl->status & KILL_BIT)) {
+	if ((*handle->status & KILL_BIT)) {
 	  if ((hndlId.bits = dbHndl->hndlBits))
 		slot = fetchIdSlot (memMap, hndlId);
 	  else
 		return;
 
-	  if (!atomicAdd32(hndl->bindCnt, -1))
-		destroyHandle (hndl, slot);
+	  if (!atomicAdd32(handle->bindCnt, -1))
+		destroyHandle (handle, slot);
 
 	  dbHndl->hndlBits = 0;
 	  return;
 	}
 
-	atomicAdd32(hndl->bindCnt, -1);
+	atomicAdd32(handle->bindCnt, -1);
 	return;
 }
 
@@ -250,8 +250,8 @@ DbAddr *slot;
 //	for the dropped arena
 
 void disableHndls(DbMap *map, DbAddr *array) {
+Handle *handle;
 ArrayHdr *hdr;
-Handle *hndl;
 int idx, seg;
 DbAddr addr;
 
@@ -278,11 +278,11 @@ DbAddr addr;
 
 		do if (bits & 1) {
 		  addr.bits = hndlAddr[seg * 64 + slotIdx].bits;
-		  hndl = getObj(hndlMap, addr);
+		  handle = getObj(hndlMap, addr);
 
-		  atomicOr8((volatile char *)hndl->status, KILL_BIT);
-		  waitZero32 (hndl->bindCnt);
-		  disableHndl(hndl);
+		  atomicOr8((volatile char *)handle->status, KILL_BIT);
+		  waitZero32 (handle->bindCnt);
+		  disableHndl(handle);
 		} while (slotIdx++, bits /= 2);
 	  }
 	}
@@ -297,8 +297,8 @@ DbAddr addr;
 uint64_t scanHandleTs(DbMap *map) {
 DbAddr *array = map->arenaDef->hndlArray;
 uint64_t lowTs = map->arena->nxtTs + 1;
+Handle *handle;
 ArrayHdr *hdr;
-Handle *hndl;
 int idx, seg;
 DbAddr addr;
 
@@ -321,11 +321,11 @@ DbAddr addr;
 
 		do if (bits & 1) {
 		  addr.bits = hndlAddr[seg * 64 + slotIdx].bits;
-		  hndl = getObj(hndlMap, addr);
+		  handle = getObj(hndlMap, addr);
 
-		  if (!(*hndl->status & KILL_BIT))
-		  	  if (hndl->bindCnt[0])
-			    lowTs = hndl->entryTs;
+		  if (!(*handle->status & KILL_BIT))
+		  	  if (handle->bindCnt[0])
+			    lowTs = handle->entryTs;
 
 		} while (slotIdx++, bits /= 2);
 	  }

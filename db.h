@@ -88,11 +88,8 @@ typedef enum {
 	Size = 0,		// total Params structure size
 	OnDisk,			// Arena resides on disk
 	InitSize,		// initial arena size
-	UseTxn,			// transactions used
-	NoDocs,			// no documents, just indexes
-	NoIdx,			// no indexes, just documents
-	DropDb,			// drop the database
-	DocStoreId,		// document store ID
+	HndlXtra,		// extra bytes in handle struct
+	ObjSize,		// size of arena ObjId array element
 
 	IdxKeyUnique = 10,
 	IdxKeyAddr,			// index key definition address
@@ -120,40 +117,6 @@ typedef union {
 	void *obj;
 } Params;
 
-typedef enum {
-	DocUnused = 0,
-	DocActive,
-	DocInsert,
-	DocDelete,
-	DocDeleted
-} DocState;
-
-typedef struct Ver_ {
-	uint64_t version;	// document version
-	uint32_t offset;	// offset from origin
-	uint32_t size;		// version size
-	ObjId docId;		// document ObjId
-	ObjId txnId;		// insert/version txn ID
-} Ver;
-
-typedef struct {
-	uint32_t refCnt[1];	// active references to the document
-	DbAddr prevDoc[1];	// previous versions of doc
-	DbAddr addr;		// doc arena address
-	ObjId delId;		// delete txn ID
-	uint32_t verCnt;	// number of versions
-	uint32_t lastVer;	// offset of last version
-	DocState state;		// document state
-	Ver ver[];			// base version
-} Doc;
-
-// user's DbHandle
-//	contains the Handle ObjId bits
-
-typedef struct {
-	uint64_t hndlBits;
-} DbHandle;
-
 // cursor move/positioning operations
 
 typedef enum {
@@ -166,6 +129,13 @@ typedef enum {
 	OpBefore	= 'b',
 	OpAfter		= 'a'
 } CursorOp;
+
+// user's DbHandle
+//	contains the Handle ObjId bits
+
+typedef struct {
+	uint64_t hndlBits;
+} DbHandle;
 
 uint32_t get64(uint8_t *key, uint32_t len, uint64_t *result, bool binaryFlds);
 uint32_t store64(uint8_t *key, uint32_t keylen, int64_t what, bool binaryFlds);

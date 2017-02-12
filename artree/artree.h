@@ -100,7 +100,6 @@ typedef struct {
 } CursorStack;
 
 typedef struct {
-	DbCursor base[1];				// common cursor header (must be first)
 	uint32_t depth;					// current depth of cursor
 	uint16_t lastFld;				// previous field start
 	uint16_t fldLen;				// length remaining in current field
@@ -110,7 +109,7 @@ typedef struct {
 
 #define artIndexAddr(map)((ArtIndex *)(map->arena + 1))
 
-DbStatus artNewCursor(ArtCursor *cursor, DbMap *map);
+DbStatus artNewCursor(DbCursor *cursor, DbMap *map);
 DbStatus artReturnCursor(DbCursor *dbCursor, DbMap *map);
 
 DbStatus artLeftKey(DbCursor *cursor, DbMap *map);

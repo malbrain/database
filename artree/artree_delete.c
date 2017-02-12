@@ -16,21 +16,27 @@ typedef enum {
 } ReturnState;
 
 DbStatus artDeleteKey(Handle *index, void *key, uint32_t keyLen) {
+uint8_t tmpCursor[sizeof(DbCursor) + sizeof(ArtCursor)];
 ReturnState rt = ErrorSearch;
-ArtCursor cursor[1];
+DbCursor *dbCursor;
+ArtCursor *cursor;
 DbAddr newSlot;
 DbStatus stat;
 uint32_t bit;
 uint8_t ch;
 
-	memset (cursor, 0, sizeof(ArtCursor));
-	cursor->base->key = cursor->key;
+	memset(tmpCursor, 0, sizeof(tmpCursor));
 
-	if ((stat = artFindKey(cursor->base, index->map, key, keyLen)))
+	dbCursor = (DbCursor *)tmpCursor;
+	cursor = (ArtCursor *)(tmpCursor + sizeof(DbCursor));
+
+	dbCursor->key = cursor->key;
+
+	if ((stat = artFindKey(dbCursor, index->map, key, keyLen)))
 		return stat;
 
-	//	now that we have the trie nodes in the cursor stack
-	//	we can go through them backwards to remove empties.
+	//	we take the trie nodes in the cursor stack
+	//	and go through them backwards to remove empties.
 
 	if (cursor->depth)
 	 if (cursor->stack[cursor->depth - 1].addr->type == KeyEnd) {

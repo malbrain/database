@@ -6,14 +6,14 @@
 #include "artree.h"
 
 DbStatus artFindKey( DbCursor *dbCursor, DbMap *map, void *findKey, uint32_t keyLen) {
+ArtCursor *cursor = (ArtCursor *)((char *)dbCursor + dbCursor->xtra);
 bool binaryFlds = map->arenaDef->params[IdxKeyFlds].boolVal;
-ArtCursor *cursor = (ArtCursor *)dbCursor;
 uint32_t idx, offset = 0, spanMax;
 CursorStack* stack = NULL;
 uint8_t *key = findKey;
 volatile DbAddr *slot;
 
-  cursor->base->keyLen = 0;
+  dbCursor->keyLen = 0;
   cursor->lastFld = 0;
   cursor->fldLen = 0;
   cursor->depth = 0;
@@ -22,9 +22,9 @@ volatile DbAddr *slot;
 
   slot = artIndexAddr(map)->root;
 
-  if (binaryFlds && !cursor->base->keyLen) {
+  if (binaryFlds && !dbCursor->keyLen) {
 	cursor->fldLen = key[offset] << 8 | key[offset + 1];
-	cursor->base->keyLen = 2;
+	dbCursor->keyLen = 2;
 	offset += 2;
   }
 
@@ -35,7 +35,7 @@ volatile DbAddr *slot;
 	  return DB_ERROR_cursoroverflow;
 
 	stack->slot->bits = slot->bits;
-	stack->off = cursor->base->keyLen;
+	stack->off = dbCursor->keyLen;
 	stack->lastFld = cursor->lastFld;
 	stack->ch = key[offset];
 	stack->addr = slot;
@@ -55,9 +55,9 @@ volatile DbAddr *slot;
 		}
 
 		if (cursor) {
-		  cursor->lastFld = cursor->base->keyLen;
+		  cursor->lastFld = dbCursor->keyLen;
 		  cursor->fldLen = key[offset] << 8 | key[offset + 1];
-		  cursor->base->keyLen += 2;
+		  dbCursor->keyLen += 2;
 		  stack->ch = 256;
 		  offset += 2;
 		}
@@ -99,7 +99,7 @@ volatile DbAddr *slot;
 
 		//  continue to the next slot
 
-		cursor->base->keyLen += spanMax;
+		dbCursor->keyLen += spanMax;
 		slot = spanNode->next;
 		offset += spanMax;
 
@@ -121,7 +121,7 @@ volatile DbAddr *slot;
 
 		if (idx < 4) {
 		  slot = node->radix + idx;
-		  cursor->base->keyLen++;
+		  dbCursor->keyLen++;
 
 		  if (binaryFlds)
 			cursor->fldLen--;
@@ -147,7 +147,7 @@ volatile DbAddr *slot;
 
 		if (idx < 14) {
 		  slot = node->radix + idx;
-		  cursor->base->keyLen++;
+		  dbCursor->keyLen++;
 
 		  if (binaryFlds)
 			cursor->fldLen--;
@@ -167,7 +167,7 @@ volatile DbAddr *slot;
 
 		if (idx < 0xff && (node->alloc & (1ULL << idx))) {
 		  slot = node->radix + idx;
-		  cursor->base->keyLen++;
+		  dbCursor->keyLen++;
 
 		  if (binaryFlds)
 			cursor->fldLen--;
@@ -187,7 +187,7 @@ volatile DbAddr *slot;
 
 		if (node->radix[idx].type) {
 		  slot = node->radix + idx;
-		  cursor->base->keyLen++;
+		  dbCursor->keyLen++;
 
 		  if (binaryFlds)
 			cursor->fldLen--;
@@ -202,7 +202,7 @@ volatile DbAddr *slot;
 	  }
 
 	  case UnusedSlot: {
-		cursor->base->state = CursorRightEof;
+		dbCursor->state = CursorRightEof;
 		return DB_OK;
 	  }
 	}  // end switch
@@ -210,14 +210,14 @@ volatile DbAddr *slot;
 	break;
   }  // end while (offset < keylen)
 
-  memcpy (cursor->key, key, cursor->base->keyLen);
+  memcpy (cursor->key, key, dbCursor->keyLen);
 
   //  did we end on a complete key?
 
   if (slot->type == KeyEnd)
-  	cursor->base->state = CursorPosAt;
+  	dbCursor->state = CursorPosAt;
   else
-  	cursor->base->state = CursorPosBefore;
+  	dbCursor->state = CursorPosBefore;
 
   if (cursor->depth < MAX_cursor)
 	stack = cursor->stack + cursor->depth++;
@@ -225,7 +225,7 @@ volatile DbAddr *slot;
 	return DB_ERROR_cursoroverflow;
 
   stack->slot->bits = slot->bits;
-  stack->off = cursor->base->keyLen;
+  stack->off = dbCursor->keyLen;
   stack->lastFld = cursor->lastFld;
   stack->addr = slot;
   stack->ch = -1;

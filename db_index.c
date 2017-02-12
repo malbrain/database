@@ -1,7 +1,6 @@
 //	manage index handles associated with a docStore
 
 #include "db.h"
-#include "db_txn.h"
 #include "db_object.h"
 #include "db_handle.h"
 #include "db_arena.h"

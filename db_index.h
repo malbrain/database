@@ -17,10 +17,8 @@ typedef enum {
 } PosState;
 
 typedef struct {
-	uint64_t ts;		// cursor timestamp
-	uint64_t version;	// cursor version #
-	ObjId txnId;		// cursor transaction
 	void *key;			// cursor key bytes
+	uint32_t xtra;		// size of user data
 	uint32_t keyLen;	// cursor key length
 	PosState state:8;	// cursor position state enum
 	uint8_t foundKey;	// cursor position found the key

@@ -7,8 +7,10 @@
 
 //	TODO: lock record
 
-DbStatus artNewCursor(ArtCursor *cursor, DbMap *map) {
-	cursor->base->key = cursor->key;
+DbStatus artNewCursor(DbCursor *dbCursor, DbMap *map) {
+ArtCursor *cursor = (ArtCursor *)((char *)dbCursor + dbCursor->xtra);
+
+	dbCursor->key = cursor->key;
 	return DB_OK;
 }
 
@@ -17,8 +19,8 @@ DbStatus artReturnCursor(DbCursor *dbCursor, DbMap *map) {
 }
 
 DbStatus artLeftKey(DbCursor *dbCursor, DbMap *map) {
+ArtCursor *cursor = (ArtCursor *)((char *)dbCursor + dbCursor->xtra);
 bool binaryFlds = map->arenaDef->params[IdxKeyFlds].boolVal;
-ArtCursor *cursor = (ArtCursor *)dbCursor;
 CursorStack* stack;
 DbAddr *base;
 
@@ -40,8 +42,8 @@ DbAddr *base;
 }
 
 DbStatus artRightKey(DbCursor *dbCursor, DbMap *map) {
+ArtCursor *cursor = (ArtCursor *)((char *)dbCursor + dbCursor->xtra);
 bool binaryFlds = map->arenaDef->params[IdxKeyFlds].boolVal;
-ArtCursor *cursor = (ArtCursor *)dbCursor;
 CursorStack* stack;
 DbAddr *base;
 
@@ -135,11 +137,11 @@ int slot64(int ch, uint64_t alloc, volatile uint8_t* keys) {
  */
 
 DbStatus artNextKey(DbCursor *dbCursor, DbMap *map) {
+ArtCursor *cursor = (ArtCursor *)((char *)dbCursor + dbCursor->xtra);
 bool binaryFlds = map->arenaDef->params[IdxKeyFlds].boolVal;
-ArtCursor *cursor = (ArtCursor *)dbCursor;
 int slot, len;
 
-  switch (cursor->base->state) {
+  switch (dbCursor->state) {
 	case CursorNone:
 	  artLeftKey(dbCursor, map);
 	  break;
@@ -153,7 +155,7 @@ int slot, len;
 
   while (cursor->depth < MAX_cursor) {
 	CursorStack* stack = &cursor->stack[cursor->depth - 1];
-	cursor->base->keyLen = stack->off;
+	dbCursor->keyLen = stack->off;
 	cursor->lastFld = stack->lastFld;
 
 	switch (stack->slot->type < SpanNode ? stack->slot->type : SpanNode) {
@@ -168,17 +170,17 @@ int slot, len;
 		// end this field and begin next one
 
 		if (stack->ch < 0) {
-		  int fldLen = cursor->base->keyLen - cursor->lastFld - 2;
+		  int fldLen = dbCursor->keyLen - cursor->lastFld - 2;
 		  cursor->key[cursor->lastFld] = fldLen >> 8;
 		  cursor->key[cursor->lastFld + 1] = fldLen;
-		  cursor->lastFld = cursor->base->keyLen;
-		  cursor->base->keyLen += 2;
+		  cursor->lastFld = dbCursor->keyLen;
+		  dbCursor->keyLen += 2;
 
 		  cursor->stack[cursor->depth].slot->bits = fldEndNode->nextFld->bits;
 		  cursor->stack[cursor->depth].addr = fldEndNode->nextFld;
 		  cursor->stack[cursor->depth].ch = -1;
 		  cursor->stack[cursor->depth].lastFld = cursor->lastFld;
-		  cursor->stack[cursor->depth++].off = cursor->base->keyLen;
+		  cursor->stack[cursor->depth++].off = dbCursor->keyLen;
 		  stack->ch = 0;
 		  continue;
 		}
@@ -190,7 +192,7 @@ int slot, len;
 
 		cursor->stack[cursor->depth].slot->bits = fldEndNode->sameFld->bits;
 		cursor->stack[cursor->depth].addr = fldEndNode->sameFld;
-		cursor->stack[cursor->depth].off = cursor->base->keyLen;
+		cursor->stack[cursor->depth].off = dbCursor->keyLen;
 		cursor->stack[cursor->depth].lastFld = cursor->lastFld;
 		cursor->stack[cursor->depth++].ch = -1;
 		stack->ch = 256;
@@ -200,10 +202,10 @@ int slot, len;
 	  case KeyEnd: {
 		if (stack->ch < 0) {
 		  if (binaryFlds) {
-			int fldLen = cursor->base->keyLen - cursor->lastFld - 2;
+			int fldLen = dbCursor->keyLen - cursor->lastFld - 2;
 			cursor->key[cursor->lastFld] = fldLen >> 8;
 			cursor->key[cursor->lastFld + 1] = fldLen;
-		    cursor->lastFld = cursor->base->keyLen;
+		    cursor->lastFld = dbCursor->keyLen;
 		  }
 
 		  if (stack->slot->keyEnd) {  // was there a continuation?
@@ -213,12 +215,12 @@ int slot, len;
 		    cursor->stack[cursor->depth].addr = keyEndNode->next;
 		    cursor->stack[cursor->depth].ch = -1;
 		    cursor->stack[cursor->depth].lastFld = cursor->lastFld;
-		    cursor->stack[cursor->depth++].off = cursor->base->keyLen;
+		    cursor->stack[cursor->depth++].off = dbCursor->keyLen;
 		    stack->ch = 0;
 		    continue;
 		  }
 
-		  cursor->base->state = CursorPosAt;
+		  dbCursor->state = CursorPosAt;
 		  stack->ch = 0;
 		  return DB_OK;
 		}
@@ -233,13 +235,13 @@ int slot, len;
 		//  continue into our next slot
 
 		if (stack->ch < 0) {
-		  memcpy(cursor->key + cursor->base->keyLen, spanNode->bytes, len);
-		  cursor->base->keyLen += len;
+		  memcpy(cursor->key + dbCursor->keyLen, spanNode->bytes, len);
+		  dbCursor->keyLen += len;
 		  cursor->stack[cursor->depth].slot->bits = spanNode->next->bits;
 		  cursor->stack[cursor->depth].addr = spanNode->next;
 		  cursor->stack[cursor->depth].ch = -1;
 		  cursor->stack[cursor->depth].lastFld = cursor->lastFld;
-		  cursor->stack[cursor->depth++].off = cursor->base->keyLen;
+		  cursor->stack[cursor->depth++].off = dbCursor->keyLen;
 		  stack->ch = 0;
 		  continue;
 		}
@@ -256,11 +258,11 @@ int slot, len;
 		  break;
 
 		stack->ch = radix4Node->keys[slot];
-		cursor->key[cursor->base->keyLen++] = radix4Node->keys[slot];
+		cursor->key[dbCursor->keyLen++] = radix4Node->keys[slot];
 
 		cursor->stack[cursor->depth].slot->bits = radix4Node->radix[slot].bits;
 		cursor->stack[cursor->depth].addr = &radix4Node->radix[slot];
-		cursor->stack[cursor->depth].off = cursor->base->keyLen;
+		cursor->stack[cursor->depth].off = dbCursor->keyLen;
 		cursor->stack[cursor->depth].lastFld = cursor->lastFld;
 		cursor->stack[cursor->depth++].ch = -1;
 		continue;
@@ -275,12 +277,12 @@ int slot, len;
 		  break;
 
 		stack->ch = radix14Node->keys[slot];
-		cursor->key[cursor->base->keyLen++] = radix14Node->keys[slot];
+		cursor->key[dbCursor->keyLen++] = radix14Node->keys[slot];
 		cursor->stack[cursor->depth].slot->bits = radix14Node->radix[slot].bits;
 		cursor->stack[cursor->depth].addr = &radix14Node->radix[slot];
 		cursor->stack[cursor->depth].ch = -1;
 		cursor->stack[cursor->depth].lastFld = cursor->lastFld;
-		cursor->stack[cursor->depth++].off = cursor->base->keyLen;
+		cursor->stack[cursor->depth++].off = dbCursor->keyLen;
 		continue;
 	  }
 
@@ -292,12 +294,12 @@ int slot, len;
 		if (stack->ch == 256)
 		  break;
 
-		cursor->key[cursor->base->keyLen++] = stack->ch;
+		cursor->key[dbCursor->keyLen++] = stack->ch;
 		cursor->stack[cursor->depth].slot->bits = radix64Node->radix[radix64Node->keys[stack->ch]].bits;
 		cursor->stack[cursor->depth].addr = &radix64Node->radix[radix64Node->keys[stack->ch]];
 		cursor->stack[cursor->depth].ch = -1;
 		cursor->stack[cursor->depth].lastFld = cursor->lastFld;
-		cursor->stack[cursor->depth++].off = cursor->base->keyLen;
+		cursor->stack[cursor->depth++].off = dbCursor->keyLen;
 		continue;
 	  }
 
@@ -314,26 +316,26 @@ int slot, len;
 		if (stack->ch == 256)
 		  break;
 
-		cursor->key[cursor->base->keyLen++] = stack->ch;
+		cursor->key[dbCursor->keyLen++] = stack->ch;
 		cursor->stack[cursor->depth].slot->bits = radix256Node->radix[stack->ch].bits;
 		cursor->stack[cursor->depth].addr = &radix256Node->radix[stack->ch];
 		cursor->stack[cursor->depth].ch = -1;
 		cursor->stack[cursor->depth].lastFld = cursor->lastFld;
-		cursor->stack[cursor->depth++].off = cursor->base->keyLen;
+		cursor->stack[cursor->depth++].off = dbCursor->keyLen;
 		continue;
 	  }
 	}  // end switch
 
 	if (--cursor->depth) {
 	  stack = &cursor->stack[cursor->depth];
-	  cursor->base->keyLen = stack->off;
+	  dbCursor->keyLen = stack->off;
 	  continue;
 	}
 
 	break;
   }  // end while
 
-  cursor->base->state = CursorRightEof;
+  dbCursor->state = CursorRightEof;
   return DB_CURSOR_eof;
 }
 
@@ -342,12 +344,12 @@ int slot, len;
  */
 
 DbStatus artPrevKey(DbCursor *dbCursor, DbMap *map) {
+ArtCursor *cursor = (ArtCursor *)((char *)dbCursor + dbCursor->xtra);
 bool binaryFlds = map->arenaDef->params[IdxKeyFlds].boolVal;
-ArtCursor *cursor = (ArtCursor *)dbCursor;
 CursorStack *stack;
 int slot, len;
 
-  switch (cursor->base->state) {
+  switch (dbCursor->state) {
 	case CursorNone:
 	  artRightKey(dbCursor, map);
 	  break;
@@ -361,7 +363,7 @@ int slot, len;
 
   while (cursor->depth) {
 	stack = &cursor->stack[cursor->depth - 1];
-	cursor->base->keyLen = stack->off;
+	dbCursor->keyLen = stack->off;
 	cursor->lastFld = stack->lastFld;
 
 	switch (stack->slot->type < SpanNode ? stack->slot->type : SpanNode) {
@@ -381,25 +383,25 @@ int slot, len;
 		  cursor->stack[cursor->depth].addr = fldEndNode->sameFld;
 		  cursor->stack[cursor->depth].ch = 256;
 		  cursor->stack[cursor->depth].lastFld = cursor->lastFld;
-		  cursor->stack[cursor->depth++].off = cursor->base->keyLen;
+		  cursor->stack[cursor->depth++].off = dbCursor->keyLen;
 		  stack->ch = 0;
 		  continue;
 		}
 
 		// after finishing same field, end this field and start next
 
-		fldLen = cursor->base->keyLen - cursor->lastFld - 2;
+		fldLen = dbCursor->keyLen - cursor->lastFld - 2;
 		cursor->key[cursor->lastFld] = fldLen >> 8;
 		cursor->key[cursor->lastFld + 1] = fldLen;
-		cursor->lastFld = cursor->base->keyLen;
-		cursor->base->keyLen += 2;
+		cursor->lastFld = dbCursor->keyLen;
+		dbCursor->keyLen += 2;
 
 		if (stack->ch < 0)
 			break;
 
 		cursor->stack[cursor->depth].slot->bits = fldEndNode->nextFld->bits;
 		cursor->stack[cursor->depth].addr = fldEndNode->nextFld;
-		cursor->stack[cursor->depth].off = cursor->base->keyLen;
+		cursor->stack[cursor->depth].off = dbCursor->keyLen;
 		cursor->stack[cursor->depth].lastFld = cursor->lastFld;
 		cursor->stack[cursor->depth++].ch = 256;
 		stack->ch = -1;
@@ -409,10 +411,10 @@ int slot, len;
 	  case KeyEnd: {
 		if (stack->ch > 255) {
 		  if (binaryFlds) {
-			int fldLen = cursor->base->keyLen - cursor->lastFld - 2;
+			int fldLen = dbCursor->keyLen - cursor->lastFld - 2;
 			cursor->key[cursor->lastFld] = fldLen >> 8;
 			cursor->key[cursor->lastFld + 1] = fldLen;
-		    cursor->lastFld = cursor->base->keyLen;
+		    cursor->lastFld = dbCursor->keyLen;
 		  }
 
 		  if (stack->slot->keyEnd) {
@@ -422,12 +424,12 @@ int slot, len;
 		    cursor->stack[cursor->depth].addr = keyEndNode->next;
 		    cursor->stack[cursor->depth].ch = 256;
 		    cursor->stack[cursor->depth].lastFld = cursor->lastFld;
-		    cursor->stack[cursor->depth++].off = cursor->base->keyLen;
+		    cursor->stack[cursor->depth++].off = dbCursor->keyLen;
 		    stack->ch = 0;
 		    continue;
 		  }
 
-		  cursor->base->state = CursorPosAt;
+		  dbCursor->state = CursorPosAt;
 		  stack->ch = 0;
 		  return DB_OK;
 		}
@@ -442,13 +444,13 @@ int slot, len;
 		// examine next node under slot
 
 		if (stack->ch > 255) {
-			memcpy(cursor->key + cursor->base->keyLen, spanNode->bytes, len);
-			cursor->base->keyLen += len;
+			memcpy(cursor->key + dbCursor->keyLen, spanNode->bytes, len);
+			dbCursor->keyLen += len;
 			cursor->stack[cursor->depth].slot->bits = spanNode->next->bits;
 			cursor->stack[cursor->depth].addr = spanNode->next;
 			cursor->stack[cursor->depth].ch = 256;
 			cursor->stack[cursor->depth].lastFld = cursor->lastFld;
-			cursor->stack[cursor->depth++].off = cursor->base->keyLen;
+			cursor->stack[cursor->depth++].off = dbCursor->keyLen;
 			stack->ch = 0;
 			continue;
 		}
@@ -463,11 +465,11 @@ int slot, len;
 			break;
 
 		stack->ch = radix4Node->keys[slot];
-		cursor->key[cursor->base->keyLen++] = stack->ch;
+		cursor->key[dbCursor->keyLen++] = stack->ch;
 
 		cursor->stack[cursor->depth].slot->bits = radix4Node->radix[slot].bits;
 		cursor->stack[cursor->depth].addr = &radix4Node->radix[slot];
-		cursor->stack[cursor->depth].off = cursor->base->keyLen;
+		cursor->stack[cursor->depth].off = dbCursor->keyLen;
 		cursor->stack[cursor->depth].lastFld = cursor->lastFld;
 		cursor->stack[cursor->depth++].ch = 256;
 		continue;
@@ -481,11 +483,11 @@ int slot, len;
 			break;
 
 		stack->ch = radix14Node->keys[slot];
-		cursor->key[cursor->base->keyLen++] = stack->ch;
+		cursor->key[dbCursor->keyLen++] = stack->ch;
 
 		cursor->stack[cursor->depth].slot->bits = radix14Node->radix[slot].bits;
 		cursor->stack[cursor->depth].addr = &radix14Node->radix[slot];
-		cursor->stack[cursor->depth].off = cursor->base->keyLen;
+		cursor->stack[cursor->depth].off = dbCursor->keyLen;
 		cursor->stack[cursor->depth].lastFld = cursor->lastFld;
 		cursor->stack[cursor->depth++].ch = 256;
 		continue;
@@ -499,11 +501,11 @@ int slot, len;
 			break;
 
 		slot = radix64Node->keys[stack->ch];
-		cursor->key[cursor->base->keyLen++] = stack->ch;
+		cursor->key[dbCursor->keyLen++] = stack->ch;
 
 		cursor->stack[cursor->depth].slot->bits = radix64Node->radix[slot].bits;
 		cursor->stack[cursor->depth].addr = &radix64Node->radix[slot];
-		cursor->stack[cursor->depth].off = cursor->base->keyLen;
+		cursor->stack[cursor->depth].off = dbCursor->keyLen;
 		cursor->stack[cursor->depth].lastFld = cursor->lastFld;
 		cursor->stack[cursor->depth++].ch = 256;
 		continue;
@@ -522,11 +524,11 @@ int slot, len;
 			break;
 
 		slot = stack->ch;
-		cursor->key[cursor->base->keyLen++] = stack->ch;
+		cursor->key[dbCursor->keyLen++] = stack->ch;
 
 		cursor->stack[cursor->depth].slot->bits = radix256Node->radix[slot].bits;
 		cursor->stack[cursor->depth].addr = &radix256Node->radix[slot];
-		cursor->stack[cursor->depth].off = cursor->base->keyLen;
+		cursor->stack[cursor->depth].off = dbCursor->keyLen;
 		cursor->stack[cursor->depth].lastFld = cursor->lastFld;
 		cursor->stack[cursor->depth++].ch = 256;
 		continue;
@@ -534,13 +536,13 @@ int slot, len;
 	}  // end switch
 
 	if (--cursor->depth) {
-		cursor->base->keyLen = stack[-1].off;
+		dbCursor->keyLen = stack[-1].off;
 		continue;
 	}
 
 	break;
   }  // end while
 
-  cursor->base->state = CursorLeftEof;
+  dbCursor->state = CursorLeftEof;
   return DB_CURSOR_eof;
 }

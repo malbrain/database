@@ -4,51 +4,7 @@
 #include "db_arena.h"
 #include "db_map.h"
 #include "db_api.h"
-#include "db_txn.h"
 #include "db_iterator.h"
-
-//
-// create and position the start of an iterator
-//
-
-DbStatus createIterator(DbHandle hndl[1], DbHandle docHndl[1], ObjId txnId, Params *params) {
-Handle *docStore, *iterator;
-Iterator *it;
-Txn *txn;
-
-	memset (hndl, 0, sizeof(DbHandle));
-
-	if (!(docStore = bindHandle(docHndl)))
-		return DB_ERROR_handleclosed;
-
-	hndl->hndlBits = makeHandle(docStore->map, sizeof(Iterator), Hndl_iterator);
-
-	if ((iterator = bindHandle(hndl)))
-		it = (Iterator *)(iterator + 1);
-	else {
-		releaseHandle(docStore, docHndl);
-		return DB_ERROR_handleclosed;
-	}
-
-	if (txnId.bits) {
-		txn = fetchIdSlot(docStore->map->db, txnId);
-		it->ts = txn->timestamp;
-	} else
-		it->ts = allocateTimestamp(docStore->map->db, en_reader);
-
-	if (params[IteratorEnd].boolVal) {
-		it->docId.bits = docStore->map->arena->segs[docStore->map->arena->currSeg].nextId.bits;
-		it->state = IterRightEof;
-	} else {
-		it->docId.bits = 0;
-		it->state = IterLeftEof;
-	}
-
-	it->txnId.bits = txnId.bits;
-	releaseHandle(docStore, docHndl);
-	releaseHandle(iterator, hndl);
-	return DB_OK;
-}
 
 //
 // increment a segmented ObjId
@@ -94,104 +50,81 @@ ObjId start = it->docId;
 //  advance iterator forward
 //
 
-Ver *iteratorNext(DbHandle hndl[1]) {
-Handle *docStore;
-Txn *txn = NULL;
-Ver *ver = NULL;
+void *iteratorNext(Handle *itHndl) {
 Iterator *it;
+DbAddr addr;
+void *doc;
 
-	if (!(docStore = bindHandle(hndl)))
-		return NULL;
+	it = (Iterator *)(itHndl + 1);
 
-	it = (Iterator *)(docStore + 1);
-
-	if (it->txnId.bits)
-		txn = fetchIdSlot(docStore->map->db, it->txnId);
-
-	while (incrObjId(it, docStore->map))
-		if ((ver = findDocVer(docStore->map, it->docId, txn)))
-			break;
-
-	if (ver)
+	while (incrObjId(it, itHndl->map)) {
+	  if ((addr.bits = *(uint64_t *)fetchIdSlot(itHndl->map, it->docId))) {
+		doc = getObj(itHndl->map, addr);
 		it->state = IterPosAt;
-	else
-		it->state = IterRightEof;
+		return doc;
+	  }
+	}
 
-	releaseHandle(docStore, hndl);
-	return ver;
+	it->state = IterRightEof;
+	return NULL;
 }
 
 //
 //  advance iterator backward
 //
 
-Ver *iteratorPrev(DbHandle hndl[1]) {
-Handle *docStore;
-Txn *txn = NULL;
-Ver *ver = NULL;
+void *iteratorPrev(Handle *itHndl) {
 Iterator *it;
+DbAddr addr;
+void *doc;
 
-	if (!(docStore = bindHandle(hndl)))
-		return NULL;
+	it = (Iterator *)(itHndl + 1);
 
-	it = (Iterator *)(docStore + 1);
-
-	if (it->txnId.bits)
-		txn = fetchIdSlot(docStore->map->db, it->txnId);
-
-	while (decrObjId(it, docStore->map))
-		if ((ver = findDocVer(docStore->map, it->docId, txn)))
-			break;
-
-	if (ver)
+	while (decrObjId(it, itHndl->map)) {
+	  if ((addr.bits = *(uint64_t *)fetchIdSlot(itHndl->map, it->docId))) {
+		doc = getObj(itHndl->map, addr);
 		it->state = IterPosAt;
-	else
-		it->state = IterLeftEof;
+		return doc;
+	  }
+	}
 
-	releaseHandle(docStore, hndl);
-	return ver;
+	it->state = IterLeftEof;
+	return NULL;
 }
 
 //
 //  set iterator to specific objectId
-//	return most recent mvcc version
+//	return document
 //
 
-Ver *iteratorSeek(DbHandle hndl[1], IteratorPos pos, ObjId docId) {
-Handle *docStore;
-Txn *txn = NULL;
-Ver *ver = NULL;
+void *iteratorSeek(Handle *itHndl, IteratorOp op, ObjId docId) {
+void *doc = NULL;
 Iterator *it;
+DbAddr addr;
 
-	if (!(docStore = bindHandle(hndl)))
-		return NULL;
+	it = (Iterator *)(itHndl + 1);
 
-	it = (Iterator *)(docStore + 1);
-
-	if (it->txnId.bits)
-		txn = fetchIdSlot(docStore->map->db, it->txnId);
-
-	switch (pos) {
-	  case PosBegin:
+	switch (op) {
+	  case IterBegin:
 		it->docId.bits = 0;
 		it->state = IterLeftEof;
 		break;
 
-	  case PosEnd:
-		it->docId.bits = docStore->map->arena->segs[docStore->map->arena->currSeg].nextId.bits;
+	  case IterEnd:
+		it->docId.bits = itHndl->map->arena->segs[itHndl->map->arena->currSeg].nextId.bits;
 		it->state = IterRightEof;
 		break;
 
-	  case PosAt:
+	  case IterSeek:
 		it->docId.bits = docId.bits;
-		it->state = IterNone;
 
-		if ((ver = findDocVer(docStore->map, it->docId, txn)))
+		if ((addr.bits = *(uint64_t *)fetchIdSlot(itHndl->map, it->docId))) {
+			doc = getObj(itHndl->map, addr);
 			it->state = IterPosAt;
-
+		} else
+			it->state = IterNone;
 		break;
 	}
 
-	releaseHandle(docStore, hndl);
-	return ver;
+	return doc;
 }
