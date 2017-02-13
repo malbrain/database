@@ -124,6 +124,9 @@ DbAddr addr;
 		} else
 			it->state = IterNone;
 		break;
+
+	  default:
+		break;
 	}
 
 	return doc;

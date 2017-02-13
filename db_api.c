@@ -346,7 +346,7 @@ DbCursor *cursor;
 	if (!(idxHndl = bindHandle(dbIdxHndl)))
 		return DB_ERROR_handleclosed;
 
-	hndl->hndlBits = makeHandle(idxHndl->map, xtra + cursorSize[*idxHndl->map->arena->type], Hndl_cursor);
+	hndl->hndlBits = makeHandle(idxHndl->map, xtra + cursorSize[*(uint8_t *)idxHndl->map->arena->type], Hndl_cursor);
 
 	if ((cursorHndl = bindHandle(hndl)))
 		cursor = (DbCursor *)(cursorHndl + 1);
@@ -354,7 +354,7 @@ DbCursor *cursor;
 		return DB_ERROR_handleclosed;
 
 	cursor->binaryFlds = idxHndl->map->arenaDef->params[IdxKeyFlds].boolVal;
-	cursor->xtra = xtra + cursorSize[*idxHndl->map->arena->type];
+	cursor->xtra = xtra + cursorSize[*(uint8_t *)idxHndl->map->arena->type];
 
 	switch (*idxHndl->map->arena->type) {
 	case Hndl_artIndex:
@@ -547,7 +547,6 @@ DbStatus storeDoc(DbHandle hndl[1], void *obj, uint32_t objSize, ObjId *docId) {
 DocArena *docArena;
 DbAddr *slot, addr;
 Handle *docHndl;
-DbStatus stat;
 void *doc;
 
 	if (!(docHndl = bindHandle(hndl)))

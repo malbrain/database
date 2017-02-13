@@ -346,7 +346,7 @@ int stat;
 		if ((stat = createIterator(iterator, docHndl, args->params)))
 		  fprintf(stderr, "createIterator Error %d\n", stat), exit(0);
 
-		while ((moveIterator(iterator, IterNext, &doc, &docId) == DB_OK)) {
+		while ((moveIterator(iterator, IterNext, (void **)&doc, &docId) == DB_OK)) {
             fwrite (doc + 1, doc->size, 1, stdout);
             fputc ('\n', stdout);
             cnt++;
@@ -420,7 +420,7 @@ int stat;
 			  fwrite (foundKey, foundLen, 1, stdout);
 			else {
 			  get64(foundKey, foundLen, &docId.bits, false);
-			  fetchDoc(docHndl, &doc, docId);
+			  fetchDoc(docHndl, (void **)&doc, docId);
 			  fwrite (doc + 1, doc->size, 1, stdout);
 			}
 
