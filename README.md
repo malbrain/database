@@ -3,11 +3,11 @@ malbrain/database
 
 A working project for High-concurrency B-tree/ARTree Database source code in C.  This project was created as a sub-module for the /www.github.com/malbrain/javascript-database project, but it can also be used by itself as a database/indexing library.
 
-Compile with ./build or build.bat
+The standalone.c test program exercises the basic functionality of the database, and can be used as a sample database application.  For a more complete example of how MVCC and transactions can be implemented on the database core functionality, please see the javascript-database project, partcularly the js_db*.c files.
 
-The runtime options are:
+Compile the database library and standalone test module with ./build or build.bat.
 
-    Usage: dbtest db_name -cmds=[crwsdf]... -idxType=[012] -bits=# -xtra=# -inMem -txns -noDocs -keyLen=# src_file1 src_file2 ... ]
+Usage: dbtest db_name -cmds=[crwsdf]... -idxType=[012] -bits=# -xtra=# -inMem -noIdx -noDocs -maxKey=# -minKey=# -keyLen=# src_file1 src_file2 ... ]
       where db_name is the prefix name of the database file
       cmds is a string of (c)ount/(r)ev scan/(w)rite/(s)can/(d)elete/(f)ind, with a one character command for each input src_file, or a no-input command.
       idxType is the type of index: 0 = ART, 1 = btree1, 2 = btree2
@@ -16,7 +16,6 @@ The runtime options are:
       xtra is the btree leaf page extra bits
       inMem specifies no disk files
       noDocs specifies keys only
-      txns indicates use of transactions
       src_file1 thru src_filen are files of keys/documents separated by newline
 
 Linux compilation command:
