@@ -63,9 +63,9 @@ uint64_t allocateTimestamp(DbMap *map, enum ReaderWriterEnum e);
 //  set membership
 
 typedef struct {
+	DbAddr next;
 	uint32_t cnt;
 	uint32_t max;
-	DbAddr next;
 	uint8_t sizeIdx;
 	uint8_t zeroItem;
 	uint64_t table[];

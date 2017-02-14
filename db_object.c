@@ -278,10 +278,26 @@ uint32_t mmbrSizes[] = { 15, 29, 61, 113, 251, 503, 1021 };
 
 //	determine & set membership
 
+uint64_t *findMmbr(DbMmbr *mmbr, uint64_t item) {
+uint32_t idx = item % mmbr->max;
+
+	while (mmbr->table[idx]) {
+	  if ((mmbr->table[idx] == item))
+		break;
+
+      if (++idx == mmbr->max)
+		idx = 1;
+	}
+
+	return mmbr->table + idx;
+}
+
 bool setMmbr(DbMap *map, DbAddr *addr, uint64_t item) {
 DbMmbr *mmbr, *first;
 bool test = false;
+uint64_t *slot;
 uint32_t idx;
+int redo = 0;
 
 	lockLatch(addr->latch);
 
@@ -307,37 +323,36 @@ uint32_t idx;
 
 	//	examine all of the set tables
 
+	slot = findMmbr(first, item);
 	mmbr = first;
 
-    do {
-	  idx = item % mmbr->max;
-
-	  while (mmbr->table[idx]) {
-		if ((test = mmbr->table[idx] == item))
+	if (!*slot)
+	  while ((mmbr = mmbr->next.bits ? getObj(map, mmbr->next) : NULL))
+		if ((test = *findMmbr(mmbr, item) > 0 ))
 		  goto mmbrxit;
-
-    	if (++idx == mmbr->max)
-          idx = 0;
-	  }
-
-	} while ((mmbr = mmbr->next.bits ? getObj(map, mmbr->next) : NULL));
 
 	//	table overflow?
 
-	if (3 * first->cnt / 2 > mmbrSizes[first->sizeIdx]) {
-	  if (first->sizeIdx < sizeof(mmbrSizes) / sizeof(uint32_t))
-		first->sizeIdx++;
+	mmbr = first;
+    *slot = item;
 
-	  if ((first->next.bits = allocBlk(map, mmbrSizes[first->sizeIdx] * sizeof(DbAddr) + sizeof(DbMmbr), true)))
-		first = getObj(map, first->next);
-	  else
+	if (3 * ++first->cnt / 2 > mmbrSizes[first->sizeIdx]) {
+	  if (first->sizeIdx < sizeof(mmbrSizes) / sizeof(uint32_t))
+		redo = ++first->sizeIdx;
+
+	  if (!(first->next.bits = allocBlk(map, mmbrSizes[first->sizeIdx] * sizeof(DbAddr) + sizeof(DbMmbr), true)))
 		return false;
 
-	  first->max = mmbrSizes[first->sizeIdx];
-	}
+	  mmbr = getObj(map, first->next);
+	  mmbr->max = mmbrSizes[first->sizeIdx];
+	  mmbr->zeroItem = first->zeroItem;
+	  mmbr->cnt = 0;
 
-    first->table[idx] = item;
-	first->cnt++;
+	  if (redo)
+		for (idx = 0; idx < first->max; idx++)
+		  if ((item = first->table[idx]))
+			*findMmbr(mmbr, item) = item, mmbr->cnt++;
+	}
 
 mmbrxit:
 	unlockLatch(addr->latch);
