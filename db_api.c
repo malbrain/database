@@ -242,12 +242,12 @@ Handle *idxHndl;
 	else
 		return DB_ERROR_handleclosed;
 
-	if (*parent->arena->type == Hndl_docStore)
-		dbInstallIndexes(parentHndl);
-
 	releaseHandle(idxHndl, hndl);
 
 createXit:
+	if (*parent->arena->type == Hndl_docStore)
+		dbInstallIndexes(parentHndl);
+
 	releaseHandle(parentHndl, docHndl);
 	return DB_OK;
 }
