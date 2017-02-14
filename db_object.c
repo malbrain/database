@@ -270,3 +270,76 @@ bool isWriter(uint64_t ts) {
 bool isCommitted(uint64_t ts) {
 	return (ts & 1);
 }
+
+//	de-duplication
+//	set mmbrship
+
+uint32_t mmbrSizes[] = { 15, 29, 61, 113, 251, 503, 1021 };
+
+//	determine & set membership
+
+bool setMmbr(DbMap *map, DbAddr *addr, uint64_t item) {
+DbMmbr *mmbr, *first;
+bool test = false;
+uint32_t idx;
+
+	lockLatch(addr->latch);
+
+	if (!addr->bits) {
+		if ((addr->bits = allocBlk(map, mmbrSizes[0] * sizeof(DbAddr) + sizeof(DbMmbr), true) | ADDR_MUTEX_SET))
+			first = getObj(map, *addr);
+		else
+			goto mmbrxit;
+
+		first->max = mmbrSizes[0];
+		first->sizeIdx = 0;
+	} else if (!(first = getObj(map, *addr)))
+		goto mmbrxit;
+
+	if (!item) {
+	  if (first->zeroItem)
+		test = true;
+	  else
+		first->zeroItem = true;
+
+	  goto mmbrxit;
+	}
+
+	//	examine all of the set tables
+
+	mmbr = first;
+
+    do {
+	  idx = item % mmbr->max;
+
+	  while (mmbr->table[idx]) {
+		if ((test = mmbr->table[idx] == item))
+		  goto mmbrxit;
+
+    	if (++idx == mmbr->max)
+          idx = 0;
+	  }
+
+	} while ((mmbr = mmbr->next.bits ? getObj(map, mmbr->next) : NULL));
+
+	//	table overflow?
+
+	if (3 * first->cnt / 2 > mmbrSizes[first->sizeIdx]) {
+	  if (first->sizeIdx < sizeof(mmbrSizes) / sizeof(uint32_t))
+		first->sizeIdx++;
+
+	  if ((first->next.bits = allocBlk(map, mmbrSizes[first->sizeIdx] * sizeof(DbAddr) + sizeof(DbMmbr), true)))
+		first = getObj(map, first->next);
+	  else
+		return false;
+
+	  first->max = mmbrSizes[first->sizeIdx];
+	}
+
+    first->table[idx] = item;
+	first->cnt++;
+
+mmbrxit:
+	unlockLatch(addr->latch);
+	return test;
+}

@@ -59,3 +59,16 @@ bool isWriter(uint64_t ts);
 bool isCommitted(uint64_t ts);
 
 uint64_t allocateTimestamp(DbMap *map, enum ReaderWriterEnum e);
+
+//  set membership
+
+typedef struct {
+	uint32_t cnt;
+	uint32_t max;
+	DbAddr next;
+	uint8_t sizeIdx;
+	uint8_t zeroItem;
+	uint64_t table[];
+} DbMmbr;
+
+bool setMmbr(DbMap *map, DbAddr *addr, uint64_t item);
