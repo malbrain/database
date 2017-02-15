@@ -277,81 +277,114 @@ bool isCommitted(uint64_t ts) {
 uint32_t mmbrSizes[] = { 15, 29, 61, 113, 251, 503, 1021 };
 
 //	determine & set membership
+//	return start of hash table entry
 
 uint64_t *findMmbr(DbMmbr *mmbr, uint64_t item) {
 uint32_t idx = item % mmbr->max;
+uint32_t incr = mmbr->entryCnt;
+uint64_t *limit = mmbr->table;
+uint64_t *entry;
 
-	while (mmbr->table[idx]) {
-	  if ((mmbr->table[idx] == item))
-		break;
-
-      if (++idx == mmbr->max)
+	if (!idx)
 		idx = 1;
+
+	limit += (mmbr->max - 1) * incr;
+	entry = mmbr->table + idx * incr;
+
+	while (*entry && *entry != item) {
+      if (entry == limit)
+		entry = mmbr->table + incr;
+	  else
+		entry += incr;
 	}
 
-	return mmbr->table + idx;
+	return entry;
 }
 
-bool setMmbr(DbMap *map, DbAddr *addr, uint64_t item) {
+uint64_t *setMmbr(DbMap *map, DbAddr *addr, uint64_t item, uint8_t entryCnt) {
+uint64_t *slot = NULL, *test;
 DbMmbr *mmbr, *first;
-bool test = false;
-uint64_t *slot;
 uint32_t idx;
 int redo = 0;
 
 	lockLatch(addr->latch);
 
 	if (!addr->bits) {
-		if ((addr->bits = allocBlk(map, mmbrSizes[0] * sizeof(DbAddr) + sizeof(DbMmbr), true) | ADDR_MUTEX_SET))
-			first = getObj(map, *addr);
-		else
-			goto mmbrxit;
-
-		first->max = mmbrSizes[0];
-		first->sizeIdx = 0;
-	} else if (!(first = getObj(map, *addr)))
+	  if ((addr->bits = allocBlk(map, mmbrSizes[0] * entryCnt * sizeof(uint64_t) + sizeof(DbMmbr), true) | ADDR_MUTEX_SET))
+		first = getObj(map, *addr);
+	  else
 		goto mmbrxit;
 
-	if (!item) {
-	  if (first->zeroItem)
-		test = true;
-	  else
-		first->zeroItem = true;
+	  first->entryCnt = entryCnt;
+	  first->max = mmbrSizes[0];
+	  first->sizeIdx = 0;
+	} else if (!(first = getObj(map, *addr)))
+	  goto mmbrxit;
 
+	if (!item) {
+	  first->zeroItem = true;
+	  slot = first->table;
 	  goto mmbrxit;
 	}
 
-	//	examine all of the set tables
+	//  look in the first table
 
 	slot = findMmbr(first, item);
 	mmbr = first;
 
+	//	otherwise, examine the remainingn set tables
+
 	if (!*slot)
 	  while ((mmbr = mmbr->next.bits ? getObj(map, mmbr->next) : NULL))
-		if ((test = *findMmbr(mmbr, item) > 0 ))
+		if (*(test = findMmbr(mmbr, item))) {
+		  slot = test;
 		  goto mmbrxit;
+		}
 
-	//	table overflow?
+	//	fill in item value
+	//	in the first table
 
 	mmbr = first;
     *slot = item;
+
+	//	first table overflow?
 
 	if (3 * ++first->cnt / 2 > mmbrSizes[first->sizeIdx]) {
 	  if (first->sizeIdx < sizeof(mmbrSizes) / sizeof(uint32_t))
 		redo = ++first->sizeIdx;
 
-	  if (!(first->next.bits = allocBlk(map, mmbrSizes[first->sizeIdx] * sizeof(DbAddr) + sizeof(DbMmbr), true)))
-		return false;
+	  if (!(first->next.bits = allocBlk(map, mmbrSizes[first->sizeIdx] * entryCnt * sizeof(uint64_t) + sizeof(DbMmbr), true))) {
+		slot = NULL;
+		goto mmbrxit;
+	  }
 
 	  mmbr = getObj(map, first->next);
 	  mmbr->max = mmbrSizes[first->sizeIdx];
 	  mmbr->zeroItem = first->zeroItem;
+	  mmbr->entryCnt = entryCnt;
 	  mmbr->cnt = 0;
 
-	  if (redo)
-		for (idx = 0; idx < first->max; idx++)
-		  if ((item = first->table[idx]))
-			*findMmbr(mmbr, item) = item, mmbr->cnt++;
+	  // copy over item zero, if it exists
+
+	  memcpy (mmbr->table, first->table, entryCnt * sizeof(uint64_t));
+
+	  // transfer items from old to bigger?
+
+	  if (!redo)
+		goto mmbrxit;
+
+	  // skip slot for zero item
+
+	  for (idx = 1; idx < first->max * entryCnt; idx += entryCnt)
+		if (first->table[idx]) {
+		  test = findMmbr(mmbr, item);
+
+		  if (first->table[idx] == item)
+			slot = test;
+
+		  memcpy(test, first->table + idx, entryCnt * sizeof(uint64_t));
+	  	  mmbr->cnt++;
+	    }
 	}
 
 mmbrxit:
