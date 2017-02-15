@@ -142,6 +142,7 @@ bool binaryFlds = map->arenaDef->params[IdxKeyFlds].boolVal;
 int slot, len;
 
   switch (dbCursor->state) {
+	case CursorLeftEof:
 	case CursorNone:
 	  artLeftKey(dbCursor, map);
 	  break;
@@ -350,6 +351,7 @@ CursorStack *stack;
 int slot, len;
 
   switch (dbCursor->state) {
+	case CursorRightEof:
 	case CursorNone:
 	  artRightKey(dbCursor, map);
 	  break;
