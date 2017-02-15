@@ -320,28 +320,104 @@ DbMmbr *mmbr;
 	return NULL;
 }
 
+//	initialize new mmbr set
+//	call w/addr latched
+
+DbMmbr *iniMmbr(DbMap *map, DbAddr *addr, int minSize) {
+DbMmbr *first;
+int idx;
+
+	for (idx = 0; idx < sizeof(mmbrSizes) / sizeof(uint32_t); idx++)
+	  if (minSize < mmbrSizes[idx])
+		break;
+
+	if ((addr->bits = allocBlk(map, mmbrSizes[idx] * sizeof(uint64_t) + sizeof(DbMmbr), true) | ADDR_MUTEX_SET))
+		first = getObj(map, *addr);
+	else {
+		fprintf(stderr, "iniMmbr: out of memory");
+		exit(0);
+	}
+
+	first->max = mmbrSizes[idx];
+	first->sizeIdx = idx;
+	return first;
+}
+
+//	expand DbMmbr to larger size
+
+DbMmbr *xtnMmbr(DbMap *map, DbAddr *addr, DbMmbr *first) {
+uint64_t next = addr->bits, item;
+DbMmbr *mmbr;
+int redo = 0;
+
+	if (first->sizeIdx < sizeof(mmbrSizes) / sizeof(uint32_t))
+	  redo = ++first->sizeIdx;
+
+	if (!(addr->bits = allocBlk(map, mmbrSizes[first->sizeIdx] * sizeof(uint64_t) + sizeof(DbMmbr), true))) {
+		fprintf(stderr, "xtnMmbr: out of memory");
+		exit(0);
+	}
+
+	//	make a new first mmbr
+
+	mmbr = getObj(map, *addr);
+	mmbr->max = mmbrSizes[first->sizeIdx];
+	mmbr->next.bits = next;
+
+	// transfer items from old to bigger?
+
+	if (redo)
+	  for (int idx = 0; idx < first->max; idx++)
+		if ((item = first->table[idx]))
+		  if (item != ~0LL)
+		  	*findMmbr(mmbr, item, true) = item, mmbr->cnt++;
+
+	return mmbr;
+}
+
+//	return first available empty slot
+//	and increment population count
+
+uint64_t *newMmbr(DbMap *map, DbAddr *addr, uint64_t hash) {
+DbMmbr *first = getObj(map, *addr);
+
+  while (true) {
+	uint32_t idx = hash % first->max;
+	uint64_t item;
+
+	while (item = first->table[idx]) {
+	  if (item == ~0LL)
+		break;
+      if (++idx == first->max)
+		idx = 0;
+	}
+
+	if (3 * first->cnt / 2 > mmbrSizes[first->sizeIdx]) {
+	  first = xtnMmbr(map, addr, first);
+	  continue;
+	}
+
+	first->cnt++;
+	return first->table + idx;
+  }
+}
+
 //	set mmbr hash table slot
 //	call w/addr locked
 //	~0LL > keyVal > 0
 
 uint64_t *setMmbr(DbMap *map, DbAddr *addr, uint64_t keyVal) {
+uint64_t *slot, item, *test;
 DbMmbr *mmbr, *first;
-uint64_t *slot, item;
 uint32_t idx;
 int redo = 0;
 
 	// initialize empty mmbr set
 
-	if (!addr->addr) {
-	  if ((addr->bits = allocBlk(map, mmbrSizes[0] * sizeof(uint64_t) + sizeof(DbMmbr), true) | ADDR_MUTEX_SET))
-		first = getObj(map, *addr);
-	  else
-		return NULL;
-
-	  first->max = mmbrSizes[0];
-	  first->sizeIdx = 0;
-	} else if (!(first = getObj(map, *addr)))
-	  return NULL;
+	if (addr->addr)
+	  first = getObj(map, *addr);
+	else
+	  first = iniMmbr(map, addr, 3);
 
 	//  look in the first table
 
@@ -352,34 +428,16 @@ int redo = 0;
 
 	if (*slot == 0 || *slot == ~0LL)
 	  while ((mmbr = mmbr->next.bits ? getObj(map, mmbr->next) : NULL))
-		if (*(slot = findMmbr(mmbr, keyVal, false)))
-		  return slot;
+		if (*(test = findMmbr(mmbr, keyVal, false)))
+		  return test;
 
-	mmbr = first;
+	//	table overflow?
 
-	//	first table overflow?
-
-	if (3 * ++first->cnt / 2 > mmbrSizes[first->sizeIdx]) {
-	  if (first->sizeIdx < sizeof(mmbrSizes) / sizeof(uint32_t))
-		redo = ++first->sizeIdx;
-
-	  if (!(first->next.bits = allocBlk(map, mmbrSizes[first->sizeIdx] * sizeof(uint64_t) + sizeof(DbMmbr), true)))
-		return NULL;
-
-	  mmbr = getObj(map, first->next);
-	  mmbr->max = mmbrSizes[first->sizeIdx];
-	  mmbr->cnt = 0;
-
-	  // transfer items from old to bigger?
-
-	  if (redo)
-	   for (idx = 0; idx < first->max; idx++)
-		if ((item = first->table[idx]))
-		  if (item != ~0LL)
-		  	*findMmbr(mmbr, item, true) = first->table[idx], mmbr->cnt++;
-
-	   return findMmbr(mmbr, keyVal, true);
+	if (3 * first->cnt / 2 > mmbrSizes[first->sizeIdx]) {
+	  first = xtnMmbr(map, addr, first);
+	  slot = findMmbr(first, keyVal, true);
 	}
 
+	first->cnt++;
 	return slot;
 }

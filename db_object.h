@@ -70,6 +70,10 @@ typedef struct {
 	uint64_t table[0];	// the hash table entries
 } DbMmbr;
 
+DbMmbr *xtnMmbr(DbMap *map, DbAddr *addr, DbMmbr *first);
+DbMmbr *iniMmbr(DbMap *map, DbAddr *addr, int minSize);
+
 uint64_t *getMmbr(DbMap *map, DbAddr *addr, uint64_t item);
 uint64_t *setMmbr(DbMap *map, DbAddr *addr, uint64_t keyVal);
+uint64_t *newMmbr(DbMap *map, DbAddr *addr, uint64_t keyVal);
 uint64_t *nxtMmbr(DbMmbr *mmbr, uint64_t *entry);
