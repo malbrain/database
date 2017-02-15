@@ -60,16 +60,16 @@ bool isCommitted(uint64_t ts);
 
 uint64_t allocateTimestamp(DbMap *map, enum ReaderWriterEnum e);
 
-//  set membership
+//  set membership control
 
 typedef struct {
 	DbAddr next;
 	uint32_t cnt;		// count of entries in this table
 	uint32_t max;		// number of hash table entries
 	uint8_t sizeIdx;	// hash table size vector slot
-	uint8_t zeroItem;	// the hash table has item value 0
-	uint8_t entryCnt;	// 8 byte size of hash table entries
 	uint64_t table[0];	// the hash table entries
 } DbMmbr;
 
-uint64_t *setMmbr(DbMap *map, DbAddr *addr, uint64_t item, uint8_t entryCnt);
+uint64_t *getMmbr(DbMap *map, DbAddr *addr, uint64_t item);
+uint64_t *setMmbr(DbMap *map, DbAddr *addr, uint64_t keyVal);
+uint64_t *nxtMmbr(DbMmbr *mmbr, uint64_t *entry);
