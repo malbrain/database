@@ -380,10 +380,14 @@ int redo = 0;
 
 uint64_t *newMmbr(DbMap *map, DbAddr *addr, uint64_t hash) {
 DbMmbr *first = getObj(map, *addr);
+uint64_t item;
+uint32_t idx;
 
-  while (true) {
-	uint32_t idx = hash % first->max;
-	uint64_t item;
+	if (3 * first->cnt / 2 > mmbrSizes[first->sizeIdx])
+	  first = xtnMmbr(map, addr, first);
+
+	idx = hash % first->max;
+	first->cnt++;
 
 	while (item = first->table[idx]) {
 	  if (item == ~0LL)
@@ -392,14 +396,7 @@ DbMmbr *first = getObj(map, *addr);
 		idx = 0;
 	}
 
-	if (3 * first->cnt / 2 > mmbrSizes[first->sizeIdx]) {
-	  first = xtnMmbr(map, addr, first);
-	  continue;
-	}
-
-	first->cnt++;
 	return first->table + idx;
-  }
 }
 
 //	set mmbr hash table slot
