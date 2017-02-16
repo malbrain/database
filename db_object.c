@@ -389,7 +389,7 @@ uint32_t idx;
 	idx = hash % first->max;
 	first->cnt++;
 
-	while (item = first->table[idx]) {
+	while ((item = first->table[idx])) {
 	  if (item == ~0LL)
 		break;
       if (++idx == first->max)
@@ -404,10 +404,8 @@ uint32_t idx;
 //	~0LL > keyVal > 0
 
 uint64_t *setMmbr(DbMap *map, DbAddr *addr, uint64_t keyVal) {
-uint64_t *slot, item, *test;
+uint64_t *slot, *test;
 DbMmbr *mmbr, *first;
-uint32_t idx;
-int redo = 0;
 
 	// initialize empty mmbr set
 
