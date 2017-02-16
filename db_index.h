@@ -23,6 +23,7 @@ typedef struct {
 	PosState state:8;	// cursor position state enum
 	uint8_t foundKey;	// cursor position found the key
 	uint8_t binaryFlds;	// index keys have fields
+	uint8_t deDup;		// cursor will deDuplicate result set
 } DbCursor;
 
 // database docStore handle extension to collection

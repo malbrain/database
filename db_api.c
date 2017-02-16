@@ -355,6 +355,7 @@ DbCursor *cursor;
 
 	cursor->binaryFlds = idxHndl->map->arenaDef->params[IdxKeyFlds].boolVal;
 	cursor->xtra = xtra + cursorSize[*(uint8_t *)idxHndl->map->arena->type];
+	cursor->deDup = params[CursorDeDup].boolVal;
 
 	switch (*idxHndl->map->arena->type) {
 	case Hndl_artIndex:
