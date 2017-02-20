@@ -59,9 +59,8 @@ ArenaDef arenaDef[1];
 }
 
 //	make handle from map pointer
-//	return hndlId.bits in hndlMap or zero
 
-uint64_t makeHandle(DbMap *map, uint32_t xtraSize, HandleType type) {
+Handle *makeHandle(DbMap *map, uint32_t xtraSize, HandleType type) {
 DbAddr *hndlAddr, *slot;
 Handle *handle;
 ObjId hndlId;
@@ -116,7 +115,7 @@ DbAddr addr;
 	//  install ObjId slot in local memory
 
 	slot->bits = addr.bits;
-	return hndlId.bits;
+	return handle;
 }
 
 //	disable handle resources

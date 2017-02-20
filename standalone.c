@@ -307,6 +307,8 @@ int stat;
 			  if ((stat = keyAtCursor (cursor, &foundKey, &foundLen)))
 				fprintf(stderr, "findKey %s Error %d Syserr %d Line: %" PRIu64 "\n", args->inFile, stat, errno, line), exit(0);
 
+			  foundLen -= get64(foundKey, foundLen, &docId.bits, binaryFlds);
+
 			  if (!binaryFlds) {
 			   if (foundLen != len)
 				fprintf(stderr, "findKey %s Error len mismatch: Line: %" PRIu64 " keyLen: %d, foundLen: %d\n", args->inFile, line, len, foundLen), exit(0);

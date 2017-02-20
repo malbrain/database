@@ -34,7 +34,7 @@ union Handle_ {
 void disableHndls(DbMap *db, DbAddr *hndlCalls);
 uint64_t scanHandleTs(DbMap *map);
 
-uint64_t makeHandle(DbMap *map, uint32_t xtraSize, HandleType type);
+Handle *makeHandle(DbMap *map, uint32_t xtraSize, HandleType type);
 void releaseHandle(Handle *hndl, DbHandle *dbHndl);
 Handle *bindHandle(DbHandle *dbHndl);
 DbAddr *slotHandle(ObjId hndlId);

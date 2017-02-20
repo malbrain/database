@@ -120,7 +120,7 @@ DbMap *map;
 		return DB_ERROR_createdatabase;
 
 	arrayActivate(hndlMap, catalog->openMap, arenaDef->mapIdx);
-	hndl->hndlBits = makeHandle(map, 0, Hndl_database);
+	hndl->hndlBits = makeHandle(map, 0, Hndl_database)->hndlId.bits;
 	return DB_OK;
 }
 
@@ -170,7 +170,7 @@ Handle *ds;
 
 	map->arena->type[0] = Hndl_docStore;
 
-	hndl->hndlBits = makeHandle(map, params[HndlXtra].intVal, Hndl_docStore);
+	hndl->hndlBits = makeHandle(map, params[HndlXtra].intVal, Hndl_docStore)->hndlId.bits;
 	return DB_OK;
 }
 
@@ -214,13 +214,13 @@ Handle *idxHndl;
 	if (!(map = arenaRbMap(parent, rbEntry)))
 	  return DB_ERROR_createindex;
 
-	hndl->hndlBits = makeHandle(map, 0, type);
+	idxHndl = makeHandle(map, 0, type);
+	hndl->hndlBits = idxHndl->hndlId.bits;
 
 	if (*map->arena->type)
 		goto createXit;
 
-	if ((idxHndl = bindHandle(hndl)))
-	  switch (type) {
+	switch (type) {
 	  case Hndl_artIndex:
 		artInit(idxHndl, params);
 		break;
@@ -231,14 +231,11 @@ Handle *idxHndl;
 
 	  default:
 		break;
-	  }
-	else
-		return DB_ERROR_handleclosed;
-
-	releaseHandle(idxHndl, hndl);
+	}
 
 createXit:
 	releaseHandle(parentHndl, docHndl);
+	releaseHandle(idxHndl, NULL);
 	return DB_OK;
 }
 
@@ -256,15 +253,8 @@ Iterator *it;
 	if (!(parentHndl = bindHandle(docHndl)))
 		return DB_ERROR_handleclosed;
 
-	hndl->hndlBits = makeHandle(parentHndl->map, sizeof(Iterator) + xtra, Hndl_iterator);
-
-	if ((iterator = bindHandle(hndl)))
-		it = (Iterator *)(iterator + 1);
-	else {
-		releaseHandle(parentHndl, docHndl);
-		return DB_ERROR_handleclosed;
-	}
-
+	iterator = makeHandle(parentHndl->map, sizeof(Iterator) + xtra, Hndl_iterator);
+	it = (Iterator *)(iterator + 1);
 	it->xtra = xtra;
 
 	if (params[IteratorEnd].boolVal) {
@@ -274,6 +264,10 @@ Iterator *it;
 		it->docId.bits = 0;
 		it->state = IterLeftEof;
 	}
+
+	//	return handle for iterator
+
+	hndl->hndlBits = iterator->hndlId.bits;
 
 	releaseHandle(parentHndl, docHndl);
 	releaseHandle(iterator, hndl);
@@ -336,13 +330,9 @@ DbCursor *cursor;
 	if (!(idxHndl = bindHandle(dbIdxHndl)))
 		return DB_ERROR_handleclosed;
 
-	hndl->hndlBits = makeHandle(idxHndl->map, xtra + cursorSize[*(uint8_t *)idxHndl->map->arena->type], Hndl_cursor);
+	cursorHndl = makeHandle(idxHndl->map, xtra + cursorSize[*(uint8_t *)idxHndl->map->arena->type], Hndl_cursor);
 
-	if ((cursorHndl = bindHandle(hndl)))
-		cursor = (DbCursor *)(cursorHndl + 1);
-	else
-		return DB_ERROR_handleclosed;
-
+	cursor = (DbCursor *)(cursorHndl + 1);
 	cursor->binaryFlds = idxHndl->map->arenaDef->params[IdxKeyFlds].boolVal;
 	cursor->xtra = xtra + cursorSize[*(uint8_t *)idxHndl->map->arena->type];
 	cursor->deDup = params[CursorDeDup].boolVal;
@@ -357,6 +347,7 @@ DbCursor *cursor;
 		break;
 	}
 
+	hndl->hndlBits = cursorHndl->hndlId.bits;
 	releaseHandle(idxHndl, dbIdxHndl);
 	releaseHandle(cursorHndl, hndl);
 	return stat;
@@ -494,7 +485,7 @@ Handle *hndl;
 	if (!(hndl = bindHandle(oldHndl)))
 		return DB_ERROR_handleclosed;
 
-	newHndl->hndlBits = makeHandle(hndl->map, hndl->xtraSize, hndl->hndlType);
+	newHndl->hndlBits = makeHandle(hndl->map, hndl->xtraSize, hndl->hndlType)->hndlId.bits;
 	releaseHandle(hndl, oldHndl);
 	return DB_OK;
 }
