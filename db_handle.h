@@ -16,12 +16,13 @@ union Handle_ {
 	DbMap *map;				// pointer to map, zeroed on close
 	DbAddr addr;			// location of this handle in hndlMaps
 	DbAddr *frames;			// frames ready and waiting to be recycled
+	ObjId hndlId;			// Handle Id
 	uint64_t entryTs;		// time stamp of first api call
 	int32_t bindCnt[1];		// count of open api calls (handle binds)
 	int32_t lockedDocs[1];	// count of open api calls (handle binds)
 	uint32_t xtraSize;		// size of following structure
 	int8_t maxType[1];		// number of arena list entries
-	int8_t status[1];			// current status of the handle
+	int8_t status[1];		// current status of the handle
 	uint8_t hndlType;		// type of handle
 	uint8_t relaxTs;
 	uint16_t listIdx;		// arena free frames entry index
@@ -40,4 +41,3 @@ DbAddr *slotHandle(ObjId hndlId);
 
 void destroyHandle(Handle *hndl, DbAddr *slot);
 void initHndlMap(char *path, int pathLen, char *name, int nameLen, bool onDisk);
-

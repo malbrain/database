@@ -68,9 +68,7 @@ typedef union {
 typedef union {
 	struct {
 		uint32_t index;		// record ID in the segment
-		uint16_t seg:12;	// arena segment number
-		uint16_t cmd:4;		// for use in txn
-		uint16_t store;		// document store idx from catalog
+		uint16_t seg;		// arena segment number
 	};
 	uint64_t addr:42;		// address part of struct above
 	uint64_t bits;

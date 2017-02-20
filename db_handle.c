@@ -17,7 +17,7 @@ char *hndlPath;
 //	allocate handle slot in memMap file
 
 uint64_t newHndlSlot (void)  {
-	return allocObjId(memMap, memMap->arena->freeBlk + ObjIdType, NULL, 0);
+	return allocObjId(memMap, memMap->arena->freeBlk + ObjIdType, NULL);
 }
 
 DbAddr *slotHandle(ObjId hndlId) {
@@ -79,7 +79,7 @@ DbAddr addr;
 
 	//	get a new or recycled ObjId
 
-	if (!(hndlId.bits = allocObjId(memMap, memMap->arena->freeBlk + ObjIdType, NULL, 0)))
+	if (!(hndlId.bits = allocObjId(memMap, memMap->arena->freeBlk + ObjIdType, NULL)))
 		return 0;
 
 	slot = fetchIdSlot (memMap, hndlId);
@@ -90,6 +90,7 @@ DbAddr addr;
 	//  initialize the new Handle
 
 	handle->addr.bits = addr.bits;
+	handle->hndlId.bits = hndlId.bits;
 	handle->xtraSize = xtraSize;	// size of following structure
 	handle->hndlType = type;
 	handle->map = map;
@@ -134,6 +135,9 @@ void disableHndl(Handle *handle) {
 
 void destroyHandle(Handle *handle, DbAddr *slot) {
 DbAddr addr;
+
+	if (!slot)
+		slot = fetchIdSlot (memMap, handle->hndlId);
 
 	lockLatch(slot->latch);
 
@@ -225,24 +229,15 @@ uint32_t cnt;
 //	release handle binding
 
 void releaseHandle(Handle *handle, DbHandle dbHndl[1]) {
-ObjId hndlId;
-DbAddr *slot;
 
-	if ((*handle->status & KILL_BIT)) {
-	  if ((hndlId.bits = dbHndl->hndlBits))
-		slot = fetchIdSlot (memMap, hndlId);
-	  else
-		return;
+	if (!atomicAdd32(handle->bindCnt, -1)) {
+	  if ((*handle->status & KILL_BIT)) {
+		destroyHandle (handle, NULL);
 
-	  if (!atomicAdd32(handle->bindCnt, -1))
-		destroyHandle (handle, slot);
-
-	  dbHndl->hndlBits = 0;
-	  return;
+	    if (dbHndl)
+		  dbHndl->hndlBits = 0;
+	  }
 	}
-
-	atomicAdd32(handle->bindCnt, -1);
-	return;
 }
 
 //	disable all arena handles

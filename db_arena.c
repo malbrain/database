@@ -508,7 +508,7 @@ void *fetchIdSlot (DbMap *map, ObjId objId) {
 // allocate next available object id
 //
 
-uint64_t allocObjId(DbMap *map, DbAddr *free, DbAddr *wait, uint16_t idx) {
+uint64_t allocObjId(DbMap *map, DbAddr *free, DbAddr *wait) {
 ObjId objId;
 
 	if (free)
@@ -530,7 +530,6 @@ ObjId objId;
 			}
 	}
 
-	objId.store = idx;
 	unlockLatch(free->latch);
 	return objId.bits;
 }

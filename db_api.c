@@ -521,7 +521,6 @@ DbAddr *slot;
 	slot = fetchIdSlot(docHndl->map, docId);
 	*doc = getObj(docHndl->map, *slot);
 
-	atomicAdd32 (docHndl->lockedDocs, 1);
 	releaseHandle(docHndl, hndl);
 	return DB_OK;
 }
@@ -562,7 +561,7 @@ void *doc;
 
 	docArena = docarena(docHndl->map);
 
-	docId->bits = allocObjId(docHndl->map, listFree(docHndl,0), listWait(docHndl,0), docArena->storeId);
+	docId->bits = allocObjId(docHndl->map, listFree(docHndl,0), listWait(docHndl,0));
 
 	slot = fetchIdSlot(docHndl->map, *docId);
 	slot->bits = addr.bits;
