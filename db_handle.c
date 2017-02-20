@@ -172,6 +172,40 @@ DbAddr addr;
 	freeBlk (hndlMap, addr);
 }
 
+//	enter a handle
+
+bool enterHandle(Handle *handle, DbAddr *slot) {
+	int cnt = atomicAdd32(handle->bindCnt, 1);
+
+	//  are we the first call after an idle period?
+	//	set the entryTs if so.
+
+	if (cnt == 1)
+		handle->entryTs = atomicAdd64(&handle->map->arena->nxtTs, 1);
+
+	//	exit if the handle is being closed
+
+	if ((*handle->status & KILL_BIT)) {
+		if (!atomicAdd32(handle->bindCnt, -1))
+			destroyHandle (handle, slot);
+
+		return false;
+	}
+
+	//	is there a DROP request for this arena?
+
+	if (handle->map->arena->mutex[0] & KILL_BIT) {
+		atomicOr8((volatile char *)handle->status, KILL_BIT);
+
+		if (!atomicAdd32(handle->bindCnt, -1))
+			destroyHandle (handle, slot);
+
+		return false;
+	}
+
+	return true;
+}
+
 //	bind handle for use in API call
 //	return NULL if handle closed
 
@@ -179,7 +213,6 @@ Handle *bindHandle(DbHandle *dbHndl) {
 Handle *handle;
 DbAddr *slot;
 ObjId hndlId;
-uint32_t cnt;
 
 	if ((hndlId.bits = dbHndl->hndlBits))
 		slot = fetchIdSlot (memMap, hndlId);
@@ -191,38 +224,12 @@ uint32_t cnt;
 	//	first handle bind
 
 	handle = getObj(hndlMap, *slot);
-	cnt = atomicAdd32(handle->bindCnt, 1);
 
-	//	exit if it is being closed
-
-	if ((*handle->status & KILL_BIT)) {
-		dbHndl->hndlBits = 0;
-
-		if (!atomicAdd32(handle->bindCnt, -1))
-			destroyHandle (handle, slot);
-
-		return NULL;
-	}
-
-	//	is there a DROP request for this arena?
-
-	if (handle->map->arena->mutex[0] & KILL_BIT) {
-		atomicOr8((volatile char *)handle->status, KILL_BIT);
-		dbHndl->hndlBits = 0;
-
-		if (!atomicAdd32(handle->bindCnt, -1))
-			destroyHandle (handle, slot);
-
-		return NULL;
-	}
-
-	//  are we the first call after an idle period?
-	//	set the entryTs if so.
-
-	if (cnt == 1)
-		handle->entryTs = atomicAdd64(&handle->map->arena->nxtTs, 1);
-
-	return handle;
+	if (enterHandle(handle, slot))
+		return handle;
+		
+	dbHndl->hndlBits = 0;
+	return NULL;
 }
 
 //	release handle binding

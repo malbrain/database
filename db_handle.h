@@ -36,6 +36,7 @@ uint64_t scanHandleTs(DbMap *map);
 
 Handle *makeHandle(DbMap *map, uint32_t xtraSize, HandleType type);
 void releaseHandle(Handle *hndl, DbHandle *dbHndl);
+bool enterHandle(Handle *handle, DbAddr *slot);
 Handle *bindHandle(DbHandle *dbHndl);
 DbAddr *slotHandle(ObjId hndlId);
 
