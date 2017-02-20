@@ -88,6 +88,7 @@ typedef enum {
 	InitSize,		// initial arena size
 	HndlXtra,		// extra bytes in handle struct
 	ObjIdSize,		// size of arena ObjId array element
+	MapXtra,		// local process extra map storage
 
 	IdxKeyUnique = 10,
 	IdxKeyAddr,			// index key definition address

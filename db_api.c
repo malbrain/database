@@ -127,7 +127,6 @@ DbMap *map;
 DbStatus openDocStore(DbHandle hndl[1], DbHandle dbHndl[1], char *name, uint32_t nameLen, Params *params) {
 DbMap *map, *parent = NULL;
 Handle *database = NULL;
-DocStore *docStore;
 DocArena *docArena;
 ArenaDef *arenaDef;
 RedBlack *rbEntry;
@@ -147,6 +146,7 @@ Handle *ds;
 	rbEntry = procParam(parent, name, nameLen, params);
 
 	arenaDef = (ArenaDef *)(rbEntry + 1);
+	arenaDef->localSize = params[MapXtra].intVal;
 	arenaDef->baseSize = sizeof(DocArena);
 	arenaDef->arenaType = Hndl_docStore;
 	arenaDef->objSize = sizeof(ObjId);
@@ -169,16 +169,9 @@ Handle *ds;
 	releaseHandle(database, dbHndl);
 
 	map->arena->type[0] = Hndl_docStore;
-	hndl->hndlBits = makeHandle(map, sizeof(DocStore), Hndl_docStore);
 
-	if ((ds = bindHandle(hndl))) {
-		docStore = (DocStore *)(ds + 1);
-		initLock(docStore->indexes->lock);
-		releaseHandle(ds, hndl);
-		return DB_OK;
-	}
-
-	return DB_ERROR_handleclosed;
+	hndl->hndlBits = makeHandle(map, params[HndlXtra].intVal, Hndl_docStore);
+	return DB_OK;
 }
 
 DbStatus createIndex(DbHandle hndl[1], DbHandle docHndl[1], char *name, uint32_t nameLen, Params *params) {
@@ -245,9 +238,6 @@ Handle *idxHndl;
 	releaseHandle(idxHndl, hndl);
 
 createXit:
-	if (*parent->arena->type == Hndl_docStore)
-		dbInstallIndexes(parentHndl);
-
 	releaseHandle(parentHndl, docHndl);
 	return DB_OK;
 }

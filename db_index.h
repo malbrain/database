@@ -16,6 +16,8 @@ typedef enum {
 	CursorPosAt			// cursor is at a key
 } PosState;
 
+//	DbCursor handle extension
+
 typedef struct {
 	void *key;			// cursor key bytes
 	uint32_t xtra;		// size of user data
@@ -25,15 +27,6 @@ typedef struct {
 	uint8_t binaryFlds;	// index keys have fields
 	uint8_t deDup;		// cursor will deDuplicate result set
 } DbCursor;
-
-// database docStore handle extension to collection
-
-typedef struct {
-	SkipHead indexes[1];	// index DbHandles by docStore childId
-	SkipHead txnVers[1];	// pending doc versions by ObjId
-	uint64_t childId;		// highest child idx installed
-	uint32_t idxCnt;		// number of indexes
-} DocStore;
 
 #define dbindex(map) ((DbIndex *)(map->arena + 1))
 
