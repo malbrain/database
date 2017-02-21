@@ -98,7 +98,7 @@ uint64_t next;
 	if (!skip->addr || skip->nslot == skipSize(skip)) {
 	  next = skip->bits;
 
-	  skip->bits = allocBlk(map, SKIP_node * sizeof(SkipEntry) + sizeof(SkipNode), true);
+	  skip->bits = allocBlk(map, SKIP_node * sizeof(SkipEntry) + sizeof(SkipNode), true) | ADDR_MUTEX_SET;
 	  skipNode = getObj(map, *skip);
 	  skipNode->next->bits = next;
 	}
@@ -173,7 +173,7 @@ int min, max;
 
   // initialize empty list
 
-  skip->bits = allocBlk(map, SKIP_node * sizeof(SkipEntry) + sizeof(SkipNode), true);
+  skip->bits = allocBlk(map, SKIP_node * sizeof(SkipEntry) + sizeof(SkipNode), true) | ADDR_MUTEX_SET;
   skipNode = getObj(map, *skip);
 
   *skipNode->array->key = key;

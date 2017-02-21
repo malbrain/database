@@ -20,11 +20,10 @@
 //	Arrays
 
 typedef struct {
+	uint32_t nxtIdx;			// next new index to allocate
 	uint32_t objSize;
-	uint16_t nxtIdx;			// next new index to allocate
-	uint16_t maxIdx;			// maximum index range
 	DbAddr availIdx[1];			// frames of available indexes
-	DbAddr addr[ARRAY_lvl1];	// level zero block addresses
+	DbAddr addr[ARRAY_lvl1];	// level one block addresses
 } ArrayHdr;
 
 void *arrayElement(DbMap *map, DbAddr *array, uint16_t idx, size_t size);

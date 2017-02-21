@@ -105,7 +105,6 @@ uint16_t idx;
 		array->bits = allocBlk(map, sizeof(ArrayHdr), true) | ADDR_MUTEX_SET;
 
 	hdr = getObj(map, *array);
-	hdr->maxIdx = ARRAY_size * ARRAY_lvl1;
 	hdr->objSize = size;
 
 	//  see if we have a released index to return
@@ -115,18 +114,25 @@ uint16_t idx;
 		return idx;
 	}
 
-	if (hdr->nxtIdx < hdr->maxIdx) {
+	if (hdr->nxtIdx < ARRAY_size * ARRAY_lvl1) {
 	  if (!(hdr->nxtIdx % ARRAY_size)) {
-		hdr->addr[hdr->nxtIdx / ARRAY_size].bits = allocBlk(map, size * ARRAY_size, true);
-		if (!(hdr->nxtIdx += ARRAY_first(size)))
-			hdr->nxtIdx = 1;
+		size *= ARRAY_size;
+
+		//  must at least have room for bit map
+
+		if (size < ARRAY_size / 8)
+			size = ARRAY_size / 8;
+
+		hdr->addr[hdr->nxtIdx / ARRAY_size].bits = allocBlk(map, size, true);
+		hdr->nxtIdx += ARRAY_first(size);	// skip bit map slots
 	  }
 
+	  idx = hdr->nxtIdx++;
 	  unlockLatch(array->latch);
-	  return hdr->nxtIdx++;
+	  return idx;
 	}
 
-	fprintf(stderr, "Array Overflow max = %d, file: %s\n", hdr->maxIdx, map->arenaPath);
+	fprintf(stderr, "Array Overflow file: %s\n", map->arenaPath);
 	exit(0);
 }
 

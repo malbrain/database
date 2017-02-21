@@ -354,6 +354,9 @@ DbAddr slot;
 	size += 7;
 	size &= -8;
 
+	if (!size)
+		size = 8;
+
 	if (type < 0) {
 #ifdef _WIN32
 		_BitScanReverse((unsigned long *)&bits, size - 1);
