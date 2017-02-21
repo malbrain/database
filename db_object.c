@@ -124,7 +124,7 @@ uint16_t idx;
 			size = ARRAY_size / 8;
 
 		hdr->addr[hdr->nxtIdx / ARRAY_size].bits = allocBlk(map, size, true);
-		hdr->nxtIdx += ARRAY_first(size);	// skip bit map slots
+		hdr->nxtIdx += ARRAY_first(hdr->objSize);	// skip bit map slots
 	  }
 
 	  idx = hdr->nxtIdx++;

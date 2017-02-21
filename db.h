@@ -53,7 +53,10 @@ typedef union {
 			int8_t rbcmp;		// red/black comparison
 		};
 	};
-	uint64_t addr:48;			// segment/offset
+	struct {
+		uint64_t addr:48;		// segment/offset
+		uint64_t xtra:16;		// xtra 16 bit quantity
+	};
 	uint64_t bits;
 } DbAddr;
 
@@ -70,7 +73,10 @@ typedef union {
 		uint32_t index;		// record ID in the segment
 		uint16_t seg;		// arena segment number
 	};
-	uint64_t addr:42;		// address part of struct above
+	struct {
+		uint64_t addr:48;	// address part of struct above
+		uint64_t xtra:16;	// extra 16 bit quantity
+	};
 	uint64_t bits;
 } ObjId;
 

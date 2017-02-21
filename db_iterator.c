@@ -105,6 +105,12 @@ DbAddr addr;
 	it = (Iterator *)(itHndl + 1);
 
 	switch (op) {
+	  case IterNext:
+		return iteratorNext(itHndl);
+
+	  case IterPrev:
+		return iteratorPrev(itHndl);
+
 	  case IterBegin:
 		it->docId.bits = 0;
 		it->state = IterLeftEof;
