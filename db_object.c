@@ -127,7 +127,9 @@ uint16_t idx;
 		hdr->nxtIdx += ARRAY_first(hdr->objSize);	// skip bit map slots
 	  }
 
-	  idx = hdr->nxtIdx++;
+	  if (!(idx = hdr->nxtIdx++))
+		idx = hdr->nxtIdx++;
+
 	  unlockLatch(array->latch);
 	  return idx;
 	}
