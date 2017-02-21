@@ -118,7 +118,8 @@ uint16_t idx;
 	if (hdr->nxtIdx < hdr->maxIdx) {
 	  if (!(hdr->nxtIdx % ARRAY_size)) {
 		hdr->addr[hdr->nxtIdx / ARRAY_size].bits = allocBlk(map, size * ARRAY_size, true);
-		hdr->nxtIdx += ARRAY_first(size);
+		if (!(hdr->nxtIdx += ARRAY_first(size)))
+			hdr->nxtIdx = 1;
 	  }
 
 	  unlockLatch(array->latch);

@@ -159,11 +159,10 @@ Catalog *catalog;
 	if (!*map->arena->type) {
 		map->arenaDef->storeId = arrayAlloc(hndlMap, catalog->storeId, 0);
 		arrayActivate(hndlMap, catalog->storeId, map->arenaDef->storeId);
+		map->arena->type[0] = Hndl_docStore;
 	}
 	
 	releaseHandle(database, dbHndl);
-
-	map->arena->type[0] = Hndl_docStore;
 
 	hndl->hndlBits = makeHandle(map, params[HndlXtra].intVal, Hndl_docStore)->hndlId.bits;
 	return DB_OK;
