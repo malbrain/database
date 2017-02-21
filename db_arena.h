@@ -75,6 +75,7 @@ typedef struct {
 	uint32_t baseSize;			// extra space after DbArena
 	uint32_t objSize;			// size of ObjectId array slot
 	uint32_t mapIdx;			// index in openMap array
+	uint16_t storeId;			// global docStore ID
 	uint8_t arenaType;			// type of the arena
 	uint8_t numTypes;			// number of node types
 	char dead[1];				// arena being deleted
@@ -124,7 +125,7 @@ typedef struct {
 typedef union {
   struct {
 	DbAddr openMap[1];		// process openMap array index assignments
-	DbAddr storeId[1];		// array of document store ids
+	DbAddr storeId[1];		// global array of document store ids
 	DbAddr dbList[1];		// red/black tree of database names & versions
   };
   char filler[256];

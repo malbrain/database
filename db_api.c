@@ -127,11 +127,9 @@ DbMap *map;
 DbStatus openDocStore(DbHandle hndl[1], DbHandle dbHndl[1], char *name, uint32_t nameLen, Params *params) {
 DbMap *map, *parent = NULL;
 Handle *database = NULL;
-DocArena *docArena;
 ArenaDef *arenaDef;
 RedBlack *rbEntry;
 Catalog *catalog;
-Handle *ds;
 
 	memset (hndl, 0, sizeof(DbHandle));
 
@@ -154,16 +152,14 @@ Handle *ds;
 
 	//  open/create the docStore arena
 
-	if ((map = arenaRbMap(parent, rbEntry)))
-		docArena = docarena(map);
-	else
+	if (!(map = arenaRbMap(parent, rbEntry)))
 		return DB_ERROR_arenadropped;
 
-	//	allocate a catalog storeId for use in TXN steps and Doc references
+	//	allocate a global storeId for use in TXN steps and Doc references
 
 	if (!*map->arena->type) {
-		docArena->storeId = arrayAlloc(hndlMap, catalog->storeId, 0);
-		arrayActivate(hndlMap, catalog->storeId, docArena->storeId);
+		map->arenaDef->storeId = arrayAlloc(hndlMap, catalog->storeId, 0);
+		arrayActivate(hndlMap, catalog->storeId, map->arenaDef->storeId);
 	}
 	
 	releaseHandle(database, dbHndl);
@@ -525,7 +521,6 @@ DbAddr *slot;
 //	Entry point to store a new document
 
 DbStatus storeDoc(DbHandle hndl[1], void *obj, uint32_t objSize, ObjId *docId) {
-DocArena *docArena;
 DbAddr *slot, addr;
 Handle *docHndl;
 void *doc;
@@ -539,8 +534,6 @@ void *doc;
 		return DB_ERROR_outofmemory;
 
 	memcpy(doc, obj, objSize);
-
-	docArena = docarena(docHndl->map);
 
 	docId->bits = allocObjId(docHndl->map, listFree(docHndl,0), listWait(docHndl,0));
 
