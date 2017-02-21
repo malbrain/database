@@ -145,7 +145,6 @@ Catalog *catalog;
 
 	arenaDef = (ArenaDef *)(rbEntry + 1);
 	arenaDef->localSize = params[MapXtra].intVal;
-	arenaDef->baseSize = sizeof(DocArena);
 	arenaDef->arenaType = Hndl_docStore;
 	arenaDef->objSize = sizeof(ObjId);
 	arenaDef->numTypes = MAX_blk + 1;

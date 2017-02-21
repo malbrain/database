@@ -131,18 +131,6 @@ typedef union {
   char filler[256];
 } Catalog;
 
-//	docarena variables
-
-typedef union {
-  struct {
-	uint16_t storeId;		// our map index for txn
-	uint8_t init;			// set on init
-  };
-  char filler[256];
-} DocArena;
-
-#define docarena(map) ((DocArena *)(map->arena + 1))
-
 /**
  * open/create arenas
  */
