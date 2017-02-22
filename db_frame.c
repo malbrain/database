@@ -229,7 +229,7 @@ uint64_t getNodeFromFrame(DbMap *map, DbAddr* free) {
 		//  are there available free objects?
 
 		if (free->nslot)
-			return frame->slots[--free->nslot] & ADDR_BITS;
+			return frame->slots[--free->nslot];
 	
 		//  leave empty frame in place to collect
 		//  new nodes

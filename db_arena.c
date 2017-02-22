@@ -384,7 +384,7 @@ DbAddr slot;
 
 	lockLatch(free->latch);
 
-	while (!(slot.bits = getNodeFromFrame(map, free))) {
+	while (!(slot.bits = getNodeFromFrame(map, free) & ADDR_BITS)) {
 	  if (!getNodeWait(map, free, wait))
 		if (!initObjFrame(map, free, type, size)) {
 			unlockLatch(free->latch);
@@ -525,7 +525,7 @@ ObjId objId;
 	// see if there is a free object in the free queue
 	// otherwise create a new frame of new objects
 
-	while (!(objId.bits = getNodeFromFrame(map, free))) {
+	while (!(objId.bits = getNodeFromFrame(map, free) & ADDR_BITS)) {
 		if (!getNodeWait(map, free, wait))
 			if (!initObjIdFrame(map, free)) {
 				unlockLatch(free->latch);
