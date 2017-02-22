@@ -3,10 +3,10 @@
 #define FrameSlots 128
 
 typedef struct {
-	DbAddr next;			// next frame in queue
-	DbAddr prev;			// prev frame in queue
-	uint64_t timestamp;		// latest timestamp
-	DbAddr slots[FrameSlots];// array of waiting/free slots
+	DbAddr next;				// next frame in queue
+	DbAddr prev;				// prev frame in queue
+	uint64_t timestamp;			// latest timestamp
+	uint64_t slots[FrameSlots];	// array of waiting/free slots
 } Frame;
 
 void returnFreeFrame(DbMap *map, DbAddr slot);

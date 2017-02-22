@@ -65,8 +65,9 @@ typedef union {
 #define KILL_BIT   0x40
 #define TYPE_BITS  0x3f
 
-#define ADDR_MUTEX_SET 0x80000000000000ULL
-#define ADDR_KILL_SET  0x40000000000000ULL
+#define ADDR_MUTEX_SET	0x0080000000000000ULL
+#define ADDR_KILL_SET	0x0040000000000000ULL
+#define ADDR_BITS		0x0000ffffffffffffULL;
 
 typedef union {
 	struct {

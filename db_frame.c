@@ -49,7 +49,7 @@ DbAddr slot;
 	slot.type = type;
 
 	for (idx = dup; idx--; ) {
-		frame->slots[idx].bits = slot.bits;
+		frame->slots[idx] = slot.bits;
 		slot.offset += size >> 3;
 	}
 
@@ -82,7 +82,7 @@ Frame *frame;
 		slot.bits = addr;
 		slot.type = FrameType;
 		slot.nslot = FrameSlots;
-		frame->slots[dup].bits = slot.bits;
+		frame->slots[dup] = slot.bits;
 	}
 
 	map->arena->freeFrame->bits = head.bits;
@@ -124,7 +124,7 @@ Frame *frame;
 	if (map->arena->freeFrame->addr)
 	  if (map->arena->freeFrame->nslot < FrameSlots) {
 		frame = getObj(map, *map->arena->freeFrame);
-		frame->slots[map->arena->freeFrame->nslot++].bits = free.bits;
+		frame->slots[map->arena->freeFrame->nslot++] = free.bits;
 		unlockLatch(map->arena->freeFrame->latch);
 		return;
 	  }
@@ -155,7 +155,7 @@ Frame *frame;
 
 	if (free->addr && free->nslot < FrameSlots) {
 		frame = getObj(map, *free);
-		frame->slots[free->nslot++].bits = addr;
+		frame->slots[free->nslot++] = addr;
 
 		unlockLatch(free->latch);
 		return true;
@@ -168,7 +168,7 @@ Frame *frame;
 		return false;
 
 	frame = getObj(map, slot2);
-	frame->slots->bits = addr;  // install in slot zero
+	frame->slots[0] = addr;  // install in slot zero
 	frame->prev.bits = 0;
 
 	//	link new frame onto tail of wait chain
@@ -204,7 +204,7 @@ Frame *frame;
 	// are there available free frames?
 
 	if (map->arena->freeFrame->nslot)
-		return frame->slots[--map->arena->freeFrame->nslot].addr;
+		return frame->slots[--map->arena->freeFrame->nslot] & ADDR_BITS;
 
 	// is there more than one freeFrame?
 
@@ -229,7 +229,7 @@ uint64_t getNodeFromFrame(DbMap *map, DbAddr* free) {
 		//  are there available free objects?
 
 		if (free->nslot)
-			return frame->slots[--free->nslot].addr;
+			return frame->slots[--free->nslot] & ADDR_BITS;
 	
 		//  leave empty frame in place to collect
 		//  new nodes
@@ -295,10 +295,6 @@ Frame *frame;
 		wait->bits = frame->prev.addr;
 		prevFrame->next.bits = 0;
 
-		#ifdef DEBUG
-		atomicAdd64(&nodeWait[prevFrame->slots[0].type], (uint64_t)FrameSlots);
-		#endif
-
 		// advance to next candidate
 
 		frame = prevFrame;
@@ -311,7 +307,7 @@ Frame *frame;
 
 bool initObjIdFrame(DbMap *map, DbAddr *free) {
 uint32_t dup = FrameSlots;
-uint64_t max, addr;
+uint64_t max, bits;
 Frame *frame;
 
 	lockLatch(map->arena->mutex);
@@ -339,7 +335,7 @@ Frame *frame;
 	// allocate a batch of ObjIds
 
 	map->arena->segs[map->arena->objSeg].nextId.index += dup;
-	addr = map->arena->segs[map->arena->objSeg].nextId.bits;
+	bits = map->arena->segs[map->arena->objSeg].nextId.bits;
 	unlockLatch(map->arena->mutex);
 
 	if (!free->addr)
@@ -355,11 +351,8 @@ Frame *frame;
 	frame->next.bits = 0;
 	frame->prev.bits = 0;
 
-	while (dup--) {
-		frame->slots[dup].bits = 0;
-		frame->slots[dup].type = ObjIdType;
-		frame->slots[dup].addr = addr - dup;
-	}
+	while (dup--)
+		frame->slots[dup] = bits - dup;
 
 	return true;
 }
