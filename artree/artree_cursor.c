@@ -1,8 +1,3 @@
-#include "../db.h"
-#include "../db_object.h"
-#include "../db_arena.h"
-#include "../db_index.h"
-#include "../db_map.h"
 #include "artree.h"
 
 //	TODO: lock record

@@ -1,11 +1,5 @@
 #pragma once
 
-//	Index data structure after DbArena object
-
-typedef struct {
-	uint64_t numEntries[1];	// number of keys in index
-} DbIndex;
-
 // database cursor handle extension to index
 
 typedef enum {
@@ -28,17 +22,9 @@ typedef struct {
 	uint8_t deDup;		// cursor will deDuplicate result set
 } DbCursor;
 
-#define dbindex(map) ((DbIndex *)(map->arena + 1))
-
-uint64_t dbAllocDocStore(Handle *docHndl, uint32_t amt, bool zeroit);
 DbStatus dbCloseCursor(DbCursor *cursor, DbMap *map);
-DbStatus dbInstallIndexes(Handle *docHndl);
-
-DbStatus dbInsertKey (Handle *idxHndl, void *keyBytes, uint32_t keyLen);
-
 DbStatus dbFindKey(DbCursor *cursor, DbMap *map, void *key, uint32_t keyLen, CursorOp op);
 DbStatus dbNextKey(DbCursor *cursor, DbMap *map);
 DbStatus dbPrevKey(DbCursor *cursor, DbMap *map);
 DbStatus dbRightKey(DbCursor *cursor, DbMap *map);
 DbStatus dbLeftKey(DbCursor *cursor, DbMap *map);
-DbStatus dbCloseCursor(DbCursor *cursor, DbMap *map);

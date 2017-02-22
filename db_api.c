@@ -1,14 +1,7 @@
-#include "db.h"
-#include "db_malloc.h"
-#include "db_object.h"
-#include "db_handle.h"
-#include "db_arena.h"
-#include "db_map.h"
-#include "db_api.h"
-#include "db_index.h"
-#include "db_iterator.h"
 #include "btree1/btree1.h"
 #include "artree/artree.h"
+#include "db_iterator.h"
+#include "db_malloc.h"
 
 char *hndlNames[] = {
 	"newarena",

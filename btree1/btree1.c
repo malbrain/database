@@ -1,11 +1,5 @@
 #include <inttypes.h>
 
-#include "../db.h"
-#include "../db_object.h"
-#include "../db_handle.h"
-#include "../db_arena.h"
-#include "../db_index.h"
-#include "../db_map.h"
 #include "btree1.h"
 
 void btree1InitPage (Btree1Page *page) {

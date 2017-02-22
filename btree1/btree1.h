@@ -1,4 +1,11 @@
 #pragma once
+#include "../db.h"
+#include "../db_object.h"
+#include "../db_handle.h"
+#include "../db_arena.h"
+#include "../db_map.h"
+#include "../db_api.h"
+#include "../db_cursor.h"
 
 #define Btree1_maxkey		4096
 #define Btree1_maxbits		29					// maximum page size in bits

@@ -1,4 +1,11 @@
 #pragma once
+#include "../db.h"
+#include "../db_arena.h"
+#include "../db_map.h"
+#include "../db_api.h"
+#include "../db_object.h"
+#include "../db_handle.h"
+#include "../db_cursor.h"
 
 #define MAX_cursor 4096
 

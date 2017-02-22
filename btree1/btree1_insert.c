@@ -1,9 +1,3 @@
-#include "../db.h"
-#include "../db_arena.h"
-#include "../db_map.h"
-#include "../db_object.h"
-#include "../db_handle.h"
-#include "../db_index.h"
 #include "btree1.h"
 
 DbStatus btree1InsertSlot (Btree1Set *set, uint8_t *key, uint32_t keyLen, Btree1SlotType type);

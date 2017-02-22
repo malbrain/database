@@ -10,6 +10,12 @@
 #include "db_error.h"
 #include "db_redblack.h"
 
+//	Index data structure after DbArena object
+
+typedef struct {
+	uint64_t numEntries[1];	// number of keys in index
+} DbIndex;
+
 typedef enum {
 	IterNone,
 	IterLeftEof,
