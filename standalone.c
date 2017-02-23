@@ -117,8 +117,10 @@ bool binaryFlds;
 char *idxName;
 
 uint32_t foundLen = 0;
+uint32_t prevLen = 0;
 bool reverse = false;
-bool cntOnly = true;
+bool cntOnly = false;
+bool verify = false;
 int lastFld = 0;
 void *foundKey;
 ObjId docId;
@@ -194,7 +196,6 @@ int stat;
 		break;
 
 	case 'w':
-
 		fprintf(stderr, "started writing from %s\n", args->inFile);
 		parent = database;
 
@@ -241,9 +242,8 @@ int stat;
 			  if (len > args->keyLen)
 				len = args->keyLen;
 
-			  if (docHndl->hndlBits && idxHndl->hndlBits) {
+			  if (docHndl->hndlBits && idxHndl->hndlBits)
 				len += store64(key, len, docId.bits, false);
-			  }
  
 			  if (idxHndl->hndlBits)
 				if ((stat = insertKey(idxHndl, key, len)))
@@ -307,7 +307,8 @@ int stat;
 			  if ((stat = keyAtCursor (cursor, &foundKey, &foundLen)))
 				fprintf(stderr, "findKey %s Error %d Syserr %d Line: %" PRIu64 "\n", args->inFile, stat, errno, line), exit(0);
 
-			  foundLen -= get64(foundKey, foundLen, &docId.bits, binaryFlds);
+			  if (docHndl->hndlBits && idxHndl->hndlBits)
+				foundLen -= get64(foundKey, foundLen, &docId.bits, binaryFlds);
 
 			  if (!binaryFlds) {
 			   if (foundLen != len)
@@ -357,15 +358,23 @@ int stat;
 		fprintf(stderr, " Total docs read %" PRIu64 "\n", cnt);
 		break;
 
+	case 'v':
+		verify = true;
+	case 'c':
+		cntOnly = true;
 	case 'r':
 		reverse = true;
 	case 's':
-		cntOnly = false;
-	case 'c':
 		if (reverse)
 			fprintf(stderr, "started reverse cursor");
 		else
 			fprintf(stderr, "started forward cursor");
+
+		if (verify)
+			fprintf(stderr, " verification");
+
+		if (cntOnly)
+			fprintf(stderr, " count Only");
 
 		if (args->minKey)
 			fprintf(stderr, " min key: %s", args->minKey);
@@ -375,7 +384,7 @@ int stat;
 
 		fprintf(stderr, "\n");
 
-		if (cntOnly || args->noDocs)
+		if (args->noDocs)
 			parent = database;
 		else {
 			openDocStore(docHndl, database, "documents", strlen("documents"), args->params);
@@ -411,6 +420,15 @@ int stat;
 				break;
 
 			cnt++;
+
+			if (verify) {
+			  if(prevLen && prevLen == foundLen)
+			   if (memcmp(foundKey, rec, prevLen) > 0)
+			  	fprintf(stderr, "verifyKey compare error: %d\n", (int)cnt), exit(0);
+
+			 prevLen = foundLen;
+			 memcpy (rec, foundKey, foundLen);
+			}
 
 			if (cntOnly)
 				continue;

@@ -22,6 +22,10 @@ typedef struct {
 	uint8_t deDup;		// cursor will deDuplicate result set
 } DbCursor;
 
+//	Unique Key evaluation fcn
+
+typedef bool (*UniqCbFcn)(Handle *idxHndl, DbCursor *dbCursor);
+
 DbStatus dbCloseCursor(DbCursor *cursor, DbMap *map);
 DbStatus dbFindKey(DbCursor *cursor, DbMap *map, void *key, uint32_t keyLen, CursorOp op);
 DbStatus dbNextKey(DbCursor *cursor, DbMap *map);

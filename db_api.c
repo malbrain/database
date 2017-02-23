@@ -163,11 +163,13 @@ Catalog *catalog;
 
 DbStatus createIndex(DbHandle hndl[1], DbHandle docHndl[1], char *name, uint32_t nameLen, Params *params) {
 int type = params[IdxType].intVal + Hndl_artIndex;
+uint32_t xtra = params[ArenaXtra].intVal;
 DbMap *map, *parent;
 Handle *parentHndl;
 ArenaDef *arenaDef;
 RedBlack *rbEntry;
 Handle *idxHndl;
+DbIndex *index;
 
 	memset (hndl, 0, sizeof(DbHandle));
 
@@ -187,11 +189,11 @@ Handle *idxHndl;
 	switch (type) {
 	case Hndl_artIndex:
 		arenaDef->numTypes = MaxARTType;
-		arenaDef->baseSize = sizeof(ArtIndex);
+		arenaDef->baseSize = sizeof(DbIndex) + sizeof(ArtIndex) + xtra;
 		break;
 	case Hndl_btree1Index:
 		arenaDef->numTypes = MAXBtree1Type;
-		arenaDef->baseSize = sizeof(Btree1Index);
+		arenaDef->baseSize = sizeof(DbIndex) + sizeof(Btree1Index) + xtra;
 		break;
 	default:
 		releaseHandle(parentHndl, docHndl);
@@ -206,6 +208,9 @@ Handle *idxHndl;
 
 	if (*map->arena->type)
 		goto createXit;
+
+	index = (DbIndex *)(map->arena + 1);
+	index->xtra = xtra;
 
 	switch (type) {
 	  case Hndl_artIndex:
@@ -317,7 +322,7 @@ DbCursor *cursor;
 	if (!(idxHndl = bindHandle(dbIdxHndl)))
 		return DB_ERROR_handleclosed;
 
-	cursorHndl = makeHandle(idxHndl->map, xtra + cursorSize[*(uint8_t *)idxHndl->map->arena->type], Hndl_cursor);
+	cursorHndl = makeHandle(idxHndl->map, xtra + sizeof(DbCursor) + cursorSize[*(uint8_t *)idxHndl->map->arena->type], Hndl_cursor);
 
 	cursor = (DbCursor *)(cursorHndl + 1);
 	cursor->binaryFlds = idxHndl->map->arenaDef->params[IdxKeyFlds].boolVal;

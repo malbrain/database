@@ -77,20 +77,35 @@ uint8_t ch;
 				break;
 			}
 
+			case KeyUniq: {
+				ARTKeyUniq* keyUniqNode = getObj(index->map, *stack->addr);
+				stack->addr->bits = keyUniqNode->next->bits;
+				keyUniqNode->next->bits = 0;
+
+				if(addSlotToFrame(index->map, listHead(index,newSlot.type), listWait(index,newSlot.type), newSlot.bits)) {
+				  if (stack->addr->type)
+					rt = EndSearch;
+				  else
+					continue;
+				} else
+					rt = ErrorSearch;
+
+				break;
+			}
+
 			case KeyEnd: {
-				if (newSlot.keyEnd) { // 
+				if (newSlot.addr) { // is there a continuation?
 				  ARTKeyEnd* keyEndNode = getObj(index->map, *stack->addr);
 				  stack->addr->bits = keyEndNode->next->bits;
 				  keyEndNode->next->bits = 0;
-				  stack->addr->keyEnd = 0;
 
 				  if(addSlotToFrame(index->map, listHead(index,newSlot.type), listWait(index,newSlot.type), newSlot.bits)) {
-				    if (stack->addr->type)
+					if (stack->addr->type)
 					  rt = EndSearch;
-				    else
+					else
 					  continue;
 				  } else
-				    rt = ErrorSearch;
+					rt = ErrorSearch;
 				}
 
 				break;

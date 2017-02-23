@@ -81,11 +81,8 @@ DbStatus stat = DB_OK;
 	  }
 	}
 
-	if (stat)
-		return stat;
-
 	cursor->state = CursorLeftEof;
-	return DB_OK;
+	return stat;
 }
 
 //	position cursor after last key
@@ -129,10 +126,7 @@ DbStatus stat;
 		break;
 	}
 
-	if (stat)
-		return stat;
-
-	return DB_OK;
+	return stat;
 }
 
 DbStatus dbPrevKey(DbCursor *cursor, DbMap *map) {
@@ -152,8 +146,5 @@ DbStatus stat;
 		break;
 	}
 
-	if (stat)
-		return stat;
-
-	return DB_OK;
+	return stat;
 }

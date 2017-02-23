@@ -12,15 +12,16 @@
 // Artree interior nodes
 
 enum ARTNodeType {
-	UnusedSlot = 0,					// 0: slot is not yet in use
-	Array4,							// 1: node contains 4 radix slots
-	Array14,						// 2: node contains 14 radix slots
-	Array64,						// 3: node contains 64 radix slots
-	Array256,						// 4: node contains 256 radix slots
-	FldEnd,							// 5: node ends a binary string field
-	KeyEnd,							// 6: node ends a complete key value
-	SpanNode,						// 7: node contains up to 8 key bytes
-	MaxARTType = SpanNode + 1 + 16	// 8-23: node spans up to 256 bytes
+	UnusedSlot = 0,				// 0: slot is not yet in use
+	Array4,						// 1: node contains 4 radix slots
+	Array14,					// 2: node contains 14 radix slots
+	Array64,					// 3: node contains 64 radix slots
+	Array256,					// 4: node contains 256 radix slots
+	FldEnd,						// 5: node ends a binary string field
+	KeyEnd,						// 6: node ends a complete key value
+	KeyUniq,					// 7: node fans out duplicate keys
+	SpanNode,					// 8: node contains up to 8 key bytes
+	MaxARTType = SpanNode + 17	// 8-24: node spans up to 256 bytes
 };
 
 /**
@@ -32,6 +33,15 @@ typedef struct {
 	DbAddr nextFld[1];	// end this field and start next
 } ARTFldEnd;
 	
+/**
+ * node ends the uniqueness part of the key
+ */
+
+typedef struct {
+	DbAddr dups[1];		// sub-tree of duplicate keys
+	DbAddr next[1];		// keys that haven't ended yet
+} ARTKeyUniq;
+
 /**
  * key is a prefix of another longer key
  */
@@ -94,7 +104,6 @@ typedef struct {
  */
 
 typedef struct {
-	DbIndex base[1];	// basic db index
 	DbAddr root[1];		// root of the arttree
 } ArtIndex;
 
@@ -114,7 +123,23 @@ typedef struct {
 	CursorStack stack[MAX_cursor];	// cursor stack
 } ArtCursor;
 
-#define artIndexAddr(map)((ArtIndex *)(map->arena + 1))
+typedef struct {
+	volatile DbAddr *slot;
+	volatile DbAddr *prev;
+	DbAddr oldSlot[1];
+	DbAddr newSlot[1];
+
+	DbStatus stat;
+	Handle *index;
+	uint8_t *key;
+
+	uint32_t keyLen;	// length of the key
+	uint32_t off;	 	// progress down the key bytes
+	uint16_t fldLen;	// remaining field length
+	uint8_t ch;			// current key character
+	uint8_t binaryFlds;	// string fields are binary
+	uint8_t restart;	// restart insert from beginning
+} InsertParam;
 
 DbStatus artNewCursor(DbCursor *cursor, DbMap *map);
 DbStatus artReturnCursor(DbCursor *dbCursor, DbMap *map);
@@ -132,3 +157,4 @@ DbStatus artDeleteKey (Handle *hndl, void *key, uint32_t keyLen);
 
 uint64_t artAllocateNode(Handle *index, int type, uint32_t size);
 
+bool artInsertParam (InsertParam *p);

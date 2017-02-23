@@ -17,9 +17,14 @@ DbStatus artLeftKey(DbCursor *dbCursor, DbMap *map) {
 ArtCursor *cursor = (ArtCursor *)((char *)dbCursor + dbCursor->xtra);
 bool binaryFlds = map->arenaDef->params[IdxKeyFlds].boolVal;
 CursorStack* stack;
+ArtIndex *artIdx;
+DbIndex *dbIdx;
 DbAddr *base;
 
-	base = artIndexAddr(map)->root;
+	dbIdx = (DbIndex *)(map->arena + 1);
+	artIdx = (ArtIndex *)((uint8_t *)(dbIdx + 1) + dbIdx->xtra);
+
+	base = artIdx->root;
 	cursor->depth = 0;
 
 	stack = &cursor->stack[cursor->depth++];
@@ -40,9 +45,14 @@ DbStatus artRightKey(DbCursor *dbCursor, DbMap *map) {
 ArtCursor *cursor = (ArtCursor *)((char *)dbCursor + dbCursor->xtra);
 bool binaryFlds = map->arenaDef->params[IdxKeyFlds].boolVal;
 CursorStack* stack;
+ArtIndex *artIdx;
+DbIndex *dbIdx;
 DbAddr *base;
 
-	base = artIndexAddr(map)->root;
+	dbIdx = (DbIndex *)(map->arena + 1);
+	artIdx = (ArtIndex *)((uint8_t *)(dbIdx + 1) + dbIdx->xtra);
+
+	base = artIdx->root;
 	cursor->depth = 0;
 
 	stack = &cursor->stack[cursor->depth++];
@@ -195,25 +205,40 @@ int slot, len;
 		continue;
 	  }
 
+	  case KeyUniq: {
+		if (stack->ch < 0) {
+		  ARTKeyUniq* keyUniqNode = getObj(map, *stack->slot);
+
+		  cursor->stack[cursor->depth].slot->bits = keyUniqNode->next->bits;
+		  cursor->stack[cursor->depth].addr = keyUniqNode->next;
+		  cursor->stack[cursor->depth].ch = -1;
+		  cursor->stack[cursor->depth].lastFld = cursor->lastFld;
+		  cursor->stack[cursor->depth++].off = dbCursor->keyLen;
+		  stack->ch = 0;
+		  continue;
+		}
+		break;
+	  }
+
 	  case KeyEnd: {
 		if (stack->ch < 0) {
 		  if (binaryFlds) {
 			int fldLen = dbCursor->keyLen - cursor->lastFld - 2;
 			cursor->key[cursor->lastFld] = fldLen >> 8;
 			cursor->key[cursor->lastFld + 1] = fldLen;
-		    cursor->lastFld = dbCursor->keyLen;
+			cursor->lastFld = dbCursor->keyLen;
 		  }
 
-		  if (stack->slot->keyEnd) {  // was there a continuation?
+		  if (stack->slot->addr) {  // was there a continuation?
 			ARTKeyEnd* keyEndNode = getObj(map, *stack->slot);
 
-		    cursor->stack[cursor->depth].slot->bits = keyEndNode->next->bits;
-		    cursor->stack[cursor->depth].addr = keyEndNode->next;
-		    cursor->stack[cursor->depth].ch = -1;
-		    cursor->stack[cursor->depth].lastFld = cursor->lastFld;
-		    cursor->stack[cursor->depth++].off = dbCursor->keyLen;
-		    stack->ch = 0;
-		    continue;
+			cursor->stack[cursor->depth].slot->bits = keyEndNode->next->bits;
+			cursor->stack[cursor->depth].addr = keyEndNode->next;
+			cursor->stack[cursor->depth].ch = -1;
+			cursor->stack[cursor->depth].lastFld = cursor->lastFld;
+			cursor->stack[cursor->depth++].off = dbCursor->keyLen;
+			stack->ch = 0;
+			continue;
 		  }
 
 		  dbCursor->state = CursorPosAt;
@@ -405,25 +430,41 @@ int slot, len;
 		continue;
 	  }
 
+	  case KeyUniq: {
+		if (stack->ch > 255) {
+		  ARTKeyUniq* keyUniqNode = getObj(map, *stack->slot);
+
+		  cursor->stack[cursor->depth].slot->bits = keyUniqNode->next->bits;
+		  cursor->stack[cursor->depth].addr = keyUniqNode->next;
+		  cursor->stack[cursor->depth].ch = 256;
+		  cursor->stack[cursor->depth].lastFld = cursor->lastFld;
+		  cursor->stack[cursor->depth++].off = dbCursor->keyLen;
+		  stack->ch = 0;
+		  continue;
+		}
+
+		break;
+	  }
+
 	  case KeyEnd: {
 		if (stack->ch > 255) {
 		  if (binaryFlds) {
 			int fldLen = dbCursor->keyLen - cursor->lastFld - 2;
 			cursor->key[cursor->lastFld] = fldLen >> 8;
 			cursor->key[cursor->lastFld + 1] = fldLen;
-		    cursor->lastFld = dbCursor->keyLen;
+			cursor->lastFld = dbCursor->keyLen;
 		  }
 
-		  if (stack->slot->keyEnd) {
+		  if (stack->slot->addr) {
 			ARTKeyEnd* keyEndNode = getObj(map, *stack->slot);
 
-		    cursor->stack[cursor->depth].slot->bits = keyEndNode->next->bits;
-		    cursor->stack[cursor->depth].addr = keyEndNode->next;
-		    cursor->stack[cursor->depth].ch = 256;
-		    cursor->stack[cursor->depth].lastFld = cursor->lastFld;
-		    cursor->stack[cursor->depth++].off = dbCursor->keyLen;
-		    stack->ch = 0;
-		    continue;
+			cursor->stack[cursor->depth].slot->bits = keyEndNode->next->bits;
+			cursor->stack[cursor->depth].addr = keyEndNode->next;
+			cursor->stack[cursor->depth].ch = 256;
+			cursor->stack[cursor->depth].lastFld = cursor->lastFld;
+			cursor->stack[cursor->depth++].off = dbCursor->keyLen;
+			stack->ch = 0;
+			continue;
 		  }
 
 		  dbCursor->state = CursorPosAt;

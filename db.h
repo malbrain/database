@@ -48,7 +48,6 @@ typedef union {
 			uint8_t nbyte;		// number of bytes in a span node
 			uint8_t nslot;		// number of frame slots in use
 			uint8_t maxidx;		// maximum slot index in use
-			uint8_t keyEnd;		// node continues the key
 			uint8_t ttype;		// index transaction type
 			int8_t rbcmp;		// red/black comparison
 		};
@@ -96,6 +95,7 @@ typedef enum {
 	HndlXtra,		// extra bytes in handle struct
 	ObjIdSize,		// size of arena ObjId array element
 	MapXtra,		// local process extra map storage
+	ArenaXtra,		// extra bytes in arena
 
 	IdxKeyUnique = 10,
 	IdxKeyAddr,			// index key definition address

@@ -24,7 +24,7 @@ typedef struct {
 
 //  arena at beginning of seg zero
 
-struct DbArena_ {
+union DbArena_ {
 	DbSeg segs[MAX_segs]; 			// segment meta-data
 	int64_t lowTs, delTs, nxtTs;	// low hndl ts, Incr on delete
 	DbAddr freeBlk[MAX_blk];		// free blocks in frames
@@ -39,8 +39,7 @@ struct DbArena_ {
 	uint16_t objSeg;				// current segment index for ObjIds
 	char mutex[1];					// arena allocation lock/drop flag
 	char type[1];					// arena type
-
-	char filler[256];
+	uint8_t filler[128];
 };
 
 //	skip list head

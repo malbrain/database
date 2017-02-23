@@ -7,6 +7,11 @@ uint32_t idx, offset = 0, spanMax;
 CursorStack* stack = NULL;
 uint8_t *key = findKey;
 volatile DbAddr *slot;
+ArtIndex *artIdx;
+DbIndex *dbIdx;
+
+  dbIdx = (DbIndex *)(map->arena + 1);
+  artIdx = (ArtIndex *)((uint8_t *)(dbIdx + 1) + dbIdx->xtra);
 
   dbCursor->keyLen = 0;
   cursor->lastFld = 0;
@@ -15,7 +20,7 @@ volatile DbAddr *slot;
 
   // loop through the key bytes
 
-  slot = artIndexAddr(map)->root;
+  slot = artIdx->root;
 
   if (binaryFlds && !dbCursor->keyLen) {
 	cursor->fldLen = key[offset] << 8 | key[offset + 1];
@@ -61,13 +66,25 @@ volatile DbAddr *slot;
 		continue;
 	  }
 
+	  case KeyUniq: {
+	   	  ARTKeyUniq* keyUniqNode = getObj(map, *slot);
+		  slot = keyUniqNode->next;
+
+		  if (cursor)
+			stack->ch = 256;
+
+		  continue;
+		}
+
 	  case KeyEnd: {
-		if (slot->keyEnd) {	// do key bytes fork here?
+		if (slot->addr) {	// do key bytes fork here?
 	   	  ARTKeyEnd* keyEndNode = getObj(map, *slot);
 		  slot = keyEndNode->next;
 
 		  if (cursor)
 			stack->ch = 256;
+
+		  continue;
 		}
 
 		// otherwise our key isn't here
