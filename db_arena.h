@@ -24,7 +24,7 @@ typedef struct {
 
 //  arena at beginning of seg zero
 
-union DbArena_ {
+struct DbArena_ {
 	DbSeg segs[MAX_segs]; 			// segment meta-data
 	int64_t lowTs, delTs, nxtTs;	// low hndl ts, Incr on delete
 	DbAddr freeBlk[MAX_blk];		// free blocks in frames

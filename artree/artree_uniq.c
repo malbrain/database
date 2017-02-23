@@ -76,10 +76,10 @@ DbIndex *dbIdx;
 
 	dbCursor->xtra = sizeof(ArtCursor);
 	dbCursor->state = CursorPosAt;
-	dbCursor->key = cursor->key;
 
 	cursor = (ArtCursor *)((char *)dbCursor + dbCursor->xtra);
 	memset(cursor, 0, offsetof(ArtCursor, key));
+	dbCursor->key = cursor->key;
 
 	stack = &cursor->stack[cursor->depth++];
 	stack->slot->bits = keyUniqNode->dups->bits;
