@@ -315,7 +315,7 @@ DbStatus createCursor(DbHandle hndl[1], DbHandle dbIdxHndl[1], Params *params) {
 uint32_t xtra = params[HndlXtra].intVal;
 Handle *idxHndl, *cursorHndl;
 DbStatus stat = DB_OK;
-DbCursor *cursor;
+DbCursor *dbCursor;
 
 	memset (hndl, 0, sizeof(DbHandle));
 
@@ -324,18 +324,18 @@ DbCursor *cursor;
 
 	cursorHndl = makeHandle(idxHndl->map, xtra + sizeof(DbCursor) + cursorSize[*(uint8_t *)idxHndl->map->arena->type], Hndl_cursor);
 
-	cursor = (DbCursor *)(cursorHndl + 1);
-	cursor->binaryFlds = idxHndl->map->arenaDef->params[IdxKeyFlds].boolVal;
-	cursor->xtra = xtra + cursorSize[*(uint8_t *)idxHndl->map->arena->type];
-	cursor->deDup = params[CursorDeDup].boolVal;
+	dbCursor = (DbCursor *)(cursorHndl + 1);
+	dbCursor->binaryFlds = idxHndl->map->arenaDef->params[IdxKeyFlds].boolVal;
+	dbCursor->xtra = xtra + cursorSize[*(uint8_t *)idxHndl->map->arena->type];
+	dbCursor->deDup = params[CursorDeDup].boolVal;
 
 	switch (*idxHndl->map->arena->type) {
 	case Hndl_artIndex:
-		stat = artNewCursor(cursor, idxHndl->map);
+		stat = artNewCursor(dbCursor, idxHndl->map);
 		break;
 
 	case Hndl_btree1Index:
-		stat = btree1NewCursor(cursor, idxHndl->map);
+		stat = btree1NewCursor(dbCursor, idxHndl->map);
 		break;
 	}
 
@@ -349,21 +349,21 @@ DbCursor *cursor;
 
 DbStatus closeCursor(DbHandle hndl[1]) {
 DbStatus stat = DB_ERROR_indextype;
-DbCursor *cursor;
+DbCursor *dbCursor;
 Handle *idxHndl;
 
 	if (!(idxHndl = bindHandle(hndl)))
 		return DB_ERROR_handleclosed;
 
-	cursor = (DbCursor *)(idxHndl + 1);
+	dbCursor = (DbCursor *)(idxHndl + 1);
 
 	switch (*idxHndl->map->arena->type) {
 	case Hndl_artIndex:
-		stat = artReturnCursor(cursor, idxHndl->map);
+		stat = artReturnCursor(dbCursor, idxHndl->map);
 		break;
 
 	case Hndl_btree1Index:
-		stat = btree1ReturnCursor(cursor, idxHndl->map);
+		stat = btree1ReturnCursor(dbCursor, idxHndl->map);
 		break;
 	}
 
@@ -374,15 +374,15 @@ Handle *idxHndl;
 //	position cursor on a key
 
 DbStatus positionCursor(DbHandle hndl[1], CursorOp op, void *key, uint32_t keyLen) {
-DbCursor *cursor;
+DbCursor *dbCursor;
 Handle *idxHndl;
 DbStatus stat;
 
 	if (!(idxHndl = bindHandle(hndl)))
 		return DB_ERROR_handleclosed;
 
-	cursor = (DbCursor *)(idxHndl + 1);
-	stat = dbFindKey(cursor, idxHndl->map, key, keyLen, op);
+	dbCursor = (DbCursor *)(idxHndl + 1);
+	stat = dbFindKey(dbCursor, idxHndl->map, key, keyLen, op);
 	releaseHandle(idxHndl, hndl);
 	return stat;
 }
@@ -390,27 +390,27 @@ DbStatus stat;
 //	move cursor
 
 DbStatus moveCursor(DbHandle hndl[1], CursorOp op) {
-DbCursor *cursor;
+DbCursor *dbCursor;
 Handle *idxHndl;
 DbStatus stat;
 
 	if (!(idxHndl = bindHandle(hndl)))
 		return DB_ERROR_handleclosed;
 
-	cursor = (DbCursor *)(idxHndl + 1);
+	dbCursor = (DbCursor *)(idxHndl + 1);
 
 	switch (op) {
 	  case OpLeft:
-		stat = dbLeftKey(cursor, idxHndl->map);
+		stat = dbLeftKey(dbCursor, idxHndl->map);
 		break;
 	  case OpRight:
-		stat = dbRightKey(cursor, idxHndl->map);
+		stat = dbRightKey(dbCursor, idxHndl->map);
 		break;
 	  case OpNext:
-		stat = dbNextKey(cursor, idxHndl->map);
+		stat = dbNextKey(dbCursor, idxHndl->map);
 		break;
 	  case OpPrev:
-		stat = dbPrevKey(cursor, idxHndl->map);
+		stat = dbPrevKey(dbCursor, idxHndl->map);
 		break;
 	  default:
 		stat = DB_ERROR_cursorop;
@@ -424,21 +424,21 @@ DbStatus stat;
 //	return cursor key
 
 DbStatus keyAtCursor(DbHandle *hndl, void **key, uint32_t *keyLen) {
-DbCursor *cursor;
+DbCursor *dbCursor;
 Handle *idxHndl;
 
 	if ((idxHndl = bindHandle(hndl)))
-		cursor = (DbCursor *)(idxHndl + 1);
+		dbCursor = (DbCursor *)(idxHndl + 1);
 	else
 		return DB_ERROR_handleclosed;
 
-	switch (cursor->state) {
+	switch (dbCursor->state) {
 	case CursorPosAt:
 		if (key)
-			*key = cursor->key;
+			*key = dbCursor->key;
 
 		if (keyLen)
-			*keyLen = cursor->keyLen;
+			*keyLen = dbCursor->keyLen;
 
 		releaseHandle(idxHndl, hndl);
 		return DB_OK;
@@ -561,7 +561,16 @@ Handle *idxHndl;
 	return stat;
 }
 
-DbStatus insertKey(DbHandle hndl[1], void *key, uint32_t len) {
+//	call back fcn to determine if key is unique
+//	since we are not MVCC, all calls are from duplicates
+
+//	return true if key is already in the index
+
+bool uniqueKey(Handle *idxHndl, DbCursor *dbCursor) {
+	return true;
+}
+
+DbStatus insertKey(DbHandle hndl[1], void *key, uint32_t len, uint32_t suffixLen) {
 DbStatus stat = DB_OK;
 Handle *idxHndl;
 
@@ -570,7 +579,10 @@ Handle *idxHndl;
 
 	switch (*idxHndl->map->arena->type) {
 	case Hndl_artIndex:
-		stat = artInsertKey(idxHndl, key, len);
+		if (idxHndl->map->arenaDef->params[IdxKeyUnique].boolVal)
+			stat = artInsertUniq(idxHndl, key, len, suffixLen, uniqueKey);
+		else
+			stat = artInsertKey(idxHndl, key, len + suffixLen);
 		break;
 
 	case Hndl_btree1Index:

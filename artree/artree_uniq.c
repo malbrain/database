@@ -1,12 +1,16 @@
 #include "artree.h"
 
+#ifdef __linux__
+#define offsetof(type,member) __builtin_offsetof(type,member)
+#endif
+
 DbStatus artInsertUniq( Handle *index, void *key, uint32_t keyLen, uint32_t keySuffix, UniqCbFcn *evalUniq) {
 uint8_t area[sizeof(ArtCursor) + sizeof(DbCursor)];
-ArtCursor *cursor = (ArtCursor *)(area + sizeof(DbCursor));
 volatile DbAddr *uniq, slot;
 ARTKeyUniq *keyUniqNode;
 DbCursor *dbCursor;
 CursorStack* stack;
+ArtCursor *cursor;
 bool pass = false;
 InsertParam p[1];
 ArtIndex *artIdx;
@@ -67,9 +71,15 @@ DbIndex *dbIdx;
 
 	//  prepare cursor to enumerate uniq keys
 
-	memset(area, 0, sizeof(area));
-	dbCursor = (DbCursor *)(area + sizeof(DbCursor));
-	cursor = (ArtCursor *)(area + sizeof(DbCursor));
+	dbCursor = (DbCursor *)(area);
+	memset(dbCursor, 0, sizeof(DbCursor));
+
+	dbCursor->xtra = sizeof(ArtCursor);
+	dbCursor->state = CursorPosAt;
+	dbCursor->key = cursor->key;
+
+	cursor = (ArtCursor *)((char *)dbCursor + dbCursor->xtra);
+	memset(cursor, 0, offsetof(ArtCursor, key));
 
 	stack = &cursor->stack[cursor->depth++];
 	stack->slot->bits = keyUniqNode->dups->bits;
@@ -78,12 +88,13 @@ DbIndex *dbIdx;
 	stack->off = 0;
 	stack->ch = -1;
 
-	while (artNextKey(dbCursor, index->map) == DB_OK) {
+	if (keyUniqNode->dups->bits)
+	 while (artNextKey(dbCursor, index->map) == DB_OK) {
 	  if ((*evalUniq)(index, dbCursor)) {
 		unlockLatch(p->slot->latch);
 		return DB_ERROR_unique_key_violation;
 	  }
-	}
+	 }
 
 	//  install the suffix key bytes
 

@@ -38,6 +38,7 @@ DbAddr *base;
 	if (binaryFlds)
 		stack->off = 2;
 
+	dbCursor->state = CursorLeftEof;
 	return DB_OK;
 }
 
@@ -65,6 +66,7 @@ DbAddr *base;
 	if (binaryFlds)
 		stack->off = 2;
 
+	dbCursor->state = CursorRightEof;
 	return DB_OK;
 }
 

@@ -324,7 +324,7 @@ DbAddr slot;
 #endif
 		  if (!p->newSlot->bits) {
 			unlockLatch(p->prev->latch);
-			return false;
+			return true;
 		  }
 #ifdef DEBUG
 		  if (p->newSlot->type == SpanNode) {

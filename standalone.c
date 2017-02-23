@@ -67,6 +67,7 @@ typedef struct {
 	Params *params;
 	DbHandle *database;
 	int keyLen;
+	bool noExit;
 	bool noDocs;
 	bool noIdx;
 	int num;
@@ -89,6 +90,13 @@ Hndl_btree2Index
 typedef struct {
 	uint32_t size;
 } Doc;
+
+void myExit (ThreadArg *args) {
+	if (args->noExit)
+		return;
+
+	exit(1);
+}
 
 //  standalone program to index file of keys
 //  then list them onto std-out
@@ -121,6 +129,7 @@ uint32_t prevLen = 0;
 bool reverse = false;
 bool cntOnly = false;
 bool verify = false;
+int suffixLen = 0;
 int lastFld = 0;
 void *foundKey;
 ObjId docId;
@@ -173,7 +182,7 @@ int stat;
 			  line++;
 
 			  if ((stat = deleteKey(idxHndl, key, len)))
-				  fprintf(stderr, "Delete Key %s Error %d Line: %" PRIu64 "\n", args->inFile, stat, line), exit(0);
+				  fprintf(stderr, "Delete Key %s Error %d Line: %" PRIu64 "\n", args->inFile, stat, line), myExit(args);
 
 			  len = binaryFlds ? 2 : 0;
 			  lastFld = 0;
@@ -243,11 +252,17 @@ int stat;
 				len = args->keyLen;
 
 			  if (docHndl->hndlBits && idxHndl->hndlBits)
-				len += store64(key, len, docId.bits, false);
+				suffixLen = store64(key, len, docId.bits, false);
  
 			  if (idxHndl->hndlBits)
-				if ((stat = insertKey(idxHndl, key, len)))
-				  fprintf(stderr, "Insert Key %s Error %d Line: %" PRIu64 "\n", args->inFile, stat, line), exit(0);
+				switch ((stat = insertKey(idxHndl, key, len, suffixLen))) {
+				  case DB_ERROR_unique_key_violation:
+					fprintf(stderr, "Duplicate key <%.*s> line: %" PRIu64 "\n", len, key, line);
+					break;
+				  default:
+				    fprintf(stderr, "Insert Key %s Error %d Line: %" PRIu64 "\n", args->inFile, stat, line);
+					myExit(args);
+				}
 
 			  lastFld = 0;
 			  len = binaryFlds ? 2 : 0;
@@ -302,20 +317,20 @@ int stat;
 			  len = args->keyLen;
 
 			  if ((stat = positionCursor (cursor, OpOne, key, len)))
-				fprintf(stderr, "findKey %s Error %d Syserr %d Line: %" PRIu64 "\n", args->inFile, stat, errno, line), exit(0);
+				fprintf(stderr, "findKey %s Error %d Syserr %d Line: %" PRIu64 "\n", args->inFile, stat, errno, line), myExit(args);
 
 			  if ((stat = keyAtCursor (cursor, &foundKey, &foundLen)))
-				fprintf(stderr, "findKey %s Error %d Syserr %d Line: %" PRIu64 "\n", args->inFile, stat, errno, line), exit(0);
+				fprintf(stderr, "findKey %s Error %d Syserr %d Line: %" PRIu64 "\n", args->inFile, stat, errno, line), myExit(args);
 
 			  if (docHndl->hndlBits && idxHndl->hndlBits)
 				foundLen -= get64(foundKey, foundLen, &docId.bits, binaryFlds);
 
 			  if (!binaryFlds) {
 			   if (foundLen != len)
-				fprintf(stderr, "findKey %s Error len mismatch: Line: %" PRIu64 " keyLen: %d, foundLen: %d\n", args->inFile, line, len, foundLen), exit(0);
+				fprintf(stderr, "findKey %s Error len mismatch: Line: %" PRIu64 " keyLen: %d, foundLen: %d\n", args->inFile, line, len, foundLen), myExit(args);
 
 			   if (memcmp(foundKey, key, foundLen))
-				fprintf(stderr, "findKey %s not Found: line: %" PRIu64 " expected: %.*s \n", args->inFile, line, len, key), exit(0);
+				fprintf(stderr, "findKey %s not Found: line: %" PRIu64 " expected: %.*s \n", args->inFile, line, len, key), myExit(args);
 			  }
 
 			  cnt++;
@@ -494,6 +509,7 @@ HANDLE *threads;
 DbHandle database[1];
 
 bool dropDb = false;
+bool noExit = false;
 bool noDocs = false;
 bool noIdx = false;
 
@@ -507,9 +523,9 @@ int num = 0;
 	fprintf(stderr, "PageSize: %d, # Processors: %d, Allocation Granularity: %d\n\n", (int)info->dwPageSize, (int)info->dwNumberOfProcessors, (int)info->dwAllocationGranularity);
 #endif
 	if( argc < 3 ) {
-		fprintf (stderr, "Usage: %s db_name -cmds=[crwsdfi]... -idxType=[012] -bits=# -xtra=# -inMem -debug -noDocs -noIdx -keyLen=# -minKey=abcd -maxKey=abce -drop -idxBinary src_file1 src_file2 ... ]\n", argv[0]);
+		fprintf (stderr, "Usage: %s db_name -cmds=[crwsdfiv]... -idxType=[012] -bits=# -xtra=# -inMem -debug -uniqueKeys -noDocs -noIdx -keyLen=# -minKey=abcd -maxKey=abce -drop -idxBinary src_file1 src_file2 ... ]\n", argv[0]);
 		fprintf (stderr, "  where db_name is the prefix name of the database file\n");
-		fprintf (stderr, "  cmds is a string of (c)ount/(r)ev scan/(w)rite/(s)can/(d)elete/(f)ind/(i)terate, with a one character command for each input src_file, or a no-input command.\n");
+		fprintf (stderr, "  cmds is a string of (c)ount/(r)ev scan/(w)rite/(s)can/(d)elete/(f)ind/(v)erify/(i)terate, with a one character command for each input src_file, or a no-input command.\n");
 		fprintf (stderr, "  idxType is the type of index: 0 = ART, 1 = btree1, 2 = btree2\n");
 		fprintf (stderr, "  keyLen is key size, zero for whole line\n");
 		fprintf (stderr, "  bits is the btree page size in bits\n");
@@ -521,6 +537,7 @@ int num = 0;
 		fprintf (stderr, "  maxKey specifies ending cursor key\n");
 		fprintf (stderr, "  drop will initially drop database\n");
 		fprintf (stderr, "  idxBinary utilize length counted fields\n");
+		fprintf (stderr, "  uniqueKeys ensure keys are unique\n");
 		fprintf (stderr, "  src_file1 thru src_filen are files of keys/documents separated by newline\n");
 		exit(0);
 	}
@@ -555,6 +572,10 @@ int num = 0;
 			noIdx = true;
 	  else if (!memcmp(argv[0], "-noDocs", 7))
 			noDocs = true;
+	  else if (!memcmp(argv[0], "-noExit", 7))
+			noExit = true;
+	  else if (!memcmp(argv[0], "-uniqueKeys", 11))
+			params[IdxKeyUnique].boolVal = true;
 	  else if (!memcmp(argv[0], "-idxType=", 9))
 			params[IdxType].intVal = atoi(argv[0] + 9);
 	  else if (!memcmp(argv[0], "-inMem", 6))
@@ -602,6 +623,7 @@ int num = 0;
 	  args[idx].params = params;
 	  args[idx].keyLen = keyLen;
 	  args[idx].noDocs = noDocs;
+	  args[idx].noExit = noExit;
 	  args[idx].noIdx = noIdx;
 	  args[idx].cmds = cmds;
 	  args[idx].num = num;

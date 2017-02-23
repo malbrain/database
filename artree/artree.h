@@ -152,8 +152,9 @@ DbStatus artNextKey(DbCursor *dbCursor, DbMap *map);
 DbStatus artPrevKey(DbCursor *dbCursor, DbMap *map);
 
 DbStatus artInit(Handle *hndl, Params *params);
-DbStatus artInsertKey (Handle *hndl, void *key, uint32_t keyLen);
 DbStatus artDeleteKey (Handle *hndl, void *key, uint32_t keyLen);
+DbStatus artInsertKey (Handle *hndl, void *key, uint32_t keyLen);
+DbStatus artInsertUniq (Handle *hndl, void *key, uint32_t keyLen, uint32_t keySuffix, UniqCbFcn *fcn);
 
 uint64_t artAllocateNode(Handle *index, int type, uint32_t size);
 

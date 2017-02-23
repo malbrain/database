@@ -9,6 +9,7 @@
 
 #include "db_error.h"
 #include "db_redblack.h"
+#include "db_cursor.h"
 
 //	Index data structure after DbArena object
 
@@ -34,6 +35,10 @@ typedef enum {
 	IterSeek  = 's',
 } IteratorOp;
 
+//	Unique Key evaluation fcn
+
+typedef bool (UniqCbFcn)(Handle *idxHndl, DbCursor *dbCursor);
+
 #ifdef apple 
 #define DbStatus int
 #endif
@@ -52,7 +57,7 @@ DbStatus positionCursor(DbHandle hndl[1], CursorOp op, void *key, uint32_t keyLe
 DbStatus keyAtCursor(DbHandle cursor[1], void **key, uint32_t *keyLen);
 DbStatus moveCursor(DbHandle hndl[1], CursorOp op);
 
-DbStatus insertKey(DbHandle hndl[1], void *key, uint32_t len);
+DbStatus insertKey(DbHandle hndl[1], void *key, uint32_t len, uint32_t suffixLen);
 DbStatus deleteKey(DbHandle hndl[1], void *key, uint32_t len);
 
 uint64_t arenaAlloc(DbHandle arenaHndl[1], uint32_t size, bool zeroit, bool dbArena);
