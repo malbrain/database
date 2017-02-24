@@ -211,14 +211,27 @@ int slot, len;
 		if (stack->ch < 0) {
 		  ARTKeyUniq* keyUniqNode = getObj(map, *stack->slot);
 
-		  cursor->stack[cursor->depth].slot->bits = keyUniqNode->next->bits;
-		  cursor->stack[cursor->depth].addr = keyUniqNode->next;
+		  cursor->stack[cursor->depth].slot->bits = keyUniqNode->dups->bits;
+		  cursor->stack[cursor->depth].addr = keyUniqNode->dups;
 		  cursor->stack[cursor->depth].ch = -1;
 		  cursor->stack[cursor->depth].lastFld = cursor->lastFld;
 		  cursor->stack[cursor->depth++].off = dbCursor->keyLen;
 		  stack->ch = 0;
 		  continue;
 		}
+
+		if (stack->ch == 0) {
+		  ARTKeyUniq* keyUniqNode = getObj(map, *stack->slot);
+
+		  cursor->stack[cursor->depth].slot->bits = keyUniqNode->next->bits;
+		  cursor->stack[cursor->depth].addr = keyUniqNode->next;
+		  cursor->stack[cursor->depth].ch = -1;
+		  cursor->stack[cursor->depth].lastFld = cursor->lastFld;
+		  cursor->stack[cursor->depth++].off = dbCursor->keyLen;
+		  stack->ch = 256;
+		  continue;
+		}
+
 		break;
 	  }
 
@@ -442,6 +455,18 @@ int slot, len;
 		  cursor->stack[cursor->depth].lastFld = cursor->lastFld;
 		  cursor->stack[cursor->depth++].off = dbCursor->keyLen;
 		  stack->ch = 0;
+		  continue;
+		}
+
+		if (stack->ch == 0) {
+		  ARTKeyUniq* keyUniqNode = getObj(map, *stack->slot);
+
+		  cursor->stack[cursor->depth].slot->bits = keyUniqNode->dups->bits;
+		  cursor->stack[cursor->depth].addr = keyUniqNode->dups;
+		  cursor->stack[cursor->depth].ch = 256;
+		  cursor->stack[cursor->depth].lastFld = cursor->lastFld;
+		  cursor->stack[cursor->depth++].off = dbCursor->keyLen;
+		  stack->ch = -1;
 		  continue;
 		}
 

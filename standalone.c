@@ -259,6 +259,8 @@ int stat;
 				  case DB_ERROR_unique_key_violation:
 					fprintf(stderr, "Duplicate key <%.*s> line: %" PRIu64 "\n", len, key, line);
 					break;
+				  case DB_OK:
+					break;
 				  default:
 				    fprintf(stderr, "Insert Key %s Error %d Line: %" PRIu64 "\n", args->inFile, stat, line);
 					myExit(args);

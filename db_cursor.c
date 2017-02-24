@@ -3,16 +3,16 @@
 
 //	release cursor resources
 
-DbStatus dbCloseCursor(DbCursor *cursor, DbMap *map) {
+DbStatus dbCloseCursor(DbCursor *dbCursor, DbMap *map) {
 DbStatus stat = DB_ERROR_indextype;
 
 	switch (*map->arena->type) {
 	case Hndl_artIndex:
-		stat = artReturnCursor(cursor, map);
+		stat = artReturnCursor(dbCursor, map);
 		break;
 
 	case Hndl_btree1Index:
-		stat = btree1ReturnCursor(cursor, map);
+		stat = btree1ReturnCursor(dbCursor, map);
 		break;
 	}
 
@@ -21,38 +21,38 @@ DbStatus stat = DB_ERROR_indextype;
 
 //	position cursor
 
-DbStatus dbFindKey(DbCursor *cursor, DbMap *map, void *key, uint32_t keyLen, CursorOp op) {
+DbStatus dbFindKey(DbCursor *dbCursor, DbMap *map, void *key, uint32_t keyLen, CursorOp op) {
 DbStatus stat;
 
 	switch (*map->arena->type) {
 	  case Hndl_artIndex: {
-		if ((stat = artFindKey(cursor, map, key, keyLen)))
+		if ((stat = artFindKey(dbCursor, map, key, keyLen)))
 			return stat;
 
 		if (op == OpBefore) {
-			if (cursor->state == CursorPosBefore)
+			if (dbCursor->state == CursorPosBefore)
 			  return DB_OK;
 			else
-			  return artPrevKey(cursor, map);
+			  return artPrevKey(dbCursor, map);
 		}
 
-		return artNextKey(cursor, map);
+		return artNextKey(dbCursor, map);
 	  }
 
 	  case Hndl_btree1Index: {
-		if ((stat = btree1FindKey(cursor, map, key, keyLen, op == OpOne)))
+		if ((stat = btree1FindKey(dbCursor, map, key, keyLen, op == OpOne)))
 			return stat;
 
 		if (op == OpAfter) {
-		  if (memcmp (cursor->key, key, keyLen) <= 0)
-			return btree1NextKey (cursor, map);
+		  if (memcmp (dbCursor->key, key, keyLen) <= 0)
+			return btree1NextKey (dbCursor, map);
 		  else
 			return DB_OK;
 		}
 
 		if (op == OpBefore) {
-		  if (memcmp (cursor->key, key, keyLen) >= 0)
-			return btree1PrevKey (cursor, map);
+		  if (memcmp (dbCursor->key, key, keyLen) >= 0)
+			return btree1PrevKey (dbCursor, map);
 		  else
 			return DB_OK;
 		}
@@ -66,38 +66,38 @@ DbStatus stat;
 
 //	position cursor before first key
 
-DbStatus dbLeftKey(DbCursor *cursor, DbMap *map) {
+DbStatus dbLeftKey(DbCursor *dbCursor, DbMap *map) {
 DbStatus stat = DB_OK;
 
 	switch (*map->arena->type) {
 	  case Hndl_artIndex: {
-		stat = artLeftKey(cursor, map);
+		stat = artLeftKey(dbCursor, map);
 		break;
 	  }
 
 	  case Hndl_btree1Index: {
-		stat = btree1LeftKey(cursor, map);
+		stat = btree1LeftKey(dbCursor, map);
 		break;
 	  }
 	}
 
-	cursor->state = CursorLeftEof;
+	dbCursor->state = CursorLeftEof;
 	return stat;
 }
 
 //	position cursor after last key
 
-DbStatus dbRightKey(DbCursor *cursor, DbMap *map) {
+DbStatus dbRightKey(DbCursor *dbCursor, DbMap *map) {
 DbStatus stat = DB_OK;
 
 	switch (*map->arena->type) {
 	  case Hndl_artIndex: {
-		stat = artRightKey(cursor, map);
+		stat = artRightKey(dbCursor, map);
 		break;
 	  }
 
 	  case Hndl_btree1Index: {
-		stat = btree1RightKey(cursor, map);
+		stat = btree1RightKey(dbCursor, map);
 		break;
 	  }
 	}
@@ -105,20 +105,20 @@ DbStatus stat = DB_OK;
 	if (stat)
 		return stat;
 
-	cursor->state = CursorRightEof;
+	dbCursor->state = CursorRightEof;
 	return DB_OK;
 }
 
-DbStatus dbNextKey(DbCursor *cursor, DbMap *map) {
+DbStatus dbNextKey(DbCursor *dbCursor, DbMap *map) {
 DbStatus stat;
 
 	switch(*map->arena->type) {
 	case Hndl_artIndex:
-		stat = artNextKey (cursor, map);
+		stat = artNextKey (dbCursor, map);
 		break;
 
 	case Hndl_btree1Index:
-		stat = btree1NextKey (cursor, map);
+		stat = btree1NextKey (dbCursor, map);
 		break;
 
 	default:
@@ -129,16 +129,16 @@ DbStatus stat;
 	return stat;
 }
 
-DbStatus dbPrevKey(DbCursor *cursor, DbMap *map) {
+DbStatus dbPrevKey(DbCursor *dbCursor, DbMap *map) {
 DbStatus stat;
 
 	switch(*map->arena->type) {
 	case Hndl_artIndex:
-		stat = artPrevKey (cursor, map);
+		stat = artPrevKey (dbCursor, map);
 		break;
 
 	case Hndl_btree1Index:
-		stat = btree1PrevKey (cursor, map);
+		stat = btree1PrevKey (dbCursor, map);
 		break;
 
 	default:

@@ -93,7 +93,6 @@ uint32_t len;
 	  p->fldLen -= len;
   }
 
-  p->slot->bits = (uint64_t)KeyEnd << TYPE_SHIFT;
   slot->bits = fill->bits;
   return true;
 }
@@ -316,22 +315,10 @@ DbAddr slot;
 		  continue;
 
 		case EndSearch:			//  p->slot points to key continuation
-#ifdef DEBUG
-		  if (p->prev->type == SpanNode) {
-			ARTSpan *spanNode = getObj(p->index->map, *p->prev);
-			assert(spanNode->next->type);
-		  }
-#endif
 		  if (!p->newSlot->bits) {
 			unlockLatch(p->prev->latch);
 			return true;
 		  }
-#ifdef DEBUG
-		  if (p->newSlot->type == SpanNode) {
-			ARTSpan *spanNode = getObj(p->index->map, *p->newSlot);
-			assert(spanNode->next->type);
-		  }
-#endif
 
 		  // install new node value
 		  // and recycle old node
