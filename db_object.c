@@ -182,6 +182,25 @@ uint64_t result;
 	return off + xtraBytes + 2;
 }
 
+//	calc size required to store64
+
+uint32_t size64(int64_t recId, bool binaryFlds) {
+int off = binaryFlds ? 2 : 0;
+int64_t tst64 = recId >> 8;
+uint32_t xtraBytes = 0;
+bool neg;
+
+	neg = recId < 0;
+
+	while (tst64)
+	  if (neg && tst64 == -1)
+		break;
+	  else
+		xtraBytes++, tst64 >>= 8;
+
+    return xtraBytes + 2 + off;
+}
+
 // concatenate key with 64 bit value
 // returns number of bytes concatenated
 
@@ -192,7 +211,7 @@ uint32_t xtraBytes = 0;
 uint32_t idx, len;
 bool neg;
 
-	neg = (int64_t)recId < 0;
+	neg = recId < 0;
 
 	while (tst64)
 	  if (neg && tst64 == -1)
@@ -283,7 +302,7 @@ bool isCommitted(uint64_t ts) {
 //	de-duplication
 //	set mmbrship
 
-uint32_t mmbrSizes[] = { 15, 29, 61, 113, 251, 503, 1021 };
+uint16_t mmbrSizes[] = { 13, 29, 61, 113, 251, 503, 1021, 2039, 4093, 8191, 16381, 32749, 65521};
 
 //	determine set membership
 //	return hash table entry
@@ -305,28 +324,39 @@ uint64_t *first = NULL, item;
 	return first ? first : entry;
 }
 
-//	advance hash table entry 
-//	call w/addr locked
+//  mmbr slot probe enumerators
+//	only handle first mmbr table
 
-uint64_t *nxtMmbr(DbMmbr *mmbr, uint64_t *entry) {
+//	return all entries in mmbr table
+//	call w/mmbr locked
+
+uint64_t *allMmbr(DbMmbr *mmbr, uint64_t *entry) {
+	if (!entry)
+		return mmbr->table;
 
 	if (++entry < mmbr->table + mmbr->max)
 		return entry;
 
+	return NULL;
+}
+
+//	advance hash table entry to next slot
+//	call w/mmbr locked
+
+uint64_t *nxtMmbr(DbMmbr *mmbr, uint64_t *entry) {
+	if (++entry < mmbr->table + mmbr->max)
+		return entry;
+
+	//	wrap around to first slot
+
 	return mmbr->table;
 }
 
-//  start slot ptr in first mmbr hash table
-//	call w/addr locked
+//  start ptr in first mmbr hash table slot
+//	call w/mmbr locked
 
-uint64_t *getMmbr(DbMap *map, DbAddr *addr, uint64_t keyVal) {
-DbMmbr *mmbr;
-
-	if (addr->addr)
-	  if ((mmbr = getObj(map, *addr)))
-		return mmbr->table + keyVal % mmbr->max;
-
-	return NULL;
+uint64_t *getMmbr(DbMmbr *mmbr, uint64_t keyVal) {
+	return mmbr->table + keyVal % mmbr->max;
 }
 
 //	initialize new mmbr set
@@ -336,7 +366,7 @@ DbMmbr *iniMmbr(DbMap *map, DbAddr *addr, int minSize) {
 DbMmbr *first;
 int idx;
 
-	for (idx = 0; idx < sizeof(mmbrSizes) / sizeof(uint32_t); idx++)
+	for (idx = 0; idx < sizeof(mmbrSizes) / sizeof(uint16_t); idx++)
 	  if (minSize < mmbrSizes[idx])
 		break;
 
@@ -359,7 +389,7 @@ uint64_t next = addr->bits, item;
 DbMmbr *mmbr;
 int redo = 0;
 
-	if (first->sizeIdx < sizeof(mmbrSizes) / sizeof(uint32_t))
+	if (first->sizeIdx < sizeof(mmbrSizes) / sizeof(uint16_t))
 	  redo = ++first->sizeIdx;
 
 	if (!(addr->bits = allocBlk(map, mmbrSizes[first->sizeIdx] * sizeof(uint64_t) + sizeof(DbMmbr), true))) {
@@ -390,7 +420,7 @@ int redo = 0;
 uint64_t *newMmbr(DbMap *map, DbAddr *addr, uint64_t hash) {
 DbMmbr *first = getObj(map, *addr);
 uint64_t item;
-uint32_t idx;
+uint16_t idx;
 
 	if (3 * first->cnt / 2 > mmbrSizes[first->sizeIdx])
 	  first = xtnMmbr(map, addr, first);

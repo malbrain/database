@@ -388,7 +388,7 @@ int stat;
 			fprintf(stderr, "started forward cursor");
 
 		if (verify)
-			fprintf(stderr, " verification");
+			fprintf(stderr, " key ordering verification");
 
 		if (cntOnly)
 			fprintf(stderr, " count Only");

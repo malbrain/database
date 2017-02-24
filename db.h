@@ -144,5 +144,6 @@ typedef struct {
 	uint64_t hndlBits;
 } DbHandle;
 
-uint32_t get64(uint8_t *key, uint32_t len, uint64_t *result, bool binaryFlds);
 uint32_t store64(uint8_t *key, uint32_t keylen, int64_t what, bool binaryFlds);
+uint32_t get64(uint8_t *key, uint32_t len, uint64_t *result, bool binaryFlds);
+uint32_t size64(int64_t recId, bool binaryFlds);
