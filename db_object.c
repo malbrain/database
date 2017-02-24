@@ -327,14 +327,15 @@ uint64_t *first = NULL, item;
 //  mmbr slot probe enumerators
 //	only handle first mmbr table
 
-//	return all entries in mmbr table
+//	return occupied entries in mmbr table
 //	call w/mmbr locked
 
 uint64_t *allMmbr(DbMmbr *mmbr, uint64_t *entry) {
 	if (!entry)
-		return mmbr->table;
+		entry = mmbr->table - 1;
 
-	if (++entry < mmbr->table + mmbr->max)
+	while (++entry < mmbr->table + mmbr->max)
+	  if (*entry && *entry < ~0ULL)
 		return entry;
 
 	return NULL;
