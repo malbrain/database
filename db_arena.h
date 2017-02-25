@@ -114,7 +114,6 @@ struct DbMap_ {
 
 typedef struct {
 	int64_t timestamp[1];	// database txn timestamp
-	DbAddr txnIdx[1];		// array of active idx for txn entries
 } DataBase;
 
 #define database(db) ((DataBase *)(db->arena + 1))

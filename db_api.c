@@ -66,16 +66,12 @@ DbMap *map;
 }
 
 DbStatus openDatabase(DbHandle hndl[1], char *name, uint32_t nameLen, Params *params) {
-uint32_t xtra = params[ObjIdSize].intVal;
 ArenaDef arenaDef[1];
 uint64_t dbVer = 0;
 PathStk pathStk[1];
 RedBlack *rbEntry;
 Catalog *catalog;
 DbMap *map;
-
-	if (!xtra)
-		xtra = sizeof(DbAddr);
 
 	memset (arenaDef, 0, sizeof(ArenaDef));
 	memset (hndl, 0, sizeof(DbHandle));
@@ -99,18 +95,21 @@ DbMap *map;
 	memcpy (arenaDef->params, params, sizeof(Params) * (MaxParam + 1));
 
 	arenaDef->mapIdx = arrayAlloc(hndlMap, catalog->openMap, sizeof(void *));
-	arenaDef->baseSize = sizeof(DataBase);
+	arenaDef->baseSize = sizeof(DataBase) + params[MapXtra].intVal;
+	arenaDef->objSize = params[ObjIdSize].intVal;
 	arenaDef->arenaType = Hndl_database;
 	arenaDef->numTypes = ObjIdType + 1;
-	arenaDef->objSize = xtra;
 	arenaDef->ver = dbVer;
 
 	//  create the database
 
-	if ((map = openMap(NULL, name, nameLen, arenaDef, NULL)))
-		*map->arena->type = Hndl_database;
-	else
+	if ((map = openMap(NULL, name, nameLen, arenaDef, NULL))) {
+		DataBase *db = database(map->db);
+		*db->timestamp = 1;
+	} else
 		return DB_ERROR_createdatabase;
+
+	*map->arena->type = Hndl_database;
 
 	arrayActivate(hndlMap, catalog->openMap, arenaDef->mapIdx);
 	hndl->hndlBits = makeHandle(map, 0, Hndl_database)->hndlId.bits;

@@ -262,9 +262,6 @@ uint64_t ts;
 
 	ts = *db->timestamp;
 
-	if (!ts)
-		ts = atomicAdd64(db->timestamp, 1);
-
 	switch (e) {
 	case en_reader:
 		while (!isReader(ts))
