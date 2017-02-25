@@ -254,48 +254,6 @@ bool neg;
     return len + off;
 }
 
-//	allocate a new timestamp
-
-uint64_t allocateTimestamp(DbMap *map, enum ReaderWriterEnum e) {
-DataBase *db = database(map->db);
-uint64_t ts;
-
-	ts = *db->timestamp;
-
-	switch (e) {
-	case en_reader:
-		while (!isReader(ts))
-			ts = atomicAdd64(db->timestamp, 1);
-		break;
-	case en_writer:
-		while (!isWriter(ts))
-			ts = atomicAdd64(db->timestamp, 1);
-		break;
-
-	default: break;
-	}
-
-	return ts;
-}
-
-//	reader == even
-
-bool isReader(uint64_t ts) {
-	return !(ts & 1);
-}
-
-//	writer == odd
-
-bool isWriter(uint64_t ts) {
-	return (ts & 1);
-}
-
-//	committed == not reader
-
-bool isCommitted(uint64_t ts) {
-	return (ts & 1);
-}
-
 //	de-duplication
 //	set mmbrship
 

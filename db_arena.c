@@ -514,12 +514,6 @@ void *fetchIdSlot (DbMap *map, ObjId objId) {
 uint64_t allocObjId(DbMap *map, DbAddr *free, DbAddr *wait) {
 ObjId objId;
 
-	if (free)
-		free += ObjIdType;
-
-	if (wait)
-		wait += ObjIdType;
-
 	lockLatch(free->latch);
 
 	// see if there is a free object in the free queue

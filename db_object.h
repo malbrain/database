@@ -40,25 +40,6 @@ enum ObjType {
 	MaxObjType = 49		// each half power of two, 3 - 24
 };
 
-/**
- * even =>  reader timestamp
- * odd  =>  writer timestamp
- */
-
-enum ReaderWriterEnum {
-	en_reader,
-	en_writer,
-	en_current
-};
-
-//	timestamp bits
-
-bool isReader(uint64_t ts);
-bool isWriter(uint64_t ts);
-bool isCommitted(uint64_t ts);
-
-uint64_t allocateTimestamp(DbMap *map, enum ReaderWriterEnum e);
-
 //  set-membership control
 
 typedef struct {

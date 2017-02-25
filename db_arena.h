@@ -110,14 +110,6 @@ struct DbMap_ {
 
 #define SKIP_node 15
 
-//	database variables
-
-typedef struct {
-	int64_t timestamp[1];	// database txn timestamp
-} DataBase;
-
-#define database(db) ((DataBase *)(db->arena + 1))
-
 //	catalog structure
 
 typedef union {

@@ -95,21 +95,18 @@ DbMap *map;
 	memcpy (arenaDef->params, params, sizeof(Params) * (MaxParam + 1));
 
 	arenaDef->mapIdx = arrayAlloc(hndlMap, catalog->openMap, sizeof(void *));
-	arenaDef->baseSize = sizeof(DataBase) + params[MapXtra].intVal;
 	arenaDef->objSize = params[ObjIdSize].intVal;
+	arenaDef->baseSize = params[MapXtra].intVal;
 	arenaDef->arenaType = Hndl_database;
 	arenaDef->numTypes = ObjIdType + 1;
 	arenaDef->ver = dbVer;
 
 	//  create the database
 
-	if ((map = openMap(NULL, name, nameLen, arenaDef, NULL))) {
-		DataBase *db = database(map->db);
-		*db->timestamp = 1;
-	} else
+	if ((map = openMap(NULL, name, nameLen, arenaDef, NULL)))
+		*map->arena->type = Hndl_database;
+	else
 		return DB_ERROR_createdatabase;
-
-	*map->arena->type = Hndl_database;
 
 	arrayActivate(hndlMap, catalog->openMap, arenaDef->mapIdx);
 	hndl->hndlBits = makeHandle(map, 0, Hndl_database)->hndlId.bits;
@@ -530,7 +527,7 @@ void *doc;
 
 	memcpy(doc, obj, objSize);
 
-	docId->bits = allocObjId(docHndl->map, listFree(docHndl,0), listWait(docHndl,0));
+	docId->bits = allocObjId(docHndl->map, listFree(docHndl,ObjIdType), listWait(docHndl,ObjIdType));
 
 	slot = fetchIdSlot(docHndl->map, *docId);
 	slot->bits = addr.bits;
