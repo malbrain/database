@@ -98,6 +98,7 @@ typedef enum {
 	ArenaXtra,		// extra bytes in arena
 
 	IdxKeyUnique = 10,
+	IdxKeyDeferred,
 	IdxKeyAddr,			// index key definition address
 	IdxKeySparse,
 	IdxKeyPartial,		// offset of partial document
