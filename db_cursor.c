@@ -26,7 +26,7 @@ DbStatus stat;
 
 	switch (*map->arena->type) {
 	  case Hndl_artIndex: {
-		if ((stat = artFindKey(dbCursor, map, key, keyLen)))
+		if ((stat = artFindKey(dbCursor, map, key, keyLen, 0)))
 			return stat;
 
 		if (op == OpBefore) {

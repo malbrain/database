@@ -4,13 +4,11 @@
 #define offsetof(type,member) __builtin_offsetof(type,member)
 #endif
 
-DbStatus artInsertUniq( Handle *index, void *key, uint32_t keyLen, uint32_t keySuffix, UniqCbFcn *evalUniq) {
-uint8_t area[sizeof(ArtCursor) + sizeof(DbCursor)];
+bool evalUniq(DbMap *map, ARTKeyUniq *keyUniqNode, UniqCbFcn *evalFcn);
+
+DbStatus artInsertUniq( Handle *index, void *key, uint32_t keyLen, uint32_t uniqueLen, UniqCbFcn *evalFcn) {
 volatile DbAddr *uniq, slot;
 ARTKeyUniq *keyUniqNode;
-DbCursor *dbCursor;
-CursorStack* stack;
-ArtCursor *cursor;
 bool pass = false;
 InsertParam p[1];
 ArtIndex *artIdx;
@@ -24,8 +22,8 @@ DbIndex *dbIdx;
 
 	do {
 		p->slot = artIdx->root;
+		p->keyLen = uniqueLen;
 		p->restart = false;
-		p->keyLen = keyLen;
 		p->index = index;
 		p->fldLen = 0;
 		p->key = key;
@@ -40,6 +38,8 @@ DbIndex *dbIdx;
 
 		if (!artInsertParam(p))
 			continue;
+
+		//  latch the terminal node
 
 		lockLatch(p->slot->latch);
 
@@ -69,41 +69,21 @@ DbIndex *dbIdx;
 
 	uniq = p->slot;
 
-	//  prepare cursor to enumerate uniq keys
+	//	evaluate immediate uniqueness violation
 
-	dbCursor = (DbCursor *)(area);
-	memset(dbCursor, 0, sizeof(DbCursor));
-
-	dbCursor->xtra = sizeof(ArtCursor);
-	dbCursor->state = CursorPosAt;
-
-	cursor = (ArtCursor *)((char *)dbCursor + dbCursor->xtra);
-	memset(cursor, 0, offsetof(ArtCursor, key));
-	dbCursor->key = cursor->key;
-
-	stack = &cursor->stack[cursor->depth++];
-	stack->slot->bits = keyUniqNode->dups->bits;
-	stack->addr = keyUniqNode->dups;
-	stack->lastFld = 0;
-	stack->off = 0;
-	stack->ch = -1;
-
-	if (keyUniqNode->dups->bits)
-	 while (artNextKey(dbCursor, index->map) == DB_OK) {
-	  if ((*evalUniq)(index, dbCursor)) {
-		unlockLatch(p->slot->latch);
-		return DB_ERROR_unique_key_violation;
-	  }
-	 }
+	if (evalFcn)
+	 if (keyUniqNode->dups->bits)
+	  if (!evalUniq(index->map, keyUniqNode, evalFcn))
+		return DB_ERROR_unique_key_constraint;
 
 	//  install the suffix key bytes
 
-	p->keyLen += keySuffix;
+	p->keyLen = keyLen;
 	pass = false;
 
 	do {
 		p->slot = keyUniqNode->dups;
-		p->off = keyLen;
+		p->off = uniqueLen;
 
 		if (pass) {
 			pass = false;
@@ -154,3 +134,105 @@ DbIndex *dbIdx;
 	return DB_OK;
 }
 
+DbStatus artEvalUniq( DbMap *map, void *key, uint32_t keyLen, uint32_t uniqueLen, UniqCbFcn *evalFcn) {
+uint8_t area[sizeof(ArtCursor) + sizeof(DbCursor)];
+bool pass = false, isDup;
+ARTKeyUniq *keyUniqNode;
+volatile DbAddr *uniq;
+DbCursor *dbCursor;
+CursorStack* stack;
+ArtCursor *cursor;
+ArtIndex *artIdx;
+DbIndex *dbIdx;
+DbStatus stat;
+
+	dbIdx = (DbIndex *)(map->arena + 1);
+	artIdx = (ArtIndex *)((uint8_t *)(dbIdx + 1) + dbIdx->xtra);
+
+	dbCursor = (DbCursor *)(area);
+	memset(dbCursor, 0, sizeof(DbCursor));
+
+	dbCursor->xtra = sizeof(ArtCursor);
+	dbCursor->state = CursorPosAt;
+
+	cursor = (ArtCursor *)((char *)dbCursor + dbCursor->xtra);
+	memset(cursor, 0, offsetof(ArtCursor, key));
+	dbCursor->key = cursor->key;
+
+	stack = &cursor->stack[cursor->depth++];
+	stack->slot->bits = artIdx->root->bits;
+	stack->addr = artIdx->root;
+	stack->lastFld = 0;
+	stack->off = 0;
+	stack->ch = -1;
+
+	if ((stat = artFindKey(dbCursor, map, key, keyLen, uniqueLen)))
+		return stat;
+
+	//  see if we ended up on the KeyUniq node
+
+	stack = &cursor->stack[cursor->depth - 1];
+
+	//  latch and remember the terminal node
+
+	lockLatch(stack->addr->latch);
+	uniq = stack->addr;
+
+	if (stack->addr->type != KeyUniq) {
+		unlockLatch(stack->addr->latch);
+		return DB_OK;
+	}
+
+	//  reset cursor to enumerate duplicate keys
+
+	keyUniqNode = getObj(map, *stack->addr);
+	cursor->depth = 0;
+
+	stack = &cursor->stack[cursor->depth++];
+	stack->slot->bits = keyUniqNode->dups->bits;
+	stack->addr = keyUniqNode->dups;
+	stack->lastFld = 0;
+	stack->off = 0;
+	stack->ch = -1;
+
+	isDup = false;
+
+	while (artNextKey(dbCursor, map) == DB_OK)
+	  if ((isDup = (*evalFcn)(map, dbCursor)))
+		break;
+
+	unlockLatch(uniq->latch);
+	return isDup ? DB_ERROR_unique_key_constraint : DB_OK;
+}
+
+bool evalUniq(DbMap *map, ARTKeyUniq *keyUniqNode, UniqCbFcn *evalFcn) {
+uint8_t area[sizeof(ArtCursor) + sizeof(DbCursor)];
+DbCursor *dbCursor;
+CursorStack* stack;
+ArtCursor *cursor;
+
+	//  prepare cursor to enumerate uniq keys
+
+	dbCursor = (DbCursor *)(area);
+	memset(dbCursor, 0, sizeof(DbCursor));
+
+	dbCursor->xtra = sizeof(ArtCursor);
+	dbCursor->state = CursorPosAt;
+
+	cursor = (ArtCursor *)((char *)dbCursor + dbCursor->xtra);
+	memset(cursor, 0, offsetof(ArtCursor, key));
+	dbCursor->key = cursor->key;
+
+	stack = &cursor->stack[cursor->depth++];
+	stack->slot->bits = keyUniqNode->dups->bits;
+	stack->addr = keyUniqNode->dups;
+	stack->lastFld = 0;
+	stack->off = 0;
+	stack->ch = -1;
+
+	while (artNextKey(dbCursor, map) == DB_OK)
+	  if ((*evalFcn)(map, dbCursor))
+		return false;
+
+	return true;
+}

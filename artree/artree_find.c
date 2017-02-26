@@ -1,6 +1,6 @@
 #include "artree.h"
 
-DbStatus artFindKey( DbCursor *dbCursor, DbMap *map, void *findKey, uint32_t keyLen) {
+DbStatus artFindKey( DbCursor *dbCursor, DbMap *map, void *findKey, uint32_t keyLen, uint32_t uniqueLen) {
 ArtCursor *cursor = (ArtCursor *)((char *)dbCursor + dbCursor->xtra);
 bool binaryFlds = map->arenaDef->params[IdxKeyFlds].boolVal;
 uint32_t idx, offset = 0, spanMax;
@@ -68,7 +68,11 @@ DbIndex *dbIdx;
 
 	  case KeyUniq: {
 	   	  ARTKeyUniq* keyUniqNode = getObj(map, *slot);
-		  slot = keyUniqNode->next;
+
+		  if (stack->off == uniqueLen)
+			slot = keyUniqNode->dups;
+		  else
+			slot = keyUniqNode->next;
 
 		  if (cursor)
 			stack->ch = 256;
@@ -231,14 +235,16 @@ DbIndex *dbIdx;
   else
   	dbCursor->state = CursorPosBefore;
 
+  //  add the terminal node to the cursor
+
   if (cursor->depth < MAX_cursor)
 	stack = cursor->stack + cursor->depth++;
   else
 	return DB_ERROR_cursoroverflow;
 
+  stack->lastFld = cursor->lastFld;
   stack->slot->bits = slot->bits;
   stack->off = dbCursor->keyLen;
-  stack->lastFld = cursor->lastFld;
   stack->addr = slot;
   stack->ch = -1;
   return DB_OK;

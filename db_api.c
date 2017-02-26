@@ -545,7 +545,7 @@ Handle *idxHndl;
 
 	switch (*idxHndl->map->arena->type) {
 	case Hndl_artIndex:
-		stat = artDeleteKey(idxHndl, key, len);
+		stat = artDeleteKey(idxHndl, key, len, 0);
 		break;
 
 	case Hndl_btree1Index:
@@ -562,7 +562,7 @@ Handle *idxHndl;
 
 //	return true if key is already in the index
 
-bool uniqueKey(Handle *idxHndl, DbCursor *dbCursor) {
+bool uniqueKey(DbMap *map, DbCursor *dbCursor) {
 	return true;
 }
 

@@ -148,14 +148,15 @@ DbStatus artReturnCursor(DbCursor *dbCursor, DbMap *map);
 DbStatus artLeftKey(DbCursor *cursor, DbMap *map);
 DbStatus artRightKey(DbCursor *cursor, DbMap *map);
 
-DbStatus artFindKey( DbCursor *dbCursor, DbMap *map, void *key, uint32_t keyLen);
+DbStatus artFindKey( DbCursor *dbCursor, DbMap *map, void *key, uint32_t keyLen, uint32_t uniqueLen);
 DbStatus artNextKey(DbCursor *dbCursor, DbMap *map);
 DbStatus artPrevKey(DbCursor *dbCursor, DbMap *map);
 
 DbStatus artInit(Handle *hndl, Params *params);
-DbStatus artDeleteKey (Handle *hndl, void *key, uint32_t keyLen);
+DbStatus artDeleteKey (Handle *hndl, void *key, uint32_t keyLen, uint32_t uniqueLen);
 DbStatus artInsertKey (Handle *hndl, void *key, uint32_t keyLen);
-DbStatus artInsertUniq (Handle *hndl, void *key, uint32_t keyLen, uint32_t keySuffix, UniqCbFcn *fcn);
+DbStatus artInsertUniq (Handle *hndl, void *key, uint32_t keyLen, uint32_t uniqueLen, UniqCbFcn *fcn);
+DbStatus artEvalUniq( DbMap *map, void *key, uint32_t keyLen, uint32_t uniqueLen, UniqCbFcn *evalFcn);
 
 uint64_t artAllocateNode(Handle *index, int type, uint32_t size);
 

@@ -256,7 +256,7 @@ int stat;
  
 			  if (idxHndl->hndlBits)
 				switch ((stat = insertKey(idxHndl, key, len, suffixLen))) {
-				  case DB_ERROR_unique_key_violation:
+				  case DB_ERROR_unique_key_constraint:
 					fprintf(stderr, "Duplicate key <%.*s> line: %" PRIu64 "\n", len, key, line);
 					break;
 				  case DB_OK:

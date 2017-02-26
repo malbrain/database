@@ -37,7 +37,7 @@ typedef enum {
 
 //	Unique Key evaluation fcn
 
-typedef bool (UniqCbFcn)(Handle *idxHndl, DbCursor *dbCursor);
+typedef bool (UniqCbFcn)(DbMap *map, DbCursor *dbCursor);
 
 #ifdef apple 
 #define DbStatus int
