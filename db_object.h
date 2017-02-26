@@ -58,6 +58,7 @@ DbMmbr *iniMmbr(DbMap *map, DbAddr *addr, int minSize);
 void *getMmbr(DbMmbr *mmbr, uint64_t item);
 void *nxtMmbr(DbMmbr *mmbr, uint64_t *entry);
 void *allMmbr(DbMmbr *mmbr, uint64_t *entry);
+void *revMmbr(DbMmbr *mmbr, uint64_t *entry);
 
 //	mmbr-set functions
 
