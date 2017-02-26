@@ -55,9 +55,9 @@ DbMmbr *iniMmbr(DbMap *map, DbAddr *addr, int minSize);
 
 //  mmbr table enumerators
 
-uint64_t *getMmbr(DbMmbr *mmbr, uint64_t item);
-uint64_t *nxtMmbr(DbMmbr *mmbr, uint64_t *entry);
-uint64_t *allMmbr(DbMmbr *mmbr, uint64_t *entry);
+void *getMmbr(DbMmbr *mmbr, uint64_t item);
+void *nxtMmbr(DbMmbr *mmbr, uint64_t *entry);
+void *allMmbr(DbMmbr *mmbr, uint64_t *entry);
 
 //	mmbr-set functions
 

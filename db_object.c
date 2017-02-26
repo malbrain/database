@@ -285,7 +285,7 @@ uint64_t *first = NULL, item;
 //	return occupied entries in mmbr table
 //	call w/mmbr locked
 
-uint64_t *allMmbr(DbMmbr *mmbr, uint64_t *entry) {
+void *allMmbr(DbMmbr *mmbr, uint64_t *entry) {
 	if (!entry)
 		entry = mmbr->table - 1;
 
@@ -299,7 +299,7 @@ uint64_t *allMmbr(DbMmbr *mmbr, uint64_t *entry) {
 //	advance hash table entry to next slot
 //	call w/mmbr locked
 
-uint64_t *nxtMmbr(DbMmbr *mmbr, uint64_t *entry) {
+void *nxtMmbr(DbMmbr *mmbr, uint64_t *entry) {
 	if (++entry < mmbr->table + mmbr->max)
 		return entry;
 
@@ -311,7 +311,7 @@ uint64_t *nxtMmbr(DbMmbr *mmbr, uint64_t *entry) {
 //  start ptr in first mmbr hash table slot
 //	call w/mmbr locked
 
-uint64_t *getMmbr(DbMmbr *mmbr, uint64_t keyVal) {
+void *getMmbr(DbMmbr *mmbr, uint64_t keyVal) {
 	return mmbr->table + keyVal % mmbr->max;
 }
 
