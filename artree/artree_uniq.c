@@ -6,7 +6,10 @@
 
 bool evalUniq(DbMap *map, ARTKeyUniq *keyUniqNode, UniqCbFcn *evalFcn);
 
-DbStatus artInsertUniq( Handle *index, void *key, uint32_t keyLen, uint32_t uniqueLen, UniqCbFcn *evalFcn) {
+//  insert unique key
+//	clear defer if unique
+
+DbStatus artInsertUniq( Handle *index, void *key, uint32_t keyLen, uint32_t uniqueLen, UniqCbFcn *evalFcn, uint8_t *defer) {
 volatile DbAddr *uniq, slot;
 ARTKeyUniq *keyUniqNode;
 bool pass = false;
@@ -69,12 +72,14 @@ DbIndex *dbIdx;
 
 	uniq = p->slot;
 
-	//	evaluate immediate uniqueness violation
+	//	evaluate uniqueness violation
 
-	if (evalFcn)
-	 if (keyUniqNode->dups->bits)
-	  if (!evalUniq(index->map, keyUniqNode, evalFcn))
-		return DB_ERROR_unique_key_constraint;
+	if (!keyUniqNode->dups->bits)
+	  *defer = false;				// no other keys
+	else if (evalUniq(index->map, keyUniqNode, evalFcn))
+	  *defer = false;				// no conflicting keys
+	else if (!*defer)
+	  return DB_ERROR_unique_key_constraint;
 
 	//  install the suffix key bytes
 

@@ -574,12 +574,15 @@ Handle *idxHndl;
 		return DB_ERROR_handleclosed;
 
 	switch (*idxHndl->map->arena->type) {
-	case Hndl_artIndex:
+	case Hndl_artIndex: {
+		uint8_t defer = idxHndl->map->arenaDef->params[IdxKeyDeferred].boolVal;
+
 		if (idxHndl->map->arenaDef->params[IdxKeyUnique].boolVal)
-			stat = artInsertUniq(idxHndl, key, len, suffixLen, uniqueKey);
+			stat = artInsertUniq(idxHndl, key, len, suffixLen, uniqueKey, &defer);
 		else
 			stat = artInsertKey(idxHndl, key, len + suffixLen);
 		break;
+	}
 
 	case Hndl_btree1Index:
 		stat = btree1InsertKey(idxHndl, key, len, 0, Btree1_indexed);
