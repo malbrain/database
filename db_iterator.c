@@ -115,15 +115,16 @@ Iterator *it;
 		break;
 
 	  case IterSeek:
+		DbAddr *slot = fetchIdSlot(itHndl->map, docId);
+
 		it->docId.bits = docId.bits;
 
-		while (decrObjId(it, itHndl->map)) {
-		  DbAddr *slot = fetchIdSlot(itHndl->map, it->docId);
-		  if (slot->bits) {
+		if (slot->bits) {
 			it->state = IterPosAt;
 			return slot;
-		  }
-		}
+		} else
+			it->state = IterNone;
+
 		break;
 
 	  default:
