@@ -50,18 +50,16 @@ ObjId start = it->docId;
 //  advance iterator forward
 //
 
-void *iteratorNext(Handle *itHndl) {
+DbAddr *iteratorNext(Handle *itHndl) {
 Iterator *it;
-DbAddr addr;
-void *doc;
 
 	it = (Iterator *)(itHndl + 1);
 
 	while (incrObjId(it, itHndl->map)) {
-	  if ((addr.bits = *(uint64_t *)fetchIdSlot(itHndl->map, it->docId))) {
-		doc = getObj(itHndl->map, addr);
+	  DbAddr *slot = fetchIdSlot(itHndl->map, it->docId);
+	  if (slot->bits) {
 		it->state = IterPosAt;
-		return doc;
+		return slot;
 	  }
 	}
 
@@ -73,18 +71,16 @@ void *doc;
 //  advance iterator backward
 //
 
-void *iteratorPrev(Handle *itHndl) {
+DbAddr *iteratorPrev(Handle *itHndl) {
 Iterator *it;
-DbAddr addr;
-void *doc;
 
 	it = (Iterator *)(itHndl + 1);
 
 	while (decrObjId(it, itHndl->map)) {
-	  if ((addr.bits = *(uint64_t *)fetchIdSlot(itHndl->map, it->docId))) {
-		doc = getObj(itHndl->map, addr);
+	  DbAddr *slot = fetchIdSlot(itHndl->map, it->docId);
+	  if (slot->bits) {
 		it->state = IterPosAt;
-		return doc;
+		return slot;
 	  }
 	}
 
@@ -94,13 +90,10 @@ void *doc;
 
 //
 //  set iterator to specific objectId
-//	return document
 //
 
-void *iteratorSeek(Handle *itHndl, IteratorOp op, ObjId docId) {
-void *doc = NULL;
+DbAddr *iteratorSeek(Handle *itHndl, IteratorOp op, ObjId docId) {
 Iterator *it;
-DbAddr addr;
 
 	it = (Iterator *)(itHndl + 1);
 
@@ -124,16 +117,18 @@ DbAddr addr;
 	  case IterSeek:
 		it->docId.bits = docId.bits;
 
-		if ((addr.bits = *(uint64_t *)fetchIdSlot(itHndl->map, it->docId))) {
-			doc = getObj(itHndl->map, addr);
+		while (decrObjId(it, itHndl->map)) {
+		  DbAddr *slot = fetchIdSlot(itHndl->map, it->docId);
+		  if (slot->bits) {
 			it->state = IterPosAt;
-		} else
-			it->state = IterNone;
+			return slot;
+		  }
+		}
 		break;
 
 	  default:
 		break;
 	}
 
-	return doc;
+	return NULL;
 }

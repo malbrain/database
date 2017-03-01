@@ -268,6 +268,7 @@ DbStatus moveIterator (DbHandle hndl[1], IteratorOp op, void **doc, ObjId *docId
 Handle *docHndl;
 DbStatus stat;
 Iterator *it;
+DbAddr *slot;
 
 	if (!(docHndl = bindHandle(hndl)))
 		return DB_ERROR_handleclosed;
@@ -276,25 +277,28 @@ Iterator *it;
 
 	switch (op) {
 	  case IterNext:
-		if ((*doc = iteratorNext(docHndl)))
+		if ((slot = iteratorNext(docHndl))) {
+			*doc = getObj(docHndl->map, *slot);
 			stat = DB_OK;
-		else
+		} else
 			stat = DB_ITERATOR_eof;
 
 		break;
 	  case IterPrev:
-		if ((*doc = iteratorPrev(docHndl)))
+		if ((slot = iteratorPrev(docHndl))) {
+			*doc = getObj(docHndl->map, *slot);
 			stat = DB_OK;
-		else
+		} else
 			stat = DB_ITERATOR_eof;
 
 		break;
 	  case IterSeek:
 	  case IterBegin:
 	  case IterEnd:
-		if ((*doc = iteratorSeek(docHndl, op, *docId)))
+		if ((slot = iteratorSeek(docHndl, op, *docId))) {
+			*doc = getObj(docHndl->map, *slot);
 			stat = DB_OK;
-		else
+		} else
 			stat = DB_ITERATOR_notfound;
 
 		break;

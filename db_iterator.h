@@ -8,6 +8,6 @@ typedef struct {
 	IterState state:8;
 } Iterator;
 
-void *iteratorSeek(Handle *itHndl, IteratorOp op, ObjId objId);
-void *iteratorNext(Handle *itHndl);
-void *iteratorPrev(Handle *itHndl);
+DbAddr *iteratorSeek(Handle *itHndl, IteratorOp op, ObjId objId);
+DbAddr *iteratorNext(Handle *itHndl);
+DbAddr *iteratorPrev(Handle *itHndl);
