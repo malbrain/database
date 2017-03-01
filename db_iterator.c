@@ -114,7 +114,7 @@ Iterator *it;
 		it->state = IterRightEof;
 		break;
 
-	  case IterSeek:
+	  case IterSeek: {
 		DbAddr *slot = fetchIdSlot(itHndl->map, docId);
 
 		it->docId.bits = docId.bits;
@@ -126,6 +126,7 @@ Iterator *it;
 			it->state = IterNone;
 
 		break;
+	  }
 
 	  default:
 		break;

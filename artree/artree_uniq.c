@@ -141,7 +141,6 @@ DbIndex *dbIdx;
 
 DbStatus artEvalUniq( DbMap *map, void *key, uint32_t keyLen, uint32_t uniqueLen, UniqCbFcn *evalFcn) {
 uint8_t area[sizeof(ArtCursor) + sizeof(DbCursor)];
-bool pass = false, isDup;
 ARTKeyUniq *keyUniqNode;
 volatile DbAddr *uniq;
 DbCursor *dbCursor;
@@ -150,6 +149,7 @@ ArtCursor *cursor;
 ArtIndex *artIdx;
 DbIndex *dbIdx;
 DbStatus stat;
+bool isDup;
 
 	dbIdx = (DbIndex *)(map->arena + 1);
 	artIdx = (ArtIndex *)((uint8_t *)(dbIdx + 1) + dbIdx->xtra);
