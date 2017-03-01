@@ -18,8 +18,8 @@ union Handle_ {
 	DbAddr *frames;			// frames ready and waiting to be recycled
 	ObjId hndlId;			// Handle Id
 	uint64_t entryTs;		// time stamp of first api call
-	int32_t bindCnt[1];		// count of open api calls (handle binds)
-	int32_t lockedDocs[1];	// count of open api calls (handle binds)
+	uint32_t bindCnt[1];		// count of open api calls (handle binds)
+	uint32_t lockedDocs[1];	// count of open api calls (handle binds)
 	uint32_t xtraSize;		// size of following structure
 	int8_t maxType[1];		// number of arena list entries
 	int8_t status[1];		// current status of the handle

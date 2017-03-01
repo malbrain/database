@@ -26,7 +26,7 @@ typedef struct {
 
 struct DbArena_ {
 	DbSeg segs[MAX_segs]; 			// segment meta-data
-	int64_t lowTs, delTs, nxtTs;	// low hndl ts, Incr on delete
+	uint64_t lowTs, delTs, nxtTs;	// low hndl ts, Incr on delete
 	DbAddr freeBlk[MAX_blk];		// free blocks in frames
 	DbAddr freeFrame[1];			// free frames in frames
 	DbAddr listArray[1];			// free lists array for handles
@@ -69,7 +69,7 @@ typedef struct {
 typedef struct {
 	uint64_t id;				// our id in parent children
 	uint64_t ver;				// current arena version
-	int64_t childId;			// highest child Id we've issued
+	uint64_t childId;			// highest child Id we've issued
 	uint32_t localSize;			// extra space after DbMap
 	uint32_t baseSize;			// extra space after DbArena
 	uint32_t objSize;			// size of ObjectId array slot
@@ -100,7 +100,7 @@ struct DbMap_ {
 	DbMap *parent, *db;		// ptr to parent and database
 	SkipHead childMaps[1];	// skipList of child DbMaps
 	ArenaDef *arenaDef;		// our arena definition
-	int32_t openCnt[1];		// count of open children
+	uint32_t openCnt[1];	// count of open children
 	uint16_t pathLen;		// length of arena path
 	uint16_t numSeg;		// number of mapped segments
 	char mapMutex[1];		// segment mapping mutex

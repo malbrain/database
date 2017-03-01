@@ -138,7 +138,7 @@ void waitZero(volatile char *zero) {
 #endif
 }
 
-void waitZero32(volatile int32_t *zero) {
+void waitZero32(volatile uint32_t *zero) {
 	while (*zero)
 #ifndef _WIN32
 			pause();
@@ -147,7 +147,7 @@ void waitZero32(volatile int32_t *zero) {
 #endif
 }
 
-void waitZero64(volatile int64_t *zero) {
+void waitZero64(volatile uint64_t *zero) {
 	while (*zero)
 #ifndef _WIN32
 			pause();
@@ -165,7 +165,7 @@ void waitNonZero(volatile char *zero) {
 #endif
 }
 
-void waitNonZero32(volatile int32_t *zero) {
+void waitNonZero32(volatile uint32_t *zero) {
 	while (!*zero)
 #ifndef _WIN32
 			pause();
@@ -174,7 +174,7 @@ void waitNonZero32(volatile int32_t *zero) {
 #endif
 }
 
-void waitNonZero64(volatile int64_t *zero) {
+void waitNonZero64(volatile uint64_t *zero) {
 	while (!*zero)
 #ifndef _WIN32
 			pause();
@@ -236,7 +236,7 @@ char atomicOr8(volatile char *value, char amt) {
 #endif
 }
 
-int64_t atomicAdd64(volatile int64_t *value, int64_t amt) {
+int64_t atomicAdd64(volatile uint64_t *value, int64_t amt) {
 #ifndef _WIN32
 	return __sync_add_and_fetch(value, amt);
 #else
@@ -244,7 +244,7 @@ int64_t atomicAdd64(volatile int64_t *value, int64_t amt) {
 #endif
 }
 
-int32_t atomicAdd32(volatile int32_t *value, int32_t amt) {
+int32_t atomicAdd32(volatile uint32_t *value, int32_t amt) {
 #ifndef _WIN32
 	return __sync_add_and_fetch(value, amt);
 #else
@@ -252,7 +252,7 @@ int32_t atomicAdd32(volatile int32_t *value, int32_t amt) {
 #endif
 }
 
-int64_t atomicOr64(volatile int64_t *value, int64_t amt) {
+int64_t atomicOr64(volatile uint64_t *value, uint64_t amt) {
 #ifndef _WIN32
 	return __sync_fetch_and_or (value, amt);
 #else
@@ -260,7 +260,7 @@ int64_t atomicOr64(volatile int64_t *value, int64_t amt) {
 #endif
 }
 
-int32_t atomicOr32(volatile int32_t *value, int32_t amt) {
+int32_t atomicOr32(volatile uint32_t *value, uint32_t amt) {
 #ifndef _WIN32
 	return __sync_fetch_and_or(value, amt);
 #else

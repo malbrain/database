@@ -14,8 +14,8 @@
 //	Index data structure after DbArena object
 
 typedef struct {
-	int64_t numKeys[1];	// number of keys in index
-	uint32_t xtra;		// amount of user space
+	uint64_t numKeys[1];	// number of keys in index
+	uint32_t xtra;			// amount of user space
 } DbIndex;
 
 typedef enum {
