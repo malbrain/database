@@ -258,10 +258,12 @@ uint32_t bits;
 	assert(initSize > 0);
 
 	mapZero(map, initSize);
-	map->arena->segs[map->arena->currSeg].nextObject.offset = segOffset >> 3;
+	map->arena->segs->nextObject.offset = segOffset >> 3;
+	map->arena->segs->nextId.idx = 1;
+	map->arena->segs->size = initSize;
+
 	map->arena->baseSize = arenaDef->baseSize;
 	map->arena->objSize = arenaDef->objSize;
-	map->arena->segs->size = initSize;
 	map->arena->delTs = 1;
 
 	//	are we creating a catalog or database?
