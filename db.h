@@ -70,7 +70,7 @@ typedef union {
 
 typedef union {
 	struct {
-		uint32_t index;		// record ID in the segment
+		uint32_t idx;		// record ID in the segment
 		uint16_t seg;		// arena segment number
 	};
 	struct {

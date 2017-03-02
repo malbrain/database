@@ -322,6 +322,7 @@ uint64_t nextSize;
 
 	map->arena->segs[nextSeg].off = off;
 	map->arena->segs[nextSeg].size = nextSize - off;
+	map->arena->segs[nextSeg].nextId.idx = 1;
 	map->arena->segs[nextSeg].nextId.seg = nextSeg;
 	map->arena->segs[nextSeg].nextObject.segment = nextSeg;
 	map->arena->segs[nextSeg].nextObject.offset = 0;
@@ -446,7 +447,7 @@ uint64_t max, addr, off;
 	lockLatch(map->arena->mutex);
 
 	max = map->arena->segs[map->arena->currSeg].size
-		  - map->arena->segs[map->arena->objSeg].nextId.index * map->arena->objSize;
+		  - map->arena->segs[map->arena->objSeg].nextId.idx * map->arena->objSize;
 
 	// round request up to cache line size
 
@@ -496,7 +497,7 @@ uint64_t off = map->arena->segs[currSeg].off;
 //	return pointer to Obj slot
 
 void *fetchIdSlot (DbMap *map, ObjId objId) {
-	if (!objId.index) {
+	if (!objId.idx) {
 		fprintf (stderr, "Invalid zero document index: %s\n", map->arenaPath);
 		exit(1);
 	}
@@ -504,7 +505,7 @@ void *fetchIdSlot (DbMap *map, ObjId objId) {
 	if (objId.seg >= map->numSeg)
 		mapAll(map);
 
-	return map->base[objId.seg] + map->arena->segs[objId.seg].size - objId.index * map->arena->objSize;
+	return map->base[objId.seg] + map->arena->segs[objId.seg].size - objId.idx * map->arena->objSize;
 }
 
 //

@@ -314,7 +314,7 @@ Frame *frame;
 
 	while (true) {
 	  max = map->arena->segs[map->arena->objSeg].size -
-		map->arena->segs[map->arena->objSeg].nextId.index * map->arena->objSize;
+		map->arena->segs[map->arena->objSeg].nextId.idx * map->arena->objSize;
 	  max -= dup * map->arena->objSize;
 
 	  if (map->arena->segs[map->arena->objSeg].nextObject.offset * 8ULL < max )
@@ -334,7 +334,7 @@ Frame *frame;
 
 	// allocate a batch of ObjIds
 
-	map->arena->segs[map->arena->objSeg].nextId.index += dup;
+	map->arena->segs[map->arena->objSeg].nextId.idx += dup;
 	bits = map->arena->segs[map->arena->objSeg].nextId.bits;
 	unlockLatch(map->arena->mutex);
 
