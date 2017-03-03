@@ -41,4 +41,4 @@ Handle *bindHandle(DbHandle *dbHndl);
 DbAddr *slotHandle(ObjId hndlId);
 
 void destroyHandle(Handle *hndl, DbAddr *slot);
-void initHndlMap(char *path, int pathLen, char *name, int nameLen, bool onDisk);
+void *initHndlMap(char *path, int pathLen, char *name, int nameLen, bool onDisk, uint32_t arenaXtra);

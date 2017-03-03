@@ -77,7 +77,7 @@ DbMap *map;
 	memset (hndl, 0, sizeof(DbHandle));
 
 	if (!(*hndlInit & TYPE_BITS))
-		initHndlMap(NULL, 0, NULL, 0, true);
+		initHndlMap(NULL, 0, NULL, 0, true, 0);
 
 	//	find/create our database in the catalog
 

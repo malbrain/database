@@ -24,14 +24,17 @@ DbAddr *slotHandle(ObjId hndlId) {
 	return fetchIdSlot (memMap, hndlId);
 }
 
-void initHndlMap(char *path, int pathLen, char *name, int nameLen, bool onDisk) {
+//	open the catalog
+//	return pointer to the arenaXtra area
+
+void *initHndlMap(char *path, int pathLen, char *name, int nameLen, bool onDisk, uint32_t arenaXtra) {
 ArenaDef arenaDef[1];
 
 	lockLatch(hndlInit);
 
 	if (*hndlInit & TYPE_BITS) {
 		unlockLatch(hndlInit);
-		return;
+		return (uint8_t *)hndlMap->arena + sizeof(Catalog);
 	}
 
 	if (pathLen) {
@@ -45,9 +48,12 @@ ArenaDef arenaDef[1];
 		nameLen = strlen(name);
 	}
 
+	// configure Catalog
+	//	which contains all the Handles
+
 	memset(arenaDef, 0, sizeof(arenaDef));
+	arenaDef->baseSize = sizeof(Catalog) + arenaXtra;
 	arenaDef->params[OnDisk].boolVal = onDisk;
-	arenaDef->baseSize = sizeof(Catalog);
 	arenaDef->arenaType = Hndl_catalog;
 	arenaDef->objSize = sizeof(ObjId);
 
@@ -56,6 +62,8 @@ ArenaDef arenaDef[1];
 
 	*hndlMap->arena->type = Hndl_catalog;
 	*hndlInit = Hndl_catalog;
+
+	return (uint8_t *)hndlMap->arena + sizeof(Catalog);
 }
 
 //	make handle from map pointer
@@ -70,7 +78,7 @@ DbAddr addr;
 	// first call?
 
 	if (!(*hndlInit & TYPE_BITS))
-		initHndlMap(NULL, 0, NULL, 0, true);
+		initHndlMap(NULL, 0, NULL, 0, true, 0);
 
 	// total size of the Handle structure
 
