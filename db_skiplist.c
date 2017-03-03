@@ -110,6 +110,18 @@ uint64_t next;
 	return entry;
 }
 
+//	add item to skiplist
+
+DbStatus addItemToSkiplist(DbMap *map, DbAddr *skip, uint64_t key, uint64_t item) {
+SkipEntry *entry;
+
+	lockLatch(skip->latch);
+	entry = skipAdd(map, skip, key);
+	*entry->val = item;
+	unlockLatch(skip->latch);
+	return DB_OK;
+}
+
 //	Add arbitrary key to skip list
 //	call with skip hdr locked
 //	return entry address
@@ -124,7 +136,7 @@ int min, max;
   while (next->addr) {
 	skipNode = getObj(map, *next);
 
-	//  find skipList node that covers key
+	//  find skiplist node that covers key
 
 	if (*skipNode->array[next->nslot-1].key < key)
 	  if (skipNode->next->bits) {

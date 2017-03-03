@@ -43,6 +43,7 @@ SkipEntry *skipPush(DbMap *map, DbAddr *skip, uint64_t key);
 SkipEntry *skipAdd(DbMap *map, DbAddr *skip, uint64_t key);
 uint64_t skipInit(DbMap *map, int numEntries);
 uint64_t skipDel(DbMap *map, DbAddr *skip, uint64_t key);
+DbStatus addItemToSkiplist(DbMap *map, DbAddr *skip, uint64_t key, uint64_t item);
 
 /**
  * atomic integer ops
