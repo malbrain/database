@@ -143,7 +143,7 @@ Catalog *catalog;
 	if (!(map = arenaRbMap(parent, rbEntry)))
 		return DB_ERROR_arenadropped;
 
-	//	allocate a global storeId for use in TXN steps and Doc references
+	//	allocate a global storeId for use in docIds.
 
 	if (!*map->arena->type) {
 		map->arenaDef->storeId = arrayAlloc(hndlMap, catalog->storeId, 0);

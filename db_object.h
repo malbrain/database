@@ -62,5 +62,5 @@ void *revMmbr(DbMmbr *mmbr, uint64_t *entry);
 
 //	mmbr-set functions
 
-uint64_t *setMmbr(DbMap *map, DbAddr *addr, uint64_t keyVal);
+uint64_t *setMmbr(DbMap *map, DbAddr *addr, uint64_t keyVal, bool add);
 uint64_t *newMmbr(DbMap *map, DbAddr *addr, uint64_t keyVal);

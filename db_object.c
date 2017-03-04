@@ -412,7 +412,7 @@ uint16_t idx;
 //	call w/addr locked
 //	~0LL > keyVal > 0
 
-uint64_t *setMmbr(DbMap *map, DbAddr *addr, uint64_t keyVal) {
+uint64_t *setMmbr(DbMap *map, DbAddr *addr, uint64_t keyVal, bool add) {
 uint64_t *slot, *test;
 DbMmbr *mmbr, *first;
 
@@ -425,7 +425,7 @@ DbMmbr *mmbr, *first;
 
 	//  look in the first table
 
-	slot = findMmbr(first, keyVal, true);
+	slot = findMmbr(first, keyVal, add);
 	mmbr = first;
 
 	//	otherwise, examine the remainingn set tables
