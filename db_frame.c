@@ -141,34 +141,43 @@ Frame *frame;
 	map->arena->freeFrame->bits = free.addr;
 }
 
-//  Add node to free frame
+//  Add value to free frame
 
-bool addSlotToFrame(DbMap *map, DbAddr *free, DbAddr *wait, uint64_t addr) {
-DbAddr slot2;
-Frame *frame;
+bool addSlotToFrame(DbMap *map, DbAddr *free, DbAddr *wait, uint64_t value) {
+bool resp;
 
 	//  this latch covers both free and wait
 
 	lockLatch(free->latch);
+	resp = addValuesToFrame(map, free, wait, &value, 1);
+	unlockLatch(free->latch);
+	return resp;
+}
 
+//	Add vector of values to free frame
+//	call with free slot locked.
+
+bool addValuesToFrame(DbMap *map, DbAddr *free, DbAddr *wait, uint64_t *values, int count) {
+DbAddr slot2;
+Frame *frame;
+
+  while (count--) {
 	//  space in current frame?
 
 	if (free->addr && free->nslot < FrameSlots) {
 		frame = getObj(map, *free);
-		frame->slots[free->nslot++] = addr;
-
-		unlockLatch(free->latch);
-		return true;
+		frame->slots[free->nslot++] = *values++;
+		continue;
 	}
 
 	//	allocate new frame and
 	//  push frame onto free list
 
-	if (!(slot2.bits = allocFrame(map)) )
+	if (!(slot2.bits = allocFrame(map)))
 		return false;
 
 	frame = getObj(map, slot2);
-	frame->slots[0] = addr;  // install in slot zero
+	frame->slots[0] = *values++;  // install in slot zero
 	frame->prev.bits = 0;
 
 	//	link new frame onto tail of wait chain
@@ -186,7 +195,9 @@ Frame *frame;
 
 	slot2.nslot = 1;
 	free->bits = slot2.bits;
-	return true;
+  }
+
+  return true;
 }
 
 //  pull free frame from free list
