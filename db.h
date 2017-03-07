@@ -26,8 +26,7 @@ typedef enum {
 	Hndl_btree2Index,
 	Hndl_colIndex,
 	Hndl_iterator,
-	Hndl_cursor,
-	Hndl_txn
+	Hndl_cursor
 } HandleType;
 
 //	general object pointer

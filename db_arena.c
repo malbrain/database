@@ -259,7 +259,6 @@ uint32_t bits;
 
 	mapZero(map, initSize);
 	map->arena->segs->nextObject.offset = segOffset >> 3;
-	map->arena->segs->nextId.idx = 1;
 	map->arena->segs->size = initSize;
 
 	map->arena->baseSize = arenaDef->baseSize;
@@ -324,10 +323,8 @@ uint64_t nextSize;
 
 	map->arena->segs[nextSeg].off = off;
 	map->arena->segs[nextSeg].size = nextSize - off;
-	map->arena->segs[nextSeg].nextId.idx = 1;
-	map->arena->segs[nextSeg].nextId.seg = nextSeg;
 	map->arena->segs[nextSeg].nextObject.segment = nextSeg;
-	map->arena->segs[nextSeg].nextObject.offset = 0;
+	map->arena->segs[nextSeg].nextId.seg = nextSeg;
 
 	//  extend the disk file, windows does this automatically
 
