@@ -107,10 +107,12 @@ typedef enum {
 	Btree1Bits = 20,	// Btree1 set
 	Btree1Xtra,
 
-	CursorTxn = 25,
-	CursorDeDup,
+	TxnSnapShot = 25,	// snapShot txn
+	TxnSerializable,	// Serializable txn
 
-	IteratorEnd = 30,  // position iterator at end?
+	CursorDeDup = 30,
+
+	IteratorEnd = 35,  // position iterator at end?
 
 	MaxParam = 40	// maximum param array in use
 } ParamSlot;
