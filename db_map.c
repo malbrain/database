@@ -236,7 +236,7 @@ char atomicOr8(volatile char *value, char amt) {
 #endif
 }
 
-int64_t atomicAdd64(volatile uint64_t *value, int64_t amt) {
+uint64_t atomicAdd64(volatile uint64_t *value, int64_t amt) {
 #ifndef _WIN32
 	return __sync_add_and_fetch(value, amt);
 #else
@@ -244,7 +244,7 @@ int64_t atomicAdd64(volatile uint64_t *value, int64_t amt) {
 #endif
 }
 
-int32_t atomicAdd32(volatile uint32_t *value, int32_t amt) {
+uint32_t atomicAdd32(volatile uint32_t *value, int32_t amt) {
 #ifndef _WIN32
 	return __sync_add_and_fetch(value, amt);
 #else
@@ -252,7 +252,7 @@ int32_t atomicAdd32(volatile uint32_t *value, int32_t amt) {
 #endif
 }
 
-int64_t atomicOr64(volatile uint64_t *value, uint64_t amt) {
+uint64_t atomicOr64(volatile uint64_t *value, uint64_t amt) {
 #ifndef _WIN32
 	return __sync_fetch_and_or (value, amt);
 #else
@@ -260,7 +260,7 @@ int64_t atomicOr64(volatile uint64_t *value, uint64_t amt) {
 #endif
 }
 
-int32_t atomicOr32(volatile uint32_t *value, uint32_t amt) {
+uint32_t atomicOr32(volatile uint32_t *value, uint32_t amt) {
 #ifndef _WIN32
 	return __sync_fetch_and_or(value, amt);
 #else

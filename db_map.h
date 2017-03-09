@@ -51,10 +51,10 @@ DbStatus addItemToSkiplist(DbMap *map, DbAddr *skip, uint64_t key, uint64_t item
 
 void kill_slot(volatile char* latch);
 
-int64_t atomicAdd64(volatile uint64_t *value, int64_t amt);
-int32_t atomicAdd32(volatile uint32_t *value, int32_t amt);
-int64_t atomicOr64(volatile uint64_t *value, uint64_t amt);
-int32_t atomicOr32(volatile uint32_t *value, uint32_t amt);
+uint64_t atomicAdd64(volatile uint64_t *value, int64_t amt);
+uint32_t atomicAdd32(volatile uint32_t *value, int32_t amt);
+uint64_t atomicOr64(volatile uint64_t *value, uint64_t amt);
+uint32_t atomicOr32(volatile uint32_t *value, uint32_t amt);
 uint64_t atomicExchange(uint64_t *target, uint64_t value);
 uint64_t compareAndSwap(uint64_t* target, uint64_t compare_val, uint64_t swap_val);
 char atomicExchange8(volatile char *target, char value);

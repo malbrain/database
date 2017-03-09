@@ -543,6 +543,7 @@ void *doc;
 DbStatus deleteKey(DbHandle hndl[1], void *key, uint32_t len) {
 DbStatus stat = DB_OK;
 Handle *idxHndl;
+DbIndex *index;
 
 	if (!(idxHndl = bindHandle(hndl)))
 		return DB_ERROR_handleclosed;
@@ -556,6 +557,11 @@ Handle *idxHndl;
 		stat = btree1DeleteKey(idxHndl, key, len);
 		break;
 	}
+
+	index = (DbIndex *)(idxHndl->map->arena + 1);
+
+	if (stat == DB_OK)
+		atomicAdd64(index->numKeys, -1LL);
 
 	releaseHandle(idxHndl, hndl);
 	return stat;
@@ -573,6 +579,7 @@ bool uniqueKey(DbMap *map, DbCursor *dbCursor) {
 DbStatus insertKey(DbHandle hndl[1], void *key, uint32_t len, uint32_t suffixLen) {
 DbStatus stat = DB_OK;
 Handle *idxHndl;
+DbIndex *index;
 
 	if (!(idxHndl = bindHandle(hndl)))
 		return DB_ERROR_handleclosed;
@@ -592,6 +599,11 @@ Handle *idxHndl;
 		stat = btree1InsertKey(idxHndl, key, len, 0, Btree1_indexed);
 		break;
 	}
+
+	index = (DbIndex *)(idxHndl->map->arena + 1);
+
+	if (stat == DB_OK)
+		atomicAdd64(index->numKeys, 1LL);
 
 	releaseHandle(idxHndl, hndl);
 	return stat;
