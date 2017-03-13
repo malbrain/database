@@ -108,14 +108,10 @@ typedef enum {
 	Btree1Bits = 20,	// Btree1 set
 	Btree1Xtra,
 
-	TxnSnapShot = 25,	// snapShot txn
-	TxnSerializable,	// Serializable txn
+	CursorDeDup = 25,	// de-duplicate cursor results
 
-	CursorDeDup = 30,
-
-	IteratorEnd = 35,  // position iterator at end?
-
-	MaxParam = 40	// maximum param array in use
+	UserParams = 30,
+	MaxParam = 63	// maximum param array in use
 } ParamSlot;
 
 typedef union {

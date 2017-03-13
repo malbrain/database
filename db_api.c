@@ -243,15 +243,9 @@ Iterator *it;
 
 	iterator = makeHandle(parentHndl->map, sizeof(Iterator) + xtra, Hndl_iterator);
 	it = (Iterator *)(iterator + 1);
+	it->state = IterLeftEof;
+	it->docId.bits = 0;
 	it->xtra = xtra;
-
-	if (params[IteratorEnd].boolVal) {
-		it->docId.bits = parentHndl->map->arena->segs[parentHndl->map->arena->currSeg].nextId.bits;
-		it->state = IterRightEof;
-	} else {
-		it->docId.bits = 0;
-		it->state = IterLeftEof;
-	}
 
 	//	return handle for iterator
 
