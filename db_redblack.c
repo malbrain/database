@@ -348,6 +348,7 @@ RedBlack *entry;
 	    entry = getObj(map, entry->left);
 	}
 
+	path->entry[path->lvl].rbcmp = 0;
 	return entry;
 }
 
