@@ -49,7 +49,7 @@ uint32_t xtra;
 	catalog = (Catalog *)(hndlMap->arena + 1);
 
 	arenaDef->id = atomicAdd64(&parent->arenaDef->childId, 1);
-	arenaDef->mapIdx = arrayAlloc(hndlMap, catalog->openMap, sizeof(void *));
+	arenaDef->mapIdx = arrayAlloc(hndlMap, catalog->openMap, 0);
 	arenaDef->parentAddr.bits = parent->arena->redblack->bits;
 
 	initLock(arenaDef->idList->lock);

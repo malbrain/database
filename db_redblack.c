@@ -326,6 +326,31 @@ DbAddr child;
   return entry;
 }
 
+//	start red/black tree enumeration
+
+RedBlack *rbStart(DbMap *map, PathStk *path, DbAddr *root) {
+RedBlack *entry;
+
+	memset (path, 0, sizeof(PathStk));
+
+	// go all the way left from root
+
+	if ((path->entry->bits = root->addr))
+		entry = getObj(map, *root);
+	else
+		return NULL;
+
+	path->entry->rbcmp = 1;
+
+	while (entry->left.bits) {
+	  	path->entry[++path->lvl].rbcmp = 1;
+		path->entry[path->lvl].bits = entry->left.bits;
+	    entry = getObj(map, entry->left);
+	}
+
+	return entry;
+}
+
 //	return next entry in red/black tree path
 
 RedBlack *rbNext(DbMap *map, PathStk *path) {

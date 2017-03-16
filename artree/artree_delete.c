@@ -8,7 +8,7 @@ typedef enum {
 	ErrorSearch
 } ReturnState;
 
-DbStatus artDeleteKey(Handle *index, void *key, uint32_t keyLen, uint32_t uniqueLen) {
+DbStatus artDeleteKey(Handle *index, void *key, uint32_t uniqueLen, uint32_t suffixLen) {
 uint8_t tmpCursor[sizeof(DbCursor) + sizeof(ArtCursor)];
 ReturnState rt = ErrorSearch;
 DbCursor *dbCursor;
@@ -25,7 +25,7 @@ uint8_t ch;
 
 	dbCursor->key = cursor->key;
 
-	if ((stat = artFindKey(dbCursor, index->map, key, keyLen, uniqueLen)))
+	if ((stat = artFindKey(dbCursor, index->map, key, uniqueLen, suffixLen)))
 		return stat;
 
 	//	we take the trie nodes in the cursor stack

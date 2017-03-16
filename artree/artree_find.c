@@ -1,9 +1,9 @@
 #include "artree.h"
 
-DbStatus artFindKey( DbCursor *dbCursor, DbMap *map, void *findKey, uint32_t keyLen, uint32_t uniqueLen) {
+DbStatus artFindKey( DbCursor *dbCursor, DbMap *map, void *findKey, uint32_t uniqueLen, uint32_t suffixLen) {
 ArtCursor *cursor = (ArtCursor *)((char *)dbCursor + dbCursor->xtra);
+uint32_t idx, offset = 0, spanMax, keyLen = uniqueLen + suffixLen;
 bool binaryFlds = map->arenaDef->params[IdxKeyFlds].boolVal;
-uint32_t idx, offset = 0, spanMax;
 CursorStack* stack = NULL;
 uint8_t *key = findKey;
 volatile DbAddr *slot;

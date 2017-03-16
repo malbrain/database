@@ -94,7 +94,7 @@ DbMap *map;
 	unlockLatch(catalog->dbList->latch);
 	memcpy (arenaDef->params, params, sizeof(Params) * (MaxParam + 1));
 
-	arenaDef->mapIdx = arrayAlloc(hndlMap, catalog->openMap, sizeof(void *));
+	arenaDef->mapIdx = arrayAlloc(hndlMap, catalog->openMap, 0);
 	arenaDef->objSize = params[ObjIdSize].intVal;
 	arenaDef->baseSize = params[MapXtra].intVal;
 	arenaDef->arenaType = Hndl_database;

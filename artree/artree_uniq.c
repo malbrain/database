@@ -9,7 +9,7 @@ bool evalUniq(DbMap *map, ARTKeyUniq *keyUniqNode, UniqCbFcn *evalFcn);
 //  insert unique key
 //	clear defer if unique
 
-DbStatus artInsertUniq( Handle *index, void *key, uint32_t keyLen, uint32_t uniqueLen, UniqCbFcn *evalFcn, uint8_t *defer) {
+DbStatus artInsertUniq( Handle *index, void *key, uint32_t uniqueLen, uint32_t suffixLen, UniqCbFcn *evalFcn, uint8_t *defer) {
 volatile DbAddr *uniq, slot;
 ARTKeyUniq *keyUniqNode;
 bool pass = false;
@@ -83,7 +83,7 @@ DbIndex *dbIdx;
 
 	//  install the suffix key bytes
 
-	p->keyLen = keyLen;
+	p->keyLen += suffixLen;
 	pass = false;
 
 	do {
@@ -139,7 +139,7 @@ DbIndex *dbIdx;
 	return DB_OK;
 }
 
-DbStatus artEvalUniq( DbMap *map, void *key, uint32_t keyLen, uint32_t uniqueLen, UniqCbFcn *evalFcn) {
+DbStatus artEvalUniq( DbMap *map, void *key, uint32_t uniqueLen, uint32_t suffixLen, UniqCbFcn *evalFcn) {
 uint8_t area[sizeof(ArtCursor) + sizeof(DbCursor)];
 ARTKeyUniq *keyUniqNode;
 volatile DbAddr *uniq;
@@ -171,7 +171,7 @@ bool isDup;
 	stack->off = 0;
 	stack->ch = -1;
 
-	if ((stat = artFindKey(dbCursor, map, key, keyLen, uniqueLen)))
+	if ((stat = artFindKey(dbCursor, map, key, uniqueLen, suffixLen)))
 		return stat;
 
 	//  see if we ended up on the KeyUniq node

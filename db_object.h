@@ -6,7 +6,7 @@
 //	note that each level zero block reserves first few
 //	indexes (ARRAY_first) for the inUse bit map
 
-#define ARRAY_size	256
+#define ARRAY_size	256			// level zero block size
 #define ARRAY_lvl1	(256 - 2)	// adjust to power of two sizeround
 
 //	define the number of inUse slots per level zero block
