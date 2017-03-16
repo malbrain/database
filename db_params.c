@@ -13,43 +13,52 @@ extern DbMap *hndlMap;
 //	from the parent.
 
 RedBlack *procParam(DbMap *parent, char *name, int nameLen, Params *params) {
+ArenaDef *arenaDef = NULL;
 SkipEntry *skipPayLoad;
-ArenaDef *arenaDef;
 PathStk pathStk[1];
 RedBlack *rbEntry;
 Catalog *catalog;
-uint32_t xtra;
-
-	lockLatch(parent->arenaDef->nameTree->latch);
 
 	//	see if ArenaDef already exists as a child in the parent
 
-	if ((rbEntry = rbFind(parent->db, parent->arenaDef->nameTree, name, nameLen, pathStk))) {
-		unlockLatch(parent->arenaDef->nameTree->latch);
+	while (true) {
+	  lockLatch (parent->arenaDef->nameTree->latch);
+
+	  if ((rbEntry = rbFind(parent->db, parent->arenaDef->nameTree, name, nameLen, pathStk))) {
+		arenaDef = (ArenaDef *)(rbEntry + 1);
+
+		if (*arenaDef->dead & KILL_BIT) {
+		  unlockLatch (parent->arenaDef->nameTree->latch);
+		  yield ();
+		  continue;
+		}
+
+		unlockLatch (parent->arenaDef->nameTree->latch);
 		return rbEntry;
+	  }
+
+	  break;
 	}
 
-	// otherwise, create new rbEntry in parent
+	// create new rbEntry in parent?
 	// with an arenaDef payload
 
-	xtra = params[Size].intVal;
-
-	if (!xtra)
-		xtra = sizeof(Params) * (MaxParam + 1);
-
-	if ((rbEntry = rbNew(parent->db, name, nameLen, sizeof(ArenaDef) + xtra)))
+	if (!arenaDef)
+	  if ((rbEntry = rbNew(parent->db, name, nameLen, sizeof(ArenaDef))))
 		arenaDef = (ArenaDef *)(rbEntry + 1);
-	else {
+	  else {
 		unlockLatch(parent->arenaDef->nameTree->latch);
 		return NULL;
 	}
 
-	memcpy (arenaDef->params, params, xtra);
+	memcpy (arenaDef->params, params, sizeof(arenaDef->params));
 
 	catalog = (Catalog *)(hndlMap->arena + 1);
 
+	//	the openMap assignment is for an open Map pointer in memMap
+
+	arenaDef->mapIdx = arrayAlloc(hndlMap, catalog->openMap, sizeof(void *));
 	arenaDef->id = atomicAdd64(&parent->arenaDef->childId, 1);
-	arenaDef->mapIdx = arrayAlloc(hndlMap, catalog->openMap, 0);
 	arenaDef->parentAddr.bits = parent->arena->redblack->bits;
 
 	initLock(arenaDef->idList->lock);

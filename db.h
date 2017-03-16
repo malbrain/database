@@ -82,7 +82,6 @@ typedef union {
 
 typedef struct SkipHead_ SkipHead;
 typedef struct RedBlack_ RedBlack;
-typedef struct DbArena_ DbArena;
 typedef union Handle_ Handle;
 typedef struct DbMap_ DbMap;
 

@@ -60,9 +60,17 @@ uint64_t compareAndSwap(uint64_t* target, uint64_t compare_val, uint64_t swap_va
 char atomicExchange8(volatile char *target, char value);
 char atomicOr8(volatile char *value, char amt);
 
+int readSegZero(DbMap *map, DbArena *segZero);
+
 void closeMap(DbMap *map);
 void deleteMap(char *path);
-void lockArena (DbMap *map);
-void unlockArena (DbMap *map);
 bool fileExists(char *path);
 void yield(void);
+
+#ifdef _WIN32
+void lockArena (HANDLE hndl, char *path);
+void unlockArena (HANDLE hndl, char *path);
+#else
+void lockArena (int hndl, char *path);
+void unlockArena (int hndl, char *path);
+#endif

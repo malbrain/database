@@ -35,9 +35,6 @@ ArenaDef *arenaDef = (ArenaDef *)(rbEntry + 1);
 void **childMap;
 DbMap *map;
 
-	if (*arenaDef->dead & KILL_BIT)
-		return NULL;
-
 	//	see if we've opened this child
 	//	map in this process already
 
@@ -63,12 +60,7 @@ DbMap *openMap(DbMap *parent, char *name, uint32_t nameLen, ArenaDef *arenaDef, 
 DbArena *segZero = NULL;
 RedBlack *rbEntry;
 DbMap *map;
-
-#ifdef _WIN32
-DWORD amt = 0;
-#else
-int32_t amt = 0;
-#endif
+int amt;
 
 	map = db_malloc(sizeof(DbMap) + arenaDef->localSize, true);
 
@@ -86,66 +78,31 @@ int32_t amt = 0;
 		return initArena(map, arenaDef, name, nameLen, rbAddr);
 	}
 
-	getPath(map, name, nameLen, arenaDef->ver);
+	getPath(map, name, nameLen, arenaDef->nxtVer);
 
 	//	open the onDisk arena file
-
-#ifdef _WIN32
-	map->hndl = openPath (map->arenaPath);
-
-	if (map->hndl == INVALID_HANDLE_VALUE) {
-		db_free(map->arenaPath);
-		db_free(map);
-		return NULL;
-	}
-
-	lockArena(map);
+	//	and read segZero
 
 	segZero = VirtualAlloc(NULL, sizeof(DbArena), MEM_COMMIT, PAGE_READWRITE);
-
-	if (!ReadFile(map->hndl, segZero, sizeof(DbArena), &amt, NULL)) {
-		fprintf (stderr, "Unable to read %" PRIu64 " bytes from %s, error = %d\n", sizeof(DbArena), map->arenaPath, errno);
-		VirtualFree(segZero, 0, MEM_RELEASE);
-		CloseHandle(map->hndl);
-		db_free(map->arenaPath);
-		db_free(map);
-		return NULL;
-	}
-#else
-	map->hndl = openPath (map->arenaPath);
-
-	if (map->hndl == -1) {
-		db_free(map->arenaPath);
-		db_free(map);
-		return NULL;
-	}
-
-	lockArena(map);
-
-#ifdef DEBUG
-	fprintf(stderr, "lockArena %s\n", map->arenaPath);
-#endif
-	// read first part of segment zero if it exists
-
-	segZero = valloc(sizeof(DbArena));
-
-	amt = pread(map->hndl, segZero, sizeof(DbArena), 0LL);
+	amt = readSegZero(map, segZero);
 
 	if (amt < 0) {
-		fprintf (stderr, "Unable to read %d bytes from %s, error = %d\n", (int)sizeof(DbArena), map->arenaPath, errno);
-		db_free(map->arenaPath);
-		unlockArena(map);
-		close(map->hndl);
+		fprintf (stderr, "Unable to read %" PRIu64 " bytes from %s, error = %d\n", sizeof(DbArena), map->arenaPath, errno);
+#ifdef _WIN32
+		VirtualFree(segZero, 0, MEM_RELEASE);
+#else
 		free(segZero);
+#endif
+		db_free(map->arenaPath);
 		db_free(map);
 		return NULL;
 	}
-#endif
+
 	//	did we create the arena?
 
 	if (amt < sizeof(DbArena)) {
 		if ((map = initArena(map, arenaDef, name, nameLen, rbAddr)))
-			unlockArena(map);
+			unlockArena(map->hndl, map->arenaPath);
 #ifdef _WIN32
 		VirtualFree(segZero, 0, MEM_RELEASE);
 #else
@@ -158,12 +115,13 @@ int32_t amt = 0;
 
 	if (segZero->baseSize != arenaDef->baseSize) {
 		fprintf (stderr, "Arena baseSize:%d doesn't match:%d file: %s\n", segZero->baseSize, arenaDef->baseSize, map->arenaPath);
-		unlockArena(map);
+		unlockArena(map->hndl, map->arenaPath);
 #ifdef _WIN32
 		CloseHandle(map->hndl);
 #else
 		close(map->hndl);
 #endif
+		db_free(map->arenaPath);
 		free(segZero);
 		db_free(map);
 		return NULL;
@@ -171,12 +129,13 @@ int32_t amt = 0;
 
 	if (segZero->objSize != arenaDef->objSize) {
 		fprintf (stderr, "Arena objSize:%d doesn't match:%d file: %s\n", segZero->objSize, arenaDef->objSize, map->arenaPath);
-		unlockArena(map);
+		unlockArena(map->hndl, map->arenaPath);
 #ifdef _WIN32
 		CloseHandle(map->hndl);
 #else
 		close(map->hndl);
 #endif
+		db_free(map->arenaPath);
 		free(segZero);
 		db_free(map);
 		return NULL;
@@ -198,7 +157,7 @@ int32_t amt = 0;
 
 	rbEntry = getObj(map->db, *map->arena->redblack);
 	map->arenaDef = (ArenaDef *)(rbEntry + 1);
-	unlockArena(map);
+	unlockArena(map->hndl, map->arenaPath);
 
 	// wait for initialization to finish
 
@@ -230,7 +189,7 @@ uint32_t bits;
 	initSize &= -65536;
 
 #ifdef DEBUG
-	if (map->parent)
+	if (map->arenaPath)
 		fprintf(stderr, "InitMap %s at %llu bytes\n", map->arenaPath, initSize);
 #endif
 #ifdef _WIN32
@@ -265,9 +224,9 @@ uint32_t bits;
 	map->arena->objSize = arenaDef->objSize;
 	map->arena->delTs = 1;
 
-	//	are we creating a catalog or database?
+	//	are we creating a catalog?
 
-	if (!map->parent) {
+	if (!rbAddr) {
 		RedBlack *rbEntry = rbNew(map, name, nameLen, sizeof(ArenaDef));
 		map->arenaDef = (ArenaDef *)(rbEntry + 1);
 		memcpy(map->arenaDef, arenaDef, sizeof(ArenaDef));

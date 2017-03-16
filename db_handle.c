@@ -8,20 +8,12 @@
 
 //	Catalog/Handle arena
 
-extern DbMap memMap[1];
-
 char hndlInit[1];
 DbMap *hndlMap;
 char *hndlPath;
 
-//	allocate handle slot in memMap file
-
-uint64_t newHndlSlot (void)  {
-	return allocObjId(memMap, memMap->arena->freeBlk + ObjIdType, NULL);
-}
-
 DbAddr *slotHandle(ObjId hndlId) {
-	return fetchIdSlot (memMap, hndlId);
+	return fetchIdSlot (hndlMap, hndlId);
 }
 
 //	open the catalog
@@ -44,12 +36,13 @@ ArenaDef arenaDef[1];
 	}
 
 	if (!name) {
-		name = "_Catalog";
+		name = "Catalog";
 		nameLen = strlen(name);
 	}
 
 	// configure Catalog
 	//	which contains all the Handles
+	//	and has databases for children
 
 	memset(arenaDef, 0, sizeof(arenaDef));
 	arenaDef->baseSize = sizeof(Catalog) + arenaXtra;
@@ -86,10 +79,10 @@ DbAddr addr;
 
 	//	get a new or recycled ObjId
 
-	if (!(hndlId.bits = allocObjId(memMap, memMap->arena->freeBlk + ObjIdType, NULL)))
+	if (!(hndlId.bits = allocObjId(hndlMap, hndlMap->arena->freeBlk + ObjIdType, NULL)))
 		return 0;
 
-	slot = fetchIdSlot (memMap, hndlId);
+	slot = fetchIdSlot (hndlMap, hndlId);
 
 	addr.bits = allocBlk(hndlMap, amt, true);
 	handle = getObj(hndlMap, addr);
@@ -112,7 +105,7 @@ DbAddr addr;
 		arrayActivate(map, map->arena->listArray, handle->listIdx);
 	}
 
-	//	allocate hndlId array
+	//	allocate hndlId array in the database
 
 	handle->arrayIdx = arrayAlloc(map->db, map->arenaDef->hndlArray, sizeof(ObjId));
 	hndlAddr = arrayEntry(map->db, map->arenaDef->hndlArray, handle->arrayIdx);
@@ -144,7 +137,7 @@ void destroyHandle(Handle *handle, DbAddr *slot) {
 DbAddr addr;
 
 	if (!slot)
-		slot = fetchIdSlot (memMap, handle->hndlId);
+		slot = fetchIdSlot (hndlMap, handle->hndlId);
 
 	lockLatch(slot->latch);
 
@@ -223,7 +216,7 @@ DbAddr *slot;
 ObjId hndlId;
 
 	if ((hndlId.bits = dbHndl->hndlBits))
-		slot = fetchIdSlot (memMap, hndlId);
+		slot = fetchIdSlot (hndlMap, hndlId);
 	else
 		return NULL;
 
@@ -258,7 +251,7 @@ void releaseHandle(Handle *handle, DbHandle dbHndl[1]) {
 //	by scanning HndlId arrayhndl
 //	for the dropped arena
 
-void disableHndls(DbMap *map, DbAddr *array) {
+void disableHndls(DbMap *db, DbAddr *array) {
 Handle *handle;
 ArrayHdr *hdr;
 int idx, seg;
@@ -266,12 +259,12 @@ DbAddr addr;
 
   if (array->addr) {
 	lockLatch(array->latch);
-	hdr = getObj(map->db, *array);
+	hdr = getObj(db, *array);
 
 	//	process the level zero blocks in the array
 
 	for (idx = 0; idx < (hdr->nxtIdx + ARRAY_size - 1) / ARRAY_size; idx++) {
-	  uint64_t *inUse = getObj(map->db, hdr->addr[idx]);
+	  uint64_t *inUse = getObj(db, hdr->addr[idx]);
 	  DbAddr *hndlAddr = (DbAddr *)inUse;
 
 	  for (seg = 0; seg < ARRAY_inuse; seg++) {
@@ -291,7 +284,6 @@ DbAddr addr;
 
 		  atomicOr8((volatile char *)handle->status, KILL_BIT);
 		  waitZero32 (handle->bindCnt);
-		  disableHndl(handle);
 		} while (slotIdx++, bits /= 2);
 	  }
 	}

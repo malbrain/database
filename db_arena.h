@@ -24,7 +24,7 @@ typedef struct {
 
 //  arena at beginning of seg zero
 
-struct DbArena_ {
+typedef struct {
 	DbSeg segs[MAX_segs]; 			// segment meta-data
 	uint64_t lowTs, delTs, nxtTs;	// low hndl ts, Incr on delete
 	DbAddr freeBlk[MAX_blk];		// free blocks in frames
@@ -40,7 +40,7 @@ struct DbArena_ {
 	char mutex[1];					// arena allocation lock/drop flag
 	char type[1];					// arena type
 	uint8_t filler[128];
-};
+} DbArena;
 
 //	skip list head
 
@@ -67,8 +67,8 @@ typedef struct {
 //	data is permanent in database arena
 
 typedef struct {
-	uint64_t id;				// our id in parent children
-	uint64_t ver;				// current arena version
+	uint64_t id;				// our id in parent's child list
+	uint64_t nxtVer;			// next arena version when creating
 	uint64_t childId;			// highest child Id we've issued
 	uint32_t localSize;			// extra space after DbMap
 	uint32_t baseSize;			// extra space after DbArena
@@ -77,7 +77,7 @@ typedef struct {
 	uint16_t storeId;			// global docStore ID
 	uint8_t arenaType;			// type of the arena
 	uint8_t numTypes;			// number of node types
-	char dead[1];				// arena being deleted
+	char dead[1];				// arena definition being deleted
 	DbAddr parentAddr;			// address of parent's red-black entry
 	DbAddr nameTree[1];			// child arena name red/black tree
 	SkipHead idList[1];			// child skiplist of names by id
@@ -116,7 +116,6 @@ typedef union {
   struct {
 	DbAddr openMap[1];		// process openMap array index assignments
 	DbAddr storeId[1];		// global array of document store ids
-	DbAddr dbList[1];		// red/black tree of database names & versions
   };
   char filler[256];
 } Catalog;
@@ -145,10 +144,3 @@ void mapSegs(DbMap *map);
 DbStatus dropMap(DbMap *db, bool dropDefs);
 void getPath(DbMap *map, char *name, uint32_t nameLen, uint64_t ver);
 uint32_t addPath(char *path, uint32_t len, char *name, uint32_t nameLen, uint64_t ver);
-
-#ifdef _WIN32
-HANDLE openPath(char *name);
-#else
-int openPath(char *name);
-#endif
-

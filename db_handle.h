@@ -9,24 +9,26 @@
 #define listFree(hndl, type) (&hndl->frames[type + 2 * hndl->maxType[0]])
 
 //	Handle for an arena
-//	these live in red/black entries.
+//	these live in HndlMap (Catalog)
+
+//	** marks fields that are
+//	specific to the base arena
 
 union Handle_ {
   struct {
-	DbMap *map;				// pointer to map, zeroed on close
+	DbMap *map;				// pointer to map, zeroed on close **
+	ObjId hndlId;			// Handle Id in HndlMap (Catalog)
 	DbAddr addr;			// location of this handle in hndlMaps
-	DbAddr *frames;			// frames ready and waiting to be recycled
-	ObjId hndlId;			// Handle Id
+	DbAddr *frames;			// recycle frames ready or waiting **
 	uint64_t entryTs;		// time stamp of first api call
-	uint32_t bindCnt[1];		// count of open api calls (handle binds)
-	uint32_t lockedDocs[1];	// count of open api calls (handle binds)
-	uint32_t xtraSize;		// size of following structure
-	int8_t maxType[1];		// number of arena list entries
-	int8_t status[1];		// current status of the handle
-	uint8_t hndlType;		// type of handle
-	uint8_t relaxTs;
+	uint32_t bindCnt[1];	// count of open api calls (handle binds)
+	uint16_t xtraSize;		// size of following structure
 	uint16_t listIdx;		// arena free frames entry index
 	uint16_t arrayIdx;		// arena handle array index
+	uint8_t maxType[1];		// number of arena list entries
+	uint8_t status[1];		// current status of the handle
+	uint8_t hndlType;		// type of handle
+	uint8_t relaxTs;
   };
   char filler[64];	// fill cache line
 };

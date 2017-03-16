@@ -44,7 +44,6 @@ uint32_t addPath(char *path, uint32_t pathLen, char *name, uint32_t nameLen,  ui
 uint32_t len = 0, off = 12;
 char buff[12];
 
-
 	if (pathLen)
 	  if( path[pathLen - 1] != '/')
 		path[pathLen] = '.', len = 1;
@@ -76,16 +75,18 @@ char buff[12];
 void getPath(DbMap *map, char *name, uint32_t nameLen, uint64_t ver) {
 uint32_t len = 12, off = 0, prev;
 
-	if (map->parent)
+	if (map->parent && map->parent->parent)
 		len += prev = map->parent->pathLen, len++;
 	else if (hndlPath)
 		len += prev = strlen(hndlPath), len++;
 	else
 		prev = 0;
 
-	map->arenaPath = db_malloc(len + 1, false);
+	map->arenaPath = db_malloc(nameLen + len + 1, false);
 
-	if (map->parent)
+	// 	don't propagate Catalog paths
+
+	if (map->parent && map->parent->parent)
 		memcpy (map->arenaPath, map->parent->arenaPath, prev);
 	else if (hndlPath) {
 		memcpy (map->arenaPath, hndlPath, prev);
@@ -98,15 +99,16 @@ uint32_t len = 12, off = 0, prev;
 }
 
 #ifdef _WIN32
-HANDLE openPath(char *path) {
+HANDLE openPath(char *path, bool create) {
 HANDLE hndl;
+DWORD dispMode = create ? OPEN_ALWAYS : OPEN_EXISTING;
 #else
-int openPath(char *path) {
-int hndl, flags;
+int openPath(char *path, bool create) {
+int hndl, flags = O_RDWR;
 #endif
 
 #ifdef _WIN32
-	hndl = CreateFile(path, GENERIC_READ | GENERIC_WRITE | DELETE, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL |  FILE_FLAG_RANDOM_ACCESS, NULL);
+	hndl = CreateFile(path, GENERIC_READ | GENERIC_WRITE | DELETE, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, dispMode, FILE_ATTRIBUTE_NORMAL |  FILE_FLAG_RANDOM_ACCESS, NULL);
 
 	if (hndl == INVALID_HANDLE_VALUE) {
 		fprintf(stderr, "Unable to create/open %s, error = %d\n", path, (int)GetLastError());
@@ -116,7 +118,8 @@ int hndl, flags;
 	return hndl;
 #else
 
-	flags = O_RDWR | O_CREAT;
+	if  (create)
+	flags |= O_CREAT;
 
 	hndl = open (path, flags, 0664);
 
@@ -306,13 +309,11 @@ int flags = MAP_SHARED;
 }
 
 void unmapSeg (DbMap *map, uint32_t segNo) {
-char *base = segNo ? map->base[segNo] : 0ULL;
-
 #ifndef _WIN32
-	munmap(base, map->arena->segs[segNo].size);
+	munmap(map->base[segNo], map->arena->segs[segNo].size);
 #else
-	if (!map->arenaDef->params[OnDisk].boolVal) {
-		VirtualFree(base, 0, MEM_RELEASE);
+	if (map->arenaDef && !map->arenaDef->params[OnDisk].boolVal) {
+		VirtualFree(map->base[segNo], 0, MEM_RELEASE);
 		return;
 	}
 
@@ -337,7 +338,6 @@ uint64_t atomicExchange(uint64_t *target, uint64_t swapVal) {
 #endif
 }
 
-
 char atomicExchange8(volatile char *target, char swapVal) {
 #ifndef _WIN32
 	return __sync_lock_test_and_set(target, swapVal);
@@ -346,50 +346,49 @@ char atomicExchange8(volatile char *target, char swapVal) {
 #endif
 }
 
-
 #ifdef _WIN32
-void lockArena (DbMap *map) {
+void lockArena (HANDLE hndl, char *path) {
 OVERLAPPED ovl[1];
 
 	memset (ovl, 0, sizeof(ovl));
 	ovl->OffsetHigh = 0x80000000;
 
-	if (LockFileEx (map->hndl, LOCKFILE_EXCLUSIVE_LOCK, 0, sizeof(DbArena), 0, ovl))
+	if (LockFileEx (hndl, LOCKFILE_EXCLUSIVE_LOCK, 0, sizeof(DbArena), 0, ovl))
 		return;
 
-	fprintf (stderr, "Unable to lock %s, error = %d", map->arenaPath, (int)GetLastError());
+	fprintf (stderr, "Unable to lock %s, error = %d", path, (int)GetLastError());
 	exit(1);
 }
 #else
-void lockArena (DbMap *map) {
+void lockArena (int hndl, char *path) {
 
-	if (!flock(map->hndl, LOCK_EX))
+	if (!flock(hndl, LOCK_EX))
 		return;
 
-	fprintf (stderr, "Unable to lock %s, error = %d", map->arenaPath, errno);
+	fprintf (stderr, "Unable to lock %s, error = %d", path, errno);
 	exit(1);
 }
 #endif
 
 #ifdef _WIN32
-void unlockArena (DbMap *map) {
+void unlockArena (HANDLE hndl, char *path) {
 OVERLAPPED ovl[1];
 
 	memset (ovl, 0, sizeof(ovl));
 	ovl->OffsetHigh = 0x80000000;
 
-	if (UnlockFileEx (map->hndl, 0, sizeof(DbArena), 0, ovl))
+	if (UnlockFileEx (hndl, 0, sizeof(DbArena), 0, ovl))
 		return;
 
-	fprintf (stderr, "Unable to unlock %s, error = %d", map->arenaPath, (int)GetLastError());
+	fprintf (stderr, "Unable to unlock %s, error = %d", path, (int)GetLastError());
 	exit(1);
 }
 #else
-void unlockArena (DbMap *map) {
-	if (!flock(map->hndl, LOCK_UN))
+void unlockArena (int hndl, char *path) {
+	if (!flock(hndl, LOCK_UN))
 		return;
 
-	fprintf (stderr, "Unable to unlock %s, error = %d", map->arenaPath, errno);
+	fprintf (stderr, "Unable to unlock %s, error = %d", path, errno);
 	exit(1);
 }
 #endif
@@ -413,6 +412,7 @@ bool fileExists(char *path) {
 //	close a map
 
 void closeMap(DbMap *map) {
+bool killIt = *map->arena->mutex & KILL_BIT;
 #ifdef _WIN32
 FILE_DISPOSITION_INFO dispInfo[1];
 #endif
@@ -423,7 +423,7 @@ FILE_DISPOSITION_INFO dispInfo[1];
 	if (map->parent)
 		atomicAdd32(map->parent->openCnt, -1);
 
-	if (*map->arenaDef->dead) {
+	if (killIt) {
 #ifdef _WIN32
 		memset (dispInfo, 0, sizeof(dispInfo));
 		dispInfo->DeleteFile = true;
@@ -443,14 +443,83 @@ FILE_DISPOSITION_INFO dispInfo[1];
 	db_free(map);
 }
 
-//	delete a map
+//	delete a map by name
 
 void deleteMap(char *path) {
+DbMap map[1];
+
 #ifdef _WIN32
+	HANDLE hndl = openPath (path, false);
+
+	if (hndl == INVALID_HANDLE_VALUE)
+		return;
+
+	lockArena(hndl, path);
+#else
+	int hndl = openPath(path, false);
+	
+	if (hndl < 0)
+		return;
+#endif
+	memset (map, 0, sizeof(DbMap));
+	map->hndl = hndl;
+
+	if ((map->base[0] = mapMemory(map, 0, sizeof(DbArena), 0))) {
+		map->arena = (DbArena *)map->base[0];
+		atomicOr8((volatile char *)map->arena->mutex, KILL_BIT);
+		unmapSeg (map, 0);
+	}
+
+	unlockArena(hndl, path);
+#ifdef _WIN32
+	CloseHandle(hndl);
 	DeleteFile (path);
 #else
+	close(hndl);
 	unlink(path);
 #endif
 }
 
+//	open arena file and read segment zero
 
+int readSegZero(DbMap *map, DbArena *segZero) {
+#ifdef _WIN32
+DWORD amt;
+#else
+int amt;
+#endif
+
+#ifdef _WIN32
+	map->hndl = openPath (map->arenaPath, true);
+
+	if (map->hndl == INVALID_HANDLE_VALUE)
+		return -1;
+
+	lockArena(map->hndl, map->arenaPath);
+
+	if (!ReadFile(map->hndl, segZero, sizeof(DbArena), &amt, NULL)) {
+		unlockArena(map->hndl, map->arenaPath);
+		CloseHandle(map->hndl);
+		return -1;
+	}
+#else
+	map->hndl = openPath (map->arenaPath, true);
+
+	if (map->hndl == -1)
+		return -1;
+
+	lockArena(map->hndl, map->arenaPath);
+
+#ifdef DEBUG
+	fprintf(stderr, "lockArena %s\n", map->arenaPath);
+#endif
+	// read first part of segment zero if it exists
+
+	amt = pread(map->hndl, segZero, sizeof(DbArena), 0LL);
+
+	if (amt < 0)
+		unlockArena(map->hndl, map->arenaPath);
+#endif
+
+	return amt;
+}

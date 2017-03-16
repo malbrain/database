@@ -66,47 +66,32 @@ DbMap *map;
 }
 
 DbStatus openDatabase(DbHandle hndl[1], char *name, uint32_t nameLen, Params *params) {
-ArenaDef arenaDef[1];
-uint64_t dbVer = 0;
-PathStk pathStk[1];
+ArenaDef *arenaDef;
 RedBlack *rbEntry;
 Catalog *catalog;
 DbMap *map;
 
-	memset (arenaDef, 0, sizeof(ArenaDef));
 	memset (hndl, 0, sizeof(DbHandle));
 
 	if (!(*hndlInit & TYPE_BITS))
 		initHndlMap(NULL, 0, NULL, 0, true, 0);
 
-	//	find/create our database in the catalog
+	rbEntry = procParam(hndlMap, name, nameLen, params);
+	arenaDef = (ArenaDef *)(rbEntry + 1);
 
-	catalog = (Catalog *)(hndlMap->arena + 1);
-	lockLatch(catalog->dbList->latch);
-
-	if ((rbEntry = rbFind(hndlMap, catalog->dbList, name, nameLen, pathStk)))
-		dbVer = *(uint64_t *)(rbEntry + 1);
-	else {
-		rbEntry = rbNew(hndlMap, name, nameLen, sizeof(uint64_t));
-		rbAdd(hndlMap, catalog->dbList, rbEntry, pathStk);
-	}
-
-	unlockLatch(catalog->dbList->latch);
-	memcpy (arenaDef->params, params, sizeof(Params) * (MaxParam + 1));
-
-	arenaDef->mapIdx = arrayAlloc(hndlMap, catalog->openMap, 0);
 	arenaDef->objSize = params[ObjIdSize].intVal;
 	arenaDef->baseSize = params[MapXtra].intVal;
 	arenaDef->arenaType = Hndl_database;
 	arenaDef->numTypes = ObjIdType + 1;
-	arenaDef->ver = dbVer;
 
 	//  create the database
 
-	if ((map = openMap(NULL, name, nameLen, arenaDef, NULL)))
+	if ((map = arenaRbMap(hndlMap, rbEntry)))
 		*map->arena->type = Hndl_database;
 	else
 		return DB_ERROR_createdatabase;
+
+	catalog = (Catalog *)(hndlMap->arena + 1);
 
 	arrayActivate(hndlMap, catalog->openMap, arenaDef->mapIdx);
 	hndl->hndlBits = makeHandle(map, 0, Hndl_database)->hndlId.bits;
