@@ -69,6 +69,7 @@ DbStatus openDatabase(DbHandle hndl[1], char *name, uint32_t nameLen, Params *pa
 ArenaDef *arenaDef;
 RedBlack *rbEntry;
 Catalog *catalog;
+Handle *dbHndl;
 DbMap *map;
 
 	memset (hndl, 0, sizeof(DbHandle));
@@ -94,13 +95,19 @@ DbMap *map;
 	catalog = (Catalog *)(hndlMap->arena + 1);
 
 	arrayActivate(hndlMap, catalog->openMap, arenaDef->mapIdx);
-	hndl->hndlBits = makeHandle(map, 0, Hndl_database)->hndlId.bits;
+
+	if ((dbHndl = makeHandle(map, 0, Hndl_database)))
+		hndl->hndlBits = dbHndl->hndlId.bits;
+	else
+		return DB_ERROR_outofmemory;
+
 	return DB_OK;
 }
 
 DbStatus openDocStore(DbHandle hndl[1], DbHandle dbHndl[1], char *name, uint32_t nameLen, Params *params) {
 DbMap *map, *parent = NULL;
-Handle *database = NULL;
+Handle *database, *docHndl;
+DbStatus stat = DB_OK;
 ArenaDef *arenaDef;
 RedBlack *rbEntry;
 Catalog *catalog;
@@ -123,23 +130,25 @@ Catalog *catalog;
 	arenaDef->objSize = sizeof(ObjId);
 	arenaDef->numTypes = MAX_blk + 1;
 
-	//  open/create the docStore arena
-
-	if (!(map = arenaRbMap(parent, rbEntry)))
-		return DB_ERROR_arenadropped;
-
 	//	allocate a global storeId for use in docIds.
 
-	if (!*map->arena->type) {
+	if ((map = arenaRbMap(parent, rbEntry))) {
+	  if (!*map->arena->type) {
 		map->arenaDef->storeId = arrayAlloc(hndlMap, catalog->storeId, 0);
 		arrayActivate(hndlMap, catalog->storeId, map->arenaDef->storeId);
 		map->arena->type[0] = Hndl_docStore;
-	}
+	  }
+	} else
+		stat = DB_ERROR_arenadropped;
 	
 	releaseHandle(database, dbHndl);
 
-	hndl->hndlBits = makeHandle(map, params[HndlXtra].intVal, Hndl_docStore)->hndlId.bits;
-	return DB_OK;
+	if ((docHndl = makeHandle(map, params[HndlXtra].intVal, Hndl_docStore)))
+		hndl->hndlBits = docHndl->hndlId.bits;
+	else
+		return DB_ERROR_outofmemory;
+
+	return stat;
 }
 
 DbStatus createIndex(DbHandle hndl[1], DbHandle docHndl[1], char *name, uint32_t nameLen, Params *params) {
@@ -151,6 +160,7 @@ ArenaDef *arenaDef;
 RedBlack *rbEntry;
 Handle *idxHndl;
 DbIndex *index;
+DbAddr *slot;
 
 	memset (hndl, 0, sizeof(DbHandle));
 
@@ -181,11 +191,20 @@ DbIndex *index;
 		return DB_ERROR_indextype;
 	}
 
-	if (!(map = arenaRbMap(parent, rbEntry)))
+	if (!(map = arenaRbMap(parent, rbEntry))) {
+	  releaseHandle(parentHndl, docHndl);
 	  return DB_ERROR_createindex;
+	}
 
-	idxHndl = makeHandle(map, 0, type);
-	hndl->hndlBits = idxHndl->hndlId.bits;
+	if ((idxHndl = makeHandle(map, 0, type)))
+		hndl->hndlBits = idxHndl->hndlId.bits;
+	else {
+		releaseHandle(parentHndl, docHndl);
+		return DB_ERROR_outofmemory;
+	}
+
+	slot = fetchIdSlot(hndlMap, idxHndl->hndlId);
+	enterHandle (idxHndl, slot);
 
 	if (*map->arena->type)
 		goto createXit;
@@ -218,7 +237,7 @@ createXit:
 
 DbStatus createIterator(DbHandle hndl[1], DbHandle docHndl[1], Params *params) {
 uint32_t xtra = params[HndlXtra].intVal;
-Handle *parentHndl, *iterator;
+Handle *parentHndl, *iterHndl;
 Iterator *it;
 
 	memset (hndl, 0, sizeof(DbHandle));
@@ -226,18 +245,23 @@ Iterator *it;
 	if (!(parentHndl = bindHandle(docHndl)))
 		return DB_ERROR_handleclosed;
 
-	iterator = makeHandle(parentHndl->map, sizeof(Iterator) + xtra, Hndl_iterator);
-	it = (Iterator *)(iterator + 1);
+	if ((iterHndl = makeHandle(parentHndl->map, sizeof(Iterator) + xtra, Hndl_iterator)))
+		it = (Iterator *)(iterHndl + 1);
+	else {
+		releaseHandle(parentHndl, docHndl);
+		return DB_ERROR_outofmemory;
+	}
+
 	it->state = IterLeftEof;
 	it->docId.bits = 0;
 	it->xtra = xtra;
 
 	//	return handle for iterator
 
-	hndl->hndlBits = iterator->hndlId.bits;
+	hndl->hndlBits = iterHndl->hndlId.bits;
 
 	releaseHandle(parentHndl, docHndl);
-	releaseHandle(iterator, hndl);
+	releaseHandle(iterHndl, hndl);
 	return DB_OK;
 }
 
@@ -301,9 +325,14 @@ DbCursor *dbCursor;
 	if (!(idxHndl = bindHandle(dbIdxHndl)))
 		return DB_ERROR_handleclosed;
 
-	cursorHndl = makeHandle(idxHndl->map, xtra + sizeof(DbCursor) + cursorSize[*(uint8_t *)idxHndl->map->arena->type], Hndl_cursor);
+	if ((cursorHndl = makeHandle(idxHndl->map, xtra + sizeof(DbCursor) + cursorSize[*(uint8_t *)idxHndl->map->arena->type], Hndl_cursor)))
 
-	dbCursor = (DbCursor *)(cursorHndl + 1);
+		dbCursor = (DbCursor *)(cursorHndl + 1);
+	else {
+		releaseHandle(idxHndl, dbIdxHndl);
+		return DB_ERROR_outofmemory;
+	}
+
 	dbCursor->binaryFlds = idxHndl->map->arenaDef->params[IdxKeyFlds].boolVal;
 	dbCursor->xtra = xtra + cursorSize[*(uint8_t *)idxHndl->map->arena->type];
 	dbCursor->deDup = params[CursorDeDup].boolVal;
@@ -346,6 +375,7 @@ Handle *idxHndl;
 		break;
 	}
 
+	releaseHandle(idxHndl, hndl);
 	return stat;
 }
 
@@ -426,6 +456,7 @@ Handle *idxHndl;
 		break;
 	}
 
+	releaseHandle(idxHndl, hndl);
 	return DB_CURSOR_notpositioned;
 }
 
@@ -451,14 +482,19 @@ DbStatus closeHandle(DbHandle hndl[1]) {
 }
 
 DbStatus cloneHandle(DbHandle newHndl[1], DbHandle oldHndl[1]) {
-Handle *hndl;
+DbStatus stat = DB_OK;
+Handle *hndl, *hndl2;
 
 	if (!(hndl = bindHandle(oldHndl)))
 		return DB_ERROR_handleclosed;
 
-	newHndl->hndlBits = makeHandle(hndl->map, hndl->xtraSize, hndl->hndlType)->hndlId.bits;
+	if ((hndl2 = makeHandle(hndl->map, hndl->xtraSize, hndl->hndlType)))
+		newHndl->hndlBits = hndl2->hndlId.bits;
+	else
+		stat = DB_ERROR_outofmemory;
+
 	releaseHandle(hndl, oldHndl);
-	return DB_OK;
+	return stat;
 }
 
 //	fetch document from a docStore by docId
@@ -489,7 +525,6 @@ DbAddr *slot;
 	slot->bits = 0;
 
 	releaseHandle(docHndl, hndl);
-
 	return DB_OK;
 }
 
@@ -505,8 +540,10 @@ void *doc;
 
 	if ((addr.bits = allocObj(docHndl->map, listFree(docHndl,0), listWait(docHndl,0), -1, objSize, false)))
 		doc = getObj(docHndl->map, addr);
-	else
+	else {
+		releaseHandle(docHndl, hndl);
 		return DB_ERROR_outofmemory;
+	}
 
 	memcpy(doc, obj, objSize);
 

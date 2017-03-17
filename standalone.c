@@ -176,10 +176,10 @@ int stat;
 				key[lastFld + 1] = (len - lastFld - 2);
 			  }
 
+			  line++;
+
 			  if (debug && !(line % 100000))
 				fprintf(stderr, "line %" PRIu64 "\n", line);
-
-			  line++;
 
 			  if ((stat = deleteKey(idxHndl, key, len)))
 				  fprintf(stderr, "Delete Key %s Error %d Line: %" PRIu64 "\n", args->inFile, stat, line), myExit(args);
@@ -235,10 +235,10 @@ int stat;
 				key[lastFld + 1] = (len - lastFld - 2);
 			  }
 
+			  line++;
+
 			  if (debug && !(line % 100000))
 				fprintf(stderr, "line %" PRIu64 "\n", line);
-
-			  line++;
 
 			  // store the entry in the docStore?
 
@@ -311,10 +311,10 @@ int stat;
 				key[lastFld + 1] = (len - lastFld - 2);
 			  }
 
+			  line++;
+
 			  if (debug && !(line % 100000))
 				fprintf(stderr, "line %" PRIu64 "\n", line);
-
-			  line++;
 
 			  len = args->keyLen;
 
