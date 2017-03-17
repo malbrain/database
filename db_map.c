@@ -110,7 +110,7 @@ int hndl, flags = O_RDWR;
 #ifdef _WIN32
 	hndl = CreateFile(path, GENERIC_READ | GENERIC_WRITE | DELETE, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, dispMode, FILE_ATTRIBUTE_NORMAL |  FILE_FLAG_RANDOM_ACCESS, NULL);
 
-	if (hndl == INVALID_HANDLE_VALUE) {
+	if (create && hndl == INVALID_HANDLE_VALUE) {
 		fprintf(stderr, "Unable to create/open %s, error = %d\n", path, (int)GetLastError());
 		return NULL;
 	}
@@ -123,7 +123,7 @@ int hndl, flags = O_RDWR;
 
 	hndl = open (path, flags, 0664);
 
-	if (hndl == -1) {
+	if (create && hndl == -1) {
 		fprintf (stderr, "Unable to open/create %s, error = %d", path, errno);
 		return -1;
 	}
