@@ -70,6 +70,7 @@ typedef struct {
 	uint64_t id;				// our id in parent's child list
 	uint64_t nxtVer;			// next arena version when creating
 	uint64_t childId;			// highest child Id we've issued
+	uint64_t creation;			// milliseconds since 1/1/70
 	uint32_t localSize;			// extra space after DbMap
 	uint32_t baseSize;			// extra space after DbArena
 	uint32_t objSize;			// size of ObjectId array slot
