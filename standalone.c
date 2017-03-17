@@ -447,8 +447,12 @@ int stat;
 			 memcpy (rec, foundKey, foundLen);
 			}
 
-			if (cntOnly)
-				continue;
+			if (cntOnly) {
+			  if (debug && !(cnt % 100000))
+				fprintf(stderr, "key %" PRIu64 "\n", cnt);
+
+			  continue;
+			}
 
 			if (args->noDocs)
 			 if (binaryFlds)

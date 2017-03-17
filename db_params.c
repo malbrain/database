@@ -13,9 +13,9 @@ extern DbMap *hndlMap;
 //	from the parent.
 
 RedBlack *procParam(DbMap *parent, char *name, int nameLen, Params *params) {
-ArenaDef *arenaDef = NULL;
 SkipEntry *skipPayLoad;
 PathStk pathStk[1];
+ArenaDef *arenaDef;
 RedBlack *rbEntry;
 Catalog *catalog;
 
@@ -40,30 +40,29 @@ Catalog *catalog;
 	  break;
 	}
 
-	// create new rbEntry in parent?
+	// create new rbEntry in parent
 	// with an arenaDef payload
 
-	if (!arenaDef)
-	  if ((rbEntry = rbNew(parent->db, name, nameLen, sizeof(ArenaDef))))
+	catalog = (Catalog *)(hndlMap->arena + 1);
+
+	if ((rbEntry = rbNew(parent->db, name, nameLen, sizeof(ArenaDef)))) {
 		arenaDef = (ArenaDef *)(rbEntry + 1);
-	  else {
+	} else {
 		unlockLatch(parent->arenaDef->nameTree->latch);
 		return NULL;
 	}
 
+	//	fill in new arenaDef r/b entry
+
+	time (&arenaDef->creation);
 	memcpy (arenaDef->params, params, sizeof(arenaDef->params));
-
-	catalog = (Catalog *)(hndlMap->arena + 1);
-
-	//	the openMap assignment is for an open Map pointer in memMap
+	initLock(arenaDef->idList->lock);
 
 	arenaDef->mapIdx = arrayAlloc(hndlMap, catalog->openMap, sizeof(void *));
 	arenaDef->id = atomicAdd64(&parent->arenaDef->childId, 1);
 	arenaDef->parentAddr.bits = parent->arena->redblack->bits;
 
-	initLock(arenaDef->idList->lock);
-
-	//	add arenaDef to parent's child arenaDef tree
+	//	add arenaDef to parent's child arenaDef by name tree
 
 	rbAdd(parent->db, parent->arenaDef->nameTree, rbEntry, pathStk);
 
