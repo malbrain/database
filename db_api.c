@@ -261,7 +261,6 @@ Iterator *it;
 	hndl->hndlBits = iterHndl->hndlId.bits;
 
 	releaseHandle(parentHndl, docHndl);
-	releaseHandle(iterHndl, hndl);
 	return DB_OK;
 }
 
