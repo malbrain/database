@@ -60,6 +60,7 @@ ArenaDef arenaDef[1];
 }
 
 //	make handle from map pointer
+//	leave it bound
 
 Handle *makeHandle(DbMap *map, uint32_t xtraSize, HandleType type) {
 DbAddr *hndlAddr, *slot;
@@ -89,10 +90,12 @@ DbAddr addr;
 
 	//  initialize the new Handle
 
-	handle->addr.bits = addr.bits;
+	handle->entryTs = atomicAdd64(&map->arena->nxtTs, 1);
 	handle->hndlId.bits = hndlId.bits;
+	handle->addr.bits = addr.bits;
 	handle->xtraSize = xtraSize;	// size of following structure
 	handle->hndlType = type;
+	handle->bindCnt[0] = 1;
 	handle->map = map;
 
 	//  allocate recycled frame queues

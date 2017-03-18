@@ -101,6 +101,7 @@ DbMap *map;
 	else
 		return DB_ERROR_outofmemory;
 
+	releaseHandle(dbHndl, hndl);
 	return DB_OK;
 }
 
@@ -148,6 +149,7 @@ Catalog *catalog;
 	else
 		return DB_ERROR_outofmemory;
 
+	releaseHandle(docHndl, hndl);
 	return stat;
 }
 
@@ -203,9 +205,6 @@ DbAddr *slot;
 		return DB_ERROR_outofmemory;
 	}
 
-	slot = fetchIdSlot(hndlMap, idxHndl->hndlId);
-	enterHandle (idxHndl, slot);
-
 	if (*map->arena->type)
 		goto createXit;
 
@@ -227,7 +226,7 @@ DbAddr *slot;
 
 createXit:
 	releaseHandle(parentHndl, docHndl);
-	releaseHandle(idxHndl, NULL);
+	releaseHandle(idxHndl, hndl);
 	return DB_OK;
 }
 
@@ -261,6 +260,7 @@ Iterator *it;
 	hndl->hndlBits = iterHndl->hndlId.bits;
 
 	releaseHandle(parentHndl, docHndl);
+	releaseHandle(iterHndl, hndl);
 	return DB_OK;
 }
 
@@ -492,6 +492,7 @@ Handle *hndl, *hndl2;
 	else
 		stat = DB_ERROR_outofmemory;
 
+	releaseHandle(hndl2, newHndl);
 	releaseHandle(hndl, oldHndl);
 	return stat;
 }
