@@ -112,7 +112,8 @@ DbAddr addr;
 		dropDefs = false;
 
 	writeUnlock(map->parent->arenaDef->idList->lock);
+	memcpy (path, map->arenaPath, map->pathLen);
 
-	dropArenaDef(map->db, entry, dropDefs, path, 0);
+	dropArenaDef(map->db, entry, dropDefs, path, map->pathLen);
 	return DB_OK;
 }
