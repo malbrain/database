@@ -244,7 +244,7 @@ uint64_t atomicAdd64(volatile uint64_t *value, int64_t amt) {
 #ifndef _WIN32
 	return __sync_add_and_fetch(value, amt);
 #else
-	return _InterlockedExchangeAdd64( value, amt);
+	return _InterlockedExchangeAdd64( value, amt) + amt;
 #endif
 }
 
@@ -252,7 +252,7 @@ uint32_t atomicAdd32(volatile uint32_t *value, int32_t amt) {
 #ifndef _WIN32
 	return __sync_add_and_fetch(value, amt);
 #else
-	return _InterlockedExchangeAdd( (volatile long *)value, amt);
+	return _InterlockedExchangeAdd( (volatile long *)value, amt) + amt;
 #endif
 }
 
