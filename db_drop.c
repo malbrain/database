@@ -75,15 +75,15 @@ uint64_t id = map->arenaDef->id;
 SkipEntry *skipPayLoad;
 char path[MAX_path];
 RedBlack *entry;
+DbMap *ourDb;
 DbAddr addr;
-DbMap *db;
 
 	//  are we deleting a db from the catalog?
 
 	if (*map->arena->type == Hndl_database)
-		db = map->parent;
+		ourDb = map->parent;
 	else
-		db = map->db;
+		ourDb = map->db;
 
 	//	are we already dropped?
 
@@ -96,8 +96,8 @@ DbMap *db;
 	//	remove id from parent's idList
 
 	writeLock(map->parent->arenaDef->idList->lock);
-	addr.bits = skipDel(db, map->parent->arenaDef->idList->head, id); 
-	entry = getObj(db, addr);
+	addr.bits = skipDel(ourDb, map->parent->arenaDef->idList->head, id); 
+	entry = getObj(ourDb, addr);
 	writeUnlock(map->parent->arenaDef->idList->lock);
 
 	//  delete our r/b entry from parent's child nameList
@@ -105,7 +105,7 @@ DbMap *db;
 	if (dropDefs) {
 		lockLatch (map->arenaDef->nameTree->latch);
 		atomicOr8(map->arenaDef->dead, KILL_BIT);
-		rbDel(db, map->parent->arenaDef->nameTree, entry); 
+		rbDel(ourDb, map->parent->arenaDef->nameTree, entry); 
 		unlockLatch (map->arenaDef->nameTree->latch);
 	}
 
@@ -114,6 +114,6 @@ DbMap *db;
 
 	memcpy (path, map->arenaPath, map->pathLen);
 
-	dropArenaDef(db, map->arenaDef, dropDefs, path, map->pathLen);
+	dropArenaDef(map->db, map->arenaDef, dropDefs, path, map->pathLen);
 	return DB_OK;
 }
