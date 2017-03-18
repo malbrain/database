@@ -64,7 +64,7 @@ int amt;
 
 	map = db_malloc(sizeof(DbMap) + arenaDef->localSize, true);
 
-	if ((map->parent = parent))
+	if ((map->parent = parent) && parent->parent)
 		map->db = parent->db;
 	else
 		map->db = map;

@@ -9,58 +9,45 @@ extern DbAddr openMaps[1];
 extern DbMap memMap[1];
 extern DbMap *hndlMap;
 
-// drop an arena, and recursively our children
+// drop an arena given its r/b entry
+//	and recursively its children
 
-void dropArenaDef(DbMap *db, RedBlack *entry, bool dropDefs, char *path, uint32_t pathLen) {
-ArenaDef *arenaDef = (ArenaDef *)(entry + 1);
-DbAddr *next, addr;
+void dropArenaDef(DbMap *db, ArenaDef *parentDef, bool dropDefs, char *path, uint32_t pathLen) {
+PathStk pathStk[1];
+RedBlack *entry;
 uint32_t len;
 DbMap **map;
-uint64_t id;
-
-	//  delete our id from db's child name & id list
-
-	if (dropDefs) {
-		writeLock(db->arenaDef->idList->lock);
-		atomicOr8(arenaDef->dead, KILL_BIT);
-		rbDel(db, db->arenaDef->nameTree, entry); 
-		writeUnlock(db->arenaDef->idList->lock);
-	}
+DbAddr addr;
 
 	//	drop our children
 
-	readLock(arenaDef->idList->lock);
-	next = arenaDef->idList->head;
+	lockLatch (parentDef->nameTree->latch);
 
-	while (next->addr) {
-	  SkipNode *node = getObj(db, *next);
-	  int idx;
+    if ((entry = rbStart (db, pathStk, parentDef->nameTree))) do {
+      ArenaDef *arenaDef = (ArenaDef *)(entry + 1);
+	  len = addPath(path, pathLen, rbkey(entry), entry->keyLen, arenaDef->nxtVer);
 
-	  for (idx = 0; idx < next->nslot; idx++) {
-		ArenaDef *nxtArenaDef;
+	  //  delete our name from parent's nameList
 
-	  	addr.bits = *node->array[idx].val;
-		entry = getObj(db, addr);
-		nxtArenaDef = (ArenaDef *)(entry + 1);
-
-		len = addPath(path, pathLen, rbkey(entry), entry->keyLen, arenaDef->nxtVer);
-
-		dropArenaDef(db, entry, dropDefs, path, pathLen + len);
+	  if (dropDefs) {
+		atomicOr8(arenaDef->dead, KILL_BIT);
+		rbDel(db, parentDef->nameTree, entry); 
 	  }
 
-	  next = node->next;
-	}
+	  dropArenaDef(db, arenaDef, dropDefs, path, pathLen + len);
+    } while ((entry = rbNext(db, pathStk)));
+
+    unlockLatch(parentDef->nameTree->latch);
 
 	//  wait for handles to exit
 
 	path[pathLen] = 0;
-	readUnlock(arenaDef->idList->lock);
-	disableHndls(db, arenaDef->hndlArray);
+	disableHndls(db, parentDef->hndlArray);
 
 	//	close map if we are open in this process
 	//	otherwise we can try to delete it
 
-	map = arrayElement(memMap, openMaps, arenaDef->mapIdx, sizeof(void *));
+	map = arrayElement(memMap, openMaps, parentDef->mapIdx, sizeof(void *));
 
 	//	if arena file is not opened in this process
 	//	we can unmap it now, and close handles in
@@ -89,6 +76,14 @@ SkipEntry *skipPayLoad;
 char path[MAX_path];
 RedBlack *entry;
 DbAddr addr;
+DbMap *db;
+
+	//  are we deleting a db from the catalog?
+
+	if (*map->arena->type == Hndl_database)
+		db = map->parent;
+	else
+		db = map->db;
 
 	//	are we already dropped?
 
@@ -98,25 +93,27 @@ DbAddr addr;
 
 	atomicOr8((volatile char *)map->arena->mutex, KILL_BIT);
 
-	//	remove from arenaDef from parent's idList
+	//	remove id from parent's idList
 
 	writeLock(map->parent->arenaDef->idList->lock);
-	addr.bits = skipDel(map->db, map->parent->arenaDef->idList->head, id); 
-	entry = getObj(map->db, addr);
+	addr.bits = skipDel(db, map->parent->arenaDef->idList->head, id); 
+	entry = getObj(db, addr);
+	writeUnlock(map->parent->arenaDef->idList->lock);
 
-	//  delete our id from parent's child name & id list
+	//  delete our r/b entry from parent's child nameList
 
 	if (dropDefs) {
+		lockLatch (map->arenaDef->nameTree->latch);
 		atomicOr8(map->arenaDef->dead, KILL_BIT);
-		rbDel(map->db, map->parent->arenaDef->nameTree, entry); 
+		rbDel(db, map->parent->arenaDef->nameTree, entry); 
+		unlockLatch (map->arenaDef->nameTree->latch);
 	}
 
 	if (*map->arena->type == Hndl_database)
 		dropDefs = false;
 
-	writeUnlock(map->parent->arenaDef->idList->lock);
 	memcpy (path, map->arenaPath, map->pathLen);
 
-	dropArenaDef(map->db, entry, dropDefs, path, map->pathLen);
+	dropArenaDef(db, map->arenaDef, dropDefs, path, map->pathLen);
 	return DB_OK;
 }
