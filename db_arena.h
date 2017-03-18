@@ -125,11 +125,11 @@ typedef union {
  * open/create arenas
  */
 
-DbMap *openMap(DbMap *parent, char *name, uint32_t nameLen, ArenaDef *arena, DbAddr *rbAddr);
+DbMap *openMap(DbMap *parent, char *name, uint32_t nameLen, ArenaDef *arena, RedBlack *entry);
 DbMap *arenaRbMap(DbMap *parent, RedBlack *entry);
 
 RedBlack *procParam(DbMap *parent, char *name, int nameLen, Params *params);
-DbMap *initArena (DbMap *map, ArenaDef *arenaDef, char *name, uint32_t nameLen, DbAddr *rbAddr);
+DbMap *initArena (DbMap *map, ArenaDef *arenaDef, char *name, uint32_t nameLen, RedBlack *rbEntry);
 
 /**
  *  memory mapping
