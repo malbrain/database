@@ -18,8 +18,6 @@ uint32_t len;
 DbMap **map;
 uint64_t id;
 
-	len = addPath(path, pathLen, rbkey(entry), entry->keyLen, arenaDef->nxtVer);
-
 	//  delete our id from db's child name & id list
 
 	if (dropDefs) {
@@ -39,8 +37,13 @@ uint64_t id;
 	  int idx;
 
 	  for (idx = 0; idx < next->nslot; idx++) {
+		ArenaDef *nxtArenaDef;
+
 	  	addr.bits = *node->array[idx].val;
 		entry = getObj(db, addr);
+		nxtArenaDef = (ArenaDef *)(entry + 1);
+
+		len = addPath(path, pathLen, rbkey(entry), entry->keyLen, arenaDef->nxtVer);
 
 		dropArenaDef(db, entry, dropDefs, path, pathLen + len);
 	  }
@@ -50,6 +53,7 @@ uint64_t id;
 
 	//  wait for handles to exit
 
+	path[pathLen] = 0;
 	readUnlock(arenaDef->idList->lock);
 	disableHndls(db, arenaDef->hndlArray);
 
@@ -64,7 +68,6 @@ uint64_t id;
 
 	if (!*map) {
 		deleteMap(path);
-		path[pathLen] = 0;
 		return;
 	}
 
