@@ -21,7 +21,7 @@ DbIndex *dbIdx;
 	artIdx = (ArtIndex *)((uint8_t *)(dbIdx + 1) + dbIdx->xtra);
 
 	memset(p, 0, sizeof(p));
-	p->binaryFlds = index->map->arena->arenaDef->params[IdxKeyFlds].boolVal;
+	p->binaryFlds = index->map->arenaDef->params[IdxKeyFlds].boolVal;
 
 	do {
 		p->slot = artIdx->root;

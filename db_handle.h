@@ -33,7 +33,7 @@ union Handle_ {
   char filler[64];	// fill cache line
 };
 
-void disableHndls(DbMap *db, DbAddr *hndlCalls);
+uint32_t disableHndls(DbAddr *hndlCalls);
 uint64_t scanHandleTs(DbMap *map);
 
 Handle *makeHandle(DbMap *map, uint32_t xtraSize, HandleType type);

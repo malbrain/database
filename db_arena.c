@@ -26,30 +26,30 @@ void mapAll (DbMap *map);
 uint64_t totalMemoryReq[1];
 
 extern DbMap memMap[1];
-DbAddr openMaps[1];
 
 //	open map given database red/black rbEntry
 
 DbMap *arenaRbMap(DbMap *parent, RedBlack *rbEntry) {
 ArenaDef *arenaDef = (ArenaDef *)(rbEntry + 1);
-void **childMap;
-DbMap *map;
+DbMap *map, **childMap;
+SkipEntry *entry;
 
 	//	see if we've opened this child
 	//	map in this process already
 
-	childMap = arrayElement(memMap, openMaps, arenaDef->mapIdx, sizeof(void *));
+	writeLock(parent->childMaps->lock);
+	entry = skipAdd(memMap, parent->childMaps->head, arenaDef->id);
+	childMap = (DbMap **)entry->val;
 
-	if ((map = (DbMap *)*childMap))
+	if ((map = *childMap))
 		waitNonZero(map->arena->type);
 	else {
-		writeLock(parent->childMaps->lock);
 		map = openMap(parent, rbkey(rbEntry), rbEntry->keyLen, arenaDef, rbEntry);
-		writeUnlock(parent->childMaps->lock);
-		atomicAdd32(parent->openCnt, 1);
 		*childMap = map;
+		atomicAdd32(parent->openCnt, 1);
 	}
 
+	writeUnlock(parent->childMaps->lock);
 	return map;
 }
 
@@ -118,14 +118,20 @@ int amt;
 	//	and map seg zero
 
 	initLock(map->childMaps->lock);
-	assert(segZero->segs->size > 0);
+	map->objSize = arenaDef->objSize;
 
+	assert(segZero->segs->size > 0);
 	mapZero(map, segZero->segs->size);
 #ifdef _WIN32
 	VirtualFree(segZero, 0, MEM_RELEASE);
 #else
 	free(segZero);
 #endif
+
+	if (!rbEntry)
+		rbEntry = getObj(map, *map->arena->rbAddr);
+
+	map->arenaDef = (ArenaDef *)(rbEntry + 1);
 
 	unlockArena(map->hndl, map->arenaPath);
 
@@ -188,13 +194,18 @@ uint32_t bits;
 
 	mapZero(map, initSize);
 	map->arena->segs->nextObject.offset = segOffset >> 3;
+	map->objSize = arenaDef->objSize;
 	map->arena->segs->size = initSize;
 	map->arena->delTs = 1;
 
-	// save the arenaDef
-
-	memcpy(map->arena->arenaDef, arenaDef, sizeof(ArenaDef));
-	initLock(map->arena->arenaDef->idList->lock);
+	if (!rbEntry) {
+		RedBlack *rbEntry = rbNew(map, name, nameLen, sizeof(ArenaDef));
+		map->arenaDef = (ArenaDef *)(rbEntry + 1);
+		map->arena->rbAddr->bits = rbEntry->addr.bits;
+		memcpy(map->arenaDef, arenaDef, sizeof(ArenaDef));
+		initLock(map->arenaDef->idList->lock);
+	} else
+		map->arenaDef = arenaDef;
 
 	return map;
 }
@@ -364,7 +375,7 @@ uint64_t max, addr, off;
 	lockLatch(map->arena->mutex);
 
 	max = map->arena->segs[map->arena->currSeg].size
-		  - map->arena->segs[map->arena->objSeg].nextId.idx * map->arena->arenaDef->objSize;
+		  - map->arena->segs[map->arena->objSeg].nextId.idx * map->objSize;
 
 	// round request up to cache line size
 
@@ -422,7 +433,7 @@ void *fetchIdSlot (DbMap *map, ObjId objId) {
 	if (objId.seg >= map->numSeg)
 		mapAll(map);
 
-	return map->base[objId.seg] + map->arena->segs[objId.seg].size - objId.idx * map->arena->arenaDef->objSize;
+	return map->base[objId.seg] + map->arena->segs[objId.seg].size - objId.idx * map->objSize;
 }
 
 //

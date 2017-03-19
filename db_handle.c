@@ -102,7 +102,7 @@ DbAddr addr;
 	//	three times the number of node types
 	//	for the handle type
 
-	if ((*handle->maxType = map->arena->arenaDef->numTypes)) {
+	if ((*handle->maxType = map->arenaDef->numTypes)) {
 		handle->listIdx = arrayAlloc(map, map->arena->listArray, sizeof(DbAddr) * *handle->maxType * 3);
 		handle->frames = arrayEntry(map, map->arena->listArray, handle->listIdx);
 		arrayActivate(map, map->arena->listArray, handle->listIdx);
@@ -110,11 +110,11 @@ DbAddr addr;
 
 	//	allocate hndlId array in the database
 
-	handle->arrayIdx = arrayAlloc(map->db, map->arena->arenaDef->hndlArray, sizeof(ObjId));
-	hndlAddr = arrayEntry(map->db, map->arena->arenaDef->hndlArray, handle->arrayIdx);
+	handle->arrayIdx = arrayAlloc(hndlMap, map->arenaDef->hndlArray, sizeof(ObjId));
+	hndlAddr = arrayEntry(hndlMap, map->arenaDef->hndlArray, handle->arrayIdx);
 	hndlAddr->bits = addr.bits;
 
-	arrayActivate(map->db, map->arena->arenaDef->hndlArray, handle->arrayIdx);
+	arrayActivate(hndlMap, map->arenaDef->hndlArray, handle->arrayIdx);
 
 	//  install ObjId slot in local memory
 
@@ -137,6 +137,7 @@ void disableHndl(Handle *handle) {
 //	destroy handle
 
 void destroyHandle(Handle *handle, DbAddr *slot) {
+ArenaDef *arenaDef = handle->map->arenaDef;
 DbAddr addr;
 
 	if (!slot)
@@ -163,7 +164,7 @@ DbAddr addr;
 
 	// release the hndlAddr reservation in the arena
 
-	arrayRelease(handle->map->db, handle->map->arena->arenaDef->hndlArray, handle->arrayIdx);
+	arrayRelease(hndlMap, handle->map->arenaDef->hndlArray, handle->arrayIdx);
 
 	// zero the handle Id slot
 
@@ -174,6 +175,17 @@ DbAddr addr;
 	//	but return the memory
 
 	freeBlk (hndlMap, addr);
+
+	if (~handle->map->drop[0] & KILL_BIT)
+		return;
+
+	lockLatch(arenaDef->hndlArray->latch);
+
+	if (!disableHndls(arenaDef->hndlArray))
+		if (!handle->map->openCnt[0])
+			closeMap(handle->map);
+
+	unlockLatch(arenaDef->hndlArray->latch);
 }
 
 //	enter a handle
@@ -198,7 +210,7 @@ bool enterHandle(Handle *handle, DbAddr *slot) {
 
 	//	is there a DROP request for this arena?
 
-	if (handle->map->arena->mutex[0] & KILL_BIT) {
+	if (handle->map->drop[0] & KILL_BIT) {
 		atomicOr8((volatile char *)handle->status, KILL_BIT);
 
 		if (!atomicAdd32(handle->bindCnt, -1))
@@ -252,22 +264,25 @@ void releaseHandle(Handle *handle, DbHandle dbHndl[1]) {
 
 //	disable all arena handles
 //	by scanning HndlId arrayhndl
-//	for the dropped arena
+//	for dropped arenas
 
-void disableHndls(DbMap *db, DbAddr *array) {
+//  call with array DbAddr latched
+//	return count of bound handles
+
+uint32_t disableHndls(DbAddr *array) {
+uint32_t count = 0;
 Handle *handle;
 ArrayHdr *hdr;
 int idx, seg;
 DbAddr addr;
 
   if (array->addr) {
-	lockLatch(array->latch);
-	hdr = getObj(db, *array);
+	hdr = getObj(hndlMap, *array);
 
 	//	process the level zero blocks in the array
 
 	for (idx = 0; idx < (hdr->nxtIdx + ARRAY_size - 1) / ARRAY_size; idx++) {
-	  uint64_t *inUse = getObj(db, hdr->addr[idx]);
+	  uint64_t *inUse = getObj(hndlMap, hdr->addr[idx]);
 	  DbAddr *hndlAddr = (DbAddr *)inUse;
 
 	  for (seg = 0; seg < ARRAY_inuse; seg++) {
@@ -286,20 +301,20 @@ DbAddr addr;
 		  handle = getObj(hndlMap, addr);
 
 		  atomicOr8((volatile char *)handle->status, KILL_BIT);
-		  waitZero32 (handle->bindCnt);
+		  count += *handle->bindCnt;
 		} while (slotIdx++, bits /= 2);
 	  }
 	}
-
-	unlockLatch(array->latch);
   }
+
+  return count;
 }
 
 //	find arena's earliest bound handle
 //	by scanning HndlId array
 
 uint64_t scanHandleTs(DbMap *map) {
-DbAddr *array = map->arena->arenaDef->hndlArray;
+DbAddr *array = map->arenaDef->hndlArray;
 uint64_t lowTs = map->arena->nxtTs + 1;
 Handle *handle;
 ArrayHdr *hdr;
@@ -307,11 +322,11 @@ int idx, seg;
 DbAddr addr;
 
   if (array->addr) {
-	hdr = getObj(map->db, *array);
+	hdr = getObj(hndlMap, *array);
 
 	//	process the level zero blocks in the array
 	for (idx = 0; idx < (hdr->nxtIdx + ARRAY_size - 1) / ARRAY_size; idx++) {
-	  uint64_t *inUse = getObj(map->db, hdr->addr[idx]);
+	  uint64_t *inUse = getObj(hndlMap, hdr->addr[idx]);
 	  DbAddr *hndlAddr = (DbAddr *)inUse;
 
 	  for (seg = 0; seg < ARRAY_inuse; seg++) {

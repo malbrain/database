@@ -240,11 +240,11 @@ char atomicAnd8(volatile char *value, char mask) {
 #endif
 }
 
-char atomicOr8(volatile char *value, char amt) {
+char atomicOr8(volatile char *value, char mask) {
 #ifndef _WIN32
-	return __sync_fetch_and_or(value, amt);
+	return __sync_fetch_and_or(value, mask);
 #else
-	return _InterlockedOr8( value, amt);
+	return _InterlockedOr8( value, mask);
 #endif
 }
 
@@ -321,7 +321,7 @@ void unmapSeg (DbMap *map, uint32_t segNo) {
 #ifndef _WIN32
 	munmap(map->base[segNo], map->arena->segs[segNo].size);
 #else
-	if (map->arena->arenaDef && !map->arena->arenaDef->params[OnDisk].boolVal) {
+	if (map->arenaDef && !map->arenaDef->params[OnDisk].boolVal) {
 		VirtualFree(map->base[segNo], 0, MEM_RELEASE);
 		return;
 	}

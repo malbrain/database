@@ -3,7 +3,7 @@
 DbStatus artFindKey( DbCursor *dbCursor, DbMap *map, void *findKey, uint32_t uniqueLen, uint32_t suffixLen) {
 ArtCursor *cursor = (ArtCursor *)((char *)dbCursor + dbCursor->xtra);
 uint32_t idx, offset = 0, spanMax, keyLen = uniqueLen + suffixLen;
-bool binaryFlds = map->arena->arenaDef->params[IdxKeyFlds].boolVal;
+bool binaryFlds = map->arenaDef->params[IdxKeyFlds].boolVal;
 CursorStack* stack = NULL;
 uint8_t *key = findKey;
 volatile DbAddr *slot;

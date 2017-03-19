@@ -15,7 +15,7 @@ DbStatus artReturnCursor(DbCursor *dbCursor, DbMap *map) {
 
 DbStatus artLeftKey(DbCursor *dbCursor, DbMap *map) {
 ArtCursor *cursor = (ArtCursor *)((char *)dbCursor + dbCursor->xtra);
-bool binaryFlds = map->arena->arenaDef->params[IdxKeyFlds].boolVal;
+bool binaryFlds = map->arenaDef->params[IdxKeyFlds].boolVal;
 CursorStack* stack;
 ArtIndex *artIdx;
 DbIndex *dbIdx;
@@ -44,7 +44,7 @@ DbAddr *base;
 
 DbStatus artRightKey(DbCursor *dbCursor, DbMap *map) {
 ArtCursor *cursor = (ArtCursor *)((char *)dbCursor + dbCursor->xtra);
-bool binaryFlds = map->arena->arenaDef->params[IdxKeyFlds].boolVal;
+bool binaryFlds = map->arenaDef->params[IdxKeyFlds].boolVal;
 CursorStack* stack;
 ArtIndex *artIdx;
 DbIndex *dbIdx;
@@ -145,7 +145,7 @@ int slot64(int ch, uint64_t alloc, volatile uint8_t* keys) {
 
 DbStatus artNextKey(DbCursor *dbCursor, DbMap *map) {
 ArtCursor *cursor = (ArtCursor *)((char *)dbCursor + dbCursor->xtra);
-bool binaryFlds = map->arena->arenaDef->params[IdxKeyFlds].boolVal;
+bool binaryFlds = map->arenaDef->params[IdxKeyFlds].boolVal;
 int slot, len;
 
   switch (dbCursor->state) {
@@ -381,7 +381,7 @@ int slot, len;
 
 DbStatus artPrevKey(DbCursor *dbCursor, DbMap *map) {
 ArtCursor *cursor = (ArtCursor *)((char *)dbCursor + dbCursor->xtra);
-bool binaryFlds = map->arena->arenaDef->params[IdxKeyFlds].boolVal;
+bool binaryFlds = map->arenaDef->params[IdxKeyFlds].boolVal;
 CursorStack *stack;
 int slot, len;
 

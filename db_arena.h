@@ -73,13 +73,13 @@ typedef struct {
 	DbAddr freeBlk[MAX_blk];		// free blocks in frames
 	DbAddr freeFrame[1];			// free frames in frames
 	DbAddr listArray[1];			// free lists array for handles
+	DbAddr rbAddr[1];				// address of r/b entry
 	uint64_t objCount;				// overall number of objects
 	uint64_t objSpace;				// overall size of objects
 	uint16_t currSeg;				// index of highest segment
 	uint16_t objSeg;				// current segment index for ObjIds
 	char mutex[1];					// arena allocation lock/drop flag
 	char type[1];					// arena type
-	ArenaDef arenaDef[1];
 	uint8_t filler[128];
 } DbArena;
 
@@ -96,11 +96,14 @@ struct DbMap_ {
 	DbArena *arena;			// ptr to mapped seg zero
 	char *arenaPath;		// file database path
 	DbMap *parent, *db;		// ptr to parent and database
+	ArenaDef *arenaDef;		// pointer to database object
 	SkipHead childMaps[1];	// skipList of child DbMaps
 	uint32_t openCnt[1];	// count of open children
+	uint32_t objSize;		// size of ObjectId array slot
 	uint16_t pathLen;		// length of arena path
 	uint16_t numSeg;		// number of mapped segments
 	char mapMutex[1];		// segment mapping mutex
+	char drop[1];			// arena map being killed
 };
 
 #define skipSize(addr) (((1ULL << addr->type) - sizeof(SkipNode)) / sizeof(SkipEntry))
