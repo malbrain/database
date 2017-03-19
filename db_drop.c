@@ -78,6 +78,12 @@ DbAddr addr;
 
 	atomicOr8((volatile char *)map->arena->mutex, KILL_BIT);
 
+	//	remove id from parent's childMap list
+
+	writeLock(parent->childMaps->lock);
+	skipDel(memMap, parent->childMaps->head, id);
+	writeUnlock(parent->childMaps->lock);
+
 	//	remove id from parent's idList
 
 	writeLock(map->parent->arenaDef->idList->lock);
