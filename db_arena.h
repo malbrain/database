@@ -58,11 +58,11 @@ typedef struct {
 	uint16_t storeId;			// global docStore ID
 	uint8_t arenaType;			// type of the arena
 	uint8_t numTypes;			// number of node types
-	char dead[1];				// arena definition being deleted
+	char dead[1];				// arena file killed/deleted
 	DbAddr nameTree[1];			// child arena name red/black tree
 	SkipHead idList[1];			// child skiplist of names by id
-	DbAddr hndlArray[1];			// array of handle ids for this arena
-	Params params[MaxParam + 1];	// parameter array for rest of object
+	DbAddr hndlArray[1];		// array of handle ids for this arena
+	Params params[MaxParam];	// parameter array for rest of object
 } ArenaDef;
 
 //  arena at beginning of seg zero

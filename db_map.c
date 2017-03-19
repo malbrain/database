@@ -232,6 +232,14 @@ void unlockAddr(volatile uint64_t* bits) {
 	*bits = *bits & ~ADDR_MUTEX_SET;
 }
 
+char atomicAnd8(volatile char *value, char mask) {
+#ifndef _WIN32
+	return __sync_fetch_and_and(value, mask);
+#else
+	return _InterlockedAnd8( value, mask);
+#endif
+}
+
 char atomicOr8(volatile char *value, char amt) {
 #ifndef _WIN32
 	return __sync_fetch_and_or(value, amt);

@@ -27,12 +27,12 @@ DbAddr addr;
       ArenaDef *arenaDef = (ArenaDef *)(entry + 1);
 	  len = addPath(path, pathLen, rbkey(entry), entry->keyLen, arenaDef->nxtVer);
 
+	  atomicOr8(arenaDef->dead, KILL_BIT);
+
 	  //  delete our name from parent's nameList
 
-	  if (dropDefs) {
-		atomicOr8(arenaDef->dead, KILL_BIT);
+	  if (dropDefs)
 		rbDel(db, parentDef->nameTree, entry); 
-	  }
 
 	  dropArenaDef(db, arenaDef, dropDefs, path, pathLen + len);
     } while ((entry = rbNext(db, pathStk)));

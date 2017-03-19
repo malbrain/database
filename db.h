@@ -52,15 +52,13 @@ typedef union {
 			int8_t rbcmp;		// red/black comparison
 		};
 	};
-	struct {
-		uint64_t addr:48;		// segment/offset
-		uint64_t xtra:16;		// xtra 16 bit quantity
-	};
+	uint64_t addr:48;			// segment/offset
 	uint64_t bits;
 } DbAddr;
 
 #define TYPE_SHIFT (6*8)		// number of bits to shift type left
 #define MUTEX_BIT  0x80
+#define DEAD_BIT   0x80
 #define KILL_BIT   0x40
 #define TYPE_BITS  0x3f
 
@@ -110,7 +108,7 @@ typedef enum {
 	CursorDeDup = 25,	// de-duplicate cursor results
 
 	UserParams = 30,
-	MaxParam = 63	// maximum param array in use
+	MaxParam = 64		// count of param slots defined
 } ParamSlot;
 
 typedef union {

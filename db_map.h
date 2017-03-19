@@ -58,7 +58,8 @@ uint32_t atomicOr32(volatile uint32_t *value, uint32_t amt);
 uint64_t atomicExchange(uint64_t *target, uint64_t value);
 uint64_t compareAndSwap(uint64_t* target, uint64_t compare_val, uint64_t swap_val);
 char atomicExchange8(volatile char *target, char value);
-char atomicOr8(volatile char *value, char amt);
+char atomicAnd8(volatile char *value, char mask);
+char atomicOr8(volatile char *value, char mask);
 
 int readSegZero(DbMap *map, DbArena *segZero);
 

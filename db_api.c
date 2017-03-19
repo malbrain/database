@@ -85,6 +85,8 @@ DbMap *map;
 	arenaDef->arenaType = Hndl_database;
 	arenaDef->numTypes = ObjIdType + 1;
 
+	atomicAnd8(arenaDef->dead, ~KILL_BIT);
+
 	//  create the database
 
 	if ((map = arenaRbMap(hndlMap, rbEntry)))
