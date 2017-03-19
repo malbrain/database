@@ -80,9 +80,9 @@ DbAddr addr;
 
 	//	remove id from parent's childMap list
 
-	writeLock(parent->childMaps->lock);
-	skipDel(memMap, parent->childMaps->head, id);
-	writeUnlock(parent->childMaps->lock);
+	writeLock(map->parent->childMaps->lock);
+	skipDel(memMap, map->parent->childMaps->head, id);
+	writeUnlock(map->parent->childMaps->lock);
 
 	//	remove id from parent's idList
 
