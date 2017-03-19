@@ -102,7 +102,7 @@ DbAddr addr;
 	//	three times the number of node types
 	//	for the handle type
 
-	if ((*handle->maxType = map->arenaDef->numTypes)) {
+	if ((*handle->maxType = map->arena->arenaDef->numTypes)) {
 		handle->listIdx = arrayAlloc(map, map->arena->listArray, sizeof(DbAddr) * *handle->maxType * 3);
 		handle->frames = arrayEntry(map, map->arena->listArray, handle->listIdx);
 		arrayActivate(map, map->arena->listArray, handle->listIdx);
@@ -110,11 +110,11 @@ DbAddr addr;
 
 	//	allocate hndlId array in the database
 
-	handle->arrayIdx = arrayAlloc(map->db, map->arenaDef->hndlArray, sizeof(ObjId));
-	hndlAddr = arrayEntry(map->db, map->arenaDef->hndlArray, handle->arrayIdx);
+	handle->arrayIdx = arrayAlloc(map->db, map->arena->arenaDef->hndlArray, sizeof(ObjId));
+	hndlAddr = arrayEntry(map->db, map->arena->arenaDef->hndlArray, handle->arrayIdx);
 	hndlAddr->bits = addr.bits;
 
-	arrayActivate(map->db, map->arenaDef->hndlArray, handle->arrayIdx);
+	arrayActivate(map->db, map->arena->arenaDef->hndlArray, handle->arrayIdx);
 
 	//  install ObjId slot in local memory
 
@@ -163,7 +163,7 @@ DbAddr addr;
 
 	// release the hndlAddr reservation in the arena
 
-	arrayRelease(handle->map->db, handle->map->arenaDef->hndlArray, handle->arrayIdx);
+	arrayRelease(handle->map->db, handle->map->arena->arenaDef->hndlArray, handle->arrayIdx);
 
 	// zero the handle Id slot
 
@@ -299,7 +299,7 @@ DbAddr addr;
 //	by scanning HndlId array
 
 uint64_t scanHandleTs(DbMap *map) {
-DbAddr *array = map->arenaDef->hndlArray;
+DbAddr *array = map->arena->arenaDef->hndlArray;
 uint64_t lowTs = map->arena->nxtTs + 1;
 Handle *handle;
 ArrayHdr *hdr;

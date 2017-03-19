@@ -80,8 +80,8 @@ DbMap *map;
 	rbEntry = procParam(hndlMap, name, nameLen, params);
 	arenaDef = (ArenaDef *)(rbEntry + 1);
 
+	arenaDef->baseSize = sizeof(ArenaDef) + params[MapXtra].intVal;
 	arenaDef->objSize = params[ObjIdSize].intVal;
-	arenaDef->baseSize = params[MapXtra].intVal;
 	arenaDef->arenaType = Hndl_database;
 	arenaDef->numTypes = ObjIdType + 1;
 
@@ -91,6 +91,8 @@ DbMap *map;
 		*map->arena->type = Hndl_database;
 	else
 		return DB_ERROR_createdatabase;
+
+	memcpy (map->arena + 1, arenaDef, sizeof(ArenaDef));
 
 	catalog = (Catalog *)(hndlMap->arena + 1);
 
@@ -135,8 +137,8 @@ Catalog *catalog;
 
 	if ((map = arenaRbMap(parent, rbEntry))) {
 	  if (!*map->arena->type) {
-		map->arenaDef->storeId = arrayAlloc(hndlMap, catalog->storeId, 0);
-		arrayActivate(hndlMap, catalog->storeId, map->arenaDef->storeId);
+		map->arena->arenaDef->storeId = arrayAlloc(hndlMap, catalog->storeId, 0);
+		arrayActivate(hndlMap, catalog->storeId, map->arena->arenaDef->storeId);
 		map->arena->type[0] = Hndl_docStore;
 	  }
 	} else
@@ -332,7 +334,7 @@ DbCursor *dbCursor;
 		return DB_ERROR_outofmemory;
 	}
 
-	dbCursor->binaryFlds = idxHndl->map->arenaDef->params[IdxKeyFlds].boolVal;
+	dbCursor->binaryFlds = idxHndl->map->arena->arenaDef->params[IdxKeyFlds].boolVal;
 	dbCursor->xtra = xtra + cursorSize[*(uint8_t *)idxHndl->map->arena->type];
 	dbCursor->deDup = params[CursorDeDup].boolVal;
 
@@ -602,9 +604,9 @@ DbIndex *index;
 
 	switch (*idxHndl->map->arena->type) {
 	case Hndl_artIndex: {
-		uint8_t defer = idxHndl->map->arenaDef->params[IdxKeyDeferred].boolVal;
+		uint8_t defer = idxHndl->map->arena->arenaDef->params[IdxKeyDeferred].boolVal;
 
-		if (idxHndl->map->arenaDef->params[IdxKeyUnique].boolVal)
+		if (idxHndl->map->arena->arenaDef->params[IdxKeyUnique].boolVal)
 			stat = artInsertUniq(idxHndl, key, len, suffixLen, uniqueKey, &defer);
 		else
 			stat = artInsertKey(idxHndl, key, len + suffixLen);

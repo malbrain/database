@@ -313,7 +313,7 @@ void unmapSeg (DbMap *map, uint32_t segNo) {
 #ifndef _WIN32
 	munmap(map->base[segNo], map->arena->segs[segNo].size);
 #else
-	if (map->arenaDef && !map->arenaDef->params[OnDisk].boolVal) {
+	if (map->arena->arenaDef && !map->arena->arenaDef->params[OnDisk].boolVal) {
 		VirtualFree(map->base[segNo], 0, MEM_RELEASE);
 		return;
 	}

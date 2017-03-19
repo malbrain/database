@@ -325,8 +325,8 @@ Frame *frame;
 
 	while (true) {
 	  max = map->arena->segs[map->arena->objSeg].size -
-		map->arena->segs[map->arena->objSeg].nextId.idx * map->arena->objSize;
-	  max -= dup * map->arena->objSize;
+		map->arena->segs[map->arena->objSeg].nextId.idx * map->arena->arenaDef->objSize;
+	  max -= dup * map->arena->arenaDef->objSize;
 
 	  if (map->arena->segs[map->arena->objSeg].nextObject.offset * 8ULL < max )
 		break;
@@ -336,7 +336,7 @@ Frame *frame;
 		continue;
 	  }
 
-	  if (!newSeg(map, dup * map->arena->objSize))
+	  if (!newSeg(map, dup * map->arena->arenaDef->objSize))
 	  	return false;
 
 	  map->arena->objSeg = map->arena->currSeg;

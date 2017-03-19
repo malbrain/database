@@ -22,26 +22,6 @@ typedef struct {
 	ObjId nextId;		// highest object ID in use
 } DbSeg;
 
-//  arena at beginning of seg zero
-
-typedef struct {
-	DbSeg segs[MAX_segs]; 			// segment meta-data
-	uint64_t lowTs, delTs, nxtTs;	// low hndl ts, Incr on delete
-	DbAddr freeBlk[MAX_blk];		// free blocks in frames
-	DbAddr freeFrame[1];			// free frames in frames
-	DbAddr listArray[1];			// free lists array for handles
-	DbAddr redblack[1];				// our redblack entry addr
-	uint64_t objCount;				// overall number of objects
-	uint64_t objSpace;				// overall size of objects
-	uint32_t baseSize;				// size of object following arena
-	uint32_t objSize;				// size of object array element
-	uint16_t currSeg;				// index of highest segment
-	uint16_t objSeg;				// current segment index for ObjIds
-	char mutex[1];					// arena allocation lock/drop flag
-	char type[1];					// arena type
-	uint8_t filler[128];
-} DbArena;
-
 //	skip list head
 
 struct SkipHead_ {
@@ -79,12 +59,29 @@ typedef struct {
 	uint8_t arenaType;			// type of the arena
 	uint8_t numTypes;			// number of node types
 	char dead[1];				// arena definition being deleted
-	DbAddr parentAddr;			// address of parent's red-black entry
 	DbAddr nameTree[1];			// child arena name red/black tree
 	SkipHead idList[1];			// child skiplist of names by id
 	DbAddr hndlArray[1];			// array of handle ids for this arena
 	Params params[MaxParam + 1];	// parameter array for rest of object
 } ArenaDef;
+
+//  arena at beginning of seg zero
+
+typedef struct {
+	DbSeg segs[MAX_segs]; 			// segment meta-data
+	uint64_t lowTs, delTs, nxtTs;	// low hndl ts, Incr on delete
+	DbAddr freeBlk[MAX_blk];		// free blocks in frames
+	DbAddr freeFrame[1];			// free frames in frames
+	DbAddr listArray[1];			// free lists array for handles
+	uint64_t objCount;				// overall number of objects
+	uint64_t objSpace;				// overall size of objects
+	uint16_t currSeg;				// index of highest segment
+	uint16_t objSeg;				// current segment index for ObjIds
+	char mutex[1];					// arena allocation lock/drop flag
+	char type[1];					// arena type
+	ArenaDef arenaDef[1];
+	uint8_t filler[128];
+} DbArena;
 
 //	per instance arena structure
 
@@ -100,7 +97,6 @@ struct DbMap_ {
 	char *arenaPath;		// file database path
 	DbMap *parent, *db;		// ptr to parent and database
 	SkipHead childMaps[1];	// skipList of child DbMaps
-	ArenaDef *arenaDef;		// our arena definition
 	uint32_t openCnt[1];	// count of open children
 	uint16_t pathLen;		// length of arena path
 	uint16_t numSeg;		// number of mapped segments

@@ -22,18 +22,18 @@ Catalog *catalog;
 	//	see if ArenaDef already exists as a child in the parent
 
 	while (true) {
-	  lockLatch (parent->arenaDef->nameTree->latch);
+	  lockLatch (parent->arena->arenaDef->nameTree->latch);
 
-	  if ((rbEntry = rbFind(parent->db, parent->arenaDef->nameTree, name, nameLen, pathStk))) {
+	  if ((rbEntry = rbFind(parent->db, parent->arena->arenaDef->nameTree, name, nameLen, pathStk))) {
 		arenaDef = (ArenaDef *)(rbEntry + 1);
 
 		if (*arenaDef->dead & KILL_BIT) {
-		  unlockLatch (parent->arenaDef->nameTree->latch);
+		  unlockLatch (parent->arena->arenaDef->nameTree->latch);
 		  yield ();
 		  continue;
 		}
 
-		unlockLatch (parent->arenaDef->nameTree->latch);
+		unlockLatch (parent->arena->arenaDef->nameTree->latch);
 		return rbEntry;
 	  }
 
@@ -48,7 +48,7 @@ Catalog *catalog;
 	if ((rbEntry = rbNew(parent->db, name, nameLen, sizeof(ArenaDef)))) {
 		arenaDef = (ArenaDef *)(rbEntry + 1);
 	} else {
-		unlockLatch(parent->arenaDef->nameTree->latch);
+		unlockLatch(parent->arena->arenaDef->nameTree->latch);
 		return NULL;
 	}
 
@@ -59,21 +59,20 @@ Catalog *catalog;
 	initLock(arenaDef->idList->lock);
 
 	arenaDef->mapIdx = arrayAlloc(hndlMap, catalog->openMap, sizeof(void *));
-	arenaDef->id = atomicAdd64(&parent->arenaDef->childId, 1);
-	arenaDef->parentAddr.bits = parent->arena->redblack->bits;
+	arenaDef->id = atomicAdd64(&parent->arena->arenaDef->childId, 1);
 
 	//	add arenaDef to parent's child arenaDef by name tree
 
-	rbAdd(parent->db, parent->arenaDef->nameTree, rbEntry, pathStk);
+	rbAdd(parent->db, parent->arena->arenaDef->nameTree, rbEntry, pathStk);
 
 	//	add new rbEntry to parent's child id array
 
-	writeLock(parent->arenaDef->idList->lock);
-	skipPayLoad = skipAdd (parent->db, parent->arenaDef->idList->head, arenaDef->id);
+	writeLock(parent->arena->arenaDef->idList->lock);
+	skipPayLoad = skipAdd (parent->db, parent->arena->arenaDef->idList->head, arenaDef->id);
 	*skipPayLoad->val = rbEntry->addr.bits;
-	writeUnlock(parent->arenaDef->idList->lock);
+	writeUnlock(parent->arena->arenaDef->idList->lock);
 
-	unlockLatch(parent->arenaDef->nameTree->latch);
+	unlockLatch(parent->arena->arenaDef->nameTree->latch);
 	return rbEntry;
 }
 

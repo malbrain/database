@@ -127,12 +127,6 @@ int amt;
 	free(segZero);
 #endif
 
-	//	is this arena outside the catalog?
-
-	if (!rbEntry)
-		rbEntry = getObj(map, *map->arena->redblack);
-
-	map->arenaDef = (ArenaDef *)(rbEntry + 1);
 	unlockArena(map->hndl, map->arenaPath);
 
 	// wait for initialization to finish
@@ -195,23 +189,12 @@ uint32_t bits;
 	mapZero(map, initSize);
 	map->arena->segs->nextObject.offset = segOffset >> 3;
 	map->arena->segs->size = initSize;
-
-	map->arena->baseSize = arenaDef->baseSize;
-	map->arena->objSize = arenaDef->objSize;
 	map->arena->delTs = 1;
 
-	//	are we creating something outside the catalog?
+	// save the arenaDef
 
-	if (!rbEntry) {
-		RedBlack *rbEntry = rbNew(map, name, nameLen, sizeof(ArenaDef));
-		map->arenaDef = (ArenaDef *)(rbEntry + 1);
-		memcpy(map->arenaDef, arenaDef, sizeof(ArenaDef));
-		map->arena->redblack->bits = rbEntry->addr.bits;
-		initLock(map->arenaDef->idList->lock);
-	} else {
-		map->arena->redblack->bits = rbEntry->addr.bits;
-		map->arenaDef = arenaDef;
-	}
+	memcpy(map->arena->arenaDef, arenaDef, sizeof(ArenaDef));
+	initLock(map->arena->arenaDef->idList->lock);
 
 	return map;
 }
@@ -381,7 +364,7 @@ uint64_t max, addr, off;
 	lockLatch(map->arena->mutex);
 
 	max = map->arena->segs[map->arena->currSeg].size
-		  - map->arena->segs[map->arena->objSeg].nextId.idx * map->arena->objSize;
+		  - map->arena->segs[map->arena->objSeg].nextId.idx * map->arena->arenaDef->objSize;
 
 	// round request up to cache line size
 
@@ -439,7 +422,7 @@ void *fetchIdSlot (DbMap *map, ObjId objId) {
 	if (objId.seg >= map->numSeg)
 		mapAll(map);
 
-	return map->base[objId.seg] + map->arena->segs[objId.seg].size - objId.idx * map->arena->objSize;
+	return map->base[objId.seg] + map->arena->segs[objId.seg].size - objId.idx * map->arena->arenaDef->objSize;
 }
 
 //

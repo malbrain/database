@@ -71,7 +71,7 @@ DbAddr addr;
 //	optionally, remove arenadef from parent childlist
 
 DbStatus dropMap(DbMap *map, bool dropDefs) {
-uint64_t id = map->arenaDef->id;
+uint64_t id = map->arena->arenaDef->id;
 SkipEntry *skipPayLoad;
 char path[MAX_path];
 RedBlack *entry;
@@ -88,25 +88,25 @@ DbAddr addr;
 	//	are we already dropped?
 
 	if (dropDefs)
-	  if (atomicOr8(map->arenaDef->dead, KILL_BIT) & KILL_BIT)
+	  if (atomicOr8(map->arena->arenaDef->dead, KILL_BIT) & KILL_BIT)
 		return DB_ERROR_arenadropped;
 
 	atomicOr8((volatile char *)map->arena->mutex, KILL_BIT);
 
 	//	remove id from parent's idList
 
-	writeLock(map->parent->arenaDef->idList->lock);
-	addr.bits = skipDel(ourDb, map->parent->arenaDef->idList->head, id); 
+	writeLock(map->parent->arena->arenaDef->idList->lock);
+	addr.bits = skipDel(ourDb, map->parent->arena->arenaDef->idList->head, id); 
 	entry = getObj(ourDb, addr);
-	writeUnlock(map->parent->arenaDef->idList->lock);
+	writeUnlock(map->parent->arena->arenaDef->idList->lock);
 
 	//  delete our r/b entry from parent's child nameList
 
 	if (dropDefs) {
-		lockLatch (map->arenaDef->nameTree->latch);
-		atomicOr8(map->arenaDef->dead, KILL_BIT);
-		rbDel(ourDb, map->parent->arenaDef->nameTree, entry); 
-		unlockLatch (map->arenaDef->nameTree->latch);
+		lockLatch (map->arena->arenaDef->nameTree->latch);
+		atomicOr8(map->arena->arenaDef->dead, KILL_BIT);
+		rbDel(ourDb, map->parent->arena->arenaDef->nameTree, entry); 
+		unlockLatch (map->arena->arenaDef->nameTree->latch);
 	}
 
 	if (*map->arena->type == Hndl_database)
@@ -114,6 +114,6 @@ DbAddr addr;
 
 	memcpy (path, map->arenaPath, map->pathLen);
 
-	dropArenaDef(map->db, map->arenaDef, dropDefs, path, map->pathLen);
+	dropArenaDef(map->db, map->arena->arenaDef, dropDefs, path, map->pathLen);
 	return DB_OK;
 }
