@@ -398,3 +398,18 @@ RedBlack *entry;
 
 	return NULL;
 }
+
+void rbKill (DbMap *map, DbAddr slot)
+{
+RedBlack *node = getObj(map,slot);
+
+	// kill left sub-tree
+
+	if (node->left.bits)
+		rbKill (map, node->left);
+
+	if (node->right.bits)
+		rbKill (map, node->right);
+
+	freeBlk(map, slot);
+}

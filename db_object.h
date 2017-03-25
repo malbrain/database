@@ -6,7 +6,7 @@
 //	note that each level zero block reserves first few
 //	indexes (ARRAY_first) for the inUse bit map
 
-#define ARRAY_size	256			// level zero block size
+#define ARRAY_size	256			// level zero slot count
 #define ARRAY_lvl1	(256 - 2)	// adjust to power of two sizeround
 
 //	define the number of inUse slots per level zero block
@@ -30,7 +30,6 @@ void *arrayElement(DbMap *map, DbAddr *array, uint16_t idx, size_t size);
 void *arrayEntry(DbMap *map, DbAddr *array, uint16_t idx);
 
 uint16_t arrayAlloc(DbMap *map, DbAddr *array, size_t size);
-void arrayActivate(DbMap *map, DbAddr *array, uint16_t idx);
 void arrayRelease(DbMap *map, DbAddr *array, uint16_t idx);
 
 enum ObjType {

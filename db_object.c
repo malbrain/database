@@ -17,24 +17,6 @@ uint8_t *base;
 	return base;
 }
 
-//	activate an allocated array index
-
-void arrayActivate(DbMap *map, DbAddr *array, uint16_t idx) {
-ArrayHdr *hdr = getObj(map, *array);
-uint64_t *inUse;
-
-	assert(idx % ARRAY_size >= ARRAY_first(hdr->objSize));
-	lockLatch(array->latch);
-
-	assert(hdr->addr[idx / ARRAY_size].bits);
-	inUse = getObj(map, hdr->addr[idx / ARRAY_size]);
-
-	//	set our bit
-
-	inUse[idx % ARRAY_size / 64] |= 1ULL << (idx % 64);
-	unlockLatch(array->latch);
-}
-
 //	free an allocated array index
 
 void arrayRelease(DbMap *map, DbAddr *array, uint16_t idx) {
@@ -51,17 +33,26 @@ uint64_t *inUse;
 
 	inUse[idx % ARRAY_size / 64] &= ~(1ULL << (idx % 64));
 
-	//	add the idx to the available entry frame
+	//	set firstx for this level 0 block
 
-	addSlotToFrame(map, hdr->availIdx, NULL, (uint64_t)idx);
+	if (hdr->addr[idx / ARRAY_size].firstx > idx % ARRAY_size / 64)
+		hdr->addr[idx / ARRAY_size].firstx = idx % ARRAY_size / 64;
+
 	unlockLatch(array->latch);
 }
 
-//	return payload address for a foreign element idx
+//	return payload address for unallocated, foreign generated element idx
+//	N.b. ensure the size of both arrays is exactly the same.
 
 void *arrayElement(DbMap *map, DbAddr *array, uint16_t idx, size_t size) {
+uint64_t *inUse;
 uint8_t *base;
 ArrayHdr *hdr;
+
+	//  must at least have room for bit map
+
+	if (size < ARRAY_size / 8)
+		size = ARRAY_size / 8;
 
 	assert(idx % ARRAY_size >= ARRAY_first(size));
 	lockLatch(array->latch);
@@ -77,12 +68,12 @@ ArrayHdr *hdr;
 
 	//	fill-in level zero blocks up to the segment for the given idx
 
-	if (idx >= hdr->nxtIdx) {
-		for (int seg = (hdr->nxtIdx + ARRAY_size - 1) / ARRAY_size; seg < (idx + ARRAY_size - 1) / ARRAY_size; seg++)
-			hdr->addr[seg].bits = allocBlk(map, size * ARRAY_size, true);
-
-		hdr->nxtIdx = idx + 1;
-	}
+	for (int fill = 0; fill < idx / ARRAY_size; fill++)
+	  if (!hdr->addr[fill].addr) {
+		hdr->addr[fill].bits = allocBlk(map, size, true);
+		inUse = getObj(map, hdr->addr[fill]);
+		*inUse = (1ULL << ARRAY_first(size)) - 1;
+	  }
 
 	base = getObj(map, hdr->addr[idx / ARRAY_size]);
 	base += size * (idx % ARRAY_size);
@@ -94,47 +85,74 @@ ArrayHdr *hdr;
 //	allocate an array element index
 
 uint16_t arrayAlloc(DbMap *map, DbAddr *array, size_t size) {
+unsigned long bits[1];
+uint16_t idx, seg;
+uint64_t *inUse;
 ArrayHdr *hdr;
-uint16_t idx;
 
 	lockLatch(array->latch);
+
+	//  must at least have room for bit map
+
+	if (size < ARRAY_size / 8)
+		size = ARRAY_size / 8;
 
 	//	initialize empty array
 
 	if (!array->addr)
 		array->bits = allocBlk(map, sizeof(ArrayHdr), true) | ADDR_MUTEX_SET;
 
+	//	get the array header
+
 	hdr = getObj(map, *array);
 	hdr->objSize = size;
 
-	//  see if we have a released index to return
+	//	find a level 0 block that's not full
+	//	and scan it for an empty element
 
-	if ((idx = getNodeFromFrame(map, hdr->availIdx))) {
-		unlockLatch(array->latch);
-		return idx;
-	}
-
-	if (hdr->nxtIdx < ARRAY_size * ARRAY_lvl1) {
-	  if (!(hdr->nxtIdx % ARRAY_size)) {
-		size *= ARRAY_size;
-
-		//  must at least have room for bit map
-
-		if (size < ARRAY_size / 8)
-			size = ARRAY_size / 8;
-
-		hdr->addr[hdr->nxtIdx / ARRAY_size].bits = allocBlk(map, size, true);
-		hdr->nxtIdx += ARRAY_first(hdr->objSize);	// skip bit map slots
+	for (idx = 0; idx < ARRAY_lvl1; idx++) {
+	  if (!hdr->addr[idx].addr) {
+		hdr->addr[idx].bits = allocBlk(map, size, true);
+		inUse = getObj(map, hdr->addr[idx]);
+		*inUse = (1ULL << ARRAY_first(size)) - 1;
 	  }
 
-	  if (!(idx = hdr->nxtIdx++))
-		idx = hdr->nxtIdx++;
+	  seg = hdr->addr[idx].firstx;
 
-	  unlockLatch(array->latch);
-	  return idx;
+	  if (seg == ARRAY_inuse)
+		continue;
+
+	  inUse = getObj(map, hdr->addr[idx]);
+
+	  while (seg < ARRAY_inuse)
+		if (inUse[seg] < ULLONG_MAX)
+		  break;
+		else
+		  seg++;
+
+	  if (seg < ARRAY_inuse) {
+#		ifdef _WIN32
+ 		  _BitScanForward64(bits, ~inUse[seg]);
+#		else
+		  *bits = (__builtin_ffs (~inUse[seg])) - 1;
+#		endif
+  
+		  //  set our bit
+
+ 		  inUse[seg] |= 1ULL << *bits;
+
+		  if (inUse[seg] < ULLONG_MAX)
+			hdr->addr[idx].firstx = seg;
+		  else
+			hdr->addr[idx].firstx = ARRAY_inuse;
+
+		  unlockLatch(array->latch);
+		  return *bits + idx * ARRAY_size + seg * 64;
+	  }
 	}
-
+  	
 	fprintf(stderr, "Array Overflow file: %s\n", map->arenaPath);
+	unlockLatch(array->latch);
 	exit(0);
 }
 

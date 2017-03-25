@@ -17,6 +17,7 @@ PathStk pathStk[1];
 ArenaDef *arenaDef;
 RedBlack *rbEntry;
 Catalog *catalog;
+DbAddr *slot;
 
 	//	see if ArenaDef already exists as a child in the parent
 
@@ -55,22 +56,16 @@ Catalog *catalog;
 
 	time (&arenaDef->creation);
 	memcpy (arenaDef->params, params, sizeof(arenaDef->params));
-	initLock(arenaDef->idList->lock);
 
-	arenaDef->mapIdx = arrayAlloc(hndlMap, catalog->openMap, sizeof(void *));
-	arenaDef->id = atomicAdd64(&parent->arenaDef->childId, 1);
+	//	allocate slot in parent's openMap array
+
+	arenaDef->id = arrayAlloc(parent->db, parent->arenaDef->childList, sizeof(DbAddr));
+	slot = arrayEntry(parent->db, parent->arenaDef->childList, arenaDef->id);
+	slot->bits = rbEntry->addr.bits;
 
 	//	add arenaDef to parent's child arenaDef by name tree
 
 	rbAdd(parent->db, parent->arenaDef->nameTree, rbEntry, pathStk);
-
-	//	add new rbEntry to parent's child id array
-
-	writeLock(parent->arenaDef->idList->lock);
-	skipPayLoad = skipAdd (parent->db, parent->arenaDef->idList->head, arenaDef->id);
-	*skipPayLoad->val = rbEntry->addr.bits;
-	writeUnlock(parent->arenaDef->idList->lock);
-
 	unlockLatch(parent->arenaDef->nameTree->latch);
 	return rbEntry;
 }

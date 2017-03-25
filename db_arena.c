@@ -31,37 +31,40 @@ extern DbMap memMap[1];
 
 DbMap *arenaRbMap(DbMap *parent, RedBlack *rbEntry) {
 ArenaDef *arenaDef = (ArenaDef *)(rbEntry + 1);
-DbMap *map, **childMap;
-SkipEntry *entry;
 
-	//	see if we've opened this child
-	//	map in this process already
-
-	writeLock(parent->childMaps->lock);
-	entry = skipAdd(memMap, parent->childMaps->head, arenaDef->id);
-	childMap = (DbMap **)entry->val;
-
-	if ((map = *childMap))
-		waitNonZero(map->arena->type);
-	else {
-		map = openMap(parent, rbkey(rbEntry), rbEntry->keyLen, arenaDef, rbEntry);
-		*childMap = map;
-		atomicAdd32(parent->openCnt, 1);
-	}
-
-	writeUnlock(parent->childMaps->lock);
-	return map;
+	return openMap(parent, rbkey(rbEntry), rbEntry->keyLen, arenaDef, rbEntry);
 }
 
 //  open/create an Object database/store/index arena file
-//	call with writeLock(parent->childMaps->lock)
 
 DbMap *openMap(DbMap *parent, char *name, uint32_t nameLen, ArenaDef *arenaDef, RedBlack *rbEntry) {
+DbMap *map = NULL, **childMap;
 DbArena *segZero = NULL;
-DbMap *map;
+SkipEntry *entry;
 int amt;
 
+	//	see if we've opened this
+	//	map in this process already
+
+	if (parent) {
+	  lockLatch(parent->childMaps->latch);
+	  entry = skipAdd(memMap, parent->childMaps, arenaDef->id);
+	  childMap = (DbMap **)entry->val;
+
+	  if ((map = *childMap))
+		waitNonZero(map->arena->type);
+
+	  atomicAdd32(parent->openCnt, 1);
+	  unlockLatch(parent->childMaps->latch);
+	}
+
+	if (map)
+		return map;
+
 	map = db_malloc(sizeof(DbMap) + arenaDef->localSize, true);
+
+	if (parent)
+		*childMap = map;
 
 	//	are we opening a database?
 	//	a database is its own db
@@ -100,7 +103,7 @@ int amt;
 		return NULL;
 	}
 
-	//	did we create the arena?
+	//	did we create the arena file?
 
 	if (amt < sizeof(DbArena)) {
 		if ((map = initArena(map, arenaDef, name, nameLen, rbEntry)))
@@ -117,9 +120,6 @@ int amt;
 	//	initialize the map
 	//	and map seg zero
 
-	initLock(map->childMaps->lock);
-	map->objSize = arenaDef->objSize;
-
 	assert(segZero->segs->size > 0);
 	mapZero(map, segZero->segs->size);
 #ifdef _WIN32
@@ -128,10 +128,12 @@ int amt;
 	free(segZero);
 #endif
 
-	if (!rbEntry)
+	if (map->arena->rbAddr->addr)
 		rbEntry = getObj(map, *map->arena->rbAddr);
 
 	map->arenaDef = (ArenaDef *)(rbEntry + 1);
+	map->objSize = map->arena->objSize;
+	map->rbEntry = rbEntry;
 
 	unlockArena(map->hndl, map->arenaPath);
 
@@ -194,19 +196,23 @@ uint32_t bits;
 
 	mapZero(map, initSize);
 	map->arena->segs->nextObject.offset = segOffset >> 3;
-	map->objSize = arenaDef->objSize;
+	map->arena->baseSize = arenaDef->baseSize;
+	map->arena->objSize = arenaDef->objSize;
 	map->arena->segs->size = initSize;
 	map->arena->delTs = 1;
 
-	if (!rbEntry) {
-		RedBlack *rbEntry = rbNew(map, name, nameLen, sizeof(ArenaDef));
+	//	are we a catalog or database?
+
+	if (!rbEntry || !map->parent->parent) {
+		rbEntry = rbNew(map, name, nameLen, sizeof(ArenaDef));
 		map->arenaDef = (ArenaDef *)(rbEntry + 1);
 		map->arena->rbAddr->bits = rbEntry->addr.bits;
 		memcpy(map->arenaDef, arenaDef, sizeof(ArenaDef));
-		initLock(map->arenaDef->idList->lock);
 	} else
 		map->arenaDef = arenaDef;
 
+	map->objSize = map->arena->objSize;
+	map->rbEntry = rbEntry;
 	return map;
 }
 

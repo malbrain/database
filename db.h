@@ -48,6 +48,7 @@ typedef union {
 			uint8_t nbyte;		// number of bytes in a span node
 			uint8_t nslot;		// number of frame slots in use
 			uint8_t maxidx;		// maximum slot index in use
+			uint8_t firstx;		// first array inUse to chk
 			uint8_t ttype;		// index transaction type
 			int8_t rbcmp;		// red/black comparison
 		};
@@ -93,6 +94,7 @@ typedef enum {
 	ObjIdSize,		// size of arena ObjId array element
 	MapXtra,		// local process extra map storage
 	ArenaXtra,		// extra bytes in arena
+	ResetVersion,	// reset arena version
 
 	IdxKeyUnique = 10,
 	IdxKeyDeferred,		// uniqueness constraints deferred to commit

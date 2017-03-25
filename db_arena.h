@@ -54,13 +54,12 @@ typedef struct {
 	uint32_t localSize;			// extra space after DbMap
 	uint32_t baseSize;			// extra space after DbArena
 	uint32_t objSize;			// size of ObjectId array slot
-	uint32_t mapIdx;			// index in openMap array
 	uint16_t storeId;			// global docStore ID
 	uint8_t arenaType;			// type of the arena
 	uint8_t numTypes;			// number of node types
 	char dead[1];				// arena file killed/deleted
 	DbAddr nameTree[1];			// child arena name red/black tree
-	SkipHead idList[1];			// child skiplist of names by id
+	DbAddr childList[1];		// array of childId to arenaDef RbAddr
 	DbAddr hndlArray[1];		// array of handle ids for this arena
 	Params params[MaxParam];	// parameter array for rest of object
 } ArenaDef;
@@ -76,6 +75,8 @@ typedef struct {
 	DbAddr rbAddr[1];				// address of r/b entry
 	uint64_t objCount;				// overall number of objects
 	uint64_t objSpace;				// overall size of objects
+	uint32_t baseSize;				// extra space after DbArena
+	uint32_t objSize;				// size of ObjectId array slot
 	uint16_t currSeg;				// index of highest segment
 	uint16_t objSeg;				// current segment index for ObjIds
 	char mutex[1];					// arena allocation lock/drop flag
@@ -97,7 +98,8 @@ struct DbMap_ {
 	char *arenaPath;		// file database path
 	DbMap *parent, *db;		// ptr to parent and database
 	ArenaDef *arenaDef;		// pointer to database object
-	SkipHead childMaps[1];	// skipList of child DbMaps
+	DbAddr childMaps[1];	// skipList of child DbMaps
+	RedBlack *rbEntry;		// redblack entry address
 	uint32_t openCnt[1];	// count of open children
 	uint32_t objSize;		// size of ObjectId array slot
 	uint16_t pathLen;		// length of arena path
@@ -114,7 +116,7 @@ struct DbMap_ {
 
 typedef union {
   struct {
-	DbAddr openMap[1];		// process openMap array index assignments
+	DbAddr databases[1];	// database names in the catalog
 	DbAddr storeId[1];		// global array of document store ids
   };
   char filler[256];

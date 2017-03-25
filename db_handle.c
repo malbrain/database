@@ -105,7 +105,6 @@ DbAddr addr;
 	if ((*handle->maxType = map->arenaDef->numTypes)) {
 		handle->listIdx = arrayAlloc(map, map->arena->listArray, sizeof(DbAddr) * *handle->maxType * 3);
 		handle->frames = arrayEntry(map, map->arena->listArray, handle->listIdx);
-		arrayActivate(map, map->arena->listArray, handle->listIdx);
 	}
 
 	//	allocate hndlId array in the database
@@ -113,8 +112,6 @@ DbAddr addr;
 	handle->arrayIdx = arrayAlloc(hndlMap, map->arenaDef->hndlArray, sizeof(ObjId));
 	hndlAddr = arrayEntry(hndlMap, map->arenaDef->hndlArray, handle->arrayIdx);
 	hndlAddr->bits = addr.bits;
-
-	arrayActivate(hndlMap, map->arenaDef->hndlArray, handle->arrayIdx);
 
 	//  install ObjId slot in local memory
 
@@ -138,6 +135,7 @@ void disableHndl(Handle *handle) {
 
 void destroyHandle(Handle *handle, DbAddr *slot) {
 ArenaDef *arenaDef = handle->map->arenaDef;
+uint32_t count;
 DbAddr addr;
 
 	if (!slot)
@@ -180,12 +178,12 @@ DbAddr addr;
 		return;
 
 	lockLatch(arenaDef->hndlArray->latch);
-
-	if (!disableHndls(arenaDef->hndlArray))
-		if (!handle->map->openCnt[0])
-			closeMap(handle->map);
-
+	count = disableHndls(arenaDef->hndlArray);
 	unlockLatch(arenaDef->hndlArray->latch);
+
+	if (!count)
+		if (!*handle->map->openCnt)
+			closeMap(handle->map);
 }
 
 //	enter a handle

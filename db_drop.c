@@ -11,43 +11,45 @@ extern DbMap *hndlMap;
 // drop an arena given its r/b entry
 //	and recursively its children
 
-void dropArenaDef(DbMap *db, ArenaDef *parentDef, bool dropDefs, char *path, uint32_t pathLen) {
+void dropArenaDef(DbMap *db, ArenaDef *arenaDef, bool dropDefs, char *path, uint32_t pathLen) {
+uint32_t len, count;
 PathStk pathStk[1];
 RedBlack *entry;
-uint32_t len;
 DbMap **map;
 DbAddr addr;
 
 	//	drop our children
 
-	lockLatch (parentDef->nameTree->latch);
+	lockLatch (arenaDef->nameTree->latch);
 
-    if ((entry = rbStart (db, pathStk, parentDef->nameTree))) do {
-      ArenaDef *arenaDef = (ArenaDef *)(entry + 1);
-	  len = addPath(path, pathLen, rbkey(entry), entry->keyLen, arenaDef->nxtVer);
+	//	enumerate child nameTree
 
-	  atomicOr8(arenaDef->dead, KILL_BIT);
+    if ((entry = rbStart (db, pathStk, arenaDef->nameTree))) do {
+      ArenaDef *childDef = (ArenaDef *)(entry + 1);
+	  len = addPath(path, pathLen, rbkey(entry), entry->keyLen, childDef->nxtVer);
+
+	  atomicOr8(childDef->dead, KILL_BIT);
 
 	  //  delete our name from parent's nameList
 
 	  if (dropDefs)
-		rbDel(db, parentDef->nameTree, entry); 
+		rbDel(db, arenaDef->nameTree, entry); 
 
-	  dropArenaDef(db, arenaDef, dropDefs, path, pathLen + len);
+	  dropArenaDef(db, childDef, dropDefs, path, pathLen + len);
     } while ((entry = rbNext(db, pathStk)));
 
 	path[pathLen] = 0;
 
-    unlockLatch(parentDef->nameTree->latch);
+    unlockLatch(arenaDef->nameTree->latch);
 
 	//  see if all handles have unbound
 
-	lockLatch(parentDef->hndlArray->latch);
+	lockLatch(arenaDef->hndlArray->latch);
+	count = disableHndls(arenaDef->hndlArray);
+	unlockLatch(arenaDef->hndlArray->latch);
 
-	if (!disableHndls(parentDef->hndlArray))
+	if (!count)
 		deleteMap(path);
-
-	unlockLatch(parentDef->hndlArray->latch);
 }
 
 //  drop an arena and all of its children
@@ -63,9 +65,10 @@ DbAddr addr;
 
 	//  are we deleting a db from the catalog?
 
-	if (*map->arena->type == Hndl_database)
+	if (*map->arena->type == Hndl_database) {
 		ourDb = map->parent;
-	else
+		dropDefs = false;
+	} else
 		ourDb = map->db;
 
 	//	are we already dropped?
@@ -73,35 +76,23 @@ DbAddr addr;
 	if (atomicOr8(map->drop, KILL_BIT) & KILL_BIT)
 		return DB_ERROR_arenadropped;
 
-	if (dropDefs)
-	  atomicOr8(map->arenaDef->dead, DEAD_BIT);
-
 	atomicOr8((volatile char *)map->arena->mutex, KILL_BIT);
 
 	//	remove id from parent's childMap list
 
-	writeLock(map->parent->childMaps->lock);
-	skipDel(memMap, map->parent->childMaps->head, id);
-	writeUnlock(map->parent->childMaps->lock);
-
-	//	remove id from parent's idList
-
-	writeLock(map->parent->arenaDef->idList->lock);
-	addr.bits = skipDel(ourDb, map->parent->arenaDef->idList->head, id); 
-	entry = getObj(ourDb, addr);
-	writeUnlock(map->parent->arenaDef->idList->lock);
+	lockLatch(map->parent->childMaps->latch);
+	skipDel(memMap, map->parent->childMaps, id);
+	unlockLatch(map->parent->childMaps->latch);
 
 	//  delete our r/b entry from parent's child nameList
+	//	or kill our name tree from our surviving arenaDef
 
 	if (dropDefs) {
-		lockLatch (map->arenaDef->nameTree->latch);
+		lockLatch (map->parent->arenaDef->nameTree->latch);
 		atomicOr8(map->arenaDef->dead, KILL_BIT);
-		rbDel(ourDb, map->parent->arenaDef->nameTree, entry); 
-		unlockLatch (map->arenaDef->nameTree->latch);
+		rbDel(ourDb, map->parent->arenaDef->nameTree, map->rbEntry); 
+		unlockLatch (map->parent->arenaDef->nameTree->latch);
 	}
-
-	if (*map->arena->type == Hndl_database)
-		dropDefs = false;
 
 	memcpy (path, map->arenaPath, map->pathLen);
 
@@ -110,7 +101,7 @@ DbAddr addr;
 	//	when all of our children are unmapped
 	//	we can unmap ourselves
 
-	if (!map->openCnt[0])
+	if (!*map->openCnt)
 		closeMap(map);
 
 	return DB_OK;

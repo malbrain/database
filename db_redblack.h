@@ -10,12 +10,10 @@ typedef struct {
 } PathStk;
 
 struct RedBlack_ {
-	DbAddr left, right;		// next nodes down
-	DbAddr addr;			// this entry addr in map
-	uint32_t payLoad;		// length of payload following
-	uint32_t keyLen;		// length of key after payload
-	char latch[1];			// this entry latch
-	char red;				// is tree node red?
+	DbAddr left, right, addr;	// next nodes down, entry addr
+	uint32_t payLoad;			// length of payload following
+	uint16_t keyLen;			// length of key after payload
+	uint8_t red;				// is tree node red?
 };
 
 #define rbkey(entry) ((char *)(entry + 1) + entry->payLoad)
@@ -27,4 +25,4 @@ RedBlack *rbNext(DbMap *map, PathStk *path);
 
 void rbAdd(DbMap *map, DbAddr *root, RedBlack *entry, PathStk *path);
 bool rbDel (DbMap *map, DbAddr *root, RedBlack *entry);
-
+void rbKill (DbMap *map, DbAddr root);

@@ -77,15 +77,14 @@ DbMap *map;
 	if (!(*hndlInit & TYPE_BITS))
 		initHndlMap(NULL, 0, NULL, 0, true, 0);
 
+	//	create second copy of rbEntry
+
 	rbEntry = procParam(hndlMap, name, nameLen, params);
 	arenaDef = (ArenaDef *)(rbEntry + 1);
 
-	arenaDef->baseSize = sizeof(ArenaDef) + params[MapXtra].intVal;
 	arenaDef->objSize = params[ObjIdSize].intVal;
 	arenaDef->arenaType = Hndl_database;
 	arenaDef->numTypes = ObjIdType + 1;
-
-	atomicAnd8(arenaDef->dead, ~KILL_BIT);
 
 	//  create the database
 
@@ -94,11 +93,7 @@ DbMap *map;
 	else
 		return DB_ERROR_createdatabase;
 
-	memcpy (map->arena + 1, arenaDef, sizeof(ArenaDef));
-
 	catalog = (Catalog *)(hndlMap->arena + 1);
-
-	arrayActivate(hndlMap, catalog->openMap, arenaDef->mapIdx);
 
 	if ((dbHndl = makeHandle(map, 0, Hndl_database)))
 		hndl->hndlBits = dbHndl->hndlId.bits;
@@ -140,7 +135,6 @@ Catalog *catalog;
 	if ((map = arenaRbMap(parent, rbEntry))) {
 	  if (!*map->arena->type) {
 		map->arenaDef->storeId = arrayAlloc(hndlMap, catalog->storeId, 0);
-		arrayActivate(hndlMap, catalog->storeId, map->arenaDef->storeId);
 		map->arena->type[0] = Hndl_docStore;
 	  }
 	} else
