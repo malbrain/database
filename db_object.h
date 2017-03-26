@@ -15,14 +15,14 @@
 
 //  define the number of sluffed indexes because of inUse bit maps
 
-#define ARRAY_first(objsize) (objsize ? (ARRAY_inuse * sizeof(uint64_t) + (objsize) - 1) / (objsize) : 0)
+#define ARRAY_first(objsize) ((objsize) ? (ARRAY_inuse * sizeof(uint64_t) + (objsize) - 1) / (objsize) : 0)
 
 //	Arrays
 
 typedef struct {
-	uint32_t nxtIdx;			// next new index to allocate
-	uint32_t objSize;
-	DbAddr availIdx[1];			// frames of available indexes
+	uint16_t level0;			// level0 slot to allocate
+	uint16_t maxLvl0;			// number of level one blocks
+	uint32_t objSize;			// size of each array element
 	DbAddr addr[ARRAY_lvl1];	// level one block addresses
 } ArrayHdr;
 

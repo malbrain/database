@@ -271,7 +271,7 @@ uint32_t disableHndls(DbAddr *array) {
 uint32_t count = 0;
 Handle *handle;
 ArrayHdr *hdr;
-int idx, seg;
+int slot, seg;
 DbAddr addr;
 
   if (array->addr) {
@@ -279,8 +279,8 @@ DbAddr addr;
 
 	//	process the level zero blocks in the array
 
-	for (idx = 0; idx < (hdr->nxtIdx + ARRAY_size - 1) / ARRAY_size; idx++) {
-	  uint64_t *inUse = getObj(hndlMap, hdr->addr[idx]);
+	for (slot = 0; slot < hdr->maxLvl0; slot++) {
+	  uint64_t *inUse = getObj(hndlMap, hdr->addr[slot]);
 	  DbAddr *hndlAddr = (DbAddr *)inUse;
 
 	  for (seg = 0; seg < ARRAY_inuse; seg++) {
@@ -316,15 +316,16 @@ DbAddr *array = map->arenaDef->hndlArray;
 uint64_t lowTs = map->arena->nxtTs + 1;
 Handle *handle;
 ArrayHdr *hdr;
-int idx, seg;
+int slot, seg;
 DbAddr addr;
 
   if (array->addr) {
 	hdr = getObj(hndlMap, *array);
 
-	//	process the level zero blocks in the array
-	for (idx = 0; idx < (hdr->nxtIdx + ARRAY_size - 1) / ARRAY_size; idx++) {
-	  uint64_t *inUse = getObj(hndlMap, hdr->addr[idx]);
+	//	process all the level zero blocks in the array
+
+	for (slot = 0; slot < hdr->maxLvl0; slot++) {
+	  uint64_t *inUse = getObj(hndlMap, hdr->addr[slot]);
 	  DbAddr *hndlAddr = (DbAddr *)inUse;
 
 	  for (seg = 0; seg < ARRAY_inuse; seg++) {

@@ -69,13 +69,11 @@ typedef union {
 
 typedef union {
 	struct {
-		uint32_t idx;		// record ID in the segment
-		uint16_t seg;		// arena segment number
+		uint32_t idx;	// record ID in the segment
+		uint16_t seg;	// arena segment number
+		uint16_t arena;	// arena catalog number
 	};
-	struct {
-		uint64_t addr:48;	// address part of struct above
-		uint64_t xtra:16;	// extra 16 bit quantity
-	};
+	uint64_t addr:48;	// address part of struct above
 	uint64_t bits;
 } ObjId;
 

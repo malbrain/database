@@ -32,6 +32,9 @@ extern DbMap memMap[1];
 DbMap *arenaRbMap(DbMap *parent, RedBlack *rbEntry) {
 ArenaDef *arenaDef = (ArenaDef *)(rbEntry + 1);
 
+	if (*arenaDef->dead & KILL_BIT)
+		return NULL;
+
 	return openMap(parent, rbkey(rbEntry), rbEntry->keyLen, arenaDef, rbEntry);
 }
 

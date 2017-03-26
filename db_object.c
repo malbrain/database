@@ -7,10 +7,16 @@
 //	return payload address for an allocated array idx
 
 void *arrayEntry (DbMap *map, DbAddr *array, uint16_t idx) {
-ArrayHdr *hdr = getObj(map, *array);
+ArrayHdr *hdr;
 uint8_t *base;
 
-	assert(idx % ARRAY_size >= ARRAY_first(hdr->objSize));
+	if (array->addr)
+		hdr = getObj(map, *array);
+	else
+		return NULL;
+
+	if(idx % ARRAY_size < ARRAY_first(hdr->objSize))
+		return NULL;
 
 	base = getObj(map, hdr->addr[idx / ARRAY_size]);
 	base += hdr->objSize * (idx % ARRAY_size);
@@ -21,13 +27,14 @@ uint8_t *base;
 
 void arrayRelease(DbMap *map, DbAddr *array, uint16_t idx) {
 ArrayHdr *hdr = getObj(map, *array);
+uint16_t slot = idx / ARRAY_size;
 uint64_t *inUse;
 
 	assert(idx % ARRAY_size >= ARRAY_first(hdr->objSize));
 	lockLatch(array->latch);
 
-	assert(hdr->addr[idx / ARRAY_size].bits);
-	inUse = getObj(map, hdr->addr[idx / ARRAY_size]);
+	assert(hdr->addr[slot].bits);
+	inUse = getObj(map, hdr->addr[slot]);
 
 	//	clear our bit
 
@@ -35,8 +42,11 @@ uint64_t *inUse;
 
 	//	set firstx for this level 0 block
 
-	if (hdr->addr[idx / ARRAY_size].firstx > idx % ARRAY_size / 64)
-		hdr->addr[idx / ARRAY_size].firstx = idx % ARRAY_size / 64;
+	if (hdr->addr[slot].firstx > idx % ARRAY_size / 64)
+		hdr->addr[slot].firstx = idx % ARRAY_size / 64;
+
+	if (hdr->level0 > slot)
+		hdr->level0 = slot;
 
 	unlockLatch(array->latch);
 }
@@ -68,14 +78,19 @@ ArrayHdr *hdr;
 
 	//	fill-in level zero blocks up to the segment for the given idx
 
-	for (int fill = 0; fill < idx / ARRAY_size; fill++)
-	  if (!hdr->addr[fill].addr) {
-		hdr->addr[fill].bits = allocBlk(map, size, true);
-		inUse = getObj(map, hdr->addr[fill]);
+	while (hdr->maxLvl0 < idx / ARRAY_size + 1) {
+		hdr->addr[hdr->maxLvl0].bits = allocBlk(map, size * ARRAY_size, true);
+		inUse = getObj(map, hdr->addr[hdr->maxLvl0]);
 		*inUse = (1ULL << ARRAY_first(size)) - 1;
-	  }
+		hdr->maxLvl0++;
+	}
 
-	base = getObj(map, hdr->addr[idx / ARRAY_size]);
+	inUse = getObj(map, hdr->addr[idx / ARRAY_size]);
+	base = (uint8_t *)inUse;
+
+	inUse += idx % ARRAY_size / 64;
+	*inUse |= 1ULL << (idx % 64);
+
 	base += size * (idx % ARRAY_size);
 	unlockLatch(array->latch);
 
@@ -86,7 +101,7 @@ ArrayHdr *hdr;
 
 uint16_t arrayAlloc(DbMap *map, DbAddr *array, size_t size) {
 unsigned long bits[1];
-uint16_t idx, seg;
+uint16_t seg, slot;
 uint64_t *inUse;
 ArrayHdr *hdr;
 
@@ -110,19 +125,28 @@ ArrayHdr *hdr;
 	//	find a level 0 block that's not full
 	//	and scan it for an empty element
 
-	for (idx = 0; idx < ARRAY_lvl1; idx++) {
-	  if (!hdr->addr[idx].addr) {
-		hdr->addr[idx].bits = allocBlk(map, size, true);
-		inUse = getObj(map, hdr->addr[idx]);
+	for (slot = hdr->level0; slot < ARRAY_lvl1; slot++) {
+	  if (!hdr->addr[slot].addr) {
+		hdr->addr[slot].bits = allocBlk(map, size * ARRAY_size, true);
+
+		inUse = getObj(map, hdr->addr[slot]);
 		*inUse = (1ULL << ARRAY_first(size)) - 1;
+		*inUse |= 1ULL << ARRAY_first(size);
+
+		if (hdr->maxLvl0 < slot + 1)
+			hdr->maxLvl0 = slot + 1;
+
+		hdr->level0 = slot;
+		unlockLatch(array->latch);
+		return ARRAY_first(size) + slot * ARRAY_size;
 	  }
 
-	  seg = hdr->addr[idx].firstx;
+	  seg = hdr->addr[slot].firstx;
 
 	  if (seg == ARRAY_inuse)
 		continue;
 
-	  inUse = getObj(map, hdr->addr[idx]);
+	  inUse = getObj(map, hdr->addr[slot]);
 
 	  while (seg < ARRAY_inuse)
 		if (inUse[seg] < ULLONG_MAX)
@@ -142,12 +166,13 @@ ArrayHdr *hdr;
  		  inUse[seg] |= 1ULL << *bits;
 
 		  if (inUse[seg] < ULLONG_MAX)
-			hdr->addr[idx].firstx = seg;
+			hdr->addr[slot].firstx = seg;
 		  else
-			hdr->addr[idx].firstx = ARRAY_inuse;
+			hdr->addr[slot].firstx = ARRAY_inuse;
 
+		  hdr->level0 = slot;
 		  unlockLatch(array->latch);
-		  return *bits + idx * ARRAY_size + seg * 64;
+		  return *bits + slot * ARRAY_size + seg * 64;
 	  }
 	}
   	
