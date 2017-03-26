@@ -10,7 +10,6 @@
 
 #include "db_error.h"
 #include "db_malloc.h"
-#include "db_lock.h"
 
 #define MAX_key		4096	// maximum key size in bytes
 
@@ -71,7 +70,7 @@ typedef union {
 	struct {
 		uint32_t idx;	// record ID in the segment
 		uint16_t seg;	// arena segment number
-		uint16_t arena;	// arena catalog number
+		uint16_t xtra;	// xtra bits (available for txn)
 	};
 	uint64_t addr:48;	// address part of struct above
 	uint64_t bits;

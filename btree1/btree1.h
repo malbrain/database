@@ -7,6 +7,7 @@
 #include "../db_api.h"
 #include "../db_cursor.h"
 #include "../db_frame.h"
+#include "../db_lock.h"
 
 #define Btree1_maxkey		4096
 #define Btree1_maxbits		29					// maximum page size in bits

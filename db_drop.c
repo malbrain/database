@@ -4,6 +4,7 @@
 #include "db_object.h"
 #include "db_handle.h"
 #include "db_redblack.h"
+#include "db_skiplist.h"
 
 extern DbMap memMap[1];
 extern DbMap *hndlMap;

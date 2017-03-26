@@ -3,6 +3,7 @@
 #include "db.h"
 #include "db_arena.h"
 #include "db_map.h"
+#include "db_skiplist.h"
 
 //	initialize initial skip list node
 
