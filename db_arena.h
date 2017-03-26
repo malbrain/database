@@ -54,7 +54,7 @@ typedef struct {
 	uint32_t localSize;			// extra space after DbMap
 	uint32_t baseSize;			// extra space after DbArena
 	uint32_t objSize;			// size of ObjectId array slot
-	uint16_t storeId;			// global docStore ID
+	uint16_t docStoreId;		// global docStore ID, or zero
 	uint8_t arenaType;			// type of the arena
 	uint8_t numTypes;			// number of node types
 	char dead[1];				// arena file killed/deleted
@@ -117,7 +117,7 @@ struct DbMap_ {
 typedef union {
   struct {
 	DbAddr databases[1];	// database names in the catalog
-	DbAddr storeId[1];		// global array of document store ids
+	DbAddr docStoreId[1];	// global array of docStore map ids
   };
   char filler[256];
 } Catalog;

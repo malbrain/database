@@ -31,11 +31,14 @@ extern DbMap memMap[1];
 
 DbMap *arenaRbMap(DbMap *parent, RedBlack *rbEntry) {
 ArenaDef *arenaDef = (ArenaDef *)(rbEntry + 1);
+uint16_t idx;
+DbMap *map;
 
 	if (*arenaDef->dead & KILL_BIT)
 		return NULL;
 
-	return openMap(parent, rbkey(rbEntry), rbEntry->keyLen, arenaDef, rbEntry);
+	map = openMap(parent, rbkey(rbEntry), rbEntry->keyLen, arenaDef, rbEntry);
+	return map;
 }
 
 //  open/create an Object database/store/index arena file

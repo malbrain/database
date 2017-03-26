@@ -12,7 +12,6 @@ extern DbMap *hndlMap;
 //	from the parent.
 
 RedBlack *procParam(DbMap *parent, char *name, int nameLen, Params *params) {
-SkipEntry *skipPayLoad;
 PathStk pathStk[1];
 ArenaDef *arenaDef;
 RedBlack *rbEntry;

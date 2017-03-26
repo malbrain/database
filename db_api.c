@@ -1,6 +1,7 @@
 #include "btree1/btree1.h"
 #include "artree/artree.h"
 #include "db_iterator.h"
+#include "db_object.h"
 #include "db_malloc.h"
 
 char *hndlNames[] = {
@@ -18,6 +19,9 @@ char *hndlNames[] = {
 };
 
 int cursorSize[8] = {0, 0, 0, 0, sizeof(ArtCursor), sizeof(Btree1Cursor), 0};
+
+DbAddr docStoreMaps[1]; // open set of open docstores
+extern DbMap memMap[1];
 
 extern void memInit(void);
 extern char hndlInit[1];
@@ -111,6 +115,7 @@ DbStatus stat = DB_OK;
 ArenaDef *arenaDef;
 RedBlack *rbEntry;
 Catalog *catalog;
+DbMap **mapEntry;
 
 	memset (hndl, 0, sizeof(DbHandle));
 
@@ -130,16 +135,20 @@ Catalog *catalog;
 	arenaDef->objSize = sizeof(ObjId);
 	arenaDef->numTypes = MAX_blk + 1;
 
-	//	allocate a global storeId for use in docIds.
+	//  when creating a new docStore,
+	//	allocate a global docStoreId
 
 	if ((map = arenaRbMap(parent, rbEntry))) {
 	  if (!*map->arena->type) {
-		map->arenaDef->storeId = arrayAlloc(hndlMap, catalog->storeId, 0);
+		map->arenaDef->docStoreId = arrayAlloc(hndlMap, catalog->docStoreId, sizeof(DbMap *));
 		map->arena->type[0] = Hndl_docStore;
 	  }
 	} else
 		stat = DB_ERROR_arenadropped;
 	
+	mapEntry = arrayElement(memMap, docStoreMaps, map->arenaDef->docStoreId, sizeof(DbMap *));
+	*mapEntry = map;
+
 	releaseHandle(database, dbHndl);
 
 	if ((docHndl = makeHandle(map, params[HndlXtra].intVal, Hndl_docStore)))
