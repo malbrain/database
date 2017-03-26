@@ -20,7 +20,6 @@ char *hndlNames[] = {
 
 int cursorSize[8] = {0, 0, 0, 0, sizeof(ArtCursor), sizeof(Btree1Cursor), 0};
 
-DbAddr docStoreMaps[1]; // open set of open docstores
 extern DbMap memMap[1];
 
 extern void memInit(void);
@@ -115,7 +114,6 @@ DbStatus stat = DB_OK;
 ArenaDef *arenaDef;
 RedBlack *rbEntry;
 Catalog *catalog;
-DbMap **mapEntry;
 
 	memset (hndl, 0, sizeof(DbHandle));
 
@@ -135,20 +133,13 @@ DbMap **mapEntry;
 	arenaDef->objSize = sizeof(ObjId);
 	arenaDef->numTypes = MAX_blk + 1;
 
-	//  when creating a new docStore,
-	//	allocate a global docStoreId
-
 	if ((map = arenaRbMap(parent, rbEntry))) {
 	  if (!*map->arena->type) {
-		map->arenaDef->docStoreId = arrayAlloc(hndlMap, catalog->docStoreId, sizeof(DbMap *));
 		map->arena->type[0] = Hndl_docStore;
 	  }
 	} else
 		stat = DB_ERROR_arenadropped;
 	
-	mapEntry = arrayElement(memMap, docStoreMaps, map->arenaDef->docStoreId, sizeof(DbMap *));
-	*mapEntry = map;
-
 	releaseHandle(database, dbHndl);
 
 	if ((docHndl = makeHandle(map, params[HndlXtra].intVal, Hndl_docStore)))
