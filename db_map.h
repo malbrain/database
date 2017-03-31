@@ -41,6 +41,7 @@ void kill_slot(volatile char* latch);
 
 uint64_t atomicAdd64(volatile uint64_t *value, int64_t amt);
 uint32_t atomicAdd32(volatile uint32_t *value, int32_t amt);
+uint16_t atomicAdd16(volatile uint16_t *value, int16_t amt);
 uint64_t atomicOr64(volatile uint64_t *value, uint64_t amt);
 uint32_t atomicOr32(volatile uint32_t *value, uint32_t amt);
 uint64_t atomicExchange(uint64_t *target, uint64_t value);
