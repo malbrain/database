@@ -50,7 +50,7 @@ DbAddr slot;
 
 	for (idx = dup; idx--; ) {
 		frame->slots[idx] = slot.bits;
-		slot.offset += size >> 3;
+		slot.offset += size >> 4;
 	}
 
 	return dup;
@@ -78,7 +78,7 @@ Frame *frame;
 	frame->prev.bits = 0;
 
 	while (dup--) {
-		addr += sizeof(Frame) >> 3;
+		addr += sizeof(Frame) >> 4;
 		slot.bits = addr;
 		slot.type = FrameType;
 		slot.nslot = FrameSlots;
@@ -328,7 +328,7 @@ Frame *frame;
 		map->arena->segs[map->arena->objSeg].nextId.idx * map->objSize;
 	  max -= dup * map->objSize;
 
-	  if (map->arena->segs[map->arena->objSeg].nextObject.offset * 8ULL < max )
+	  if (map->arena->segs[map->arena->objSeg].nextObject.offset * 16ULL < max )
 		break;
 
 	  if (map->arena->objSeg < map->arena->currSeg) {

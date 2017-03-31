@@ -8,7 +8,7 @@
 #define MAX_segs  1000
 #define MIN_segbits	 17
 #define MIN_segsize  (1ULL << MIN_segbits)
-#define MAX_segsize  (1ULL << (32 + 3))  // 32 bit offset and 3 bit multiplier
+#define MAX_segsize  (1ULL << (32 + 4))  // 32 bit offset and 4 bit multiplier
 
 #define MAX_path  4096
 #define MAX_blk		49	// max arena blk size in half bits

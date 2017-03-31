@@ -35,8 +35,8 @@ void arrayRelease(DbMap *map, DbAddr *array, uint16_t idx);
 enum ObjType {
 	FrameType,
 	ObjIdType,			// ObjId value
-	MinObjType = 3,		// minimum object size in bits
-	MaxObjType = 49		// each half power of two, 3 - 24
+	MinObjType = 4,		// minimum object size in bits
+	MaxObjType = 50		// each half power of two, 4 - 24
 };
 
 //  set-membership control

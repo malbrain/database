@@ -202,7 +202,7 @@ uint32_t bits;
 	assert(initSize > 0);
 
 	mapZero(map, initSize);
-	map->arena->segs->nextObject.offset = segOffset >> 3;
+	map->arena->segs->nextObject.offset = segOffset >> 4;
 	map->arena->baseSize = arenaDef->baseSize;
 	map->arena->objSize = arenaDef->objSize;
 	map->arena->segs->size = initSize;
@@ -293,11 +293,11 @@ uint64_t allocObj(DbMap* map, DbAddr *free, DbAddr *wait, int type, uint32_t siz
 uint32_t bits, amt;
 DbAddr slot;
 
-	size += 7;
-	size &= -8;
+	size += 15;
+	size &= -16;
 
 	if (!size)
-		size = 8;
+		size = 16;
 
 	if (type < 0) {
 #ifdef _WIN32
@@ -376,7 +376,7 @@ void* getObj(DbMap *map, DbAddr slot) {
 	if (slot.segment >= map->numSeg)
 		mapAll(map);
 
-	return map->base[slot.segment] + slot.offset * 8ULL;
+	return map->base[slot.segment] + slot.offset * 16ULL;
 }
 
 //  allocate raw space in the current segment
@@ -404,21 +404,15 @@ uint64_t max, addr, off;
 
 	off = map->arena->segs[map->arena->currSeg].nextObject.offset;
 
-	// round up to cache line size
-
-	off += 7;
-	off &= -8;
-
-	if (off * 8ULL + size > max) {
+	if (off * 16ULL + size > max) {
 		if (!newSeg(map, size)) {
 			unlockLatch (map->arena->mutex);
 			return 0;
 		}
-	} else
-		map->arena->segs[map->arena->currSeg].nextObject.offset = off;
+	}
 
 	addr = map->arena->segs[map->arena->currSeg].nextObject.bits;
-	map->arena->segs[map->arena->currSeg].nextObject.offset += size >> 3;
+	map->arena->segs[map->arena->currSeg].nextObject.offset += size >> 4;
 	unlockLatch(map->arena->mutex);
 	return addr;
 }
