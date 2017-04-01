@@ -84,6 +84,7 @@ struct DbMap_ {
 	uint16_t numSeg;		// number of mapped segments
 	char mapMutex[1];		// segment mapping mutex
 	char drop[1];			// arena map being killed
+	char type[1];			// arena type
 };
 
 #define skipSize(addr) (((1ULL << addr->type) - sizeof(SkipNode)) / sizeof(SkipEntry))

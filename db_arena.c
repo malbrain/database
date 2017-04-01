@@ -32,7 +32,6 @@ extern DbMap memMap[1];
 
 DbMap *arenaRbMap(DbMap *parent, RedBlack *rbEntry) {
 ArenaDef *arenaDef = (ArenaDef *)(rbEntry + 1);
-uint16_t idx;
 DbMap *map;
 
 	if (*arenaDef->dead & KILL_BIT)
@@ -45,7 +44,7 @@ DbMap *map;
 //  open/create an Object database/store/index arena file
 
 DbMap *openMap(DbMap *parent, char *name, uint32_t nameLen, ArenaDef *arenaDef, RedBlack *rbEntry) {
-DbMap *map = NULL, **childMap;
+DbMap *map = NULL, **childMap = NULL;
 DbArena *segZero = NULL;
 SkipEntry *entry;
 int amt;
@@ -58,25 +57,25 @@ int amt;
 	  entry = skipAdd(memMap, parent->childMaps, arenaDef->id);
 	  childMap = (DbMap **)entry->val;
 
-	  if ((map = *childMap))
-		waitNonZero(map->arena->type);
-
-	  atomicAdd32(parent->openCnt, 1);
-	  unlockLatch(parent->childMaps->latch);
-	}
-
-	if (map)
+	  if ((map = *childMap)) {
+		waitNonZero(map->type);
+		atomicAdd32(parent->openCnt, 1);
+		unlockLatch(parent->childMaps->latch);
 		return map;
+	  }
+	}
 
 	map = db_malloc(sizeof(DbMap) + arenaDef->localSize, true);
 
-	if (parent)
+	if ((map->parent = parent)) {
 		*childMap = map;
+		unlockLatch(parent->childMaps->latch);
+	}
 
 	//	are we opening a database?
 	//	a database is its own db
 
-	if ((map->parent = parent) && parent->parent)
+	if (parent && parent->parent)
 		map->db = parent->db;
 	else
 		map->db = map;
@@ -95,7 +94,11 @@ int amt;
 	//	open the onDisk arena file
 	//	and read segZero
 
+#ifdef _WIN32
 	segZero = VirtualAlloc(NULL, sizeof(DbArena), MEM_COMMIT, PAGE_READWRITE);
+#else
+	segZero = valloc(sizeof(DbArena));
+#endif
 	amt = readSegZero(map, segZero);
 
 	if (amt < 0) {
@@ -142,6 +145,7 @@ int amt;
 	map->objSize = map->arena->objSize;
 	map->rbEntry = rbEntry;
 
+	map->type[0] = map->arenaDef->arenaType;
 	unlockArena(map->hndl, map->arenaPath);
 
 	// wait for initialization to finish
@@ -220,6 +224,8 @@ uint32_t bits;
 
 	map->objSize = map->arena->objSize;
 	map->rbEntry = rbEntry;
+
+	map->type[0] = arenaDef->arenaType;
 	return map;
 }
 

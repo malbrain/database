@@ -15,7 +15,6 @@ RedBlack *procParam(DbMap *parent, char *name, int nameLen, Params *params) {
 PathStk pathStk[1];
 ArenaDef *arenaDef;
 RedBlack *rbEntry;
-Catalog *catalog;
 DbAddr *slot;
 
 	//	see if ArenaDef already exists as a child in the parent
@@ -42,8 +41,6 @@ DbAddr *slot;
 	// create new rbEntry in parent
 	// with an arenaDef payload
 
-	catalog = (Catalog *)(hndlMap->arena + 1);
-
 	if ((rbEntry = rbNew(parent->db, name, nameLen, sizeof(ArenaDef)))) {
 		arenaDef = (ArenaDef *)(rbEntry + 1);
 	} else {
@@ -53,7 +50,8 @@ DbAddr *slot;
 
 	//	fill in new arenaDef r/b entry
 
-	time (&arenaDef->creation);
+	arenaDef->creation = db_getEpoch();
+
 	memcpy (arenaDef->params, params, sizeof(arenaDef->params));
 
 	//	allocate slot in parent's openMap array
@@ -67,5 +65,38 @@ DbAddr *slot;
 	rbAdd(parent->db, parent->arenaDef->nameTree, rbEntry, pathStk);
 	unlockLatch(parent->arenaDef->nameTree->latch);
 	return rbEntry;
+}
+
+#ifdef __MACH__
+#include <mach/clock.h>
+#include <mach/mach.h>
+#endif
+
+#ifndef _WIN32
+#include <time.h>
+#include <sys/time.h>
+#endif
+
+//  get millisecond precision system timestamp epoch
+
+int64_t db_getEpoch(void) {
+#ifdef __MACH__ // OS X does not have clock_gettime, use clock_get_time
+  clock_serv_t cclock[1];
+  mach_timespec_t mts[1];
+  host_get_clock_service(mach_host_self(), CALENDAR_CLOCK, cclock);
+  clock_get_time(*cclock, mts);
+  mach_port_deallocate(mach_task_self(), *cclock);
+  return mts->tv_sec * 1000ULL + mts->tv_nsec;
+#elif !defined(_WIN32)
+  struct timespec ts[1];
+  clock_gettime(CLOCK_REALTIME, ts);
+  return ts->tv_sec * 1000ULL + ts->tv_nsec / 1000000ULL;
+#else
+   int64_t wintime[1];
+   GetSystemTimeAsFileTime((FILETIME*)wintime);
+   *wintime /= 10000ULL;
+   *wintime -= 11644473600000i64;  //1jan1601 to 1jan1970
+   return *wintime;
+#endif
 }
 

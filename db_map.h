@@ -64,3 +64,5 @@ void unlockArena (HANDLE hndl, char *path);
 void lockArena (int hndl, char *path);
 void unlockArena (int hndl, char *path);
 #endif
+
+int64_t db_getEpoch(void);

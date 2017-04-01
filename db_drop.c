@@ -16,8 +16,6 @@ void dropArenaDef(DbMap *db, ArenaDef *arenaDef, bool dropDefs, char *path, uint
 uint32_t len, count;
 PathStk pathStk[1];
 RedBlack *entry;
-DbMap **map;
-DbAddr addr;
 
 	//	drop our children
 
@@ -58,11 +56,8 @@ DbAddr addr;
 
 DbStatus dropMap(DbMap *map, bool dropDefs) {
 uint64_t id = map->arenaDef->id;
-SkipEntry *skipPayLoad;
 char path[MAX_path];
-RedBlack *entry;
 DbMap *ourDb;
-DbAddr addr;
 
 	//  are we deleting a db from the catalog?
 

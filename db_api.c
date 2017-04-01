@@ -71,7 +71,6 @@ DbMap *map;
 DbStatus openDatabase(DbHandle hndl[1], char *name, uint32_t nameLen, Params *params) {
 ArenaDef *arenaDef;
 RedBlack *rbEntry;
-Catalog *catalog;
 Handle *dbHndl;
 DbMap *map;
 
@@ -96,8 +95,6 @@ DbMap *map;
 	else
 		return DB_ERROR_createdatabase;
 
-	catalog = (Catalog *)(hndlMap->arena + 1);
-
 	if ((dbHndl = makeHandle(map, 0, Hndl_database)))
 		hndl->hndlBits = dbHndl->hndlId.bits;
 	else
@@ -113,14 +110,12 @@ Handle *database, *docHndl;
 DbStatus stat = DB_OK;
 ArenaDef *arenaDef;
 RedBlack *rbEntry;
-Catalog *catalog;
 
 	memset (hndl, 0, sizeof(DbHandle));
 
 	if (!(database = bindHandle(dbHndl)))
 		return DB_ERROR_handleclosed;
 
-	catalog = (Catalog *)(hndlMap->arena + 1);
 	parent = database->map;
 
 	//  process the docStore parameters
@@ -160,7 +155,6 @@ ArenaDef *arenaDef;
 RedBlack *rbEntry;
 Handle *idxHndl;
 DbIndex *index;
-DbAddr *slot;
 
 	memset (hndl, 0, sizeof(DbHandle));
 
