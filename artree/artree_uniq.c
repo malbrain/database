@@ -1,8 +1,5 @@
 #include "artree.h"
-
-#ifdef __linux__
-#define offsetof(type,member) __builtin_offsetof(type,member)
-#endif
+#include <stddef.h>
 
 bool evalUniq(DbMap *map, ARTKeyUniq *keyUniqNode, UniqCbFcn *evalFcn);
 
