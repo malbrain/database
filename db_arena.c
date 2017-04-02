@@ -2,7 +2,9 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #else
+#ifndef apple
 #define _XOPEN_SOURCE 600
+#endif
 #include <unistd.h>
 #include <stdlib.h>
 #include <errno.h>
