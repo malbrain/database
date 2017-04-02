@@ -206,7 +206,7 @@ void lockLatch(volatile char* latch) {
 void unlockLatch(volatile char* latch) {
 //	*latch &= ~MUTEX_BIT;
 #ifndef _WIN32
-	__sync_fetch_and_and(latch, ~MUTEX_BIT);
+	__sync_fetch_and_and(latch, (char)~MUTEX_BIT);
 #else
 	_InterlockedAnd8(latch, ~MUTEX_BIT);
 #endif
@@ -295,7 +295,7 @@ void *mem;
 int flags = MAP_SHARED;
 
 	if( map->hndl < 0 ) {
-		flags |= MAP_ANONYMOUS;
+		flags |= MAP_ANON;
 		offset = 0;
 	}
 

@@ -2,11 +2,9 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #else
-#define _XOPEN_SOURCE 500
+#define _XOPEN_SOURCE 600
 #include <unistd.h>
 #include <stdlib.h>
-#include <fcntl.h>
-#include <sys/mman.h>
 #include <errno.h>
 #endif
 
@@ -102,7 +100,7 @@ int amt;
 	amt = readSegZero(map, segZero);
 
 	if (amt < 0) {
-		fprintf (stderr, "Unable to read %" PRIu64 " bytes from %s, error = %d\n", sizeof(DbArena), map->arenaPath, errno);
+		fprintf (stderr, "Unable to read %d bytes from %s, error = %d\n", (int)sizeof(DbArena), map->arenaPath, errno);
 #ifdef _WIN32
 		VirtualFree(segZero, 0, MEM_RELEASE);
 #else

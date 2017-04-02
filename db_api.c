@@ -466,7 +466,7 @@ DbStatus closeHandle(DbHandle hndl[1]) {
 
 	atomicOr8((volatile char *)handle->status, KILL_BIT);
 
-	if (!handle->bindCnt[0]);
+	if (!handle->bindCnt[0])
   		destroyHandle(handle, slot);
 
 	return DB_OK;
