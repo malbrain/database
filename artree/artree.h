@@ -7,6 +7,7 @@
 #include "../db_handle.h"
 #include "../db_cursor.h"
 #include "../db_frame.h"
+#include <stddef.h>
 
 #define MAX_cursor 4096
 

@@ -39,10 +39,6 @@ typedef enum {
 
 typedef bool (UniqCbFcn)(DbMap *map, DbCursor *dbCursor);
 
-#ifdef apple 
-#define DbStatus int
-#endif
-
 void initialize(void);
 
 DbStatus openDatabase(DbHandle hndl[1], char *name, uint32_t len, Params *params);
