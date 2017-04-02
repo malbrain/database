@@ -168,9 +168,8 @@ int stat;
 			len = 2;
 
 		if( !fopen_s (&in, args->inFile, "r") )
-		  while( ch = getc(in), ch != EOF )
-			if( ch == '\n' )
-			{
+		  while( ch = getc(in), ch != EOF ) {
+			if( ch == '\n' ) {
 			  if (binaryFlds) {
 				key[lastFld] = (len - lastFld - 2) >> 8;
 				key[lastFld + 1] = (len - lastFld - 2);
@@ -189,7 +188,7 @@ int stat;
 			  continue;
 			}
 
-			else if( len < 4096 ) {
+			if( len < 4096 ) {
 			  if (binaryFlds) {
 				if (ch == ':') {
 					key[lastFld] = (len - lastFld - 2) >> 8;
@@ -201,6 +200,7 @@ int stat;
 			  }
 			  key[len++] = ch;
 			}
+		}
 
 		fprintf(stderr, "finished delete %s for %" PRIu64 " keys, found %" PRIu64 "\n", args->inFile, line, cnt);
 		break;
