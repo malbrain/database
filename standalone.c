@@ -190,7 +190,7 @@ int stat;
 			}
 
 			else if( len < 4096 ) {
-			  if (binaryFlds)
+			  if (binaryFlds) {
 				if (ch == ':') {
 					key[lastFld] = (len - lastFld - 2) >> 8;
 					key[lastFld + 1] = (len - lastFld - 2);
@@ -198,6 +198,7 @@ int stat;
 					len += 2;
 					continue;
 				}
+			  }
 			  key[len++] = ch;
 			}
 
