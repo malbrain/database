@@ -147,10 +147,10 @@ int stat;
 	binaryFlds = args->params[IdxKeyFlds].boolVal;
 	docHndl->hndlBits = 0;
 
-	if( args->idx < strlen (args->cmds) )
+	if( args->idx < (int)strlen (args->cmds) )
 		ch = args->cmds[args->idx];
 	else
-		ch = args->cmds[strlen(args->cmds) - 1];
+		ch = args->cmds[(int)strlen(args->cmds) - 1];
 
 	switch(ch | 0x20)
 	{
@@ -159,7 +159,7 @@ int stat;
 		fprintf(stderr, "started delete key for %s\n", args->inFile);
 		parent = database;
 
-		if ((stat = createIndex(idxHndl, parent, idxName, strlen(idxName), args->params)))
+		if ((stat = createIndex(idxHndl, parent, idxName, (int)strlen(idxName), args->params)))
 		  fprintf(stderr, "createIndex %s Error %d name: %s\n", args->inFile, stat, idxName), exit(0);
 
 		createCursor (cursor, idxHndl, args->params);
@@ -210,13 +210,13 @@ int stat;
 		parent = database;
 
 		if (!args->noDocs) {
-		  if ((stat = openDocStore(docHndl, database, "documents", strlen("documents"), args->params)))
+		  if ((stat = openDocStore(docHndl, database, "documents", (int)strlen("documents"), args->params)))
 			fprintf(stderr, "openDocStore %s Error %d name: %s\n", args->inFile, stat, "documents"), exit(0);
 		  parent = docHndl;
 		}
 
 		if (!args->noIdx)
-		  if ((stat = createIndex(idxHndl, parent, idxName, strlen(idxName), args->params)))
+		  if ((stat = createIndex(idxHndl, parent, idxName, (int)strlen(idxName), args->params)))
 			fprintf(stderr, "createIndex %s Error %d name: %s\n", args->inFile, stat, idxName), exit(0);
 
 		if (args->noDocs && args->noIdx)
@@ -292,11 +292,11 @@ int stat;
 		if (args->noDocs)
 			parent = database;
 		else {
-			openDocStore(docHndl, database, "documents", strlen("documents"), args->params);
+			openDocStore(docHndl, database, "documents", (int)strlen("documents"), args->params);
 			parent = docHndl;
 		}
 
-		if ((stat = createIndex(idxHndl, parent, idxName, strlen(idxName), args->params)))
+		if ((stat = createIndex(idxHndl, parent, idxName, (int)strlen(idxName), args->params)))
 		  fprintf(stderr, "createIndex %s Error %d name: %s\n", args->inFile, stat, idxName), exit(0);
 
 		createCursor (cursor, idxHndl, args->params);
@@ -361,7 +361,7 @@ int stat;
 		if (args->noDocs)
 		  fprintf(stderr, "Cannot specify noDocs with iterator scan\n"), exit(0);
 
-		if ((stat = openDocStore(docHndl, database, "documents", strlen("documents"), args->params)))
+		if ((stat = openDocStore(docHndl, database, "documents", (int)strlen("documents"), args->params)))
 		  fprintf(stderr, "openDocStore Error %d\n", stat), exit(0);
 
 		if ((stat = createIterator(iterator, docHndl, args->params)))
@@ -405,11 +405,11 @@ int stat;
 		if (args->noDocs)
 			parent = database;
 		else {
-			openDocStore(docHndl, database, "documents", strlen("documents"), args->params);
+			openDocStore(docHndl, database, "documents", (int)strlen("documents"), args->params);
 			parent = docHndl;
 		}
 
-		if ((stat = createIndex(idxHndl, parent, idxName, strlen(idxName), args->params)))
+		if ((stat = createIndex(idxHndl, parent, idxName, (int)strlen(idxName), args->params)))
 		  fprintf(stderr, "createIndex Error %d name: %s\n", stat, idxName), exit(0);
 
 		// create cursor
@@ -417,9 +417,9 @@ int stat;
 		createCursor (cursor, idxHndl, args->params);
 
 		if (!reverse && args->minKey)
-			stat = positionCursor (cursor, OpBefore, args->minKey, strlen(args->minKey));
+			stat = positionCursor (cursor, OpBefore, args->minKey, (int)strlen(args->minKey));
 		else if (reverse && args->maxKey)
-			stat = positionCursor (cursor, OpAfter, args->maxKey, strlen(args->maxKey));
+			stat = positionCursor (cursor, OpAfter, args->maxKey, (int)strlen(args->maxKey));
 		else 
 			stat = moveCursor (cursor, reverse ? OpRight : OpLeft);
 
@@ -431,10 +431,10 @@ int stat;
 			  fprintf(stderr, "keyAtCursor Error %d\n", stat), exit(0);
 
 			if (reverse && args->minKey)
-			  if (memcmp(foundKey, args->minKey, strlen(args->minKey)) < 0)
+			  if (memcmp(foundKey, args->minKey, (int)strlen(args->minKey)) < 0)
 				break;
 			if (!reverse && args->maxKey)
-			  if (memcmp(foundKey, args->maxKey, strlen(args->maxKey)) > 0)
+			  if (memcmp(foundKey, args->maxKey, (int)strlen(args->maxKey)) > 0)
 				break;
 
 			cnt++;
@@ -499,12 +499,12 @@ typedef struct timeval timer;
 int main (int argc, char **argv)
 {
 Params params[MaxParam];
-int idx, cnt, err;
 char *minKey = NULL;
 char *maxKey = NULL;
 char *dbName = NULL;
 char *cmds = NULL;
 int keyLen = 10;
+int idx, cnt;
 
 #ifndef _WIN32
 pthread_t *threads;
@@ -521,7 +521,7 @@ bool noDocs = false;
 bool noIdx = false;
 
 ThreadArg *args;
-float elapsed;
+double elapsed;
 double start;
 int num = 0;
 
@@ -609,13 +609,13 @@ int num = 0;
 #endif
 	args = malloc ((cnt ? cnt : 1) * sizeof(ThreadArg));
 
-	openDatabase(database, dbName, strlen(dbName), params);
+	openDatabase(database, dbName, (int)strlen(dbName), params);
 
 	//  drop the database?
 
 	if (dropDb) {
 		dropArena(database, true);
-		openDatabase(database, dbName, strlen(dbName), params);
+		openDatabase(database, dbName, (int)strlen(dbName), params);
 	}
 
 	//	fire off threads
@@ -638,6 +638,8 @@ int num = 0;
 
 	  if (cnt > 1) {
 #ifndef _WIN32
+		int err;
+
 		if((err = pthread_create (threads + idx, NULL, index_file, args + idx)))
 		  fprintf(stderr, "Error creating thread %d\n", err);
 #else

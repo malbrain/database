@@ -5,8 +5,8 @@
 #define RB_bits		24
 
 typedef struct {
-	uint64_t lvl;			// height of the stack
-	DbAddr entry[RB_bits];	// stacked tree nodes
+	uint32_t lvl;			// height of the stack
+	DbAddr entry[RB_bits];		// stacked tree nodes
 } PathStk;
 
 struct RedBlack_ {

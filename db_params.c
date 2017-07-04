@@ -57,7 +57,7 @@ DbAddr *slot;
 	//	allocate slot in parent's openMap array
 
 	arenaDef->id = arrayAlloc(parent->db, parent->arenaDef->childList, sizeof(DbAddr));
-	slot = arrayEntry(parent->db, parent->arenaDef->childList, arenaDef->id);
+	slot = arrayEntry(parent->db, parent->arenaDef->childList, (uint16_t)arenaDef->id);
 	slot->bits = rbEntry->addr.bits;
 
 	//	add arenaDef to parent's child arenaDef by name tree

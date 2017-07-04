@@ -330,7 +330,7 @@ int slot, len;
 		if (stack->ch == 256)
 		  break;
 
-		cursor->key[dbCursor->keyLen++] = stack->ch;
+		cursor->key[dbCursor->keyLen++] = (uint8_t)stack->ch;
 		cursor->stack[cursor->depth].slot->bits = radix64Node->radix[radix64Node->keys[stack->ch]].bits;
 		cursor->stack[cursor->depth].addr = &radix64Node->radix[radix64Node->keys[stack->ch]];
 		cursor->stack[cursor->depth].ch = -1;
@@ -352,7 +352,7 @@ int slot, len;
 		if (stack->ch == 256)
 		  break;
 
-		cursor->key[dbCursor->keyLen++] = stack->ch;
+		cursor->key[dbCursor->keyLen++] = (uint8_t)stack->ch;
 		cursor->stack[cursor->depth].slot->bits = radix256Node->radix[stack->ch].bits;
 		cursor->stack[cursor->depth].addr = &radix256Node->radix[stack->ch];
 		cursor->stack[cursor->depth].ch = -1;
@@ -530,7 +530,7 @@ int slot, len;
 			break;
 
 		stack->ch = radix4Node->keys[slot];
-		cursor->key[dbCursor->keyLen++] = stack->ch;
+		cursor->key[dbCursor->keyLen++] = (uint8_t)stack->ch;
 
 		cursor->stack[cursor->depth].slot->bits = radix4Node->radix[slot].bits;
 		cursor->stack[cursor->depth].addr = &radix4Node->radix[slot];
@@ -548,7 +548,7 @@ int slot, len;
 			break;
 
 		stack->ch = radix14Node->keys[slot];
-		cursor->key[dbCursor->keyLen++] = stack->ch;
+		cursor->key[dbCursor->keyLen++] = (uint8_t)stack->ch;
 
 		cursor->stack[cursor->depth].slot->bits = radix14Node->radix[slot].bits;
 		cursor->stack[cursor->depth].addr = &radix14Node->radix[slot];
@@ -566,7 +566,7 @@ int slot, len;
 			break;
 
 		slot = radix64Node->keys[stack->ch];
-		cursor->key[dbCursor->keyLen++] = stack->ch;
+		cursor->key[dbCursor->keyLen++] = (uint8_t)stack->ch;
 
 		cursor->stack[cursor->depth].slot->bits = radix64Node->radix[slot].bits;
 		cursor->stack[cursor->depth].addr = &radix64Node->radix[slot];
@@ -589,7 +589,7 @@ int slot, len;
 			break;
 
 		slot = stack->ch;
-		cursor->key[dbCursor->keyLen++] = stack->ch;
+		cursor->key[dbCursor->keyLen++] = (uint8_t)stack->ch;
 
 		cursor->stack[cursor->depth].slot->bits = radix256Node->radix[slot].bits;
 		cursor->stack[cursor->depth].addr = &radix256Node->radix[slot];

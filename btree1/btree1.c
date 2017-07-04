@@ -56,8 +56,8 @@ uint8_t *buff;
 	}
 
 	btree1->pageSize = 1 << params[Btree1Bits].intVal;
-	btree1->pageBits = params[Btree1Bits].intVal;
-	btree1->leafXtra = params[Btree1Xtra].intVal;
+	btree1->pageBits = (uint32_t)params[Btree1Bits].intVal;
+	btree1->leafXtra = (uint32_t)params[Btree1Xtra].intVal;
 
 	//	initial btree1 root & leaf pages
 
@@ -155,7 +155,7 @@ void btree1PutPageNo(uint8_t *key, uint32_t len, uint64_t bits) {
 int idx = sizeof(uint64_t);
 
 	while (idx--)
-		key[len + idx] = bits, bits >>= 8;
+		key[len + idx] = (uint8_t)bits, bits >>= 8;
 }
 
 uint64_t btree1GetPageNo(uint8_t *key, uint32_t len) {

@@ -26,10 +26,10 @@ typedef struct {
 	DbAddr addr[ARRAY_lvl1];	// level one block addresses
 } ArrayHdr;
 
-void *arrayElement(DbMap *map, DbAddr *array, uint16_t idx, size_t size);
+void *arrayElement(DbMap *map, DbAddr *array, uint16_t idx, uint32_t size);
 void *arrayEntry(DbMap *map, DbAddr *array, uint16_t idx);
 
-uint16_t arrayAlloc(DbMap *map, DbAddr *array, size_t size);
+uint16_t arrayAlloc(DbMap *map, DbAddr *array, uint32_t size);
 void arrayRelease(DbMap *map, DbAddr *array, uint16_t idx);
 
 enum ObjType {

@@ -37,7 +37,7 @@ ArenaDef arenaDef[1];
 
 	if (!name) {
 		name = "Catalog";
-		nameLen = strlen(name);
+		nameLen = (int)strlen(name);
 	}
 
 	// configure Catalog

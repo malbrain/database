@@ -77,12 +77,12 @@ double conv;
 		*start = *next;
 		Sleep(0);
 		QueryPerformanceCounter(next);
-		interval = (next->QuadPart - start->QuadPart) / conv;
+		interval = (int)((next->QuadPart - start->QuadPart) / conv);
 	}
 }
 
 int lock_spin (uint32_t *cnt) {
-volatile int idx;
+volatile uint32_t idx;
 
 	if (!*cnt)
 	  *cnt = 8;

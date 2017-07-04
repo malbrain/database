@@ -79,7 +79,7 @@ uint32_t len = 12, off = 0, prev;
 	if (map->parent && map->parent->parent)
 		len += prev = map->parent->pathLen, len++;
 	else if (hndlPath)
-		len += prev = strlen(hndlPath), len++;
+		len += prev = (uint32_t)strlen(hndlPath), len++;
 	else
 		prev = 0;
 
@@ -208,7 +208,7 @@ void unlockLatch(volatile char* latch) {
 #ifndef _WIN32
 	__sync_fetch_and_and(latch, (char)~MUTEX_BIT);
 #else
-	_InterlockedAnd8(latch, ~MUTEX_BIT);
+	_InterlockedAnd8(latch, (uint8_t)~MUTEX_BIT);
 #endif
 }
 
@@ -314,7 +314,7 @@ int flags = MAP_SHARED;
 		return NULL;
 	}
 
-	mem = MapViewOfFile(map->maphndl[segNo], FILE_MAP_WRITE, offset >> 32, offset, size);
+	mem = MapViewOfFile(map->maphndl[segNo], FILE_MAP_WRITE, (DWORD)(offset >> 32), (DWORD)offset, size);
 
 	if (!mem) {
 		fprintf (stderr, "Unable to MapViewOfFile %s, offset = %" PRIx64 ", size = %" PRIx64 ", error = %d\n", map->arenaPath, offset, size, (int)GetLastError());

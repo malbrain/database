@@ -54,7 +54,7 @@ uint64_t *inUse;
 //	return payload address for unallocated, foreign generated element idx
 //	N.b. ensure the size of both arrays is exactly the same.
 
-void *arrayElement(DbMap *map, DbAddr *array, uint16_t idx, size_t size) {
+void *arrayElement(DbMap *map, DbAddr *array, uint16_t idx, uint32_t size) {
 uint64_t *inUse;
 uint8_t *base;
 ArrayHdr *hdr;
@@ -99,7 +99,7 @@ ArrayHdr *hdr;
 
 //	allocate an array element index
 
-uint16_t arrayAlloc(DbMap *map, DbAddr *array, size_t size) {
+uint16_t arrayAlloc(DbMap *map, DbAddr *array, uint32_t size) {
 unsigned long bits[1];
 uint16_t seg, slot;
 uint64_t *inUse;
@@ -138,7 +138,7 @@ ArrayHdr *hdr;
 
 		hdr->level0 = slot;
 		unlockLatch(array->latch);
-		return ARRAY_first(size) + slot * ARRAY_size;
+		return (uint16_t)(ARRAY_first(size) + slot * ARRAY_size);
 	  }
 
 	  seg = hdr->addr[slot].firstx;
@@ -166,13 +166,13 @@ ArrayHdr *hdr;
  		  inUse[seg] |= 1ULL << *bits;
 
 		  if (inUse[seg] < ULLONG_MAX)
-			hdr->addr[slot].firstx = seg;
+			hdr->addr[slot].firstx = (uint8_t)seg;
 		  else
 			hdr->addr[slot].firstx = ARRAY_inuse;
 
 		  hdr->level0 = slot;
 		  unlockLatch(array->latch);
-		  return *bits + slot * ARRAY_size + seg * 64;
+		  return (uint16_t)(*bits + slot * ARRAY_size + seg * 64);
 	  }
 	}
   	
@@ -264,7 +264,7 @@ bool neg;
 
 	//	store low order 4 bits
 
-    key[keyLen + xtraBytes + off + 1] = (recId & 0xf) << 4 | xtraBytes;
+    key[keyLen + xtraBytes + off + 1] = (uint8_t)((recId & 0xf) << 4 | xtraBytes);
     recId >>= 4;
 
 	//	store complete bytes
@@ -279,7 +279,7 @@ bool neg;
 	//	the 3 bits of xtraBytes
 	//	and the sign bit
 
-    key[keyLen + off] = (recId & 0xf) | (xtraBytes << 4) | 0x80;
+    key[keyLen + off] = (uint8_t)((recId & 0xf) | (xtraBytes << 4) | 0x80);
 
 	//	if neg, complement the sign bit & xtraBytes bits to
 	//	make negative numbers lexically smaller than positive ones

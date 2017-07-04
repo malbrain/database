@@ -38,7 +38,7 @@ uint8_t ch;
 		uint32_t pass = 0;
 		bool retry = true;
 
-		ch = stack->ch;
+		ch = (uint8_t)stack->ch;
 
 		//	wait if we run into a dead slot
 		do {

@@ -182,7 +182,7 @@ uint32_t bits;
 		fprintf(stderr, "InitMap %s at %llu bytes\n", map->arenaPath, initSize);
 #endif
 #ifdef _WIN32
-	_BitScanReverse((unsigned long *)&bits, initSize - 1);
+	_BitScanReverse((unsigned long *)&bits, (unsigned long)initSize - 1);
 	bits++;
 #else
 	bits = 32 - (__builtin_clz (initSize - 1));
