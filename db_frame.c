@@ -161,15 +161,9 @@ bool addValuesToFrame(DbMap *map, DbAddr *free, DbAddr *wait, uint64_t *values, 
 DbAddr slot2;
 Frame *frame;
 
-  while (count--) {
-	//  space in current frame?
+  //  space in current frame?
 
-	if (free->addr && free->nslot < FrameSlots) {
-		frame = getObj(map, *free);
-		frame->slots[free->nslot++] = *values++;
-		continue;
-	}
-
+  if (!free->addr || free->nslot + count >= FrameSlots) {
 	//	allocate new frame and
 	//  push frame onto free list
 
@@ -177,7 +171,6 @@ Frame *frame;
 		return false;
 
 	frame = getObj(map, slot2);
-	frame->slots[0] = *values++;  // install in slot zero
 	frame->prev.bits = 0;
 
 	//	link new frame onto tail of wait chain
@@ -193,9 +186,13 @@ Frame *frame;
 
 	// install new frame at list head, with lock cleared
 
-	slot2.nslot = 1;
 	free->bits = slot2.bits;
   }
+
+  frame = getObj(map, *free);
+
+  while (count--)
+	frame->slots[free->nslot++] = *values++;
 
   return true;
 }
