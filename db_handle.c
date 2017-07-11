@@ -17,7 +17,7 @@ DbAddr *slotHandle(ObjId hndlId) {
 }
 
 //	open the catalog
-//	return pointer to the catalog & arenaXtra area
+//	return pointer to the arenaXtra area
 
 void *initHndlMap(char *path, int pathLen, char *name, int nameLen, bool onDisk, uint32_t arenaXtra) {
 ArenaDef arenaDef[1];
@@ -26,7 +26,7 @@ ArenaDef arenaDef[1];
 
 	if (*hndlInit & TYPE_BITS) {
 		unlockLatch(hndlInit);
-		return (void *)(hndlMap->arena + 1);
+		return (uint8_t *)hndlMap->arena + sizeof(Catalog);
 	}
 
 	if (pathLen) {
@@ -56,7 +56,7 @@ ArenaDef arenaDef[1];
 	*hndlMap->arena->type = Hndl_catalog;
 	*hndlInit = Hndl_catalog;
 
-	return (void *)(hndlMap->arena + 1);
+	return (uint8_t *)hndlMap->arena + sizeof(Catalog);
 }
 
 //	make handle from map pointer
