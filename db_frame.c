@@ -163,7 +163,7 @@ Frame *frame;
 
   //  space in current frame?
 
-  if (!free->addr || free->nslot + count >= FrameSlots) {
+  if (!free->addr || free->nslot + count > FrameSlots) {
 	//	allocate new frame and
 	//  push frame onto free list
 
@@ -186,6 +186,7 @@ Frame *frame;
 
 	// install new frame at list head, with lock cleared
 
+	slot2.nslot = 0;
 	free->bits = slot2.bits;
   }
 
