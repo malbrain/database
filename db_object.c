@@ -4,6 +4,16 @@
 #include "db_frame.h"
 #include "db_map.h"
 
+uint16_t arrayFirst(uint32_t objSize) {
+
+	//  must at least have room for bit map
+
+	if (objSize < ARRAY_size / 8)
+		objSize = ARRAY_size / 8;
+
+	return ARRAY_first(objSize);
+}
+
 //	return payload address for an allocated array idx
 
 void *arrayEntry (DbMap *map, DbAddr *array, uint16_t idx) {

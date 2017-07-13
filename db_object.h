@@ -13,7 +13,7 @@
 
 #define ARRAY_inuse	((ARRAY_size + 64 - 1) / 64)
 
-//  define the number of sluffed indexes because of inUse bit maps
+//  calculate the number of sluffed indexes because of inUse bit maps
 
 #define ARRAY_first(objsize) ((objsize) ? (ARRAY_inuse * sizeof(uint64_t) + (objsize) - 1) / (objsize) : 0)
 
@@ -30,6 +30,8 @@ void *arrayElement(DbMap *map, DbAddr *array, uint16_t idx, uint32_t size);
 void *arrayEntry(DbMap *map, DbAddr *array, uint16_t idx);
 
 uint16_t arrayAlloc(DbMap *map, DbAddr *array, uint32_t size);
+uint16_t arrayFirst(uint32_t objSize);
+
 void arrayRelease(DbMap *map, DbAddr *array, uint16_t idx);
 
 enum ObjType {
