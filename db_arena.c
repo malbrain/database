@@ -374,8 +374,10 @@ void mapAll (DbMap *map) {
 }
 
 void* getObj(DbMap *map, DbAddr slot) {
-	if (!slot.addr)
-		fprintf (stderr, "Invalid zero DbAddr: %s\n", map->arenaPath), exit(1);
+	if (!slot.addr) {
+		fprintf (stderr, "Invalid zero DbAddr: %s\n", map->arenaPath);
+		exit(1);
+	}
 
 	//  catch up segment mappings
 
