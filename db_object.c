@@ -11,7 +11,7 @@ uint16_t arrayFirst(uint32_t objSize) {
 	if (objSize < ARRAY_size / 8)
 		objSize = ARRAY_size / 8;
 
-	return ARRAY_first(objSize);
+	return (uint16_t)(ARRAY_first(objSize));
 }
 
 //	return payload address for an allocated array idx
