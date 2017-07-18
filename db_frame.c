@@ -197,6 +197,11 @@ Frame *frame;
   while (count--)
 	frame->slots[free->nslot++] = *values++;
 
+  //  update wait queue head slot count
+
+  if (wait && wait->addr == free->addr)
+	wait->nslot = free->nslot;
+
   return true;
 }
 
