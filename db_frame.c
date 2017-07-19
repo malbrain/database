@@ -179,28 +179,23 @@ Frame *frame;
 		frame = getObj(map, *free);
 		frame->timestamp = map->arena->nxtTs;
 		frame->prev.bits = slot2.bits;
+
+		//  initialize head of wait queue
+
+		if (wait && !wait->addr)
+			wait->bits = free->bits & ~ADDR_MUTEX_SET;
 	}	
 
 	// install new frame at list head, with lock cleared
 
 	slot2.nslot = 0;
 	free->bits = slot2.bits;
-
-	//  initialize head of wait queue
-
-	if (wait && !wait->addr)
-		wait->bits = free->bits & ~ADDR_MUTEX_SET;
   }
 
   frame = getObj(map, *free);
 
   while (count--)
 	frame->slots[free->nslot++] = *values++;
-
-  //  update wait queue head slot count
-
-  if (wait && wait->addr == free->addr)
-	wait->nslot = free->nslot;
 
   return true;
 }
