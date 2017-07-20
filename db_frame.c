@@ -161,11 +161,23 @@ bool addValuesToFrame(DbMap *map, DbAddr *free, DbAddr *wait, uint64_t *values, 
 DbAddr slot2;
 Frame *frame;
 
-  //  space in current frame?
 
-  if (!free->addr || free->nslot + count > FrameSlots) {
+  if (free->addr)
+	frame = getObj(map, *free);
+
+  while (count--) {
+	//  space in current frame?
+
+	if (free->addr && free->nslot < FrameSlots) {
+	  frame->slots[free->nslot++] = *values++;
+	  continue;
+	}
+
 	//	allocate new frame and
 	//  push frame onto free list
+	//	and possibly wait list.
+
+	//  n.b. all frames on wait list are full frames.
 
 	if (!(slot2.bits = allocFrame(map)))
 		return false;
@@ -176,26 +188,25 @@ Frame *frame;
 	//	link new frame onto tail of wait chain
 
 	if ((frame->next.bits = free->addr)) {
-		frame = getObj(map, *free);
-		frame->timestamp = map->arena->nxtTs;
-		frame->prev.bits = slot2.bits;
+		Frame *newFrame = getObj(map, *free);
+		newFrame->timestamp = map->arena->nxtTs;
+		newFrame->prev.bits = slot2.bits;
+		newFrame->prev.nslot = FrameSlots;
 
 		//  initialize head of wait queue
 
-		if (wait && !wait->addr)
+		if (wait && !wait->addr) {
 			wait->bits = free->bits & ~ADDR_MUTEX_SET;
+			wait->nslot = FrameSlots;
+		}
 	}	
 
 	// install new frame at list head, with lock cleared
 
-	slot2.nslot = 0;
+	slot2.nslot = 1;
 	free->bits = slot2.bits;
+	frame->slots[0] = *values++;
   }
-
-  frame = getObj(map, *free);
-
-  while (count--)
-	frame->slots[free->nslot++] = *values++;
 
   return true;
 }
