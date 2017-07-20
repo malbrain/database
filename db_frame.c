@@ -188,10 +188,10 @@ Frame *frame;
 	//	link new frame onto tail of wait chain
 
 	if ((frame->next.bits = free->addr)) {
-		Frame *newFrame = getObj(map, *free);
-		newFrame->timestamp = map->arena->nxtTs;
-		newFrame->prev.bits = slot2.bits;
-		newFrame->prev.nslot = FrameSlots;
+		Frame *prevFrame = getObj(map, *free);
+		prevFrame->timestamp = map->arena->nxtTs;
+		prevFrame->prev.bits = slot2.bits;
+		prevFrame->prev.nslot = FrameSlots;
 
 		//  initialize head of wait queue
 
@@ -201,10 +201,10 @@ Frame *frame;
 		}
 	}	
 
-	// install new frame at list head, with lock cleared
+	// install new frame at list head, with lock set
 
 	slot2.nslot = 1;
-	free->bits = slot2.bits;
+	free->bits = slot2.bits | ADDR_MUTEX_SET;
 	frame->slots[0] = *values++;
   }
 
