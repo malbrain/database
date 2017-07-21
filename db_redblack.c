@@ -106,7 +106,7 @@ RedBlack *parent, *uncle, *grand;
 int lvl = path->lvl;
 DbAddr slot;
 
-	if (!lvl) {
+	if (!lvl--) {
 		root->bits = entry->addr.bits | ADDR_MUTEX_SET;
 		return;
 	}
@@ -129,8 +129,9 @@ DbAddr slot;
 	  grand = getObj(map,path->entry[lvl-1]);
 
 	  if( path->entry[lvl-1].rbcmp == 1 ) { // was grandparent left followed?
-		uncle = getObj(map,grand->right);
-		if( grand->right.bits && uncle->red ) {
+		if (grand->right.bits) {
+		 uncle = getObj(map,grand->right);
+		 if( uncle->red ) {
 		  parent->red = 0;
 		  uncle->red = 0;
 		  grand->red = 1;
@@ -142,6 +143,7 @@ DbAddr slot;
 			break;
 	  	  parent = getObj(map,path->entry[--lvl]);
 		  continue;
+		 }
 		}
 
 		// was the parent right link followed?
@@ -168,8 +170,9 @@ DbAddr slot;
 		rbRightRotate(map, root, slot, grand, path->entry[lvl-2].rbcmp);
 		return;
 	  } else {	// symmetrical case
-		uncle = getObj(map,grand->left);
-		if( grand->left.bits && uncle->red ) {
+		if (grand->left.bits) {
+		 uncle = getObj(map,grand->left);
+		 if( uncle->red ) {
 		  uncle->red = 0;
 		  parent->red = 0;
 		  grand->red = 1;
@@ -180,6 +183,7 @@ DbAddr slot;
 			break;
 	  	  parent = getObj(map,path->entry[--lvl]);
 		  continue;
+		 }
 		}
 
 		// was the parent left link followed?
@@ -342,13 +346,12 @@ RedBlack *entry;
 
 	path->entry->rbcmp = 1;
 
-	while (entry->left.bits) {
-	  	path->entry[++path->lvl].rbcmp = 1;
-		path->entry[path->lvl].bits = entry->left.bits;
+	while ((path->entry[++path->lvl].bits = entry->left.bits)) {
+	  	path->entry[path->lvl].rbcmp = 1;
 	    entry = getObj(map, entry->left);
 	}
 
-	path->entry[path->lvl].rbcmp = 0;
+	path->entry[--path->lvl].rbcmp = 0;
 	return entry;
 }
 
@@ -385,15 +388,16 @@ RedBlack *entry;
 
 	  // go all the way left from right child
 
-	  path->entry[path->lvl].rbcmp = -1;
+	  path->entry[path->lvl].rbcmp = 1;
 
-	  while (entry->left.bits) {
-	  	path->entry[++path->lvl].rbcmp = 1;
-		path->entry[path->lvl].bits = entry->left.bits;
+	  while ((path->entry[++path->lvl].bits = entry->left.bits)) {
+	  	path->entry[path->lvl].rbcmp = 1;
 	    entry = getObj(map, entry->left);
 	  }
 
+	  path->entry[--path->lvl].rbcmp = 0;
 	  return entry;
+
 	} while (path->lvl--);
 
 	return NULL;
