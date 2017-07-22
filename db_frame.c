@@ -192,14 +192,13 @@ Frame *frame;
 		prevFrame->timestamp = map->arena->nxtTs;
 		prevFrame->prev.bits = slot2.bits;
 		prevFrame->prev.nslot = FrameSlots;
-
-		//  initialize head of wait queue
-
-		if (wait && !wait->addr) {
-			wait->bits = free->bits & ~ADDR_MUTEX_SET;
-			wait->nslot = FrameSlots;
-		}
 	}	
+
+	//  initialize head of wait queue
+
+	if (wait && !wait->addr)
+		wait->bits = free->bits & ~ADDR_MUTEX_SET;
+
 
 	// install new frame at list head, with lock set
 
@@ -290,7 +289,7 @@ Frame *frame;
 	//	after the frame timestamp is
 	//	less than the lowest handle timestamp
 
-	while (frame->timestamp < map->arena->lowTs) {
+	while (frame->prev.bits && frame->timestamp < map->arena->lowTs) {
 		Frame *prevFrame = getObj(map, frame->prev);
 
 		// the tail frame previous must be already filled for it to
