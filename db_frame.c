@@ -197,7 +197,7 @@ Frame *frame;
 	//  initialize head of wait queue
 
 	if (wait && !wait->addr)
-		wait->bits = free->bits & ~ADDR_MUTEX_SET;
+		wait->bits = slot2.bits;
 
 
 	// install new frame at list head, with lock set
