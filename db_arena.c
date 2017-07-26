@@ -251,8 +251,8 @@ uint64_t off = map->arena->segs[map->arena->currSeg].off;
 uint32_t nextSeg = map->arena->currSeg + 1;
 uint64_t nextSize;
 
+	nextSize = size * 2;	// double current size
 	off += size;
-	nextSize = off;	// double current size
 
 	while (nextSize < minSize)
 	 	if (nextSize < MAX_segsize)
