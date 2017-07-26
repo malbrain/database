@@ -243,7 +243,7 @@ void mapZero(DbMap *map, uint64_t size) {
 }
 
 //  extend arena into new segment
-//  return FALSE if out of memory
+//  return FALSE if out of memor from acceptance of all parties
 
 bool newSeg(DbMap *map, uint32_t minSize) {
 uint64_t size = map->arena->segs[map->arena->currSeg].size;
@@ -252,16 +252,16 @@ uint32_t nextSeg = map->arena->currSeg + 1;
 uint64_t nextSize;
 
 	off += size;
-	nextSize = off * 2;
+	nextSize = off;	// double current size
 
-	while (nextSize - off < minSize)
-	 	if (nextSize - off <= MAX_segsize)
+	while (nextSize < minSize)
+	 	if (nextSize < MAX_segsize)
 			nextSize += nextSize;
 		else
 			fprintf(stderr, "newSeg segment overrun: %d\n", minSize), exit(1);
 
-	if (nextSize - off > MAX_segsize)
-		nextSize = off - MAX_segsize;
+	if (nextSize > MAX_segsize)
+		nextSize = MAX_segsize;
 
 #ifdef _WIN32
 	assert(__popcnt64(nextSize) == 1);
@@ -270,7 +270,7 @@ uint64_t nextSize;
 #endif
 
 	map->arena->segs[nextSeg].off = off;
-	map->arena->segs[nextSeg].size = nextSize - off;
+	map->arena->segs[nextSeg].size = nextSize;
 	map->arena->segs[nextSeg].nextObject.segment = nextSeg;
 	map->arena->segs[nextSeg].nextId.seg = nextSeg;
 
@@ -278,8 +278,8 @@ uint64_t nextSize;
 
 #ifndef _WIN32
 	if (map->hndl != -1)
-	  if (ftruncate(map->hndl, nextSize)) {
-		fprintf (stderr, "Unable to extend file %s to %" PRIu64 ", error = %d\n", map->arenaPath, nextSize, errno);
+	  if (ftruncate(map->hndl, nextSize + off)) {
+		fprintf (stderr, "Unable to extend file %s to %" PRIu64 ", error = %d\n", map->arenaPath, nextSize + off, errno);
 		return false;
 	  }
 #endif
