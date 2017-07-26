@@ -32,18 +32,21 @@ ObjId start = it->docId;
 bool decrObjId(Iterator *it, DbMap *map) {
 ObjId start = it->docId;
 
-	while (it->docId.idx) {
-		if (--it->docId.idx)
-			return true;
-		if (!it->docId.seg)
-			break;
+	while (true) {
+		if (it->docId.idx) {
+			if (--it->docId.idx)
+				return true;
+		}
 
-		it->docId.seg--;
-		it->docId.idx = map->arena->segs[it->docId.seg].nextId.idx + 1;
+		if (it->docId.seg) {
+			it->docId.seg--;
+			it->docId.idx = map->arena->segs[it->docId.seg].nextId.idx + 1;
+			continue;
+		}
+
+		it->docId = start;
+		return false;
 	}
-
-	it->docId = start;
-	return false;
 }
 
 //
