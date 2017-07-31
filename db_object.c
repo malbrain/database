@@ -409,8 +409,8 @@ int idx;
 
 DbMmbr *xtnMmbr(DbMap *map, DbAddr *addr, DbMmbr *first) {
 uint64_t next = addr->bits, item;
+int redo = 0, idx;
 DbMmbr *mmbr;
-int redo = 0;
 
 	if (first->sizeIdx < sizeof(mmbrSizes) / sizeof(uint16_t))
 	  redo = ++first->sizeIdx;
@@ -429,7 +429,7 @@ int redo = 0;
 	// transfer items from old to bigger?
 
 	if (redo)
-	  for (int idx = 0; idx < first->max; idx++)
+	  for (idx = 0; idx < first->max; idx++)
 		if ((item = first->table[idx]))
 		  if (item != ~0LL)
 		  	*findMmbr(mmbr, item, true) = item, mmbr->cnt++;
