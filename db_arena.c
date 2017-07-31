@@ -4,6 +4,7 @@
 #else
 #ifndef apple
 #define _XOPEN_SOURCE 600
+#include <malloc.h>
 #endif
 #include <unistd.h>
 #include <stdlib.h>
