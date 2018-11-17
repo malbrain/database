@@ -50,7 +50,8 @@ Sample four thread output from indexing 40M pennysort keys:
      sys  0m4.849s
 
 Sample four thread output from finding 40M pennysort keys:
-    [karl@test7x64 xlink]$ ./dbtest tstdb -cmds=f -keyLen=10 -idxType=0 -noDocs pennykey[0123]
+
+    [karl@test7x64 xlink]# ./dbtest tstdb -cmds=f -keyLen=10 -idxType=0 -noDocs pennykey[0123]
     started finding keys for pennykey2
     started finding keys for pennykey0
     started finding keys for pennykey3
