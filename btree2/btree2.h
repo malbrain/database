@@ -9,9 +9,12 @@
 #include "../db_frame.h"
 #include "../db_lock.h"
 
-#define Btree2_maxkey		4096
-#define Btree2_maxbits		29					// maximum page size in bits
-#define Btree2_minbits		9					// minimum page size in bits
+#define Btree2_maxkey		4096	// max key size
+#define Btree2_maxskip		16	// height of skip list
+#define Btree2_numslots		65536	// max skip entries
+#define Btree2_chunksize	16	// skip entries in chunk
+#define Btree2_maxbits		29	// maximum page size in bits
+#define Btree2_minbits		9	// minimum page size in bits
 #define Btree2_minpage		(1 << Btree2_minbits)	// minimum page size
 #define Btree2_maxpage		(1 << Btree2_maxbits)	// maximum page size
 
@@ -42,15 +45,17 @@ typedef struct {
 //	followed by the key slots
 
 typedef struct {
-	uint32_t cnt;		  // count of keys in page
-	uint32_t min;		  // next page key offset
+	uint32_t min;		// next key storage offset
 	uint32_t garbage;	// page garbage in bytes
+	uint16_t act, cnt;	// count of key slots in page, count of active keys
 	uint8_t lvl:6;		// level of page
+	uint8_t height[4];	// height of skip list
 	uint8_t dead:1;		// page is replaced
 	uint8_t kill:1;		// page is being split
-  ObjId split[1];   // left page of replacement split
-  ObjId right[1];		// page to right
+	ObjId split[1];		// left page of replacement split
+	ObjId right[1];		// page to right
 	ObjId left[1];		// page to left
+	uint16_t skipHead[Btree2_maxskip];	// skip list head indicies
 } Btree2Page;
 
 typedef struct {
@@ -69,22 +74,16 @@ typedef struct {
 //	In addition to the Unique keys that occupy slots
 //	there are Librarian slots in the key slot array.
 
-//	The Librarian slots are dead keys that
-//	serve as filler, available to add new keys.
-
 typedef enum {
 	Btree2_indexed,		// key was indexed
 	Btree2_deleted,		// key was deleted
 } Btree2SlotType;
 
-typedef union {
-	struct {
-		uint32_t off:Btree2_maxbits;	// page offset for key start
-		uint32_t type:2;			// type of key slot
-		uint32_t dead:1;			// unused slot
-    uint32_t right;
-};
-	uint32_t bits;
+typedef struct {
+	uint32_t off:Btree2_maxbits;	// page offset for key start
+	uint32_t type:2;		// type of key slot
+	uint32_t dead:1;		// unused slot
+	uint16_t skipnext[Btree2_maxskip];	// skip list right indicies
 } Btree2Slot;
 
 typedef struct {

@@ -3,9 +3,8 @@
 #include "btree2.h"
 
 ObjId *btree2InitPage (Btree2Page *page, uint8_t lvl, uint32_t size) {
-ObjId objId = allocObjId ();
+	ObjId objId[1];
 
-  objId->bits = allocObjId(docHndl->map, listFree(docHndl,ObjIdType), listWait(docHndl,ObjIdType));
 	page->lvl = lvl;
 	page->min = size;
   return objId;

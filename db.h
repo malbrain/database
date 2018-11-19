@@ -100,6 +100,7 @@ typedef enum {
 	IdxKeyPartial,		// offset of partial document
 	IdxKeyFlds,			// store field lengths in keys
 	IdxType,			// 0 for artree, 1 & 2 for btree
+	IdxNoDocs,			// stand-alone index file
 
 	Btree1Bits = 20,	// Btree1 set
 	Btree1Xtra,
