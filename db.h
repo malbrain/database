@@ -105,6 +105,9 @@ typedef enum {
 	BtreeBits = 20,	// Btree1 set
 	BtreeXtra,
 
+	Btree2Bits = 23,	// Btree2 set
+	Btree2Xtra,
+
 	CursorDeDup = 25,	// de-duplicate cursor results
 
 	UserParams = 30,
