@@ -102,8 +102,8 @@ typedef enum {
 	IdxType,			// 0 for artree, 1 & 2 for btree
 	IdxNoDocs,			// stand-alone index file
 
-	Btree1Bits = 20,	// Btree1 set
-	Btree1Xtra,
+	BtreeBits = 20,	// Btree1 set
+	BtreeXtra,
 
 	CursorDeDup = 25,	// de-duplicate cursor results
 

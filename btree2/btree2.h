@@ -12,7 +12,6 @@
 #define Btree2_maxkey		4096	// max key size
 #define Btree2_maxskip		16	// height of skip list
 #define Btree2_numslots		65536	// max skip entries
-#define Btree2_chunksize	16	// skip entries in chunk
 #define Btree2_maxbits		29	// maximum page size in bits
 #define Btree2_minbits		9	// minimum page size in bits
 #define Btree2_minpage		(1 << Btree2_minbits)	// minimum page size
@@ -31,12 +30,14 @@ typedef enum{
 
 typedef struct {
 	DbIndex base[1];
+	DbAddr freePage[MAXBtree2Type];
+	DbAddr pageNos[1];
 	uint32_t pageSize;
 	uint32_t pageBits;
 	uint32_t leafXtra;
-	ObjId root[1];
-	ObjId left[1];
-	ObjId right[1];
+	ObjId root;
+	ObjId left;
+	ObjId right;
 } Btree2Index;
 
 //	Btree2 page layout
@@ -93,7 +94,7 @@ typedef struct {
 	uint32_t slotIdx;	// cursor position index
 } Btree2Cursor;
 
-#define btre21index(map) ((Btree2Index *)(map->arena + 1))
+#define btree2index(map) ((Btree2Index *)(map->arena + 1))
 
 DbStatus btree2NewCursor(DbCursor *cursor, DbMap *map);
 DbStatus btree2ReturnCursor(DbCursor *dbCursor, DbMap *map);

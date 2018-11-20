@@ -2,20 +2,11 @@
 
 #include "btree2.h"
 
-ObjId *btree2InitPage (Btree2Page *page, uint8_t lvl, uint32_t size) {
-	ObjId objId[1];
-
-	page->lvl = lvl;
-	page->min = size;
-  return objId;
-}
-
 //	create an empty page
 //  return logical page number
 
-uint64_t btree2NewPage (Handle *hndl, uint8_t lvl) {
-Btree2Index *btree2 = btree2index(hndl->map);
-ObjId pageNo[1];
+uint64_t btree2NewPage (Handle *index, uint8_t lvl) {
+Btree2Index *btree2 = btree2index(index->map);
 Btree2PageType type;
 Btree2Page *page;
 uint32_t size;
@@ -32,94 +23,61 @@ DbAddr addr;
   
   //  allocate logical page number
   
-  pageNo->bits = allocObjId(hndl->map, listFree(docHndl,ObjIdType), listWait(docHndl,ObjIdType));
-
-  //  allocate physical page
-  
-	if ((addr.bits = allocObj(hndl->map, listFree(hndl,type), NULL, type, size, true)))
-		page = getObj(hndl->map, addr);
+	if ((addr.bits = allocObj(index->map, listFree(index,type), NULL, type, size, true)))
+		page = getObj(index->map, addr);
 	else
 		return 0;
   
-objSlot = btree2InitPage(page, lvl, size);
-
-	return pageNo->bits;
+	page->lvl = lvl;
+	page->min = size;
+	return addr.bits;
 }
 
 //	initialize btree2 root page
 
-DbStatus btree2Init(Handle *hndl, Params *params) {
-Btree2Index *btree2 = btree2index(hndl->map);
+DbStatus btree2Init(Handle *index, Params *params) {
+Btree2Index *btree2 = btree2index(index->map);
+ObjId pageNo, *pageSlot;
 Btree2Page *page;
-Btree2Slot *slot;
-uint8_t *buff;
+DbAddr addr;
 
-	if (params[Btree2Bits].intVal > Btree2_maxbits) {
-		fprintf(stderr, "createIndex: bits = %" PRIu64 " > max = %d\n", params[Btree2Bits].intVal, Btree2_maxbits);
+	if (params[BtreeBits].intVal > Btree2_maxbits) {
+		fprintf(stderr, "createIndex: bits = %" PRIu64 " > max = %d\n", params[BtreeBits].intVal, Btree2_maxbits);
 		exit(1);
 	}
 
-	if (params[Btree2Bits].intVal + params[Btree2Xtra].intVal > Btree2_maxbits) {
-		fprintf(stderr, "createIndex: bits = %" PRIu64 " + xtra = %" PRIu64 " > max = %d\n", params[Btree2Bits].intVal, params[Btree2Xtra].intVal, Btree1_maxbits);
+	if (params[BtreeBits].intVal + params[BtreeXtra].intVal > Btree2_maxbits) {
+		fprintf(stderr, "createIndex: bits = %" PRIu64 " + xtra = %" PRIu64 " > max = %d\n", params[BtreeBits].intVal, params[BtreeXtra].intVal, Btree2_maxbits);
 		exit(1);
 	}
 
-	btree2->pageSize = 1 << params[Btree2Bits].intVal;
-	btree2->pageBits = (uint32_t)params[Btree2Bits].intVal;
-	btree2->leafXtra = (uint32_t)params[Btree2Xtra].intVal;
+	btree2->pageSize = 1 << params[BtreeBits].intVal;
+	btree2->pageBits = (uint32_t)params[BtreeBits].intVal;
+	btree2->leafXtra = (uint32_t)params[BtreeXtra].intVal;
 
 	//	initial btree2 root & leaf pages
 
-	if ((btree2->left.bits = btree2NewPage(hndl, 0)))
-		page = getObj(hndl->map, btree2->left);
+	if ((addr.bits = btree2NewPage(index, 0)))
+		page = getObj(index->map, addr);
 	else
 		return DB_ERROR_outofmemory;
+
+	if ((pageNo.bits = allocObjId(index->map, btree2->pageNos, NULL)))
+		pageSlot = fetchIdSlot(index->map, pageNo);
+	else
+		return DB_ERROR_outofmemory;
+
+	pageSlot->bits = addr.bits;
 
 	//  set up new leaf page with stopper key
 
-	btree2->left.type = Btree2_leafPage;
-	btree2->right.bits = btree2->left.bits;
-
-	page->min -= 1;
-	page->cnt = 1;
-	page->act = 1;
-
-	buff = keyaddr(page, page->min);
-	buff[0] = 0;
-
-	//  set up stopper slot
-
-	slot = slotptr(page, 1);
-	slot->type = Btree2_stopper;
-	slot->off = page->min;
-
-	//	set  up the tree root page with stopper key
-
-	if ((btree2->root.bits = btree2NewPage(hndl, 1)))
-		page = getObj(hndl->map, btree2->root);
-	else
-		return DB_ERROR_outofmemory;
+	btree2->root.bits = pageNo.bits;
+	btree2->right.bits = addr.bits;
+	btree2->left.bits = addr.bits;
 
 	//  set up new root page with stopper key
 
-	btree2->root.type = Btree2_rootPage;
-	page->min -= 1 + sizeof(uint64_t);
-	page->cnt = 1;
-	page->act = 1;
-
-	//  set up stopper key
-
-	buff = keyaddr(page, page->min);
-	btree2PutPageNo(buff + 1, 0, btree2->left.bits);
-	buff[0] = sizeof(uint64_t);
-
-	//  set up slot
-
-	slot = slotptr(page, 1);
-	slot->type = Btree2_stopper;
-	slot->off = page->min;
-
-	hndl->map->arena->type[0] = Hndl_btree2Index;
+	index->map->arena->type[0] = Hndl_btree2Index;
 	return DB_OK;
 }
 
