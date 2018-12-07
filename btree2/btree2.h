@@ -11,7 +11,7 @@
 
 #define Btree2_maxkey		4096	// max key size
 #define Btree2_maxskip		16	// height of skip list
-#define Btree2_numslots		65536	// max skip entries
+#define Btree2_maxslots		65536	// max skip entries
 #define Btree2_maxbits		29	// maximum page size in bits
 #define Btree2_minbits		9	// minimum page size in bits
 #define Btree2_minpage		(1 << Btree2_minbits)	// minimum page size
@@ -35,6 +35,7 @@ typedef struct {
 	uint32_t pageSize;
 	uint32_t pageBits;
 	uint32_t leafXtra;
+	uint32_t skipUnits;	// unit size for skip list entries
 	ObjId root;
 	ObjId left;
 	ObjId right;
@@ -46,46 +47,41 @@ typedef struct {
 //	followed by the key slots
 
 typedef struct {
-	uint32_t min;		// next key storage offset
-	uint32_t garbage;	// page garbage in bytes
+	uint16_t min;		// next skip list storage unit
+	uint16_t garbage;	// page garbage in skip units
 	uint16_t act, cnt;	// count of key slots in page, count of active keys
-	uint8_t lvl:6;		// level of page
-	uint8_t height[4];	// height of skip list
+	uint8_t lvl:4;		// level of page
+	uint8_t height:4;	// height of skip list
 	uint8_t dead:1;		// page is replaced
 	uint8_t kill:1;		// page is being split
 	ObjId split[1];		// left page of replacement split
 	ObjId right[1];		// page to right
 	ObjId left[1];		// page to left
-	uint16_t skipHead[Btree2_maxskip];	// skip list head indicies
+	uint16_t skipTower[Btree2_maxskip];	// skip list head indicies
 } Btree2Page;
 
 typedef struct {
-	DbAddr pageNo;		// current page addr
+	ObjId pageNo;		// current page Number
 	Btree2Page *page;	// current page address
-	uint32_t slotIdx;	// slot on page
+	uint32_t slotUnit;	// slot on page
+	uint16_t skipTower[Btree2_maxskip];	// skip list descent indicies
 } Btree2Set;
 
 //	Page key slot definition.
 
-//	Keys are marked dead, but remain on the page until
-//	it cleanup is called.
+typedef struct {
+	uint8_t type:2;		// type of key slot
+	uint8_t dead:1;		// unused slot
+	uint8_t height:4;	// tower height
+	uint16_t skipTower[0];	// skip list tower
+} Btree2Slot;
 
 //	Slot types
-
-//	In addition to the Unique keys that occupy slots
-//	there are Librarian slots in the key slot array.
 
 typedef enum {
 	Btree2_indexed,		// key was indexed
 	Btree2_deleted,		// key was deleted
 } Btree2SlotType;
-
-typedef struct {
-	uint32_t off:Btree2_maxbits;	// page offset for key start
-	uint32_t type:2;		// type of key slot
-	uint32_t dead:1;		// unused slot
-	uint16_t skipnext[Btree2_maxskip];	// skip list right indicies
-} Btree2Slot;
 
 typedef struct {
 	DbCursor base[1];	// base object
@@ -118,7 +114,7 @@ DbStatus btree2Init(Handle *hndl, Params *params);
 DbStatus btree2InsertKey(Handle *hndl, void *key, uint32_t keyLen, uint8_t lvl, Btree2SlotType type);
 DbStatus btree2DeleteKey(Handle *hndl, void *key, uint32_t keyLen);
 
-DbStatus btree2LoadPage(DbMap *map, Btree2Set *set, void *key, uint32_t keyLen, uint8_t lvl, bool stopper);
+DbStatus btree2LoadPage(DbMap *map, Btree2Set *set, void *key, uint32_t keyLen, uint8_t lvl);
 
 uint64_t btree2NewPage (Handle *hndl, uint8_t lvl);
 
