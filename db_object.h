@@ -1,4 +1,5 @@
 #pragma once
+#include <intrin.h>
 
 //  number of elements in an array node
 //	max element idx = ARRAY_size * ARRAY_lvl1

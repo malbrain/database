@@ -41,19 +41,19 @@ ObjId pageNo, *pageSlot;
 Btree2Page *page;
 DbAddr addr;
 
-	if (params[BtreeBits].intVal > Btree2_maxbits) {
-		fprintf(stderr, "createIndex: bits = %" PRIu64 " > max = %d\n", params[BtreeBits].intVal, Btree2_maxbits);
+	if (params[Btree2Bits].intVal > Btree2_maxbits) {
+		fprintf(stderr, "createIndex: bits = %" PRIu64 " > max = %d\n", params[Btree2Bits].intVal, Btree2_maxbits);
 		exit(1);
 	}
 
-	if (params[BtreeBits].intVal + params[BtreeXtra].intVal > Btree2_maxbits) {
-		fprintf(stderr, "createIndex: bits = %" PRIu64 " + xtra = %" PRIu64 " > max = %d\n", params[BtreeBits].intVal, params[BtreeXtra].intVal, Btree2_maxbits);
+	if (params[Btree2Bits].intVal + params[Btree2Xtra].intVal > Btree2_maxbits) {
+		fprintf(stderr, "createIndex: bits = %" PRIu64 " + xtra = %" PRIu64 " > max = %d\n", params[Btree2Bits].intVal, params[Btree2Xtra].intVal, Btree2_maxbits);
 		exit(1);
 	}
 
-	btree2->pageSize = 1 << params[BtreeBits].intVal;
-	btree2->pageBits = (uint32_t)params[BtreeBits].intVal;
-	btree2->leafXtra = (uint32_t)params[BtreeXtra].intVal;
+	btree2->pageSize = 1 << params[Btree2Bits].intVal;
+	btree2->pageBits = (uint32_t)params[Btree2Bits].intVal;
+	btree2->leafXtra = (uint32_t)params[Btree2Xtra].intVal;
 
 	//	initial btree2 root & leaf pages
 

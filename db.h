@@ -6,6 +6,7 @@
 #include <limits.h>
 #include <string.h>
 #include <assert.h>
+//#include <intrin.h>
 #include <stdlib.h>
 
 #include "db_error.h"
@@ -102,8 +103,8 @@ typedef enum {
 	IdxType,			// 0 for artree, 1 & 2 for btree
 	IdxNoDocs,			// stand-alone index file
 
-	BtreeBits = 20,	// Btree1 set
-	BtreeXtra,
+	Btree1Bits = 20,	// Btree1 set
+	Btree1Xtra,
 
 	Btree2Bits = 23,	// Btree2 set
 	Btree2Xtra,
