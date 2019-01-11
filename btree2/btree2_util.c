@@ -26,72 +26,70 @@ uint8_t *btree2Addr(Btree1Page *page, uint32_t off)
 #define slotptr(p,x) btree2Slot(p,x)
 #endif
 
-uint32_t Splits;
-
 // split the root and raise the height of the btree2
-// call with key for smaller half and right page addr.
-
+// call with key for smaller half and right page addr and root statuslocked.
 DbStatus btree2SplitRoot(Handle *index, Btree2Set *root, DbAddr right, uint8_t *leftKey) {
+}
+
+//split set->page splice pages left to right
+
+DbStatus btree2SplitPage (Handle *index, Btree2Set *set) {
 Btree2Index *btree2 = btree2index(index->map);
-uint32_t keyLen, nxt = btree2->pageSize;
 Btree2Page *leftPage, *rightPage;
-ObjId leftPageNo;
+uint16_t off, keyLen;
+DbAddr left, right;
 Btree2Slot *slot;
-uint8_t *ptr;
-uint32_t off;
-DbAddr left;
+uint16_t *tower;
+uint8_t *key;
 
-	//  Obtain an empty page to use, and copy one halfthe current
-	//  root contents into it, e.g. lower keys
-
-	if( (left.bits = btree2NewPage(index, root->page->lvl)) )
+	if( (left.bits = btree2NewPage(index, set->page->lvl)) )
 		leftPage = getObj(index->map, left);
 	else
 		return DB_ERROR_outofmemory;
 
-	//	copy over new smaller keys into left page
-
-	memset(root->page+1, 0, btree2->pageSize - sizeof(*root->page));
-
-	// key on root page
-	// pointing to right half page 
-	// and increase the root height
-
-	nxt -= 1 + sizeof(uint64_t);
-	slot = slotptr(root->page, 2);
-	slot->off = nxt;
-
-	ptr = keyaddr(root->page, nxt);
-	btree2PutPageNo(ptr + 1, 0, right.bits);
-	ptr[0] = sizeof(uint64_t);
-
-	// next insert lower keys (left) fence key on newroot page as
-	// first key and reserve space for the key.
-
-	keyLen = keylen(leftKey);
-	off = keypre(leftKey);
-
-	nxt -= keyLen + off;
-	slot = slotptr(root->page, 1);
-	slot->type = Btree2_indexed;
-	slot->off = nxt;
-
-	//	construct lower (left) page key
-
-	ptr = keyaddr(root->page, nxt);
-	memcpy (ptr + off, leftKey + keypre(leftKey), keyLen - sizeof(uint64_t));
-	btree2PutPageNo(ptr + off, keyLen - sizeof(uint64_t), left.bits);
-
-	if (off == 1)
-		ptr[0] = keyLen;
+	if( (right.bits = btree2NewPage(index, set->page->lvl)) )
+		rightPage = getObj(index->map, right);
 	else
-		ptr[0] = keyLen / 256 | 0x80, ptr[1] = keyLen;
-	
-	root->page->right.bits = 0;
-	root->page->min = nxt;
-	root->page->cnt = 2;
-	root->page->act = 2;
-	root->page->lvl++;
+		return DB_ERROR_outofmemory;
+
+	//	copy over smaller (1/2) keys from old page into new left page
+
+	tower = set->page->skipHead;
+
+	while( leftPage->nxt < leftPage->size / 2 )
+		if( (off = tower[0]) ) {
+			slot = slotptr(set->page,off);
+			if( install8(slot->state, active, moved) == active )
+				btree2InstallSlot(leftPage, slot);
+			tower = slot->skipTower;
+		} else
+			break;
+
+	//	splice pages together
+
+	rightPage->left->bits = leftPage->pageNo->bits;
+	leftPage->right->bits = rightPage->pageNo->bits;
+
+	// add left key to parent page
+
+	key = keyaddr(set->page, slot);
+	slot = btree2InsertKey(index, keystr(key), keylen(key), set->page->lvl + 1, *leftPage->pageNo);
+
+	//	copy over remaining slots from old root into new right page
+
+	while( rightPage->nxt < rightPage->size )
+		if( (off = tower[0]) ) {
+			slot = slotptr(root->page,off);
+			if( install8(&slot->state, active, moved) == active )
+				btree2InstallSlot(rightPage, slot);
+			tower = slot->skipTower;
+		} else
+			break;
+
+	// add left key to root page
+
+	key = keyaddr(root->page, slot);
+	slot = btree2InstallKey(newRoot, keystr(key), keylen(key), *leftPage->pageNo);
 
 	return DB_OK;
 }
@@ -103,18 +101,36 @@ DbStatus btree2SplitPage (Handle *index, Btree2Set *set) {
 uint8_t leftKey[Btree2_maxkey], rightKey[Btree2_maxkey];
 Btree2Index *btree2 = btree2index(index->map);
 uint32_t cnt = 0, idx = 0, max, nxt, off;
-Btree2Slot *source, *dest;
 uint32_t size = btree2->pageSize;
-Btree1Page *frame, *rightPage;
+Btree2Page *leftPage, *rightPage;
 uint8_t lvl = set->page->lvl;
 uint32_t totLen, keyLen;
 uint8_t *key = NULL;
-DbAddr right, addr;
+DbAddr right, left;
+Btree2Slot *slot;
+uint16_t *tower;
 DbStatus stat;
 
-#ifdef DEBUG
-	atomicAdd32(&Splits, 1);
-#endif
+	tower = set->page->skipHead;
+
+	if( (left.bits = btree2NewPage(index, set->page->lvl)) )
+		leftPage = getObj(index->map, left);
+	else
+		return DB_ERROR_outofmemory;
+
+	while( leftPage->nxt < leftPage->size / 2 )
+		if( (off = tower[0]) ) {
+			slot = slotptr(set->page,off);
+			if( install8(slot->state, active, moved) == active )
+				btree2InstallSlot(leftPage, slot);
+			tower = slot->skipTower;
+		} else
+			break;
+
+	// add left key to parent page
+
+	key = keyaddr(set->page, slot);
+	slot = btree2InstallKey(newRoot, keystr(key), keylen(key), *leftPage->pageNo);
 
 	if( !set->page->lvl )
 		size <<= btree2->leafXtra;
@@ -294,31 +310,29 @@ DbStatus stat;
 
 //	check page for space available,
 //	clean if necessary and return
-//	false - page needs splitting
-//	true  - ok to insert
+//	>0 number of skip units needed
+//	=0 split required
 
-DbStatus btree2CleanPage(Handle *index, Btree2Set *set, uint32_t totKeyLen) {
+DbStatus btree1CleanPage(Handle *index, Btree2Set *set, uint32_t totKeyLen) {
 Btree2Index *btree2 = btree2index(index->map);
-uint32_t size = btree2->pageSize;
-Btree2Page *page = set->page;
-Btree2Slot *source, *dest;
-uint32_t max = page->cnt;
-uint32_t len, cnt, idx;
-uint32_t newSlot = max;
-Btree1PageType type;
-Btree1Page *frame;
+uint32_t spaceReq, size = btree2->pageSize;
+Btree2Page *newPage;
+Btree2Page *clean;
+Btree2Slot *slot;
 uint8_t *key;
 DbAddr addr;
 
-	if( !page->lvl ) {
+	if( !set->page->lvl ) {
 		size <<= btree2->leafXtra;
 		type = Btree2_leafPage;
 	} else {
 		type = Btree2_interior;
 	}
 
-	if( page->min >= (max+1) * sizeof(Btree2Slot) + sizeof(*page) + totKeyLen )
-		return DB_OK;
+	spaceReq = (sizeof(Btree2Slot) + set->height * sizeof(uint16_t) + totKeyLen + btree2->skipUnits - 1) / btree2->skipUnits);
+
+	if( set->page->nxt + spaceReq <= size)
+		return spaceReq;
 
 	//	skip cleanup and proceed directly to split
 	//	if there's not enough garbage
@@ -328,11 +342,12 @@ DbAddr addr;
 		return DB_BTREE_needssplit;
 
 	if( (addr.bits = allocObj(index->map, listFree(index, type), NULL, type, size, false)) )
-		frame = getObj(index->map, addr);
+		newPage = getObj(index->map, addr);
 	else
 		return DB_ERROR_outofmemory;
 
-	memcpy (frame, page, size);
+	memcpy (newPage, set->page, sizeof(Btree2Page));
+	newPage->nxt = sizeof(Btree2Page);
 
 	// skip page info and set rest of page to zero
 

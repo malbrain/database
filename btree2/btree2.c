@@ -29,7 +29,7 @@ DbAddr addr;
 		return 0;
   
 	page->lvl = lvl;
-	page->min = size;
+	page->nxt = size;
 	return addr.bits;
 }
 
