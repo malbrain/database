@@ -30,12 +30,12 @@ typedef enum{
 
 typedef struct {
 	DbIndex base[1];
-	DbAddr freePage[MAXBtree2Type];
-	DbAddr pageNos[1];
+	DbAddr freePage[MAXBtree2Type];	//
+	DbAddr pageNos[1];	// frames of recycled pageNo
 	uint32_t pageSize;
-	uint32_t pageBits;
-	uint32_t leafXtra;
-	uint32_t skipUnits;	// unit size for skip list entries
+	uint8_t pageBits;
+	uint8_t leafXtra;
+	uint8_t skipBits;	// unit size for skip list entries
 	ObjId root;
 	ObjId left;
 	ObjId right;
@@ -55,16 +55,16 @@ typedef enum {
 } SlotState;
 
 typedef struct {
-	ObjId value;
+	uint32_t version[1];	// split nuumber
 	union {
 		SlotState slotstate : 8;
 		uint8_t state[1];
 	};
 	uint8_t height;			// tower height
-	uint16_t skipTower[0];	// skip list tower
+	uint16_t tower[0];	// skip list tower
 } Btree2Slot;
 
-#define slotptr(page, off) (Btree2Slot *)((uint8_t *)page + (off << page->skipUnits)) 
+#define slotptr(page, off) (Btree2Slot *)((uint8_t *)page + (off << page->skipBits)) 
 #define keyaddr(page, slot) ((uint8_t *)(slot + 1) + slot->height * sizeof(uint16_t))
 #define keylen(key) ((key[0] & 0x80) ? ((key[0] & 0x7f) << 8 | key[1]) : key[0])
 #define keystr(key) ((key[0] & 0x80) ? (key + 2) : (key + 1))
@@ -87,25 +87,30 @@ typedef struct {
 		};
 		uint32_t alloc;
 	};
-	uint16_t garbage;	// page garbage in skip units
-	uint16_t size, cnt;	// page size in skip units, count of active keys
+	uint32_t version[1];	// split nuumber
+	uint16_t garbage[1];	// page garbage in skip units
+	uint16_t size, cnt;		// page size in skip units, count of active keys
 	uint8_t lvl:4;		// level of page
 	uint8_t height:4;	// height of skip list
+	uint8_t pageType;	// allocation type
 	uint8_t skipBits;	// bits for skip list units
 	uint8_t dead:1;		// page is replaced
 	uint8_t kill:1;		// page is being split
-	ObjId pageNo[1];		// left page of replacement split
-	ObjId split[1];		// left page of replacement split
-	ObjId right[1];		// page to right
-	ObjId left[1];		// page to left
+	ObjId pageNo;		// page number
+	ObjId right;		// page to right
+	ObjId left;			// page to left
 	uint16_t skipHead[Btree2_maxskip];
 } Btree2Page;
 
 typedef struct {
 	ObjId pageNo;		// current page Number
-	Btree2Page *page;	// current page address
-	uint32_t slotUnit;	// slot on page
-	uint16_t skipTower[Btree2_maxskip];	// skip list descent indicies
+	ObjId parent;		// parent page Number
+
+	DbAddr pageAddr;	// current page address
+	Btree2Page *page;	// current page 
+	uint8_t lvl;		// level for btree page
+	uint8_t height;		// tower height
+	uint16_t prevSlot[Btree2_maxskip];	// offsets of towers that point to slots
 } Btree2Set;
 
 typedef struct {
@@ -128,12 +133,12 @@ DbStatus btree2NextKey (DbCursor *cursor, DbMap *map);
 DbStatus btree2PrevKey (DbCursor *cursor, DbMap *map);
 
 DbStatus btree2Init(Handle *hndl, Params *params);
-DbStatus btree2InsertKey(Handle *hndl, void *key, uint32_t keyLen, uint8_t lvl, SlotState state);
+DbStatus btree2InsertKey(Handle *hndl, void *key, uint32_t keyLen, uint8_t lvl, ObjId value, SlotState state);
 DbStatus btree2DeleteKey(Handle *hndl, void *key, uint32_t keyLen);
 
 DbStatus btree2LoadPage(DbMap *map, Btree2Set *set, void *key, uint32_t keyLen, uint8_t lvl);
 
-uint64_t btree2NewPage (Handle *hndl, uint8_t lvl);
+uint64_t btree2NewPage (Handle *hndl, uint8_t lvl, Btree2PageType type);
 
 DbStatus btree2CleanPage(Handle *hndl, Btree2Set *set, uint32_t totKeyLen);
 DbStatus btree2SplitPage (Handle *hndl, Btree2Set *set);
