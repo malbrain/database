@@ -252,7 +252,7 @@ uint8_t atomicCAS8(uint8_t *dest, uint8_t value, uint8_t comp) {
 
 //	atomic install 16 bit value
 
-uint8_t atomicCAS16(uint16_t *dest, uint16_t value, uint16_t comp) {
+uint16_t atomicCAS16(uint16_t *dest, uint16_t value, uint16_t comp) {
 #ifdef _WIN32
 	return _InterlockedCompareExchange16 (dest, value, comp);
 #else

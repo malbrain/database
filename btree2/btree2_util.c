@@ -146,7 +146,7 @@ DbStatus stat;
 	while( leftPage->pageAlloc->nxt > leftPage->size / 2 )
 		if( (off = tower[0]) ) {
 			lSlot = slotptr(set->page,off);
-			if( install8(lSlot->state, Btree2_slotactive, Btree2_slotmoved) == Btree2_slotactive )
+			if( atomicCAS8(lSlot->state, Btree2_slotactive, Btree2_slotmoved) == Btree2_slotactive )
 				btree2InstallSlot(leftPage, lSlot, height);
 			tower = lSlot->tower;
 		} else
@@ -162,7 +162,7 @@ DbStatus stat;
 	while( rightPage->pageAlloc->nxt > rightPage->size / 2)
 		if( (off = tower[0]) ) {
 			rSlot = slotptr(set->page,off);
-			if( install8(rSlot->state, Btree2_slotactive, Btree2_slotmoved) == Btree2_slotactive )
+			if( atomicCAS8(rSlot->state, Btree2_slotactive, Btree2_slotmoved) == Btree2_slotactive )
 				btree2InstallSlot(rightPage, rSlot, height);
 			tower = rSlot->tower;
 		} else

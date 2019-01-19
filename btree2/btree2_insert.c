@@ -81,7 +81,7 @@ DbStatus stat;
 	while( newPage->pageAlloc->nxt < newPage->size / 2 )
 		if( (off = tower[0]) ) {
 			slot = slotptr(set->page,off);
-			if( install8(slot->state, Btree2_slotactive, Btree2_slotmoved) == Btree2_slotactive )
+			if( atomicCAS8(slot->state, Btree2_slotactive, Btree2_slotmoved) == Btree2_slotactive )
 				btree2InstallSlot(newPage, slot, height);
 			tower = slot->tower;
 		} else
