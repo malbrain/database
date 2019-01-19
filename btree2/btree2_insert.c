@@ -1,4 +1,5 @@
 #include "btree2.h"
+#include "btree2_slot.h"
 
 DbStatus btree2InsertKey(Handle *index, void *key, uint32_t keyLen, uint8_t lvl, Btree2SlotState type) {
 uint8_t height = btree2GenHeight(index);

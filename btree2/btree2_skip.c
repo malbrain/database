@@ -1,4 +1,5 @@
 #include "btree2.h"
+#include "btree2_slot.h"
 
 //   implement skip list in btree page
 

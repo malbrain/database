@@ -1,6 +1,7 @@
 #include <inttypes.h>
 
 #include "btree2.h"
+#include "btree2_slot.h"
 
 //	create an empty page
 //  return logical page number

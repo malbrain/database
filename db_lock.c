@@ -104,7 +104,7 @@ volatile uint32_t idx;
 
 #ifndef FUTEX
 #ifndef _WIN32
-void mutex_lock(Mutex* mutex) {
+void mutex_lock(KMMutex* mutex) {
 uint32_t spinCount = 0;
 
   while (__sync_fetch_and_or(mutex->lock, 1) & 1)
@@ -113,12 +113,12 @@ uint32_t spinCount = 0;
 		lock_sleep(spinCount);
 }
 
-void mutex_unlock(Mutex* mutex) {
+void mutex_unlock(KMMutex* mutex) {
 	//asm volatile ("" ::: "memory");
 	*mutex->lock = 0;
 }
 #else
-void mutex_lock(Mutex* mutex) {
+void mutex_lock(KMMutex* mutex) {
 uint32_t spinCount = 0;
 
   while (_InterlockedOr8(mutex->lock, 1) & 1)
@@ -127,12 +127,12 @@ uint32_t spinCount = 0;
 		lock_sleep(spinCount);
 }
 
-void mutex_unlock(Mutex* mutex) {
+void mutex_unlock(KMMutex* mutex) {
 	*mutex->lock = 0;
 }
 #endif
 #else
-void mutex_lock(Mutex *mutex) {
+void mutex_lock(KMMutex *mutex) {
 MutexState nxt =  LOCKED;
 uint32_t spinCount = 0;
 
@@ -149,7 +149,7 @@ uint32_t spinCount = 0;
 	  }
 }
 
-void mutex_unlock(Mutex* mutex) {
+void mutex_unlock(KMMutex* mutex) {
 	if (__sync_fetch_and_sub(mutex->state, 1) == CONTESTED)  {
    		*mutex->state = FREE;
  		sys_futex( (void *)mutex->state, FUTEX_WAKE, 1, NULL, NULL, 0);

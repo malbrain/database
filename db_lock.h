@@ -1,3 +1,5 @@
+#pragma once
+
 // set default LOCKTYPE:
 
 #if !defined(LOCKTYPE1) && !defined(LOCKTYPE2) && !defined(LOCKTYPE3) && !defined(LOCKTYPE4)
@@ -40,18 +42,18 @@ typedef enum {
 
 typedef struct {
 	volatile MutexState state[1];
-} Mutex;
+} KMMutex;
 #else
 typedef volatile struct {
 	char lock[1];
-} Mutex;
+} KMMutex;
 #endif
-void mutex_lock(Mutex* mutex);
-void mutex_unlock(Mutex* mutex);
+void mutex_lock(KMMutex* mutex);
+void mutex_unlock(KMMutex* mutex);
 
 typedef struct {
-  Mutex xcl[1];
-  Mutex wrt[1];
+  KMMutex xcl[1];
+  KMMutex wrt[1];
   int16_t readers[1];
 } RWLock;
 #endif

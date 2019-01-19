@@ -43,33 +43,6 @@ typedef struct {
 
 //	Btree2 page layout
 
-//	Page key slot definition.
-
-//	Slot types
-
-typedef enum {
-	Btree2_slotunused,		// slot unused
-	Btree2_slotactive,		// slot active
-	Btree2_slotmoved,		// slot copied into new page version
-	Btree2_slotdeleted,	// slot deleted
-} Btree2SlotState;
-
-typedef struct {
-	union {
-		Btree2SlotState slotState : 8;
-		uint8_t state[1];
-	};
-	uint8_t lazyFill[1];	// lazy height tower construction
-	uint8_t height;			// tower height
-	uint16_t tower[0];		// skip list tower
-} Btree2Slot;
-
-#define slotptr(page, off) (Btree2Slot *)((uint8_t *)page + (off << page->skipBits)) 
-#define slotkey(slot) ((uint8_t *)(slot + 1) + slot->height * sizeof(uint16_t))
-#define keylen(key) ((key[0] & 0x80) ? ((key[0] & 0x7f) << 8 | key[1]) : key[0])
-#define keystr(key) ((key[0] & 0x80) ? (key + 2) : (key + 1))
-#define keypre(key) ((key[0] & 0x80) ? 2 : 1)
-
 typedef enum {
 	Btree2_pageempty,
 	Btree2_pagelive,
@@ -102,6 +75,27 @@ typedef struct {
 	ObjId left;			// page to left
 	uint16_t skipHead[Btree2_maxskip];
 } Btree2Page;
+
+//	Slot types
+
+typedef enum {
+	Btree2_slotunused,		// slot unused
+	Btree2_slotactive,		// slot active
+	Btree2_slotmoved,		// slot copied into new page version
+	Btree2_slotdeleted,	// slot deleted
+} Btree2SlotState;
+
+//	Page key slot definition.
+
+typedef struct {
+	union {
+		Btree2SlotState slotState : 8;
+		uint8_t state[1];
+	};
+	uint8_t lazyFill[1];	// lazy height tower construction
+	uint8_t height;			// tower height
+	uint16_t tower[0];		// skip list tower
+} Btree2Slot;
 
 typedef struct {
 	ObjId pageNo;		// current page Number

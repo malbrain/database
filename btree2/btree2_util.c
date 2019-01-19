@@ -1,4 +1,6 @@
 #include "btree2.h"
+#include "btree2_slot.h"
+#include <stdlib.h>
 
 //	debug slot function
 
@@ -18,6 +20,20 @@ uint8_t *btree2Key(Btree2Slot *slot)
 #define slotkey(s) btree2Key(s)
 #define slotptr(p,x) btree2Slot(p,x)
 #endif
+
+// generate slot tower height
+
+uint8_t btree2GenHeight(Handle *index) {
+unsigned long height;
+
+#ifdef _WIN32
+	_BitScanReverse((unsigned long *)&height, (unsigned long)nrand48());
+	height++;
+#else
+	height = __builtin_clz(nrand48());
+#endif
+	return height % Btree2_maxskip;
+}
 
 //	allocate btree2 pageNo
 
