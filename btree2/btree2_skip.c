@@ -26,6 +26,13 @@ int ans;
 	return 0;
 }
 
+//  fill in tower slot
+
+bool btree2FillTower (Btree2Set *set, Btree2Slot *slot, uint16_t off) {
+
+	return off;
+}
+
 //  find slot in page for given key
 //	return true for exact match
 //	return false otherwise

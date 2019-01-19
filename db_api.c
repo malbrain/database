@@ -1,3 +1,4 @@
+#include "btree2/btree2.h"
 #include "btree1/btree1.h"
 #include "artree/artree.h"
 #include "db_iterator.h"
@@ -178,6 +179,10 @@ DbIndex *index;
 		break;
 	case Hndl_btree1Index:
 		arenaDef->numTypes = MAXBtree1Type;
+		arenaDef->baseSize = sizeof(DbIndex) + sizeof(Btree1Index) + xtra;
+		break;
+	case Hndl_btree2Index:
+		arenaDef->numTypes = MAXBtree2Type;
 		arenaDef->baseSize = sizeof(DbIndex) + sizeof(Btree1Index) + xtra;
 		break;
 	default:

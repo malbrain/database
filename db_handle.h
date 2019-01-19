@@ -22,6 +22,7 @@ union Handle_ {
 	DbAddr *frames;			// recycle frames ready or waiting **
 	uint64_t entryTs;		// time stamp of first api call
 	uint32_t bindCnt[1];	// count of open api calls (handle binds)
+	uint16_t nrandState[3];	// random number generator state
 	uint16_t xtraSize;		// size of following structure
 	uint16_t listIdx;		// arena free frames entry index
 	uint16_t arrayIdx;		// arena handle array index

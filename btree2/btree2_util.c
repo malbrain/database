@@ -23,16 +23,68 @@ uint8_t *btree2Key(Btree2Slot *slot)
 
 // generate slot tower height
 
+#define RAND48_SEED_0   (0x330e)
+#define RAND48_SEED_1   (0xabcd)
+#define RAND48_SEED_2   (0x1234)
+#define RAND48_MULT_0   (0xe66d)
+#define RAND48_MULT_1   (0xdeec)
+#define RAND48_MULT_2   (0x0005)
+#define RAND48_ADD      (0x000b)
+
+unsigned short _rand48_add = RAND48_ADD;
+
+unsigned short _rand48_seed[3] = {
+    RAND48_SEED_0,
+    RAND48_SEED_1,
+    RAND48_SEED_2
+};
+
+unsigned short _rand48_mult[3] = {
+    RAND48_MULT_0,
+    RAND48_MULT_1,
+    RAND48_MULT_2
+};
+
+long mynrand48(unsigned short xseed[3]) 
+{
+unsigned long accu;
+unsigned short temp[2];
+
+    accu = (unsigned long)_rand48_mult[0] * (unsigned long)xseed[0] + (unsigned long)_rand48_add;
+    temp[0] = (unsigned short)accu;        /* lower 16 bits */
+    accu >>= sizeof(unsigned short) * 8;
+    accu += (unsigned long)_rand48_mult[0] * (unsigned long)xseed[1]; 
+	accu += (unsigned long)_rand48_mult[1] * (unsigned long)xseed[0];
+    temp[1] = (unsigned short)accu;        /* middle 16 bits */
+    accu >>= sizeof(unsigned short) * 8;
+    accu += _rand48_mult[0] * xseed[2] + _rand48_mult[1] * xseed[1] + _rand48_mult[2] * xseed[0];
+    xseed[0] = temp[0];
+    xseed[1] = temp[1];
+    xseed[2] = (unsigned short)accu;
+    return ((long)xseed[2] << 15) + ((long)xseed[1] >> 1);
+}
+
 uint8_t btree2GenHeight(Handle *index) {
+uint32_t nrand32 = mynrand48(index->nrandState);
 unsigned long height;
 
 #ifdef _WIN32
-	_BitScanReverse((unsigned long *)&height, (unsigned long)nrand48());
+	_BitScanReverse((unsigned long *)&height, nrand32);
 	height++;
 #else
-	height = __builtin_clz(nrand48());
+	height = __builtin_clz(nrand32);
 #endif
 	return height % Btree2_maxskip;
+}
+
+//	install 8 bit value
+
+uint8_t install8(uint8_t *dest, uint8_t value, uint8_t comp) {
+#ifdef _WIN32
+	return _InterlockedCompareExchange8 (dest, value, comp);
+#else
+	return __sync_val_compare_and_swap (dest, comp, value);
+#endif
 }
 
 //	allocate btree2 pageNo
@@ -74,7 +126,7 @@ bool recyclePage(Handle *index, int type, uint64_t bits) {
 
 //split set->page splice pages left to right
 
-DbStatus btree2SplitPage (Handle *index, Btree2Set *set) {
+DbStatus btree2SplitPage (Handle *index, Btree2Set *set, uint8_t height) {
 Btree2Index *btree2 = btree2index(index->map);
 Btree2Page *leftPage, *rightPage;
 uint8_t leftKey[Btree2_maxkey];
@@ -105,7 +157,7 @@ DbStatus stat;
 		if( (off = tower[0]) ) {
 			lSlot = slotptr(set->page,off);
 			if( install8(lSlot->state, Btree2_slotactive, Btree2_slotmoved) == Btree2_slotactive )
-				btree2InstallSlot(leftPage, lSlot);
+				btree2InstallSlot(leftPage, lSlot, height);
 			tower = lSlot->tower;
 		} else
 			break;
@@ -120,8 +172,8 @@ DbStatus stat;
 	while( rightPage->nxt > rightPage->size / 2)
 		if( (off = tower[0]) ) {
 			rSlot = slotptr(set->page,off);
-			if( install8(&rSlot->state, Btree2_slotactive, Btree2_slotmoved) == Btree2_slotactive )
-				btree2InstallSlot(rightPage, rSlot);
+			if( install8(rSlot->state, Btree2_slotactive, Btree2_slotmoved) == Btree2_slotactive )
+				btree2InstallSlot(rightPage, rSlot, height);
 			tower = rSlot->tower;
 		} else
 			break;

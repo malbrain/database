@@ -18,7 +18,7 @@ DbStatus stat;
 
 	  if ((stat = btree2CleanPage(index, set, totKeyLen, height))) {
 		if (stat == DB_BTREE_needssplit) {
-		  if ((stat = btree2SplitPage(index, set)))
+		  if ((stat = btree2SplitPage(index, set, height)))
 			return stat;
 		  else
 			continue;
@@ -82,7 +82,7 @@ DbStatus stat;
 		if( (off = tower[0]) ) {
 			slot = slotptr(set->page,off);
 			if( install8(slot->state, Btree2_slotactive, Btree2_slotmoved) == Btree2_slotactive )
-				btree2InstallSlot(newPage, slot);
+				btree2InstallSlot(newPage, slot, height);
 			tower = slot->tower;
 		} else
 			break;
@@ -119,7 +119,7 @@ DbStatus stat;
 	return DB_OK;
 }
 
-uint16_t btree2InsertSlot (Btree2Page *page, Btree2Slot *slot, uint8_t height) {
+uint16_t btree2InstallSlot (Btree2Page *page, Btree2Slot *slot, uint8_t height) {
 	return btree2InstallKey (page, slotkey(slot), keylen(slotkey(slot)), height);
 }
 
