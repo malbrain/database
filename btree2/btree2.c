@@ -5,21 +5,16 @@
 //	create an empty page
 //  return logical page number
 
-uint64_t btree2NewPage (Handle *index, uint8_t lvl) {
+uint64_t btree2NewPage (Handle *index, uint8_t lvl, Btree2PageType type) {
 Btree2Index *btree2 = btree2index(index->map);
-Btree2PageType type;
 Btree2Page *page;
 uint32_t size;
 DbAddr addr;
 
 	size = btree2->pageSize;
 
-	if (lvl)
-		type = Btree2_interior;
-	else {
-		type = Btree2_leafPage;
+	if (!lvl)
 		size <<= btree2->leafXtra;
-	}
   
   //  allocate logical page number
   
@@ -57,7 +52,7 @@ DbAddr addr;
 
 	//	initial btree2 root & leaf pages
 
-	if ((addr.bits = btree2NewPage(index, 0)))
+	if ((addr.bits = btree2NewPage(index, 0, Btree2_leafPage)))
 		page = getObj(index->map, addr);
 	else
 		return DB_ERROR_outofmemory;
