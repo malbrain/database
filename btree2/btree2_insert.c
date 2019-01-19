@@ -45,13 +45,10 @@ uint16_t skipUnit = 1 << set->page->skipBits;
 uint32_t spaceReq, size = btree2->pageSize;
 int type = set->page->pageType;
 Btree2Page *newPage;
-Btree2Page *clean;
 Btree2Slot *slot;
-uint8_t *key;
 DbAddr addr;
 ObjId *pageNoPtr;
 uint16_t *tower, off;
-DbStatus stat;
 
 
 	if( !set->page->lvl )
@@ -100,7 +97,6 @@ DbStatus stat;
 DbStatus btree2FixKey (Handle *index, uint8_t *fenceKey, uint8_t lvl) {
 uint32_t keyLen = keylen(fenceKey);
 Btree2Set set[1];
-Btree2Slot *slot;
 uint8_t *ptr;
 DbStatus stat;
 
@@ -127,7 +123,7 @@ uint16_t btree2InstallSlot (Btree2Page *page, Btree2Slot *slot, uint8_t height) 
 //	return page offset, or zero
 
 uint16_t btree2InstallKey (Btree2Page *page, uint8_t *key, uint32_t keyLen, uint8_t height) {
-uint32_t prefixLen, totalLen, slotSize;
+uint32_t prefixLen, slotSize;
 Btree2Slot *newSlot;
 uint16_t off;
 uint8_t *ptr;

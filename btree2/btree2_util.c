@@ -88,7 +88,7 @@ bool recyclePageNo (Handle *index, uint64_t bits) {
 }
 
 uint16_t btree2SlotAlloc(Btree2Page *page, uint32_t totKeySize, uint8_t height) {
-uint16_t amt = (sizeof(Btree2Slot) + totKeySize + (1 << page->skipBits) - 1) / (1 << page->skipBits);
+uint16_t amt = (sizeof(Btree2Slot) + totKeySize + (1L << page->skipBits) - 1) / (1L << page->skipBits);
 union Btree2Alloc {
 	struct {
 		uint16_t nxt;	// next skip list storage unit
@@ -121,7 +121,7 @@ Btree2Index *btree2 = btree2index(index->map);
 Btree2Page *leftPage, *rightPage;
 uint8_t leftKey[Btree2_maxkey];
 Btree2Slot *rSlot, *lSlot;
-ObjId lPageNo, rPageNo;
+ObjId lPageNo;
 uint16_t off, keyLen;
 DbAddr left, right;
 ObjId *pageNoPtr;
