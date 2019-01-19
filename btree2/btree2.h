@@ -53,15 +53,15 @@ typedef enum {
 //	followed by the key slots
 
 typedef struct {
-	union Btree2Alloc {
+	union {
 		struct {
 			Btree2PageState state : 8;
 			uint8_t filler;
 			uint16_t nxt;	// next skip list storage unit
 		};
 		uint8_t pageState[4];
-		uint32_t pageAlloc[1];
-	};
+		uint32_t page32[1];
+	} pageAlloc[1];
 	uint16_t garbage[1];	// page garbage in skip units
 	uint16_t size, cnt;		// page size in skip units, count of active keys
 	uint8_t height : 4;	// height of skip list
@@ -133,7 +133,7 @@ DbStatus btree2PrevKey (DbCursor *cursor, DbMap *map);
 DbStatus btree2Init(Handle *hndl, Params *params);
 DbStatus btree2InsertKey(Handle *hndl, void *key, uint32_t keyLen, uint8_t lvl, Btree2SlotState state);
 DbStatus btree2DeleteKey(Handle *hndl, void *key, uint32_t keyLen);
-DbStatus btree2LoadPage(DbMap *map, Btree2Set *set, void *key, uint32_t keyLen, uint8_t lvl);
+DbStatus btree2LoadPage(DbMap *map, Btree2Set *set, uint8_t *key, uint32_t keyLen, uint8_t lvl);
 
 uint64_t btree2NewPage (Handle *hndl, uint8_t lvl, Btree2PageType type);
 uint16_t btree2InstallKey(Btree2Page *page, uint8_t *key, uint32_t keyLen, uint8_t height);

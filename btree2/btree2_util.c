@@ -153,7 +153,7 @@ DbStatus stat;
 
 	tower = set->page->skipHead;
 
-	while( leftPage->nxt > leftPage->size / 2 )
+	while( leftPage->pageAlloc->nxt > leftPage->size / 2 )
 		if( (off = tower[0]) ) {
 			lSlot = slotptr(set->page,off);
 			if( install8(lSlot->state, Btree2_slotactive, Btree2_slotmoved) == Btree2_slotactive )
@@ -169,7 +169,7 @@ DbStatus stat;
 
 	//	copy over remaining slots from old page into new right page
 
-	while( rightPage->nxt > rightPage->size / 2)
+	while( rightPage->pageAlloc->nxt > rightPage->size / 2)
 		if( (off = tower[0]) ) {
 			rSlot = slotptr(set->page,off);
 			if( install8(rSlot->state, Btree2_slotactive, Btree2_slotmoved) == Btree2_slotactive )

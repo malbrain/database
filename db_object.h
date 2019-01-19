@@ -1,5 +1,8 @@
 #pragma once
+
+#ifdef _WIN32
 #include <intrin.h>
+#endif
 
 //  number of elements in an array node
 //	max element idx = ARRAY_size * ARRAY_lvl1
