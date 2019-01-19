@@ -240,6 +240,46 @@ char atomicAnd8(volatile char *value, char mask) {
 #endif
 }
 
+//	atomic install 8 bit value
+
+uint8_t atomicCAS8(uint8_t *dest, uint8_t value, uint8_t comp) {
+#ifdef _WIN32
+	return _InterlockedCompareExchange8 (dest, value, comp);
+#else
+	return __sync_val_compare_and_swap (dest, comp, value);
+#endif
+}
+
+//	atomic install 16 bit value
+
+uint8_t atomicCAS16(uint16_t *dest, uint16_t value, uint16_t comp) {
+#ifdef _WIN32
+	return _InterlockedCompareExchange16 (dest, value, comp);
+#else
+	return __sync_val_compare_and_swap (dest, comp, value);
+#endif
+}
+
+//	atomic install 32 bit value
+
+uint32_t atomicCAS32(uint32_t *dest, uint32_t value, uint32_t comp) {
+#ifdef _WIN32
+	return _InterlockedCompareExchange (dest, value, comp);
+#else
+	return __sync_val_compare_and_swap (dest, comp, value);
+#endif
+}
+
+//	atomic install 64 bit value
+
+uint64_t atomicCAS64(uint64_t *dest, uint64_t value, uint64_t comp) {
+#ifdef _WIN32
+	return _InterlockedCompareExchange64 (dest, value, comp);
+#else
+	return __sync_val_compare_and_swap (dest, comp, value);
+#endif
+}
+
 char atomicOr8(volatile char *value, char mask) {
 #ifndef _WIN32
 	return __sync_fetch_and_or(value, mask);

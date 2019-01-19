@@ -148,6 +148,7 @@ uint64_t btree2GetPageNo(uint8_t *key, uint32_t len);
 uint16_t btree2SlotAlloc(Btree2Page *page, uint32_t totKeySize, uint8_t height);
 // uint16_t btree2InstallKey(Btree2Page *newRoot, uint8_t *key, uint32_t keyLen, uint8_t height);
 uint16_t btree2InstallSlot(Btree2Page *page, Btree2Slot *slot, uint8_t height);
+uint8_t btree2GenHeight(Handle *index);
 
 bool btree2SkipDead(Btree2Set *set);
 bool btree2FindSlot(Btree2Set *set, uint8_t *key, uint32_t keyLen);

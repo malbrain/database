@@ -77,16 +77,6 @@ unsigned long height;
 	return height % Btree2_maxskip;
 }
 
-//	install 8 bit value
-
-uint8_t install8(uint8_t *dest, uint8_t value, uint8_t comp) {
-#ifdef _WIN32
-	return _InterlockedCompareExchange8 (dest, value, comp);
-#else
-	return __sync_val_compare_and_swap (dest, comp, value);
-#endif
-}
-
 //	allocate btree2 pageNo
 
 uint64_t allocPageNo (Handle *index) {
