@@ -88,7 +88,7 @@ bool recyclePageNo (Handle *index, uint64_t bits) {
 }
 
 uint16_t btree2SlotAlloc(Btree2Page *page, uint32_t totKeySize, uint8_t height) {
-uint16_t amt = (sizeof(Btree2Slot) + totKeySize + (1L << page->skipBits) - 1) / (1L << page->skipBits);
+uint16_t amt = (uint16_t)((sizeof(Btree2Slot) + totKeySize + (1LL << page->skipBits) - 1) >> page->skipBits);
 union Btree2Alloc {
 	struct {
 		uint16_t nxt;	// next skip list storage unit
