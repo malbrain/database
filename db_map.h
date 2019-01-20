@@ -39,10 +39,10 @@ void art_yield(void);
 
 void kill_slot(volatile char* latch);
 
-uint8_t atomicCAS8(uint8_t *dest, uint8_t value, uint8_t comp);
-uint16_t atomicCAS16(uint16_t *dest, uint16_t value, uint16_t comp);
-uint32_t atomicCAS32(uint32_t *dest, uint32_t value, uint32_t comp);
-uint64_t atomicCAS64(uint64_t *dest, uint64_t value, uint64_t comp);
+bool atomicCAS8(uint8_t *dest, uint8_t value, uint8_t comp);
+bool atomicCAS16(uint16_t *dest, uint16_t value, uint16_t comp);
+bool atomicCAS32(uint32_t *dest, uint32_t value, uint32_t comp);
+bool atomicCAS64(uint64_t *dest, uint64_t value, uint64_t comp);
 
 uint64_t atomicAdd64(volatile uint64_t *value, int64_t amt);
 uint32_t atomicAdd32(volatile uint32_t *value, int32_t amt);
@@ -71,3 +71,4 @@ void unlockArena (int hndl, char *path);
 #endif
 
 int64_t db_getEpoch(void);
+long mynrand48(unsigned short xseed[3]); 

@@ -53,15 +53,15 @@ typedef enum {
 //	followed by the key slots
 
 typedef struct {
-	union {
+	union Btree2Alloc {
 		struct {
 			Btree2PageState state : 8;
 			uint8_t filler;
 			uint16_t nxt;	// next skip list storage unit
 		};
-		uint8_t pageState[4];
-		uint32_t page32[1];
-	} pageAlloc[1];
+		uint8_t bytes[4];
+		uint32_t word[1];
+	} alloc[1];
 	uint16_t garbage[1];	// page garbage in skip units
 	uint16_t size, cnt;		// page size in skip units, count of active keys
 	uint8_t height : 4;	// height of skip list

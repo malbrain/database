@@ -23,47 +23,6 @@ uint8_t *btree2Key(Btree2Slot *slot)
 
 // generate slot tower height
 
-#define RAND48_SEED_0   (0x330e)
-#define RAND48_SEED_1   (0xabcd)
-#define RAND48_SEED_2   (0x1234)
-#define RAND48_MULT_0   (0xe66d)
-#define RAND48_MULT_1   (0xdeec)
-#define RAND48_MULT_2   (0x0005)
-#define RAND48_ADD      (0x000b)
-
-unsigned short _rand48_add = RAND48_ADD;
-
-unsigned short _rand48_seed[3] = {
-    RAND48_SEED_0,
-    RAND48_SEED_1,
-    RAND48_SEED_2
-};
-
-unsigned short _rand48_mult[3] = {
-    RAND48_MULT_0,
-    RAND48_MULT_1,
-    RAND48_MULT_2
-};
-
-long mynrand48(unsigned short xseed[3]) 
-{
-unsigned long accu;
-unsigned short temp[2];
-
-    accu = (unsigned long)_rand48_mult[0] * (unsigned long)xseed[0] + (unsigned long)_rand48_add;
-    temp[0] = (unsigned short)accu;        /* lower 16 bits */
-    accu >>= sizeof(unsigned short) * 8;
-    accu += (unsigned long)_rand48_mult[0] * (unsigned long)xseed[1]; 
-	accu += (unsigned long)_rand48_mult[1] * (unsigned long)xseed[0];
-    temp[1] = (unsigned short)accu;        /* middle 16 bits */
-    accu >>= sizeof(unsigned short) * 8;
-    accu += _rand48_mult[0] * xseed[2] + _rand48_mult[1] * xseed[1] + _rand48_mult[2] * xseed[0];
-    xseed[0] = temp[0];
-    xseed[1] = temp[1];
-    xseed[2] = (unsigned short)accu;
-    return ((long)xseed[2] << 15) + ((long)xseed[1] >> 1);
-}
-
 uint8_t btree2GenHeight(Handle *index) {
 uint32_t nrand32 = mynrand48(index->nrandState);
 unsigned long height;
@@ -87,18 +46,28 @@ bool recyclePageNo (Handle *index, uint64_t bits) {
 	 return addSlotToFrame(index->map, listHead(index,ObjIdType), listWait(index,ObjIdType), bits);
 }
 
-uint16_t btree2SlotAlloc(Btree2Page *page, uint32_t totKeySize, uint8_t height) {
-uint16_t amt = (uint16_t)((sizeof(Btree2Slot) + totKeySize + (1LL << page->skipBits) - 1) >> page->skipBits);
-union Btree2Alloc {
-	struct {
-		uint16_t nxt;	// next skip list storage unit
-		Btree2PageState state : 16;
-	};
-	uint32_t pageAlloc[1];
-} pagexchg[1];
+// alloca0te space for new slot
+//	return page offset or zero on overflow
 
-	pagexchg->nxt = 65535;
-	return pagexchg->nxt;
+uint16_t btree2SlotAlloc(Btree2Page *page, uint32_t totKeySize, uint8_t height) {
+uint16_t amt = (uint16_t)((sizeof(Btree2Slot) + height * sizeof(uint16_t) + totKeySize + (1LL << page->skipBits) - 1) >> page->skipBits);
+union Btree2Alloc alloc[1], before[1];
+
+	do {
+		*before->word = *page->alloc->word;
+		*alloc->word = *before->word;
+
+		if( alloc->nxt > amt && alloc->nxt - amt > sizeof(*page) )
+	  	  if( alloc->state == Btree2_pagelive )
+			alloc->nxt -= amt;
+		  else
+			return 0;
+		else
+			return 0;
+
+	} while( !atomicCAS32(page->alloc->word, *alloc->word, *before->word) );
+
+	return alloc->nxt;
 }
 
 uint64_t allocPage(Handle *index, int type, uint32_t size) {
@@ -121,10 +90,10 @@ Btree2Index *btree2 = btree2index(index->map);
 Btree2Page *leftPage, *rightPage;
 uint8_t leftKey[Btree2_maxkey];
 Btree2Slot *rSlot, *lSlot;
-ObjId lPageNo;
-uint16_t off, keyLen;
+uint16_t off, keyLen, max;
 DbAddr left, right;
 ObjId *pageNoPtr;
+ObjId lPageNo;
 uint16_t *tower;
 uint8_t *key;
 DbStatus stat;
@@ -142,11 +111,12 @@ DbStatus stat;
 	//	copy over smaller first half keys from old page into new left page
 
 	tower = set->page->skipHead;
+	max = leftPage->size / 2 >> set->page->skipBits;
 
-	while( leftPage->pageAlloc->nxt > leftPage->size / 2 )
+	while( leftPage->alloc->nxt > max )
 		if( (off = tower[0]) ) {
 			lSlot = slotptr(set->page,off);
-			if( atomicCAS8(lSlot->state, Btree2_slotactive, Btree2_slotmoved) == Btree2_slotactive )
+			if( atomicCAS8(lSlot->state, Btree2_slotactive, Btree2_slotmoved) )
 				btree2InstallSlot(leftPage, lSlot, height);
 			tower = lSlot->tower;
 		} else
@@ -159,10 +129,10 @@ DbStatus stat;
 
 	//	copy over remaining slots from old page into new right page
 
-	while( rightPage->pageAlloc->nxt > rightPage->size / 2)
+	while( rightPage->alloc->nxt > rightPage->size / 2)
 		if( (off = tower[0]) ) {
 			rSlot = slotptr(set->page,off);
-			if( atomicCAS8(rSlot->state, Btree2_slotactive, Btree2_slotmoved) == Btree2_slotactive )
+			if( atomicCAS8(rSlot->state, Btree2_slotactive, Btree2_slotmoved) )
 				btree2InstallSlot(rightPage, rSlot, height);
 			tower = rSlot->tower;
 		} else

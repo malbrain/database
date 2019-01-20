@@ -56,7 +56,7 @@ uint16_t *tower, off;
 
 	spaceReq = (sizeof(Btree2Slot) + set->height * sizeof(uint16_t) + totKeyLen + skipUnit - 1) / skipUnit;
 
-	if( set->page->pageAlloc->nxt + spaceReq <= size)
+	if( set->page->alloc->nxt + spaceReq <= size)
 		return spaceReq;
 
 	//	skip cleanup and proceed directly to split
@@ -75,7 +75,7 @@ uint16_t *tower, off;
 
 	tower = set->page->skipHead;
 
-	while( newPage->pageAlloc->nxt < newPage->size / 2 )
+	while( newPage->alloc->nxt < newPage->size / 2 )
 		if( (off = tower[0]) ) {
 			slot = slotptr(set->page,off);
 			if( atomicCAS8(slot->state, Btree2_slotactive, Btree2_slotmoved) == Btree2_slotactive )

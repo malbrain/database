@@ -25,7 +25,7 @@ DbAddr addr;
 		return 0;
   
 	page->lvl = lvl;
-	page->pageAlloc->nxt = size;
+	page->alloc->nxt = (size >> btree2->skipBits) - 1;
 	return addr.bits;
 }
 
