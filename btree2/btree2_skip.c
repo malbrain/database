@@ -61,7 +61,7 @@ int result = 0;
 			break;
 
 		if( slot->height > height )
-		  if( *slot->lazyFill == height )
+		  if( *slot->lazyHeight == height )
 			btree2FillTower (set, slot, off);
 
 		result = btree2KeyCmp (slotkey(slot), key, keyLen); 
