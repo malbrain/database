@@ -7,6 +7,7 @@ The standalone.c test program exercises the basic functionality of the database,
 
 Compile the database library and standalone test module with ./build or build.bat.
 
+```
 Usage: dbtest db_name -cmds=[crwsdf]... -idxType=[012] -bits=# -xtra=# -inMem -noIdx -noDocs -maxKey=# -minKey=# -keyLen=# src_file1 src_file2 ... ]
       where db_name is the prefix name of the database file
       cmds is a string of (c)ount/(r)ev scan/(w)rite/(s)can/(d)elete/(f)ind, with a one character command for each input src_file, or a no-input command.
@@ -17,7 +18,7 @@ Usage: dbtest db_name -cmds=[crwsdf]... -idxType=[012] -bits=# -xtra=# -inMem -n
       inMem specifies no disk files
       noDocs specifies keys only
       src_file1 thru src_filen are files of keys/documents separated by newline
-
+```
 Linux compilation command:
 
     [karl@test7x64 xlink]# cc -std=c11 -O2 -g -o dbtest standalone.c db*.c artree/*.c btree1/*.c -lpthread
