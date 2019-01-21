@@ -17,7 +17,7 @@ Usage: dbtest db_name -cmds=[crwsdf]... -idxType=[012] -bits=# -xtra=# -inMem -n
       xtra is the btree leaf page extra bits
       inMem specifies no disk files
       noDocs specifies keys only
-      src_file1 thru src_filen are files of keys/documents separated by newline
+      src_file1 thru src_filen are files of keys/documents separated by newline.  Each is given to a new thread.
 ```
 Linux compilation command:
 
