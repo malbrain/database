@@ -26,11 +26,31 @@ int ans;
 	return 0;
 }
 
-//  fill in tower slot
+//  fill in one tower slot
+//	set must be up to date
+//	from findSlot search.
 
-bool btree2FillTower (Btree2Set *set, Btree2Slot *slot, uint16_t off) {
+bool btree2FillTower (Btree2Set *set, uint8_t idx) {
+uint16_t *tower, off;
+Btree2Slot *prev;
 
-	return off;
+	tower = set->page->skipHead;
+	off = set->prevSlot[idx];
+
+	do {
+	  if( off > Btree2_towerbase ) {
+		prev = slotptr(set->page, off);
+		tower = prev->tower;
+	  }
+
+	  set->slot->tower[idx] = tower[idx];
+
+	  if( tower[idx] == off )
+		if( atomicCAS16 (tower + idx, set->off, off) )
+		  return true;
+
+	  off = tower[idx];
+	} while( true );
 }
 
 //  find slot in page for given key
@@ -42,8 +62,8 @@ bool btree2FillTower (Btree2Set *set, Btree2Slot *slot, uint16_t off) {
 
 bool btree2FindSlot (Btree2Set *set, uint8_t *key, uint32_t keyLen)
 {
-uint16_t height = set->page->height, off;
-uint16_t *tower = set->page->skipHead;
+uint16_t *tower = set->page->skipHead, off;
+uint8_t height = set->page->height;
 Btree2Slot *slot = NULL;
 int result = 0;
 
@@ -58,11 +78,11 @@ int result = 0;
 		if( (off = tower[height]) )
 			slot = slotptr(set->page, off);
 		else
-			break;
+			break;		// restart on next lower tower row
 
 		if( slot->height > height )
-		  if( *slot->lazyHeight == height )
-			btree2FillTower (set, slot, off);
+		  if( atomicCAS8(slot->lazyHeight, height + 1, height) )
+			btree2FillTower (set, height);
 
 		result = btree2KeyCmp (slotkey(slot), key, keyLen); 
 

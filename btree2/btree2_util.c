@@ -23,12 +23,13 @@ uint8_t *btree2Key(Btree2Slot *slot)
 
 //	calc size of slot
 
-uint16_t btree2SlotSize(Btree2Slot *slot, uint8_t skipBits)
+uint16_t btree2SlotSize(Btree2Slot *slot, uint8_t skipBits, uint8_t height)
 {
 uint8_t *key = slotkey(slot);
 uint32_t size;
 
-	size = sizeof(*slot) + slot->height * sizeof(uint16_t) + keylen(key);
+	size = sizeof(*slot) + keylen(key);
+	size += (height ? height : slot->height) * sizeof(uint16_t);
 	size += (1 << skipBits) - 1;
 	size >>= skipBits;
 	return size;
@@ -97,15 +98,15 @@ bool btree2RecyclePage(Handle *index, int type, uint64_t bits) {
 //  find and load page at given level for given key
 //	leave page rd or wr locked as requested
 
-DbStatus btree2LoadPage(DbMap *map, Btree2Set *set, uint8_t *key, uint32_t keyLen, uint8_t lvl) {
-Btree2Index *btree2 = btree2index(map);
+DbStatus btree2LoadPage(Handle *index, Btree2Set *set, uint8_t *key, uint32_t keyLen, uint8_t lvl) {
+Btree2Index *btree2 = btree2index(index->map);
 uint8_t drill = 0xff, *ptr;
 Btree2Page *prevPage = NULL;
 ObjId prevPageNo;
 ObjId *pageNoPtr;
 
   set->pageNo.bits = btree2->root.bits;
-  pageNoPtr = fetchIdSlot (map, set->pageNo);
+  pageNoPtr = fetchIdSlot (index->map, set->pageNo);
   set->pageAddr.bits = pageNoPtr->bits;
   prevPageNo.bits = 0;
 
@@ -113,7 +114,7 @@ ObjId *pageNoPtr;
 
   do {
 	set->parent.bits = prevPageNo.bits;
-	set->page = getObj(map, set->pageAddr);
+	set->page = getObj(index->map, set->pageAddr);
 
 //	if( set->page->free )
 //		return DB_BTREE_error;

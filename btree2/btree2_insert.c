@@ -1,34 +1,31 @@
 #include "btree2.h"
 #include "btree2_slot.h"
 
-DbStatus btree2InsertKey(Handle *index, void *key, uint32_t keyLen, uint8_t lvl, Btree2SlotState type) {
+DbStatus btree2InsertKey(Handle *index, uint8_t *key, uint32_t keyLen, uint8_t lvl, Btree2SlotState type) {
 uint8_t height = btree2GenHeight(index);
-uint32_t totKeyLen = keyLen;
+uint32_t totKeyLen = keyLen, slotSize;
 Btree2Set set[1];
 DbStatus stat;
+uint16_t off;
 
 	if (keyLen < 128)
 		totKeyLen += 1;
 	else
 		totKeyLen += 2;
 
+	memset(set, 0, sizeof(set));
+
 	while (true) {
-	  if ((stat = btree2LoadPage(index->map, set, key, keyLen - (lvl ? sizeof(uint64_t) : 0), lvl)))
+	  if ((stat = btree2LoadPage(index, set, key, keyLen, lvl)))
 		return stat;
 
-	  if ((stat = btree2CleanPage(index, set, totKeyLen, height))) {
-		if (stat == DB_BTREE_needssplit) {
-		  if ((stat = btree2SplitPage(index, set, height)))
-			return stat;
-		  else
-			continue;
-	    } else
-			return stat;
-	  }
+	  slotSize = btree2SizeSlot(set->page, totKeyLen, height);
 
-	  // add the key to the page
+	  if( (off = btree2AllocSlot(set->page, slotSize)) )
+	    return btree2InstallKey (index, set, off, key, keyLen, height);
 
-	  return btree2InstallKey (set->page, key, keyLen, height);
+	  if ((stat = btree2CleanPage(index, set)))
+		return stat;
 	}
 
 	return DB_OK;
@@ -39,10 +36,10 @@ DbStatus stat;
 //	>0 number of skip units needed
 //	=0 split required
 
-DbStatus btree2CleanPage(Handle *index, Btree2Set *set, uint32_t totKeyLen, uint8_t height) {
+DbStatus btree2CleanPage(Handle *index, Btree2Set *set) {
 Btree2Index *btree2 = btree2index(index->map);
 uint16_t skipUnit = 1 << set->page->skipBits;
-uint32_t spaceReq, size = btree2->pageSize;
+uint32_t size = btree2->pageSize;
 int type = set->page->pageType;
 Btree2Page *newPage;
 Btree2Slot *slot;
@@ -54,17 +51,12 @@ uint16_t *tower, off;
 	if( !set->page->lvl )
 		size <<= btree2->leafXtra;
 
-	spaceReq = (sizeof(Btree2Slot) + set->height * sizeof(uint16_t) + totKeyLen + skipUnit - 1) / skipUnit;
-
-	if( set->page->alloc->nxt + spaceReq <= size)
-		return spaceReq;
-
 	//	skip cleanup and proceed directly to split
 	//	if there's not enough garbage
 	//	to bother with.
 
 	if( *set->page->garbage < size / 5 )
-		return DB_BTREE_needssplit;
+		return btree2SplitPage(index, set);
 
 	if( (addr.bits = btree2NewPage(index, set->page->lvl, set->page->pageType)) )
 		newPage = getObj(index->map, addr);
@@ -78,8 +70,8 @@ uint16_t *tower, off;
 	while( newPage->alloc->nxt < newPage->size / 2 )
 		if( (off = tower[0]) ) {
 			slot = slotptr(set->page,off);
-			if( atomicCAS8(slot->state, Btree2_slotactive, Btree2_slotmoved) == Btree2_slotactive )
-				btree2InstallSlot(newPage, slot, height);
+			if( atomicCAS8(slot->state, Btree2_slotactive, Btree2_slotmoved) )
+				btree2InstallSlot(index, newPage, slot, btree2GenHeight(index));
 			tower = slot->tower;
 		} else
 			break;
@@ -88,8 +80,7 @@ uint16_t *tower, off;
 
 	pageNoPtr = fetchIdSlot(index->map, set->pageNo);
 	pageNoPtr->bits = addr.bits;
-
-	return DB_BTREE_needssplit;
+	return DB_OK;
 }
 
 // split the root and raise the height of the btree2
@@ -99,7 +90,7 @@ uint16_t *tower, off;
 
 //split set->page splice pages left to right
 
-DbStatus btree2SplitPage (Handle *index, Btree2Set *set, uint8_t height) {
+DbStatus btree2SplitPage (Handle *index, Btree2Set *set) {
 Btree2Index *btree2 = btree2index(index->map);
 Btree2Page *leftPage, *rightPage;
 uint8_t leftKey[Btree2_maxkey];
@@ -131,7 +122,7 @@ DbStatus stat;
 		if( (off = tower[0]) ) {
 			lSlot = slotptr(set->page,off);
 			if( atomicCAS8(lSlot->state, Btree2_slotactive, Btree2_slotmoved) )
-				btree2InstallSlot(leftPage, lSlot, height);
+				btree2InstallSlot(index, leftPage, lSlot, btree2GenHeight(index));
 			tower = lSlot->tower;
 		} else
 			break;
@@ -147,7 +138,7 @@ DbStatus stat;
 		if( (off = tower[0]) ) {
 			rSlot = slotptr(set->page,off);
 			if( atomicCAS8(rSlot->state, Btree2_slotactive, Btree2_slotmoved) )
-				btree2InstallSlot(rightPage, rSlot, height);
+				btree2InstallSlot(index, rightPage, rSlot, btree2GenHeight(index));
 			tower = rSlot->tower;
 		} else
 			break;
@@ -219,7 +210,9 @@ Btree2Set set[1];
 uint8_t *ptr;
 DbStatus stat;
 
-	if ((stat = btree2LoadPage(index->map, set, fenceKey + keypre(fenceKey), keyLen - sizeof(uint64_t), lvl)))
+	memset (set, 0, sizeof(*set));
+
+	if ((stat = btree2LoadPage(index, set, fenceKey + keypre(fenceKey), keyLen - sizeof(uint64_t), lvl)))
 		return stat;
 
 	ptr = slotkey(set->slot);
@@ -234,46 +227,58 @@ DbStatus stat;
 	return DB_OK;
 }
 
-uint16_t btree2InstallSlot (Btree2Page *page, Btree2Slot *slot, uint8_t height) {
-	return btree2InstallKey (page, slotkey(slot), keylen(slotkey(slot)), height);
+//	install slot onto page
+
+uint16_t btree2InstallSlot (Handle *index, Btree2Page *page, Btree2Slot *slot, uint8_t height) {
+uint32_t slotSize, totKeyLen;
+uint8_t *key = slotkey(slot);
+uint32_t keyLen = keylen(key);
+Btree2Set set[1];
+DbStatus stat;
+uint16_t off;
+
+	totKeyLen = keylen(key) + keypre(key);
+	memset (set, 0, sizeof(*set));
+
+	while( true ) {
+	  if ((stat = btree2LoadPage(index, set, key + keypre(key), keylen(key), page->lvl)))
+		return stat;
+
+	  slotSize = btree2SizeSlot(set->page, totKeyLen, height);
+
+	  if( (off = btree2AllocSlot(set->page, slotSize)) )
+	    return btree2InstallKey (index, set, off, key, keyLen, height);
+
+	  if ((stat = btree2CleanPage(index, set)))
+		return stat;
+	}
 }
 
 //	install new key onto page
 //	return page offset, or zero
 
-uint16_t btree2InstallKey (Btree2Page *page, uint8_t *key, uint32_t keyLen, uint8_t height) {
-uint32_t prefixLen, slotSize;
-Btree2Slot *newSlot;
-uint16_t off;
+bool btree2InstallKey (Handle *index, Btree2Set *set, uint16_t off, uint8_t *key, uint32_t keyLen, uint8_t height) {
+Btree2Slot *slot = slotptr(set->page, off);
 uint8_t *ptr;
-
-	//	calculate key length
-
-	keyLen = keylen(key);
-	prefixLen = keyLen < 128 ? 1 : 2;
-
-	//	allocate space on page
-
-	slotSize = btree2SizeSlot(page, prefixLen + keyLen, height); 
 
 	// copy slot onto page
 
-	if( (off = btree2AllocSlot(page, slotSize)) ) {
-		newSlot = slotptr(page, off);
-		ptr = slotkey(newSlot);
+	ptr = slotkey(slot);
 
-		if( keyLen < 128 )	
-			*ptr++ = keyLen;
-		else
-			*ptr++ = keyLen/256 | 0x80, *ptr++ = keyLen;
+	if( keyLen < 128 )	
+		*ptr++ = keyLen;
+	else
+		*ptr++ = keyLen/256 | 0x80, *ptr++ = keyLen;
 
-		//	fill in new slot
+	//	fill in new slot
 
-		memcpy (ptr, key, keyLen);
-		newSlot->slotState = Btree2_slotactive;
-		newSlot->height = height;
-	}
+	memcpy (ptr, key, keyLen);
+	slot->slotState = Btree2_slotactive;
+	slot->height = height;
 
-	return off;
+	if( btree2FillTower(set, 0) )
+		return off;
+
+	return 0;
 }
 

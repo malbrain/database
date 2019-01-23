@@ -87,6 +87,14 @@ typedef enum {
 	Btree2_slotdeleted,	// slot deleted
 } Btree2SlotState;
 
+//	tower values < (sizeof(Page) >> skipBits)
+//	are not allocated and are special instead
+
+typedef enum {
+	Btree2_towereof,			// not set yet / end-of-list
+	Btree2_towerbase			// last special value
+} Btree2TowerSlot;
+
 //	Page key slot definition.
 
 typedef struct {
@@ -94,9 +102,9 @@ typedef struct {
 		Btree2SlotState slotState : 8;
 		uint8_t state[1];
 	};
-	uint8_t lazyHeight[1];		// tower height installed
+	uint8_t lazyHeight[1];	// next tower idx to install
 	uint8_t height;			// final tower height
-	uint16_t tower[0];		// skip list tower
+	uint16_t tower[1];		// skip list tower
 } Btree2Slot;
 
 typedef struct {
@@ -108,7 +116,7 @@ typedef struct {
 	uint8_t lvl;		// level for btree page
 	uint8_t height;		// tower height
 	uint16_t off;		// offset of current slot
-	uint16_t prevSlot[Btree2_maxskip];	// offsets of towers that point to slots
+	uint16_t prevSlot[Btree2_maxskip];	// tower next slot offsets
 } Btree2Set;
 
 typedef struct {
@@ -133,25 +141,26 @@ DbStatus btree2PrevKey (DbCursor *cursor, DbMap *map);
 DbStatus btree2Init(Handle *hndl, Params *params);
 DbStatus btree2InsertKey(Handle *hndl, void *key, uint32_t keyLen, uint8_t lvl, Btree2SlotState state);
 DbStatus btree2DeleteKey(Handle *hndl, void *key, uint32_t keyLen);
-DbStatus btree2LoadPage(DbMap *map, Btree2Set *set, uint8_t *key, uint32_t keyLen, uint8_t lvl);
+DbStatus btree2LoadPage(Handle *index, Btree2Set *set, uint8_t *key, uint32_t keyLen, uint8_t lvl);
 
 uint64_t btree2AllocPage(Handle *index, int type, uint32_t size);
 uint64_t btree2NewPage (Handle *hndl, uint8_t lvl, Btree2PageType type);
-uint16_t btree2InstallKey(Btree2Page *page, uint8_t *key, uint32_t keyLen, uint8_t height);
 
-DbStatus btree2CleanPage(Handle *hndl, Btree2Set *set, uint32_t totKeyLen, uint8_t height);
-DbStatus btree2SplitPage (Handle *hndl, Btree2Set *set, uint8_t height);
+DbStatus btree2CleanPage(Handle *hndl, Btree2Set *set);
+DbStatus btree2SplitPage (Handle *hndl, Btree2Set *set);
 DbStatus btree2FixKey (Handle *hndl, uint8_t *fenceKey, uint8_t lvl);
 
 void btree2PutPageNo(uint8_t *key, uint32_t len, uint64_t bits);
 uint64_t btree2GetPageNo(uint8_t *key, uint32_t len);
 uint16_t btree2AllocSlot(Btree2Page *page, uint16_t size);
 uint16_t btree2SizeSlot(Btree2Page *page, uint32_t totKeySize, uint8_t height);
-uint16_t btree2InstallSlot(Btree2Page *page, Btree2Slot *slot, uint8_t height);
+uint16_t btree2InstallSlot(Handle *index, Btree2Page *page, Btree2Slot *slot, uint8_t height);
+uint16_t btree2SlotSize(Btree2Slot *slot, uint8_t skipBits, uint8_t height);
 uint8_t btree2GenHeight(Handle *index);
 
 bool btree2SkipDead(Btree2Set *set);
 bool btree2FindSlot(Btree2Set *set, uint8_t *key, uint32_t keyLen);
-bool btree2FillTower(Btree2Set *, Btree2Slot *, uint16_t off);
+bool btree2FillTower(Btree2Set *, uint8_t idx);
 bool btree2RecyclePage(Handle *index, int type, uint64_t bits);
 bool btree2RecyclePageNo(Handle *index, uint64_t bits);
+bool btree2InstallKey(Handle *index, Btree2Set *set, uint16_t off, uint8_t *key, uint32_t keyLen, uint8_t height);
