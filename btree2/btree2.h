@@ -134,13 +134,13 @@ DbStatus btree2ReturnCursor(DbCursor *dbCursor, DbMap *map);
 DbStatus btree2LeftKey(DbCursor *cursor, DbMap *map);
 DbStatus btree2RightKey(DbCursor *cursor, DbMap *map);
 
-DbStatus btree2FindKey(DbCursor *dbCursor, DbMap *map, void *key, uint32_t keylen, bool onlyOne);
+DbStatus btree2FindKey(DbCursor *dbCursor, DbMap *map, uint8_t *key, uint32_t keylen, bool onlyOne);
 DbStatus btree2NextKey (DbCursor *cursor, DbMap *map);
 DbStatus btree2PrevKey (DbCursor *cursor, DbMap *map);
 
 DbStatus btree2Init(Handle *hndl, Params *params);
-DbStatus btree2InsertKey(Handle *hndl, void *key, uint32_t keyLen, uint8_t lvl, Btree2SlotState state);
-DbStatus btree2DeleteKey(Handle *hndl, void *key, uint32_t keyLen);
+DbStatus btree2InsertKey(Handle *hndl, uint8_t *key, uint32_t keyLen, uint8_t lvl, Btree2SlotState state);
+DbStatus btree2DeleteKey(Handle *hndl, uint8_t *key, uint32_t keyLen);
 DbStatus btree2LoadPage(Handle *index, Btree2Set *set, uint8_t *key, uint32_t keyLen, uint8_t lvl);
 
 uint64_t btree2AllocPage(Handle *index, int type, uint32_t size);
