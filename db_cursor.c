@@ -1,4 +1,5 @@
 #include "btree1/btree1.h"
+#include "btree2/btree2.h"
 #include "artree/artree.h"
 
 //	release cursor resources
@@ -13,6 +14,10 @@ DbStatus stat = DB_ERROR_indextype;
 
 	case Hndl_btree1Index:
 		stat = btree1ReturnCursor(dbCursor, map);
+		break;
+
+	case Hndl_btree2Index:
+		stat = btree2ReturnCursor(dbCursor, map);
 		break;
 	}
 
@@ -59,6 +64,27 @@ DbStatus stat;
 
 		break;
 	  }
+
+	  case Hndl_btree2Index: {
+		if ((stat = btree2FindKey(dbCursor, map, key, keyLen, op == OpOne)))
+			return stat;
+
+		if (op == OpAfter) {
+		  if (memcmp (dbCursor->key, key, keyLen) <= 0)
+			return btree2NextKey (dbCursor, map);
+		  else
+			return DB_OK;
+		}
+
+		if (op == OpBefore) {
+		  if (memcmp (dbCursor->key, key, keyLen) >= 0)
+			return btree2PrevKey (dbCursor, map);
+		  else
+			return DB_OK;
+		}
+
+		break;
+	  }
 	}
 
 	return DB_OK;
@@ -77,6 +103,11 @@ DbStatus stat = DB_OK;
 
 	  case Hndl_btree1Index: {
 		stat = btree1LeftKey(dbCursor, map);
+		break;
+	  }
+
+	  case Hndl_btree2Index: {
+		stat = btree2LeftKey(dbCursor, map);
 		break;
 	  }
 	}
@@ -100,6 +131,11 @@ DbStatus stat = DB_OK;
 		stat = btree1RightKey(dbCursor, map);
 		break;
 	  }
+
+	  case Hndl_btree2Index: {
+		stat = btree2RightKey(dbCursor, map);
+		break;
+	  }
 	}
 
 	if (stat)
@@ -121,6 +157,10 @@ DbStatus stat;
 		stat = btree1NextKey (dbCursor, map);
 		break;
 
+	case Hndl_btree2Index:
+		stat = btree2NextKey (dbCursor, map);
+		break;
+
 	default:
 		stat = DB_ERROR_indextype;
 		break;
@@ -139,6 +179,10 @@ DbStatus stat;
 
 	case Hndl_btree1Index:
 		stat = btree1PrevKey (dbCursor, map);
+		break;
+
+	case Hndl_btree2Index:
+		stat = btree2PrevKey (dbCursor, map);
 		break;
 
 	default:

@@ -16,7 +16,7 @@ uint16_t off;
 	memset(set, 0, sizeof(set));
 
 	while (true) {
-	  if ((stat = btree2LoadPage(index, set, key, keyLen, lvl)))
+	  if ((stat = btree2LoadPage(index->map, set, key, keyLen, lvl)))
 		return stat;
 
 	  slotSize = btree2SizeSlot(set->page, totKeyLen, height);
@@ -212,7 +212,7 @@ DbStatus stat;
 
 	memset (set, 0, sizeof(*set));
 
-	if ((stat = btree2LoadPage(index, set, fenceKey + keypre(fenceKey), keyLen - sizeof(uint64_t), lvl)))
+	if ((stat = btree2LoadPage(index->map, set, fenceKey + keypre(fenceKey), keyLen - sizeof(uint64_t), lvl)))
 		return stat;
 
 	ptr = slotkey(set->slot);
@@ -241,7 +241,7 @@ uint16_t off;
 	memset (set, 0, sizeof(*set));
 
 	while( true ) {
-	  if ((stat = btree2LoadPage(index, set, key + keypre(key), keylen(key), page->lvl)))
+	  if ((stat = btree2LoadPage(index->map, set, key + keypre(key), keylen(key), page->lvl)))
 		return stat;
 
 	  slotSize = btree2SizeSlot(set->page, totKeyLen, height);

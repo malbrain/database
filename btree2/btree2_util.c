@@ -98,15 +98,15 @@ bool btree2RecyclePage(Handle *index, int type, uint64_t bits) {
 //  find and load page at given level for given key
 //	leave page rd or wr locked as requested
 
-DbStatus btree2LoadPage(Handle *index, Btree2Set *set, uint8_t *key, uint32_t keyLen, uint8_t lvl) {
-Btree2Index *btree2 = btree2index(index->map);
+DbStatus btree2LoadPage(DbMap *map, Btree2Set *set, uint8_t *key, uint32_t keyLen, uint8_t lvl) {
+Btree2Index *btree2 = btree2index(map);
 uint8_t drill = 0xff, *ptr;
 Btree2Page *prevPage = NULL;
 ObjId prevPageNo;
 ObjId *pageNoPtr;
 
   set->pageNo.bits = btree2->root.bits;
-  pageNoPtr = fetchIdSlot (index->map, set->pageNo);
+  pageNoPtr = fetchIdSlot (map, set->pageNo);
   set->pageAddr.bits = pageNoPtr->bits;
   prevPageNo.bits = 0;
 
@@ -114,7 +114,7 @@ ObjId *pageNoPtr;
 
   do {
 	set->parent.bits = prevPageNo.bits;
-	set->page = getObj(index->map, set->pageAddr);
+	set->page = getObj(map, set->pageAddr);
 
 //	if( set->page->free )
 //		return DB_BTREE_error;

@@ -19,7 +19,7 @@ char *hndlNames[] = {
 	"docVersion"
 };
 
-int cursorSize[8] = {0, 0, 0, 0, sizeof(ArtCursor), sizeof(Btree1Cursor), 0};
+int cursorSize[8] = {0, 0, 0, 0, sizeof(ArtCursor), sizeof(Btree1Cursor), sizeof(Btree2Cursor)};
 
 extern DbMap memMap[1];
 
@@ -183,7 +183,7 @@ DbIndex *index;
 		break;
 	case Hndl_btree2Index:
 		arenaDef->numTypes = MAXBtree2Type;
-		arenaDef->baseSize = sizeof(DbIndex) + sizeof(Btree1Index) + xtra;
+		arenaDef->baseSize = sizeof(DbIndex) + sizeof(Btree2Index) + xtra;
 		break;
 	default:
 		releaseHandle(parentHndl, docHndl);
@@ -215,6 +215,10 @@ DbIndex *index;
 
 	  case Hndl_btree1Index:
 		btree1Init(idxHndl, params);
+		break;
+
+	  case Hndl_btree2Index:
+		btree2Init(idxHndl, params);
 		break;
 
 	  default:
@@ -341,6 +345,10 @@ DbCursor *dbCursor;
 	case Hndl_btree1Index:
 		stat = btree1NewCursor(dbCursor, idxHndl->map);
 		break;
+
+	case Hndl_btree2Index:
+		stat = btree2NewCursor(dbCursor, idxHndl->map);
+		break;
 	}
 
 	hndl->hndlBits = cursorHndl->hndlId.bits;
@@ -368,6 +376,10 @@ Handle *idxHndl;
 
 	case Hndl_btree1Index:
 		stat = btree1ReturnCursor(dbCursor, idxHndl->map);
+		break;
+
+	case Hndl_btree2Index:
+		stat = btree2ReturnCursor(dbCursor, idxHndl->map);
 		break;
 	}
 
@@ -569,6 +581,10 @@ DbIndex *index;
 	case Hndl_btree1Index:
 		stat = btree1DeleteKey(idxHndl, key, len);
 		break;
+
+	case Hndl_btree2Index:
+		stat = btree2DeleteKey(idxHndl, key, len);
+		break;
 	}
 
 	index = (DbIndex *)(idxHndl->map->arena + 1);
@@ -610,6 +626,10 @@ DbIndex *index;
 
 	case Hndl_btree1Index:
 		stat = btree1InsertKey(idxHndl, key, len, 0, Btree1_indexed);
+		break;
+
+	case Hndl_btree2Index:
+		stat = btree2InsertKey(idxHndl, key, len, 0, Btree2_slotactive);
 		break;
 	}
 
