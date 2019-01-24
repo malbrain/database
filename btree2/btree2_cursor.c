@@ -1,8 +1,7 @@
 #include "btree2.h"
 #include "btree2_slot.h"
 
-uint16_t btree2FillFwd(Btree2Cursor *cursor, Btree2Page *page, uint16_t findOff) {
-uint32_t pageSize = 1 << (page->pageBits + page->leafXtra);
+uint16_t btree2FillFwd(Btree2Cursor *cursor, Btree2Page *page, uint16_t findOff, uint32_t pageSize) {
 uint16_t off = page->skipHead[0], foundIdx = 0;
 Btree2Slot *slot;
 
@@ -52,12 +51,18 @@ DbStatus btree2LeftKey(DbCursor *dbCursor, DbMap *map) {
 Btree2Cursor *cursor = (Btree2Cursor *)((char *)dbCursor + dbCursor->xtra);
 Btree2Index *btree2 = btree2index(map);
 DbAddr *pageNoPtr;
+uint32_t pageSize;
 Btree2Page *left;
 
 	pageNoPtr = fetchIdSlot (map, btree2->left);
 	left = getObj(map, *pageNoPtr);
 
-	btree2FillFwd(cursor, left, 0);
+	pageSize = 1 << (left->pageBits + left->leafXtra);
+
+	if( cursor->pageSize < pageSize )
+		return DB_ERROR_cursoroverflow;
+
+	btree2FillFwd(cursor, left, 0, pageSize);
 	cursor->listIdx = 0;
 	return DB_OK;
 }
@@ -66,12 +71,18 @@ DbStatus btree2RightKey(DbCursor *dbCursor, DbMap *map) {
 Btree2Cursor *cursor = (Btree2Cursor *)((char *)dbCursor + dbCursor->xtra);
 Btree2Index *btree2 = btree2index(map);
 DbAddr *pageNoPtr;
+uint32_t pageSize;
 Btree2Page *right;
 
 	pageNoPtr = fetchIdSlot (map, btree2->right);
 	right = getObj(map, *pageNoPtr);
 
-	btree2FillFwd(cursor, right, 0);
+	pageSize = 1 << (right->pageBits + right->leafXtra);
+
+	if( cursor->pageSize < pageSize )
+		return DB_ERROR_cursoroverflow;
+
+	btree2FillFwd(cursor, right, 0, pageSize);
 	cursor->listIdx = cursor->listMax;
 	return DB_OK;
 }
@@ -80,6 +91,7 @@ DbStatus btree2NextKey (DbCursor *dbCursor, DbMap *map) {
 Btree2Cursor *cursor = (Btree2Cursor *)((char *)dbCursor + dbCursor->xtra);
 DbAddr *pageNoPtr;
 Btree2Page *right;
+uint32_t pageSize;
 Btree2Slot *slot;
 uint16_t off;
 uint8_t *key;
@@ -118,7 +130,12 @@ uint8_t *key;
 	  } else
 		break;
 
-	  btree2FillFwd(cursor, right, 0);
+	  pageSize = 1 << (right->pageBits + right->leafXtra);
+
+	  if( cursor->pageSize < pageSize )
+		return DB_ERROR_cursoroverflow;
+
+	  btree2FillFwd(cursor, right, 0, pageSize);
 	  cursor->listIdx = cursor->listMax;
 	}
 
@@ -129,6 +146,7 @@ uint8_t *key;
 DbStatus btree2PrevKey (DbCursor *dbCursor, DbMap *map) {
 Btree2Cursor *cursor = (Btree2Cursor *)((char *)dbCursor + dbCursor->xtra);
 DbAddr *pageNoPtr;
+uint32_t pageSize;
 Btree2Page *left;
 Btree2Slot *slot;
 uint16_t off;
@@ -168,7 +186,12 @@ uint8_t *key;
 	  } else
 		break;
 
-	  btree2FillFwd(cursor, left, 0);
+	  pageSize = 1 << (left->pageBits + left->leafXtra);
+
+	  if( cursor->pageSize < pageSize )
+		return DB_ERROR_cursoroverflow;
+
+	  btree2FillFwd(cursor, left, 0, pageSize);
 	  cursor->listIdx = cursor->listMax;
 	}
 

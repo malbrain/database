@@ -1,9 +1,10 @@
 #include "btree2.h"
 #include "btree2_slot.h"
 
+//	move cursor to first key >= given key
+
 DbStatus btree2FindKey( DbCursor *dbCursor, DbMap *map, uint8_t *key, uint32_t keyLen, bool onlyOne) {
 Btree2Cursor *cursor = (Btree2Cursor *)dbCursor;
-Btree2Index *btree2 = btree2index(map);
 uint32_t pageSize;
 uint8_t *foundKey;
 Btree2Set set[1];
@@ -22,8 +23,10 @@ DbStatus stat;
 	}
 
 	pageSize = 1 << (set->page->pageBits + set->page->leafXtra);
-	memcpy(cursor->page, set->page, pageSize);
 
-	cursor->listIdx = btree2FillFwd(cursor, cursor->page, set->off);
+	if( cursor->pageSize < pageSize )
+		return DB_ERROR_cursoroverflow;
+
+	cursor->listIdx = btree2FillFwd(cursor, set->page, set->off, pageSize);
 	return DB_OK;
 }

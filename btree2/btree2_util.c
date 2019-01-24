@@ -124,7 +124,7 @@ ObjId *pageNoPtr;
 	//  find key on page at this level
 	//  and descend to requested level
 
-	if( (btree2FindSlot (set, key, keyLen)) ) {
+	if( (set->found = btree2FindSlot (set, key, keyLen)) ) {
 	  if( drill == lvl )
 		return DB_OK;
 
@@ -140,7 +140,7 @@ ObjId *pageNoPtr;
 	  assert(drill > 0);
 	  drill--;
 	  continue;
-	 }
+	}
 
 	//  or slide right into next page
 

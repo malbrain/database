@@ -53,9 +53,32 @@ Btree2Slot *prev;
 	} while( true );
 }
 
+//	remove dead slot from height 1 skip list
+
+bool btree2DeadTower (Btree2Set *set) {
+uint16_t *tower, off;
+Btree2Slot *prev;
+
+	tower = set->page->skipHead;
+	off = set->prevSlot[0];
+
+	do {
+	  if( off > Btree2_towerbase ) {
+		prev = slotptr(set->page, off);
+		tower = prev->tower;
+	  }
+
+	  if( tower[0] == set->off )
+		if( atomicCAS16 (tower, set->slot->tower[0], set->off) )
+		  return true;
+
+	  off = tower[0];
+	} while( true );
+}
+
 //  find slot in page for given key
 //	return true for exact match
-//	return false otherwise
+//	return false if key < found key
 
 //	lazy build of node towers and
 //	removal of dead nodes
