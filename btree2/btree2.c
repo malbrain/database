@@ -80,20 +80,28 @@ DbAddr addr;
 	return DB_OK;
 }
 
-void btree2PutPageNo(uint8_t *key, uint32_t len, uint64_t bits) {
-int idx = sizeof(uint64_t);
+//	append page no at end of slot key
 
-	while (idx--)
-		key[len + idx] = (uint8_t)bits, bits >>= 8;
-}
-
-uint64_t btree2GetPageNo(uint8_t *key, uint32_t len) {
-uint64_t result = 0;
+void btree2PutPageNo(Btree2Slot *slot, ObjId pageNo) {
+uint8_t *key = slotkey(slot);
+uint64_t bits = pageNo.bits;
+int len = keylen(key);
 int idx = 0;
 
-	len -= sizeof(uint64_t);
+	key += keypre(key);
 
-	do result <<= 8, result |= key[len + idx];
+	do key[len - ++idx] = (uint8_t)bits, bits >>= 8;
+	while( idx < sizeof(uint64_t) );
+}
+
+uint64_t btree2GetPageNo(Btree2Slot *slot) {
+uint8_t *key = slotkey(slot);
+uint64_t result = 0;
+int idx = 0, off;
+
+	off = keylen(key) - sizeof(uint64_t);
+	key += keypre(key);
+	do result <<= 8, result |= key[off + idx];
 	while (++idx < sizeof(uint64_t));
 
 	return result;

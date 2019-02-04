@@ -26,105 +26,42 @@ int ans;
 	return 0;
 }
 
-//  fill in one tower slot
-//	set must be up to date
-//	from findSlot search.
-
-bool btree2FillTower (Btree2Set *set, uint8_t idx) {
-uint16_t *tower, off;
-Btree2Slot *prev;
-
-	tower = set->page->skipHead;
-	off = set->prevSlot[idx];
-
-	do {
-	  if( off > Btree2_towerbase ) {
-		prev = slotptr(set->page, off);
-		tower = prev->tower;
-	  }
-
-	  set->slot->tower[idx] = tower[idx];
-
-	  if( tower[idx] == off )
-		if( atomicCAS16 (tower + idx, set->off, off) )
-		  return true;
-
-	  off = tower[idx];
-	} while( true );
-}
-
-//	remove dead slot from height 1 skip list
-
-bool btree2DeadTower (Btree2Set *set) {
-uint16_t *tower, off;
-Btree2Slot *prev;
-
-	tower = set->page->skipHead;
-	off = set->prevSlot[0];
-
-	do {
-	  if( off > Btree2_towerbase ) {
-		prev = slotptr(set->page, off);
-		tower = prev->tower;
-	  }
-
-	  if( tower[0] == set->off )
-		if( atomicCAS16 (tower, set->slot->tower[0], set->off) )
-		  return true;
-
-	  off = tower[0];
-	} while( true );
-}
-
 //  find slot in page for given key
-//	return true for exact match
-//	return false if key < found key
 
-//	lazy build of node towers and
-//	removal of dead nodes
-
-bool btree2FindSlot (Btree2Set *set, uint8_t *key, uint32_t keyLen)
+void btree2FindSlot (Btree2Set *set, uint8_t *key, uint32_t keyLen)
 {
-uint16_t *tower = set->page->skipHead, off;
 uint8_t height = set->page->height;
-Btree2Slot *slot = NULL;
-int result = 0;
+uint16_t *tower = set->page->head;
+int result;
 
 	//	Starting at the head tower go down or right after each comparison
 
 	while( height-- ) {
-	  off = 0;			// left skipHead tower
+	  set->off = 0;			// page head tower
 
 	  do {
-		set->prevSlot[height] = off;
+		set->prevSlot[height] = set->off;
 
-		if( (off = tower[height]) )
-			slot = slotptr(set->page, off);
-		else
-			break;		// restart on next lower tower row
-
-		if( slot->height > height )
-		  if( atomicCAS8(slot->lazyHeight, height + 1, height) )
-			btree2FillTower (set, height);
-
-		result = btree2KeyCmp (slotkey(slot), key, keyLen); 
-
-		// go right at same height if key > slot
-
-		if( result < 0 )
-			tower = slot->tower;
+		if( (set->off = tower[height]) ) {
+			set->slot = slotptr(set->page, set->off);	// go right
+			tower = set->slot->tower;
+			result = btree2KeyCmp (slotkey(set->slot), key, keyLen); 
+		} else
+			result = 1;						// drop down
 
 	  } while( result < 0 );
+
+	  set->nextSlot[height] = set->off;
 	}
 
-	return !result;
+	set->found = !result;
 }
 
 // find next non-dead slot -- the fence key if nothing else
 
 bool btree2SkipDead (Btree2Set *set) {
 
-  while( set->slot->slotState == Btree2_slotdeleted ) {
+  while( *set->slot->state == Btree2_slotdeleted ) {
 	set->prevSlot[0] = set->off; 
 	if( set->off = set->slot->tower[0] )	// successor offset
 	  set->slot = slotptr(set->page, set->off);

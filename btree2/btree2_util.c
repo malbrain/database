@@ -56,8 +56,8 @@ uint64_t btree2AllocPageNo (Handle *index) {
 	return allocObjId(index->map, listFree(index,ObjIdType), listWait(index,ObjIdType));
 }
 
-bool btree2RecyclePageNo (Handle *index, uint64_t bits) {
-	 return addSlotToFrame(index->map, listHead(index,ObjIdType), listWait(index,ObjIdType), bits);
+bool btree2RecyclePageNo (Handle *index, ObjId pageNo) {
+	 return addSlotToFrame(index->map, listHead(index,ObjIdType), listWait(index,ObjIdType), pageNo.bits);
 }
 
 uint16_t btree2SizeSlot (Btree2Page *page, uint32_t totKeySize, uint8_t height)
@@ -91,60 +91,54 @@ union Btree2Alloc alloc[1], before[1];
 	return alloc->nxt;
 }
 
-bool btree2RecyclePage(Handle *index, int type, uint64_t bits) {
-	return addSlotToFrame(index->map, listHead(index,type), listWait(index,type), bits);
+bool btree2RecyclePage(Handle *index, int type, DbAddr addr) {
+	return addSlotToFrame(index->map, listHead(index,type), listWait(index,type), addr.bits);
 }
 
 //  find and load page at given level for given key
-//	leave page rd or wr locked as requested
 
 DbStatus btree2LoadPage(DbMap *map, Btree2Set *set, uint8_t *key, uint32_t keyLen, uint8_t lvl) {
 Btree2Index *btree2 = btree2index(map);
-uint8_t drill = 0xff, *ptr;
-Btree2Page *prevPage = NULL;
-ObjId prevPageNo;
+uint8_t drill = 0xff;
 ObjId *pageNoPtr;
 
   set->pageNo.bits = btree2->root.bits;
-  pageNoPtr = fetchIdSlot (map, set->pageNo);
-  set->pageAddr.bits = pageNoPtr->bits;
-  prevPageNo.bits = 0;
 
-  //  start at our idea of the root level of the btree2 and drill down
+  //  start at the root level of the btree2 and drill down
 
   do {
-	set->parent.bits = prevPageNo.bits;
+	pageNoPtr = fetchIdSlot (map, set->pageNo);
+	set->pageAddr.bits = pageNoPtr->bits;
 	set->page = getObj(map, set->pageAddr);
 
-//	if( set->page->free )
-//		return DB_BTREE_error;
+	if( drill == 0xff )
+		drill = set->page->lvl;
 
 	assert(lvl <= set->page->lvl);
 
-	//  find key on page at this level
-	//  and descend to requested level
+	//  compare with fence key and
+	//  slide right to next page
 
-	if( (set->found = btree2FindSlot (set, key, keyLen)) ) {
-	  if( drill == lvl )
+	if( set->page->fence ) {
+		set->slot = slotptr(set->page, set->page->fence);
+
+		if( btree2KeyCmp (slotkey(set->slot), key, keyLen) < 0 ) {
+	  		set->pageNo.bits = set->page->right.bits;
+	  		continue;
+		}
+	}
+
+	if( drill == lvl )
 		return DB_OK;
 
-	  // find next non-dead slot -- the fence key if nothing else
+	//  find first key on page greater or equal to target key
+	//  and continue to next level
 
-	  btree2SkipDead (set);
-
-	  // get next page down
-
-	  ptr = slotkey(set->slot);
-	  set->pageNo.bits = btree2GetPageNo(ptr + keypre(ptr), keylen(ptr));
+	  btree2FindSlot (set, key, keyLen);
+	  set->pageNo.bits = btree2GetPageNo(set->slot);
 
 	  assert(drill > 0);
 	  drill--;
-	  continue;
-	}
-
-	//  or slide right into next page
-
-	set->pageNo.bits = set->page->right.bits;
   } while( set->pageNo.bits );
 
   // return error on end of right chain

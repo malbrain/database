@@ -2,7 +2,7 @@
 #include "btree2_slot.h"
 
 uint16_t btree2FillFwd(Btree2Cursor *cursor, Btree2Page *page, uint16_t findOff, uint32_t pageSize) {
-uint16_t off = page->skipHead[0], foundIdx = 0;
+uint16_t off = page->head[0], foundIdx = 0;
 Btree2Slot *slot;
 
 	memcpy (cursor->page, page, pageSize);
@@ -11,7 +11,7 @@ Btree2Slot *slot;
 	while( off ) {
 		slot = slotptr(page, off);
 
-		if( slot->slotState == Btree2_slotactive)
+		if( *slot->state == Btree2_slotactive)
 			cursor->listFwd[++cursor->listMax] = off;
 
 		if( off == findOff )
@@ -113,7 +113,7 @@ uint8_t *key;
 		off = cursor->listFwd[++cursor->listIdx];
 		slot = slotptr(cursor->page, off);
 
-		if( slot->slotState == Btree2_slotactive )
+		if( *slot->state == Btree2_slotactive )
 			key = slotkey(slot);
 		else
 			continue;
@@ -169,7 +169,7 @@ uint8_t *key;
 		off = cursor->listFwd[--cursor->listIdx];
 		slot = slotptr(cursor->page, off);
 
-		if( slot->slotState == Btree2_slotactive )
+		if( *slot->state == Btree2_slotactive )
 		  key = slotkey(slot);
 		else
 		  continue;
