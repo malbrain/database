@@ -38,10 +38,8 @@ uint16_t off;
 
 DbStatus btree2CleanPage(Handle *index, Btree2Set *set) {
 Btree2Index *btree2 = btree2index(index->map);
-uint16_t skipUnit = 1 << set->page->skipBits;
 uint16_t *tower, fwd[Btree2_maxskip];
 uint32_t size = btree2->pageSize;
-int type = set->page->pageType;
 Btree2Page *newPage;
 Btree2Slot *slot;
 DbAddr addr;
@@ -70,11 +68,12 @@ ObjId *pageNoPtr;
 
 	while( newPage->alloc->nxt < newPage->size / 2 && tower[0] ) {
 		slot = slotptr(set->page, tower[0]);
-		if( atomicCAS8(slot->state, Btree2_slotactive, Btree2_slotmoved) )
-		  if( (newPage->fence = btree2InstallSlot(index, newPage, slot, fwd)) )
-			tower = slot->tower;
-		  else
-			return DB_ERROR_indexnode;
+		if (atomicCAS8(slot->state, Btree2_slotactive, Btree2_slotmoved)) {
+			if ((newPage->fence = btree2InstallSlot(index, newPage, slot, fwd)))
+				tower = slot->tower;
+			else
+				return DB_ERROR_indexnode;
+		}
 	}
 
 	//	install new page addr into original pageNo slot
@@ -122,11 +121,12 @@ DbStatus stat;
 
 	while( leftPage->alloc->nxt > max && tower[0] ) {
 		lSlot = slotptr(set->page, tower[0]);
-		if( atomicCAS8(lSlot->state, Btree2_slotactive, Btree2_slotmoved) )
-		  if( (leftPage->fence = btree2InstallSlot(index, leftPage, lSlot, fwd)) )
-			tower = lSlot->tower;
-		  else
-			return DB_ERROR_indexnode;
+		if (atomicCAS8(lSlot->state, Btree2_slotactive, Btree2_slotmoved)) {
+			if ((leftPage->fence = btree2InstallSlot(index, leftPage, lSlot, fwd)))
+				tower = lSlot->tower;
+			else
+				return DB_ERROR_indexnode;
+		}
 	}
 
 	//	splice pages together
@@ -140,18 +140,22 @@ DbStatus stat;
 
 	while( rightPage->alloc->nxt > rightPage->size / 2 && tower[0] ) {
 		rSlot = slotptr(set->page, tower[0]);
-		if( atomicCAS8(rSlot->state, Btree2_slotactive, Btree2_slotmoved) )
-		  if( (rightPage->fence = btree2InstallSlot(index, rightPage, rSlot, fwd)) )
-			tower = rSlot->tower;
-		  else
-			return DB_ERROR_indexnode;
+		if( atomicCAS8(rSlot->state, Btree2_slotactive, Btree2_slotmoved) ) {
+			if ((rightPage->fence = btree2InstallSlot(index, rightPage, rSlot, fwd)))
+				tower = rSlot->tower;
+			else
+				return DB_ERROR_indexnode;
+		}
 	}
 
 	//	allocate a new pageNo for left page,
 	//	reuse existing pageNo for right page
 
-	lPageNo.bits = allocObjId(index->map, btree2->freePage, NULL);
-	pageNoPtr = fetchIdSlot (index->map, lPageNo);
+	if ((lPageNo.bits = btree2AllocPageNo(index)))
+		pageNoPtr = fetchIdSlot(index->map, lPageNo);
+	else
+		return DB_ERROR_outofmemory;
+
 	pageNoPtr->bits = left.bits;
 
 	//	install left page addr into original pageNo slot

@@ -19,19 +19,23 @@
 
 //	types of btree pages/allocations
 
-typedef enum{
-	Btree2_rootPage = 3,
-	Btree2_interior,
-	Btree2_leafPage,
-	MAXBtree2Type
+typedef enum {
+	Btree2_pageNo   = 1,
+	Btree2_leafPage = 2,
+	Btree2_interior = 3,
+	MAXBtree2Type,
 } Btree2PageType;
+
+//	page Attributes
+
+typedef enum {
+	Btree2_rootPage = 0x10,
+} Btree2PageAttribute;
 
 //	Btree2Index global data on disk
 
 typedef struct {
 	DbIndex base[1];
-	DbAddr freePage[MAXBtree2Type];	//
-	DbAddr pageNos[1];	// frames of recycled pageNo
 	uint32_t pageSize;
 	uint8_t pageBits;
 	uint8_t leafXtra;
@@ -66,6 +70,7 @@ typedef struct {
 	uint16_t garbage[1];	// page garbage in skip units
 	uint16_t size;		// page size in skip units
 	uint16_t fence;		// fence slot offset in skip units
+	uint8_t attributes;	// page attributes
 	uint8_t height;		// height of skip list
 	uint8_t lvl;		// level of page
 	uint8_t pageBits;
@@ -158,6 +163,7 @@ int btree2KeyCmp(uint8_t *key1, uint8_t *key2, uint32_t len2);
 void btree2FindSlot(Btree2Set *set, uint8_t *key, uint32_t keyLen);
 void btree2PutPageNo(Btree2Slot *slot, ObjId pageNo);
 uint64_t btree2GetPageNo(Btree2Slot *slot);
+uint64_t btree2AllocPageNo(Handle *index);
 
 uint16_t btree2AllocSlot(Btree2Page *page, uint16_t size);
 uint16_t btree2FillFwd(Btree2Cursor *cursor, Btree2Page *page, uint16_t findOff, uint32_t pageSize);

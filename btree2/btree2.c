@@ -54,27 +54,26 @@ DbAddr addr;
 	btree2->pageBits = (uint32_t)params[Btree2Bits].intVal;
 	btree2->leafXtra = (uint32_t)params[Btree2Xtra].intVal;
 
-	//	initial btree2 root & leaf pages
+	//	initial btree2 root/leaf page
 
 	if ((addr.bits = btree2NewPage(index, 0, Btree2_leafPage)))
 		page = getObj(index->map, addr);
 	else
 		return DB_ERROR_outofmemory;
 
-	if ((pageNo.bits = allocObjId(index->map, btree2->pageNos, NULL)))
+	if ((pageNo.bits = btree2AllocPageNo(index)))
 		pageSlot = fetchIdSlot(index->map, pageNo);
 	else
 		return DB_ERROR_outofmemory;
 
+	page->attributes = Btree2_rootPage;
 	pageSlot->bits = addr.bits;
-
-	//  set up new leaf page with stopper key
 
 	btree2->root.bits = pageNo.bits;
 	btree2->right.bits = addr.bits;
 	btree2->left.bits = addr.bits;
 
-	//  set up new root page with stopper key
+	// release arena
 
 	index->map->arena->type[0] = Hndl_btree2Index;
 	return DB_OK;

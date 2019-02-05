@@ -63,7 +63,7 @@ bool btree2SkipDead (Btree2Set *set) {
 
   while( *set->slot->state == Btree2_slotdeleted ) {
 	set->prevSlot[0] = set->off; 
-	if( set->off = set->slot->tower[0] )	// successor offset
+	if( (set->off = set->slot->tower[0]) )	// successor offset
 	  set->slot = slotptr(set->page, set->off);
 	else
 	  return 0;
