@@ -50,16 +50,6 @@ unsigned long height;
 	return height % Btree2_maxskip + 1;
 }
 
-//	allocate btree2 pageNo
-
-uint64_t btree2AllocPageNo (Handle *index) {
-	return allocObjId(index->map, listFree(index,ObjIdType), listWait(index,ObjIdType));
-}
-
-bool btree2RecyclePageNo (Handle *index, ObjId pageNo) {
-	 return addSlotToFrame(index->map, listHead(index,ObjIdType), listWait(index,ObjIdType), pageNo.bits);
-}
-
 uint16_t btree2SizeSlot (Btree2Page *page, uint32_t totKeySize, uint8_t height)
 {
 uint16_t amt = (uint16_t)(sizeof(Btree2Slot) + height * sizeof(uint16_t) + totKeySize);
@@ -89,10 +79,6 @@ union Btree2Alloc alloc[1], before[1];
 	} while( !atomicCAS32(page->alloc->word, *alloc->word, *before->word) );
 
 	return alloc->nxt;
-}
-
-bool btree2RecyclePage(Handle *index, int type, DbAddr addr) {
-	return addSlotToFrame(index->map, listHead(index,type), listWait(index,type), addr.bits);
 }
 
 //  find and load page at given level for given key

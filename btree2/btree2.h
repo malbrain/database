@@ -67,8 +67,8 @@ typedef struct {
 		uint8_t bytes[4];
 		uint32_t word[1];
 	} alloc[1];
+	uint32_t size;		// page size
 	uint16_t garbage[1];	// page garbage in skip units
-	uint16_t size;		// page size in skip units
 	uint16_t fence;		// fence slot offset in skip units
 	uint8_t attributes;	// page attributes
 	uint8_t height;		// height of skip list
@@ -153,7 +153,7 @@ DbStatus btree2DeleteKey(Handle *hndl, uint8_t *key, uint32_t keyLen);
 DbStatus btree2LoadPage(DbMap *map, Btree2Set *set, uint8_t *key, uint32_t keyLen, uint8_t lvl);
 
 uint64_t btree2AllocPage(Handle *index, int type, uint32_t size);
-uint64_t btree2NewPage (Handle *hndl, uint8_t lvl, Btree2PageType type);
+uint64_t btree2NewPage (Handle *hndl, uint8_t lvl);
 
 DbStatus btree2CleanPage(Handle *hndl, Btree2Set *set);
 DbStatus btree2SplitPage (Handle *hndl, Btree2Set *set);

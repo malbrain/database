@@ -39,15 +39,11 @@ uint16_t off;
 DbStatus btree2CleanPage(Handle *index, Btree2Set *set) {
 Btree2Index *btree2 = btree2index(index->map);
 uint16_t *tower, fwd[Btree2_maxskip];
-uint32_t size = btree2->pageSize;
+uint32_t size = btree2->pageSize, max;
 Btree2Page *newPage;
 Btree2Slot *slot;
 DbAddr addr;
 ObjId *pageNoPtr;
-
-
-	if( !set->page->lvl )
-		size <<= btree2->leafXtra;
 
 	//	skip cleanup and proceed directly to split
 	//	if there's not enough garbage
@@ -56,17 +52,18 @@ ObjId *pageNoPtr;
 	if( *set->page->garbage < size / 5 )
 		return btree2SplitPage(index, set);
 
-	if( (addr.bits = btree2NewPage(index, set->page->lvl, set->page->pageType)) )
+	if( (addr.bits = btree2NewPage(index, set->page->lvl)) )
 		newPage = getObj(index->map, addr);
 	else
 		return DB_ERROR_outofmemory;
 
 	//	copy over keys from old page into new page
 
-	memset (fwd, 0, sizeof(fwd));
+	max = newPage->size >> newPage->skipBits;
+	memset(fwd, 0, sizeof(fwd));
 	tower = set->page->head;
 
-	while( newPage->alloc->nxt < newPage->size / 2 && tower[0] ) {
+	while (newPage->alloc->nxt < max / 2 && tower[0]) {
 		slot = slotptr(set->page, tower[0]);
 		if (atomicCAS8(slot->state, Btree2_slotactive, Btree2_slotmoved)) {
 			if ((newPage->fence = btree2InstallSlot(index, newPage, slot, fwd)))
@@ -91,7 +88,6 @@ ObjId *pageNoPtr;
 //split set->page splice pages left to right
 
 DbStatus btree2SplitPage (Handle *index, Btree2Set *set) {
-Btree2Index *btree2 = btree2index(index->map);
 uint16_t *tower, fwd[Btree2_maxskip];
 Btree2Page *leftPage, *rightPage;
 uint8_t leftKey[Btree2_maxkey];
@@ -103,12 +99,12 @@ ObjId lPageNo;
 uint8_t *key;
 DbStatus stat;
 
-	if( (left.bits = btree2NewPage(index, set->page->lvl, set->page->pageType)) )
+	if( (left.bits = btree2NewPage(index, set->page->lvl)) )
 		leftPage = getObj(index->map, left);
 	else
 		return DB_ERROR_outofmemory;
 
-	if( (right.bits = btree2NewPage(index, set->page->lvl, set->page->pageType)) )
+	if( (right.bits = btree2NewPage(index, set->page->lvl)) )
 		rightPage = getObj(index->map, right);
 	else
 		return DB_ERROR_outofmemory;
@@ -117,9 +113,9 @@ DbStatus stat;
 
 	tower = set->page->head;
 	memset (fwd, 0, sizeof(fwd));
-	max = leftPage->size / 2 >> set->page->skipBits;
+	max = leftPage->size >> leftPage->skipBits;
 
-	while( leftPage->alloc->nxt > max && tower[0] ) {
+	while( leftPage->alloc->nxt > max / 2 && tower[0] ) {
 		lSlot = slotptr(set->page, tower[0]);
 		if (atomicCAS8(lSlot->state, Btree2_slotactive, Btree2_slotmoved)) {
 			if ((leftPage->fence = btree2InstallSlot(index, leftPage, lSlot, fwd)))
@@ -137,8 +133,9 @@ DbStatus stat;
 	//	copy over remaining slots from old page into new right page
 
 	memset (fwd, 0, sizeof(fwd));
+	max = rightPage->size >> rightPage->skipBits;
 
-	while( rightPage->alloc->nxt > rightPage->size / 2 && tower[0] ) {
+	while( rightPage->alloc->nxt > max / 2 && tower[0] ) {
 		rSlot = slotptr(set->page, tower[0]);
 		if( atomicCAS8(rSlot->state, Btree2_slotactive, Btree2_slotmoved) ) {
 			if ((rightPage->fence = btree2InstallSlot(index, rightPage, rSlot, fwd)))
