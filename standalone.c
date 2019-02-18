@@ -519,6 +519,7 @@ bool dropDb = false;
 bool noExit = false;
 bool noDocs = false;
 bool noIdx = false;
+bool pipeLine = false;
 
 char buf[512];
 ThreadArg *args;
@@ -531,7 +532,7 @@ int num = 0;
 	fprintf(stderr, "CWD: %s PageSize: %d, # Processors: %d, Allocation Granularity: %d\n\n", _getcwd(buf, 512), (int)info->dwPageSize, (int)info->dwNumberOfProcessors, (int)info->dwAllocationGranularity);
 #endif
 	if( argc < 3 ) {
-		fprintf (stderr, "Usage: %s db_name -cmds=[crwsdfiv]... -idxType=[012] -bits=# -xtra=# -inMem -debug -uniqueKeys -noDocs -noIdx -keyLen=# -minKey=abcd -maxKey=abce -drop -idxBinary src_file1 src_file2 ... ]\n", argv[0]);
+		fprintf (stderr, "Usage: %s db_name -cmds=[crwsdfiv]... -idxType=[012] -bits=# -xtra=# -inMem -debug -uniqueKeys -noDocs -noIdx -keyLen=# -minKey=abcd -maxKey=abce -drop -idxBinary -pipeline src_file1 src_file2 ... ]\n", argv[0]);
 		fprintf (stderr, "  where db_name is the prefix name of the database file\n");
 		fprintf (stderr, "  cmds is a string of (c)ount/(r)ev scan/(w)rite/(s)can/(d)elete/(f)ind/(v)erify/(i)terate, with a one character command for each input src_file, or a no-input command.\n");
 		fprintf (stderr, "  idxType is the type of index: 0 = ART, 1 = btree1, 2 = btree2\n");
@@ -546,6 +547,7 @@ int num = 0;
 		fprintf (stderr, "  drop will initially drop database\n");
 		fprintf (stderr, "  idxBinary utilize length counted fields\n");
 		fprintf (stderr, "  uniqueKeys ensure keys are unique\n");
+		fprintf (stderr, "  run cmds in a single threaded  pipeline\n");
 		fprintf (stderr, "  src_file1 thru src_filen are files of keys/documents separated by newline\n");
 		exit(0);
 	}
@@ -560,115 +562,121 @@ int num = 0;
 	memset (params, 0, sizeof(params));
 	params[Btree1Bits].intVal = 14;
 	params[OnDisk].boolVal = true;
-
 	params[Btree2Bits].intVal = 14;
 
-	// process configuration arguments
+// process configuration arguments
 
 	while (--argc > 0 && (++argv)[0][0] == '-')
-	  if (!memcmp(argv[0], "-xtra=", 6))
-			params[Btree1Xtra].intVal = atoi(argv[0] + 6);
-	  else if (!memcmp(argv[0], "-keyLen=", 8))
-			keyLen = atoi(argv[0] + 8);
-	  else if (!memcmp(argv[0], "-bits=", 6))
-			params[Btree1Bits].intVal = atoi(argv[0] + 6);
-	  else if (!memcmp(argv[0], "-cmds=", 6))
-			cmds = argv[0] + 6;
-	  else if (!memcmp(argv[0], "-debug", 6))
-			debug = true;
-	  else if (!memcmp(argv[0], "-drop", 5))
-			dropDb = true;
-	  else if (!memcmp(argv[0], "-noIdx", 6))
-			noIdx = true;
-	  else if (!memcmp(argv[0], "-noDocs", 7))
-			noDocs = true;
-	  else if (!memcmp(argv[0], "-noExit", 7))
-			noExit = true;
-	  else if (!memcmp(argv[0], "-uniqueKeys", 11))
-			params[IdxKeyUnique].boolVal = true;
-	  else if (!memcmp(argv[0], "-idxType=", 9))
-			params[IdxType].intVal = atoi(argv[0] + 9);
-	  else if (!memcmp(argv[0], "-inMem", 6))
-			params[OnDisk].boolVal = false;
-	  else if (!memcmp(argv[0], "-idxBinary", 10))
-			params[IdxKeyFlds].boolVal = true;
-	  else if (!memcmp(argv[0], "-minKey=", 8))
-			minKey = argv[0] + 8;
-	  else if (!memcmp(argv[0], "-maxKey=", 8))
-			maxKey = argv[0] + 8;
-	  else
-			fprintf(stderr, "Unknown option %s ignored\n", argv[0]);
-
-	cnt = argc;
-
-	initialize();
-
-	start = getCpuTime(0);
-
-#ifndef _WIN32
-	threads = malloc (cnt * sizeof(pthread_t));
-#else
-	threads = GlobalAlloc (GMEM_FIXED|GMEM_ZEROINIT, cnt * sizeof(HANDLE));
-#endif
-	args = malloc ((cnt ? cnt : 1) * sizeof(ThreadArg));
+  if (!memcmp(argv[0], "-xtra=", 6))
+	params[Btree1Xtra].intVal = atoi(argv[0] + 6);
+  else if (!memcmp(argv[0], "-keyLen=", 8))
+	keyLen = atoi(argv[0] + 8);
+  else if (!memcmp(argv[0], "-bits=", 6))
+	params[Btree1Bits].intVal = atoi(argv[0] + 6);
+  else if (!memcmp(argv[0], "-cmds=", 6))
+	cmds = argv[0] + 6;
+  else if (!memcmp(argv[0], "-debug", 6))
+	debug = true;
+  else if (!memcmp(argv[0], "-drop", 5))
+	dropDb = true;
+  else if (!memcmp(argv[0], "-noIdx", 6))
+	noIdx = true;
+  else if (!memcmp(argv[0], "-noDocs", 7))
+	noDocs = true;
+  else if (!memcmp(argv[0], "-pipeline", 9))
+	pipeLine = true;
+  else if (!memcmp(argv[0], "-noExit", 7))
+	noExit = true;
+  else if (!memcmp(argv[0], "-uniqueKeys", 11))
+	params[IdxKeyUnique].boolVal = true;
+  else if (!memcmp(argv[0], "-idxType=", 9))
+	params[IdxType].intVal = atoi(argv[0] + 9);
+  else if (!memcmp(argv[0], "-inMem", 6))
+	params[OnDisk].boolVal = false;
+  else if (!memcmp(argv[0], "-idxBinary", 10))
+	params[IdxKeyFlds].boolVal = true;
+  else if (!memcmp(argv[0], "-minKey=", 8))
+	minKey = argv[0] + 8;
+  else if (!memcmp(argv[0], "-maxKey=", 8))
+	maxKey = argv[0] + 8;
+  else
+	fprintf(stderr, "Unknown option %s ignored\n", argv[0]);
+  
+  cnt = argc;
+  
+  initialize();
+  
+  start = getCpuTime(0);
+  
+  #ifndef _WIN32
+  threads = malloc(cnt * sizeof(pthread_t));
+  #else
+  threads = GlobalAlloc(GMEM_FIXED | GMEM_ZEROINIT, cnt * sizeof(HANDLE));
+  #endif
+  args = malloc((cnt ? cnt : 1) * sizeof(ThreadArg));
 
 	openDatabase(database, dbName, (int)strlen(dbName), params);
 
-	//  drop the database?
+//  drop the database?
 
-	if (dropDb) {
-		dropArena(database, true);
-		openDatabase(database, dbName, (int)strlen(dbName), params);
-	}
+  if (dropDb) {
+	dropArena(database, true);
+	openDatabase(database, dbName, (int)strlen(dbName), params);
+  }
 
-	//	fire off threads
+  //	fire off threads
 
-	idx = 0;
+  idx = 0;
 
-	do {
-	  args[idx].database = database;
-	  args[idx].inFile = argv[idx];
-	  args[idx].minKey = minKey;
-	  args[idx].maxKey = maxKey;
-	  args[idx].params = params;
-	  args[idx].keyLen = keyLen;
-	  args[idx].noDocs = noDocs;
-	  args[idx].noExit = noExit;
-	  args[idx].noIdx = noIdx;
-	  args[idx].cmds = cmds;
-	  args[idx].num = num;
-	  args[idx].idx = idx;
+  do {
+	args[idx].database = database;
+	args[idx].inFile = argv[idx];
+	args[idx].minKey = minKey;
+	args[idx].maxKey = maxKey;
+	args[idx].params = params;
+	args[idx].keyLen = keyLen;
+	args[idx].noDocs = noDocs;
+	args[idx].noExit = noExit;
+	args[idx].noIdx = noIdx;
+	args[idx].cmds = cmds;
+	args[idx].num = num;
+	args[idx].idx = idx;
 
-	  if (cnt > 1) {
+	if (!pipeLine && cnt > 1) {
 #ifndef _WIN32
 		int err;
 
-		if((err = pthread_create (threads + idx, NULL, index_file, args + idx)))
-		  fprintf(stderr, "Error creating thread %d\n", err);
+		if ((err = pthread_create(threads + idx, NULL, index_file, args + idx)))
+			fprintf(stderr, "Error creating thread %d\n", err);
 #else
 		while (((int64_t)(threads[idx] = (HANDLE)_beginthreadex(NULL, 65536, index_file, args + idx, 0, NULL)) < 0LL))
-		  fprintf(stderr, "Error creating thread errno = %d\n", errno);
+			fprintf(stderr, "Error creating thread errno = %d\n", errno);
 
 #endif
 		continue;
-	  } else
-	  	//  if zero or one files specified,
-	  	//  run index_file once
+	}
 
-	  	index_file (args);
-	} while (++idx < cnt);
+	//  if pipeline or zero or one files specified,
+	//  run index_file once for each command
+
+	while ((pipeLine && args[0].idx < strlen(cmds))) {
+	  index_file(args);
+	  args[0].idx += 1;
+	}		  
+
+  } while (++idx < cnt);
 
 	// 	wait for termination
 
 #ifndef _WIN32
-	if (cnt > 1)
+	if (!pipeLine && cnt > 1)
 	  for( idx = 0; idx < cnt; idx++ )
 		pthread_join (threads[idx], NULL);
 #else
-	if (cnt > 1)
+	if (!pipeLine && cnt > 1)
 	  WaitForMultipleObjects (cnt, threads, TRUE, INFINITE);
 
-	if (cnt > 1)
+	if (!pipeLine && cnt > 1)
 	  for( idx = 0; idx < cnt; idx++ )
 		CloseHandle(threads[idx]);
 #endif
@@ -706,5 +714,4 @@ int num = 0;
 	fprintf(stderr, " user %dm%.3fs\n", (int)(elapsed/60), elapsed - (int)(elapsed/60)*60);
 	elapsed = getCpuTime(2);
 	fprintf(stderr, " sys  %dm%.3fs\n", (int)(elapsed/60), elapsed - (int)(elapsed/60)*60);
-
 }
