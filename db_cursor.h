@@ -16,7 +16,7 @@ typedef struct {
 	void *key;			// cursor key bytes
 	uint32_t xtra;		// size of user data
 	uint32_t keyLen;	// cursor key length
-	PosState state:8;	// cursor position state enum
+	PosState state;		// cursor position state enum
 	uint8_t foundKey;	// cursor position found the key
 	uint8_t binaryFlds;	// index keys have fields
 	uint8_t deDup;		// cursor will deDuplicate result set

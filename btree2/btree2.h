@@ -60,11 +60,12 @@ typedef enum {
 typedef struct {
 	union Btree2Alloc {
 		struct {
-			Btree2PageState state : 8;
+			uint8_t state;
 			uint8_t filler;
 			uint16_t nxt;	// next skip list storage unit
 		};
-		uint8_t bytes[4];
+        Btree2PageState disp:8;
+        uint8_t bytes[4];
 		uint32_t word[1];
 	} alloc[1];
 	uint32_t size;		// page size

@@ -50,25 +50,28 @@ unsigned long height;
 	return height % Btree2_maxskip + 1;
 }
 
+//	calculate amount (in skipBits) of space needed to install slot in page
+
 uint16_t btree2SizeSlot (Btree2Page *page, uint32_t totKeySize, uint8_t height)
 {
-uint16_t amt = (uint16_t)(sizeof(Btree2Slot) + height * sizeof(uint16_t) + totKeySize);
+uint32_t amt = (uint16_t)(sizeof(Btree2Slot) + height * sizeof(uint16_t) + totKeySize);
 
 	amt += (1LL << page->skipBits) - 1;
 	return amt >> page->skipBits;
 }
 
-// allocate space for new slot
+// allocate space for new slot (in skipBits units)
 //	return page offset or zero on overflow
 
 uint16_t btree2AllocSlot(Btree2Page *page, uint16_t size) {
+uint16_t base = (sizeof(*page) + (1 << page->skipBits) - 1) >> page->skipBits;
 union Btree2Alloc alloc[1], before[1];
 
 	do {
 		*before->word = *page->alloc->word;
 		*alloc->word = *before->word;
 
-		if( alloc->nxt > size && alloc->nxt - size > sizeof(*page) )
+		if( alloc->nxt > base + size )
 	  	  if( alloc->state == Btree2_pageactive )
 			alloc->nxt -= size;
 		  else

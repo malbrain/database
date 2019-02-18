@@ -31,6 +31,7 @@ uint32_t size;
 	//	allocate cursor page buffer
 
 	size = btree2->pageSize << btree2->leafXtra;
+	cursor->pageSize = size;
 
 	cursor->pageAddr.bits = db_rawAlloc(size, false);
 	cursor->page = db_memObj(cursor->pageAddr.bits);

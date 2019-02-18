@@ -342,7 +342,7 @@ Frame *frame;
 		break;
 
 	  if (map->arena->objSeg < map->arena->currSeg) {
-		map->arena->objSeg++;
+		map->arena->segs[++map->arena->objSeg].nextId.idx++;
 		continue;
 	  }
 
@@ -350,6 +350,7 @@ Frame *frame;
 	  	return false;
 
 	  map->arena->objSeg = map->arena->currSeg;
+	  map->arena->segs[map->arena->objSeg].nextId.idx++;
 	  break;
 	}
 

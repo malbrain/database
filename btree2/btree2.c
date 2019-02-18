@@ -77,8 +77,8 @@ DbAddr addr;
 	pageSlot->bits = addr.bits;
 
 	btree2->root.bits = pageNo.bits;
-	btree2->right.bits = addr.bits;
-	btree2->left.bits = addr.bits;
+	btree2->right.bits = pageNo.bits;
+	btree2->left.bits = pageNo.bits;
 
 	// release arena
 
