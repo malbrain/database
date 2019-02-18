@@ -95,14 +95,6 @@ typedef enum {
 	Btree2_slotdeleted,	// slot deleted
 } Btree2SlotState;
 
-//	tower values < (sizeof(Page) >> skipBits)
-//	are not allocated and are special instead
-
-typedef enum {
-	Btree2_towereof,			// not set yet / end-of-list
-	Btree2_towerbase			// last special value
-} Btree2TowerSlot;
-
 //	Page key slot definition.
 
 typedef struct {

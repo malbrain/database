@@ -1,6 +1,11 @@
 #include "btree2.h"
 #include "btree2_slot.h"
 
+//	strip key ordering into cursor listFwd
+//	index zero is left EOF, index 1 is first key,
+//  index listMax is last occupied index, 
+//  index listMax + 1 is right EOF.
+
 uint16_t btree2FillFwd(Btree2Cursor *cursor, Btree2Page *page, uint16_t findOff, uint32_t pageSize) {
 uint16_t off = page->towerHead[0], foundIdx = 0;
 Btree2Slot *slot;
@@ -84,7 +89,7 @@ Btree2Page *right;
 		return DB_ERROR_cursoroverflow;
 
 	btree2FillFwd(cursor, right, 0, pageSize);
-	cursor->listIdx = cursor->listMax;
+	cursor->listIdx = cursor->listMax + 1;
 	return DB_OK;
 }
 
@@ -137,7 +142,7 @@ uint8_t *key;
 		return DB_ERROR_cursoroverflow;
 
 	  btree2FillFwd(cursor, right, 0, pageSize);
-	  cursor->listIdx = cursor->listMax;
+	  cursor->listIdx = 0;
 	}
 
 	dbCursor->state = CursorRightEof;
@@ -193,7 +198,7 @@ uint8_t *key;
 		return DB_ERROR_cursoroverflow;
 
 	  btree2FillFwd(cursor, left, 0, pageSize);
-	  cursor->listIdx = cursor->listMax;
+	  cursor->listIdx = cursor->listMax + 1;
 	}
 
 	dbCursor->state = CursorLeftEof;
