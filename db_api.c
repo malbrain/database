@@ -24,7 +24,7 @@ int cursorSize[8] = {0, 0, 0, 0, sizeof(ArtCursor), sizeof(Btree1Cursor), sizeof
 extern DbMap memMap[1];
 
 extern void memInit(void);
-extern char hndlInit[1];
+extern DbAddr hndlInit[1];
 extern DbMap *hndlMap;
 extern char *hndlPath;
 
@@ -77,7 +77,7 @@ DbMap *map;
 
 	memset (hndl, 0, sizeof(DbHandle));
 
-	if (!(*hndlInit & TYPE_BITS))
+	if (!hndlInit->type)
 		initHndlMap(NULL, 0, NULL, 0, true, 0);
 
 	//	create second copy of rbEntry

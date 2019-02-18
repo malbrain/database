@@ -8,7 +8,7 @@
 
 //	Catalog/Handle arena
 
-char hndlInit[1];
+DbAddr hndlInit[1];
 DbMap *hndlMap;
 char *hndlPath;
 
@@ -22,10 +22,10 @@ DbAddr *slotHandle(ObjId hndlId) {
 void *initHndlMap(char *path, int pathLen, char *name, int nameLen, bool onDisk, uint32_t arenaXtra) {
 ArenaDef arenaDef[1];
 
-	lockLatch(hndlInit);
+	lockLatch(hndlInit->latch);
 
-	if (*hndlInit & TYPE_BITS) {
-		unlockLatch(hndlInit);
+	if (hndlInit->type) {
+		unlockLatch(hndlInit->latch);
 		return (uint8_t *)hndlMap->arena + sizeof(Catalog);
 	}
 
@@ -54,7 +54,7 @@ ArenaDef arenaDef[1];
 	hndlMap->db = hndlMap;
 
 	*hndlMap->arena->type = Hndl_catalog;
-	*hndlInit = Hndl_catalog;
+	hndlInit->type = Hndl_catalog;
 
 	return (uint8_t *)hndlMap->arena + sizeof(Catalog);
 }
@@ -71,7 +71,7 @@ DbAddr addr;
 
 	// first call?
 
-	if (!(*hndlInit & TYPE_BITS))
+	if (!hndlInit->type)
 		initHndlMap(NULL, 0, NULL, 0, true, 0);
 
 	// total size of the Handle structure

@@ -15,6 +15,7 @@
 #else
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <direct.h>
 #include <process.h>
 #endif
 
@@ -519,6 +520,7 @@ bool noExit = false;
 bool noDocs = false;
 bool noIdx = false;
 
+char buf[512];
 ThreadArg *args;
 double elapsed;
 double start;
@@ -526,7 +528,7 @@ int num = 0;
 
 #ifdef _WIN32
 	GetSystemInfo(info);
-	fprintf(stderr, "PageSize: %d, # Processors: %d, Allocation Granularity: %d\n\n", (int)info->dwPageSize, (int)info->dwNumberOfProcessors, (int)info->dwAllocationGranularity);
+	fprintf(stderr, "CWD: %s PageSize: %d, # Processors: %d, Allocation Granularity: %d\n\n", _getcwd(buf, 512), (int)info->dwPageSize, (int)info->dwNumberOfProcessors, (int)info->dwAllocationGranularity);
 #endif
 	if( argc < 3 ) {
 		fprintf (stderr, "Usage: %s db_name -cmds=[crwsdfiv]... -idxType=[012] -bits=# -xtra=# -inMem -debug -uniqueKeys -noDocs -noIdx -keyLen=# -minKey=abcd -maxKey=abce -drop -idxBinary src_file1 src_file2 ... ]\n", argv[0]);
@@ -558,6 +560,8 @@ int num = 0;
 	memset (params, 0, sizeof(params));
 	params[Btree1Bits].intVal = 14;
 	params[OnDisk].boolVal = true;
+
+	params[Btree2Bits].intVal = 14;
 
 	// process configuration arguments
 

@@ -1,6 +1,8 @@
 #include "btree2.h"
 #include "btree2_slot.h"
 
+bool btree2LinkTower(Btree2Page *page, uint16_t *prev, uint8_t *bitLatch, int idx, uint16_t off );
+
 DbStatus btree2InsertKey(Handle *index, uint8_t *key, uint32_t keyLen, uint8_t lvl, Btree2SlotState type) {
 uint8_t height = btree2GenHeight(index);
 uint32_t totKeyLen = keyLen, slotSize;
@@ -61,7 +63,7 @@ ObjId *pageNoPtr;
 
 	max = newPage->size >> newPage->skipBits;
 	memset(fwd, 0, sizeof(fwd));
-	tower = set->page->head;
+	tower = set->page->towerHead;
 
 	while (newPage->alloc->nxt < max / 2 && tower[0]) {
 		slot = slotptr(set->page, tower[0]);
@@ -81,7 +83,7 @@ ObjId *pageNoPtr;
 }
 
 // split the root and raise the height of the btree2
-// call with key for smaller half and right page addr and root statuslocked.
+// call with key for smaller half and right page addr and root status locked.
 
 // DbStatus btree2SplitRoot(Handle *index, Btree2Set *root, DbAddr right, uint8_t *leftKey) { }
 
@@ -111,7 +113,7 @@ DbStatus stat;
 
 	//	copy over smaller first half keys from old page into new left page
 
-	tower = set->page->head;
+	tower = set->page->towerHead;
 	memset (fwd, 0, sizeof(fwd));
 	max = leftPage->size >> leftPage->skipBits;
 
@@ -274,7 +276,7 @@ int idx;
 		prev = slotptr(page, fwd[idx]);
 		prev->tower[idx] = off;
 	  } else
-		page->head[idx] = off;
+		page->towerHead[idx] = off;
 
 	  fwd[idx] = off;
 	}
@@ -282,13 +284,15 @@ int idx;
 	return off;
 }
 
-//	install new key onto page at given offset
+//	install new key onto page at assigned offset
 
-bool btree2InstallKey (Handle *index, Btree2Set *set, uint16_t off, uint8_t *key, uint32_t keyLen, uint8_t height) {
-Btree2Slot *slot = slotptr(set->page, off);
+DbStatus btree2InstallKey (Handle *index, Btree2Set *set, uint16_t off, uint8_t *key, uint32_t keyLen, uint8_t height) {
+Btree2Slot *slot = slotptr(set->page, off), *prev;
+uint16_t prevFwd;
 uint8_t *ptr;
+int idx;
 
-	// copy slot onto page
+	// install slot into page
 
 	ptr = slotkey(slot);
 
@@ -300,8 +304,95 @@ uint8_t *ptr;
 	//	fill in new slot attributes
 
 	memcpy (ptr, key, keyLen);
-	*slot->state = Btree2_slotfill;
+	*slot->state = Btree2_slotactive;
 	slot->height = height;
-	return true;
+
+	//  splice new slot into tower structure
+
+	for( idx = 0; idx < height; ) {
+
+		//	prevSlot[idx] > 0 => prevFwd is last key smaller than new key
+		//	scan right from prevFwd until next slot has a larger key
+
+		if( (prevFwd = set->prevSlot[idx]) ) {
+			prev = slotptr(set->page, prevFwd); 
+
+			if( btree2LinkTower(set->page, prev->tower, prev->bitLatch, idx, off) )
+				idx += 1;
+
+			continue;
+
+		//	page->towerHead[idx] > 0 => prevFwd is smallest key in the index
+		//	lock page->bitLatch 
+
+		} else if( set->page->towerHead[idx] ) {
+			if( btree2LinkTower(set->page, set->page->towerHead, set->page->bitLatch, idx, off ) )
+				idx += 1;
+
+			continue;
+
+		//	both above failed => add first key in empty index
+
+		} else {
+			lockLatchGrp (set->page->bitLatch, idx);
+
+			if( set->page->towerHead[idx] ) {
+				unlockLatchGrp(set->page->bitLatch, idx);
+				continue;
+			}
+
+			set->page->towerHead[idx] = off;
+			unlockLatchGrp (set->page->bitLatch, idx++);
+			continue;
+		}
+	}
+
+	return DB_OK;
 }
 
+//	link slot into one lvl of tower list
+
+bool btree2LinkTower(Btree2Page *page, uint16_t *tower, uint8_t *bitLatch, int idx, uint16_t off ) {
+Btree2Slot *next, *slot = slotptr(page, off);
+uint8_t *key = slotkey(slot), *prevLatch = NULL;
+uint32_t keyLen = keylen(key);
+uint16_t *prevTower;
+
+  do {
+	lockLatchGrp(bitLatch, idx);
+
+	if( tower[idx] )
+		next = slotptr(page, tower[idx]);
+	else
+		break;
+
+	if( prevLatch )
+		unlockLatchGrp (prevLatch, idx);
+
+	prevLatch = bitLatch;
+	prevTower = tower;
+
+	bitLatch = next->bitLatch;
+	tower = next->tower;
+
+	//  if another node was inserted on the left,
+	//	continue to the right until it is greater
+
+	//  compare two keys, return > 0, = 0, or < 0
+	//  =0: all key fields are same
+	//  -1: key2 > key1
+	//  +1: key2 < key1
+
+  } while( btree2KeyCmp (slotkey(next), key, keyLen) > 0 );
+
+	//  link forward pointers
+
+	slot->tower[idx] = tower[idx];
+	tower[idx] = off;
+
+	if( prevLatch )
+		unlockLatchGrp (prevLatch, idx);
+
+	unlockLatchGrp(bitLatch, idx);
+	return true;
+}

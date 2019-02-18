@@ -28,6 +28,7 @@ DbAddr addr;
 		return 0;
   
 	page->alloc->nxt = (size >> btree2->skipBits) - 1;
+	page->alloc->state = Btree2_pageactive;
 	page->pageBits = btree2->pageBits;
 	page->leafXtra = btree2->leafXtra;
 	page->skipBits = btree2->skipBits;
@@ -35,7 +36,7 @@ DbAddr addr;
 	page->size = size;
 	page->lvl = lvl;
 
-	return addr.bits;
+ 	return addr.bits;
 }
 
 //	initialize btree2 root page
@@ -46,12 +47,12 @@ ObjId pageNo, *pageSlot;
 Btree2Page *page;
 DbAddr addr;
 
-	if (params[Btree2Bits].intVal > Btree2_maxbits) {
+	if (params[Btree2Bits].intVal > Btree2_maxbits || params[Btree2Bits].intVal < Btree2_minbits ) {
 		fprintf(stderr, "createIndex: bits = %" PRIu64 " > max = %d\n", params[Btree2Bits].intVal, Btree2_maxbits);
 		exit(1);
 	}
 
-	if (params[Btree2Bits].intVal + params[Btree2Xtra].intVal > Btree2_maxbits) {
+	if (params[Btree2Bits].intVal + params[Btree2Xtra].intVal > Btree2_maxbits || params[Btree2Bits].intVal < Btree2_minbits ) {
 		fprintf(stderr, "createIndex: bits = %" PRIu64 " + xtra = %" PRIu64 " > max = %d\n", params[Btree2Bits].intVal, params[Btree2Xtra].intVal, Btree2_maxbits);
 		exit(1);
 	}

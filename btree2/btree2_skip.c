@@ -31,7 +31,7 @@ int ans;
 void btree2FindSlot (Btree2Set *set, uint8_t *key, uint32_t keyLen)
 {
 uint8_t height = set->page->height;
-uint16_t *tower = set->page->head;
+uint16_t *tower = set->page->towerHead;
 int result;
 
 	//	Starting at the head tower go down or right after each comparison

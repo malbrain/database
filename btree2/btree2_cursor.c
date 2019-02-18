@@ -2,7 +2,7 @@
 #include "btree2_slot.h"
 
 uint16_t btree2FillFwd(Btree2Cursor *cursor, Btree2Page *page, uint16_t findOff, uint32_t pageSize) {
-uint16_t off = page->head[0], foundIdx = 0;
+uint16_t off = page->towerHead[0], foundIdx = 0;
 Btree2Slot *slot;
 
 	memcpy (cursor->page, page, pageSize);

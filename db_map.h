@@ -23,8 +23,8 @@ uint64_t allocFrame(DbMap *map);
 
 void lockAddr(volatile uint64_t* bits);
 void unlockAddr(volatile uint64_t* bits);
-void lockLatch(volatile char* latch);
-void unlockLatch(volatile char* latch);
+void lockLatchGrp(volatile char* latch, int bitNo);
+void unlockLatchGrp(volatile char* latch, int bitNo);
 void waitNonZero(volatile char *zero);
 void waitNonZero32(volatile uint32_t *zero);
 void waitNonZero64(volatile uint64_t *zero);
@@ -32,6 +32,9 @@ void waitZero(volatile char *zero);
 void waitZero32(volatile uint32_t *zero);
 void waitZero64(volatile uint64_t *zero);
 void art_yield(void);
+
+#define lockLatch(latch) lockLatchGrp(latch, 0)
+#define unlockLatch(latch) unlockLatchGrp(latch, 0)
 
 /**
  * atomic integer ops

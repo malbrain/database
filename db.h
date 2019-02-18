@@ -38,9 +38,9 @@ typedef union {
 		uint16_t segment;	// arena segment number
 		union {
 			struct {
-				uint8_t type:6;		// object type
-				uint8_t kill:1;		// kill entry
-				uint8_t mutex:1;	// mutex bit
+				uint8_t mutex :1;	// mutex bit
+				uint8_t kill  :1;	// kill entry
+				uint8_t type  :6;	// object type
 			};
 			volatile char latch[1];
 		};
@@ -57,14 +57,14 @@ typedef union {
 	uint64_t bits;
 } DbAddr;
 
-#define TYPE_SHIFT (6*8)		// number of bits to shift type left
-#define MUTEX_BIT  0x80
-#define DEAD_BIT   0x80
-#define KILL_BIT   0x40
-#define TYPE_BITS  0x3f
+#define TYPE_SHIFT (6*8 + 2)	// number of bits to shift type left and zero all bits
+#define BYTE_SHIFT (2)			// number of bits to shift type left and zero latch
+#define MUTEX_BIT  0x01
+#define KILL_BIT   0x02
+#define TYPE_BITS  0xFC
 
-#define ADDR_MUTEX_SET	0x0080000000000000ULL
-#define ADDR_KILL_SET	0x0040000000000000ULL
+#define ADDR_MUTEX_SET	0x0001000000000000ULL
+#define ADDR_KILL_SET	0x0002000000000000ULL
 #define ADDR_BITS		0x0000ffffffffffffULL
 
 typedef union {

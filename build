@@ -1,1 +1,1 @@
-cc -D _GNU_SOURCE -O2 -g -o dbtest db*.c artree/*.c btree1/*.c btree2/*.c standalone.c -lpthread -latomic
+gcc -O2 -g -o dbtest db*.c artree/*.c btree1/*.c btree2/*.c standalone.c -lpthread -latomic

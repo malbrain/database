@@ -81,7 +81,8 @@ typedef struct {
 	ObjId pageNo;		// page number
 	ObjId right;		// page to right
 	ObjId left;			// page to left
-	uint16_t head[Btree2_maxskip];
+	uint8_t bitLatch[Btree2_maxskip / 8];
+	uint16_t towerHead[Btree2_maxskip];
 } Btree2Page;
 
 //	Slot types
@@ -91,7 +92,6 @@ typedef enum {
 	Btree2_slotactive,	// slot active
 	Btree2_slotmoved,	// slot copied into new page version
 	Btree2_slotdeleted,	// slot deleted
-	Btree2_slotfill,	// slot tower fill
 } Btree2SlotState;
 
 //	tower values < (sizeof(Page) >> skipBits)
@@ -105,10 +105,9 @@ typedef enum {
 //	Page key slot definition.
 
 typedef struct {
-	uint8_t latch[1];
-	uint8_t filler;
 	uint8_t height;		// final tower height
 	uint8_t state[1];
+	uint8_t bitLatch[Btree2_maxskip / 8];
 	uint16_t tower[1];	// skip list tower
 } Btree2Slot;
 
@@ -158,6 +157,7 @@ uint64_t btree2NewPage (Handle *hndl, uint8_t lvl);
 DbStatus btree2CleanPage(Handle *hndl, Btree2Set *set);
 DbStatus btree2SplitPage (Handle *hndl, Btree2Set *set);
 DbStatus btree2FixKey (Handle *hndl, uint8_t *fenceKey, uint8_t lvl);
+DbStatus btree2InstallKey(Handle *index, Btree2Set *set, uint16_t off, uint8_t *key, uint32_t keyLen, uint8_t height);
 
 int btree2KeyCmp(uint8_t *key1, uint8_t *key2, uint32_t len2);
 void btree2FindSlot(Btree2Set *set, uint8_t *key, uint32_t keyLen);
@@ -174,5 +174,4 @@ uint8_t btree2GenHeight(Handle *index);
 bool btree2RecyclePage(Handle *index, int type, DbAddr page);
 bool btree2RecyclePageNo(Handle *ind6x, ObjId pageNo);
 bool btree2SkipDead(Btree2Set *set);
-bool btree2InstallKey(Handle *index, Btree2Set *set, uint16_t off, uint8_t *key, uint32_t keyLen, uint8_t height);
 bool btree2DeadTower(Btree2Set *set);

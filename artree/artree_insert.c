@@ -430,7 +430,7 @@ uint8_t bits;
 
 		// clear mutex & set kill bits
 
-		*slot->latch = slot->type | KILL_BIT;
+		*slot->latch = slot->type << BYTE_SHIFT | KILL_BIT;
 	}
 
 #ifdef _WIN32
@@ -543,7 +543,7 @@ uint16_t bits;
 
 		// clear mutex & set kill bits
 
-		*slot->latch = slot->type | KILL_BIT;
+		*slot->latch = slot->type << BYTE_SHIFT | KILL_BIT;
 	}
 #ifdef _WIN32
 	_BitScanForward64((DWORD *)&out, ~radix64Node->alloc);
@@ -644,7 +644,7 @@ uint32_t idx, out;
 
 		// clear mutex & set kill bits
 
-		*slot->latch = slot->type | KILL_BIT;
+		*slot->latch = slot->type << BYTE_SHIFT | KILL_BIT;
 	  }
 
 	// fill in the rest of the key bytes into Span nodes
@@ -831,7 +831,7 @@ ARTNode4 *radix4Node;
 
 	// turn off mutex & set kill bits
 
-	*node->next->latch = node->next->type | KILL_BIT;
+	*node->next->latch = node->next->type << BYTE_SHIFT | KILL_BIT;
 	assert(p->newSlot->bits > 0);
 
 	// fill in the rest of the key into overflow span nodes
