@@ -2,21 +2,25 @@
 
 DbStatus btree1InsertSlot (Btree1Set *set, uint8_t *key, uint32_t keyLen, Btree1SlotType type);
 
-DbStatus btree1InsertKey(Handle *index, void *key, uint32_t keyLen, uint8_t lvl, Btree1SlotType type) {
-uint32_t totKeyLen = keyLen;
+DbStatus btree1InsertKey(Handle *index, void *key, uint32_t keyLen, uint64_t suffixValue, uint8_t lvl, Btree1SlotType type) {
+Btree1Index *btree1 = btree1index(index->map);
+uint8_t keyBuff[MAX_key];
 Btree1Set set[1];
 DbStatus stat;
 
-	if (keyLen < 128)
-		totKeyLen += 1;
-	else
-		totKeyLen += 2;
+	if (keyLen > MAX_key)
+		return DB_ERROR_keylength;
+
+	memcpy(keyBuff, key, keyLen);
+	keyLen += store64(keyBuff, keyLen, suffixValue, btree1->base->binaryFlds);
+
+	memset(set, 0, sizeof(set));
 
 	while (true) {
-	  if ((stat = btree1LoadPage(index->map, set, key, keyLen - (lvl ? sizeof(uint64_t) : 0), lvl, Btree1_lockWrite, false)))
+	  if ((stat = btree1LoadPage(index->map, set, keyBuff, keyLen, lvl, Btree1_lockWrite, false)))
 		return stat;
 
-	  if ((stat = btree1CleanPage(index, set, totKeyLen))) {
+	  if ((stat = btree1CleanPage(index, set, keyLen))) {
 		if (stat == DB_BTREE_needssplit) {
 		  if ((stat = btree1SplitPage(index, set)))
 			return stat;
@@ -28,7 +32,7 @@ DbStatus stat;
 
 	  // add the key to the page
 
-	  return btree1InsertSlot (set, key, keyLen, type);
+	  return btree1InsertSlot (set, keyBuff, keyLen, type);
 	}
 
 	return DB_OK;

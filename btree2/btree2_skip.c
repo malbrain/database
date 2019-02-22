@@ -30,19 +30,19 @@ int ans;
 
 void btree2FindSlot (Btree2Set *set, uint8_t *key, uint32_t keyLen)
 {
-uint8_t height = set->page->height;
+uint8_t idx = *set->page->height;
 uint16_t *tower = set->page->towerHead;
 int result;
 
 	//	Starting at the head tower go down or right after each comparison
 
-	while( height-- ) {
+	while( idx-- ) {
 	  set->off = 0;			// page head tower
 
 	  do {
-		set->prevSlot[height] = set->off;
+		set->prevSlot[idx] = set->off;
 
-		if( (set->off = tower[height]) ) {
+		if( (set->off = tower[idx]) ) {
 			set->slot = slotptr(set->page, set->off);	// go right
 			tower = set->slot->tower;
 			result = btree2KeyCmp (slotkey(set->slot), key, keyLen); 
@@ -51,7 +51,7 @@ int result;
 
 	  } while( result < 0 );
 
-	  set->nextSlot[height] = set->off;
+	  set->nextSlot[idx] = set->off;
 	}
 
 	set->found = !result;

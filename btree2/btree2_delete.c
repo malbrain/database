@@ -18,7 +18,7 @@ DbStatus stat;
 		return stat;
 
 	if( set->found )
-	  if( atomicCAS8(set->slot->state, Btree2_slotdeleted, Btree2_slotactive) )
+	  if( atomicCAS8(set->slot->state, Btree2_slotactive, Btree2_slotdeleted) )
 		btree2DeadTower(set);
 
 	return DB_OK;

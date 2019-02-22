@@ -72,7 +72,7 @@ typedef struct {
 	uint16_t garbage[1];	// page garbage in skip units
 	uint16_t fence;		// fence slot offset in skip units
 	uint8_t attributes;	// page attributes
-	uint8_t height;		// height of skip list
+	uint8_t height[1];	// height of skip list
 	uint8_t lvl;		// level of page
 	uint8_t pageBits;
 	uint8_t leafXtra;
@@ -98,10 +98,10 @@ typedef enum {
 //	Page key slot definition.
 
 typedef struct {
-	uint8_t height;		// final tower height
+	uint8_t height;		// final tower height 
 	uint8_t state[1];
 	uint8_t bitLatch[Btree2_maxskip / 8];
-	uint16_t tower[1];	// skip list tower
+	uint16_t tower[];	// skip list tower
 } Btree2Slot;
 
 typedef struct {
@@ -127,7 +127,7 @@ typedef struct {
 	uint16_t listFwd[Btree2_maxslots];
 } Btree2Cursor;
 
-#define btree2index(map) ((Btree2Index *)(map->arena + 1))
+#define btree2index(map) ((Btree2Index *)(map + 1))
 
 DbStatus btree2NewCursor(DbCursor *cursor, DbMap *map);
 DbStatus btree2ReturnCursor(DbCursor *dbCursor, DbMap *map);
@@ -140,7 +140,7 @@ DbStatus btree2NextKey (DbCursor *cursor, DbMap *map);
 DbStatus btree2PrevKey (DbCursor *cursor, DbMap *map);
 
 DbStatus btree2Init(Handle *hndl, Params *params);
-DbStatus btree2InsertKey(Handle *hndl, uint8_t *key, uint32_t keyLen, uint8_t lvl, Btree2SlotState state);
+DbStatus btree2InsertKey(Handle *hndl, uint8_t *key, uint32_t keyLen, uint64_t suffixValue, uint8_t lvl, Btree2SlotState state);
 DbStatus btree2DeleteKey(Handle *hndl, uint8_t *key, uint32_t keyLen);
 DbStatus btree2LoadPage(DbMap *map, Btree2Set *set, uint8_t *key, uint32_t keyLen, uint8_t lvl);
 

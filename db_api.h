@@ -16,6 +16,7 @@
 typedef struct {
 	uint64_t numKeys[1];	// number of keys in index
 	uint32_t xtra;			// amount of user space
+    bool binaryFlds;		// keys made with field values
 } DbIndex;
 
 typedef enum {
@@ -53,7 +54,7 @@ DbStatus positionCursor(DbHandle hndl[1], CursorOp op, void *key, uint32_t keyLe
 DbStatus keyAtCursor(DbHandle cursor[1], void **key, uint32_t *keyLen);
 DbStatus moveCursor(DbHandle hndl[1], CursorOp op);
 
-DbStatus insertKey(DbHandle hndl[1], void *key, uint32_t len, uint32_t suffixLen);
+DbStatus insertKey(DbHandle hndl[1], void *key, uint32_t len, uint64_t suffix);
 DbStatus deleteKey(DbHandle hndl[1], void *key, uint32_t len);
 
 uint64_t arenaAlloc(DbHandle arenaHndl[1], uint32_t size, bool zeroit, bool dbArena);

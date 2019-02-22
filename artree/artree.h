@@ -106,7 +106,8 @@ typedef struct {
  */
 
 typedef struct {
-	DbAddr root[1];		// root of the arttree
+  DbIndex base[1];
+  DbAddr root[1];  // root of the arttree
 } ArtIndex;
 
 typedef struct {
@@ -155,7 +156,7 @@ DbStatus artPrevKey(DbCursor *dbCursor, DbMap *map);
 
 DbStatus artInit(Handle *hndl, Params *params);
 DbStatus artDeleteKey (Handle *hndl, void *key, uint32_t keyLen, uint32_t uniqueLen);
-DbStatus artInsertKey (Handle *hndl, void *key, uint32_t keyLen);
+DbStatus artInsertKey (Handle *hndl, void *key, uint32_t keyLen, uint64_t suffixValue);
 DbStatus artInsertUniq (Handle *hndl, void *key, uint32_t keyLen, uint32_t uniqueLen, UniqCbFcn *fcn, uint8_t *defer);
 DbStatus artEvalUniq( DbMap *map, void *key, uint32_t keyLen, uint32_t uniqueLen, UniqCbFcn *evalFcn);
 

@@ -175,15 +175,15 @@ DbIndex *index;
 	switch (type) {
 	case Hndl_artIndex:
 		arenaDef->numTypes = MaxARTType;
-		arenaDef->baseSize = sizeof(DbIndex) + sizeof(ArtIndex) + xtra;
+		arenaDef->baseSize = sizeof(ArtIndex) + xtra;
 		break;
 	case Hndl_btree1Index:
 		arenaDef->numTypes = MAXBtree1Type;
-		arenaDef->baseSize = sizeof(DbIndex) + sizeof(Btree1Index) + xtra;
+		arenaDef->baseSize = sizeof(Btree1Index) + xtra;
 		break;
 	case Hndl_btree2Index:
 		arenaDef->numTypes = MAXBtree2Type;
-		arenaDef->baseSize = sizeof(DbIndex) + sizeof(Btree2Index) + xtra;
+		arenaDef->baseSize = sizeof(Btree2Index) + xtra;
 		break;
 	default:
 		releaseHandle(parentHndl, docHndl);
@@ -204,6 +204,8 @@ DbIndex *index;
 
 	if (*map->arena->type)
 		goto createXit;
+
+	// each arena map is followed by a DbIndex base instance
 
 	index = (DbIndex *)(map->arena + 1);
 	index->xtra = xtra;
@@ -605,7 +607,7 @@ bool uniqueKey(DbMap *map, DbCursor *dbCursor) {
 	return true;
 }
 
-DbStatus insertKey(DbHandle hndl[1], void *key, uint32_t len, uint32_t suffixLen) {
+DbStatus insertKey(DbHandle hndl[1], void *key, uint32_t len, uint64_t suffixValue) {
 DbStatus stat = DB_OK;
 Handle *idxHndl;
 DbIndex *index;
@@ -615,21 +617,21 @@ DbIndex *index;
 
 	switch (*idxHndl->map->arena->type) {
 	case Hndl_artIndex: {
-		uint8_t defer = idxHndl->map->arenaDef->params[IdxKeyDeferred].boolVal;
+		bool defer = idxHndl->map->arenaDef->params[IdxKeyDeferred].boolVal;
 
 		if (idxHndl->map->arenaDef->params[IdxKeyUnique].boolVal)
-			stat = artInsertUniq(idxHndl, key, len, suffixLen, uniqueKey, &defer);
+			stat = artInsertUniq(idxHndl, key, len, suffixValue, uniqueKey, &defer);
 		else
-			stat = artInsertKey(idxHndl, key, len + suffixLen);
+			stat = artInsertKey(idxHndl, key, len, suffixValue);
 		break;
 	}
 
 	case Hndl_btree1Index:
-		stat = btree1InsertKey(idxHndl, key, len, 0, Btree1_indexed);
+		stat = btree1InsertKey(idxHndl, key, len, suffixValue, 0, Btree1_indexed);
 		break;
 
 	case Hndl_btree2Index:
-		stat = btree2InsertKey(idxHndl, key, len, 0, Btree2_slotactive);
+		stat = btree2InsertKey(idxHndl, key, len, suffixValue, 0, Btree2_slotactive);
 		break;
 	}
 

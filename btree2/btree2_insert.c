@@ -3,28 +3,31 @@
 
 bool btree2LinkTower(Btree2Page *page, uint16_t *prev, uint8_t *bitLatch, int idx, uint16_t off );
 
-DbStatus btree2InsertKey(Handle *index, uint8_t *key, uint32_t keyLen, uint8_t lvl, Btree2SlotState type) {
+DbStatus btree2InsertKey(Handle *index, uint8_t *key, uint32_t keyLen, uint64_t suffixValue, uint8_t lvl, Btree2SlotState type) {
+Btree2Index *btree2 = btree2index(index->map);
 uint8_t height = btree2GenHeight(index);
-uint32_t totKeyLen = keyLen, slotSize;
+uint8_t keyBuff[MAX_key];
+uint32_t slotSize;
 Btree2Set set[1];
 DbStatus stat;
 uint16_t off;
 
-	if (keyLen < 128)
-		totKeyLen += 1;
-	else
-		totKeyLen += 2;
+	if (keyLen > MAX_key)
+		return DB_ERROR_keylength;
+
+	memcpy(keyBuff, key, keyLen);
+    keyLen += store64 (keyBuff, keyLen, suffixValue, btree2->base->binaryFlds);
 
 	memset(set, 0, sizeof(set));
 
 	while (true) {
-	  if ((stat = btree2LoadPage(index->map, set, key, keyLen, lvl)))
+	  if ((stat = btree2LoadPage(index->map, set, keyBuff, keyLen, lvl)))
 		return stat;
 
-	  slotSize = btree2SizeSlot(set->page, totKeyLen, height);
+	  slotSize = btree2SizeSlot(set->page, keyLen, height);
 
 	  if( (off = btree2AllocSlot(set->page, slotSize)) )
-	    return btree2InstallKey (index, set, off, key, keyLen, height);
+	    return btree2InstallKey (index, set, off, keyBuff, keyLen, height);
 
 	  if ((stat = btree2CleanPage(index, set)))
 		return stat;
@@ -87,7 +90,12 @@ ObjId *pageNoPtr;
 
 // DbStatus btree2SplitRoot(Handle *index, Btree2Set *root, DbAddr right, uint8_t *leftKey) { }
 
-//split set->page splice pages left to right
+//	split set->page and splice two new pages left and right
+//	reuse existiing pageNo for new left page until proper left fence key
+//	is installed in parent with the new left pageNo, then switch original pageNo
+//	to point at new right page.
+
+//	Note:  this function has been optimized and is not thread safe. (the fwd array in specific)
 
 DbStatus btree2SplitPage (Handle *index, Btree2Set *set) {
 uint16_t *tower, fwd[Btree2_maxskip];
@@ -174,22 +182,11 @@ DbStatus stat;
 	keyLen = keylen(key);
 
 	if( set->page->lvl)
-		keyLen -= sizeof(uint64_t);		// strip off pageNo
-
-	if( keyLen + sizeof(uint64_t) < 128 )
-		off = 1;
-	else
-		off = 2;
-
-	//	copy leftkey and add its pageNo
-
-	memcpy (leftKey + off, key + keypre(key), keyLen);
-	btree2PutPageNo(lSlot,  lPageNo);
-	keyLen += sizeof(uint64_t);
+		keyLen -= size64(key, keyLen);		// strip off pageNo
 
 	//	insert key for left page in parent
 
-	if( (stat = btree2InsertKey(index, leftKey, keyLen, set->page->lvl + 1, Btree2_slotactive)) )
+	if( (stat = btree2InsertKey(index, key, keyLen, lPageNo.bits, set->page->lvl + 1, Btree2_slotactive)) )
 		return stat;
 
 	//	install right page addr into original pageNo slot
@@ -209,32 +206,8 @@ DbStatus stat;
 	return DB_OK;
 }
 
-//	update page's fence key in its parent
-
-DbStatus btree2FixKey (Handle *index, uint8_t *fenceKey, uint8_t lvl) {
-uint32_t keyLen = keylen(fenceKey);
-Btree2Set set[1];
-uint8_t *ptr;
-DbStatus stat;
-
-	memset (set, 0, sizeof(*set));
-
-	if ((stat = btree2LoadPage(index->map, set, fenceKey + keypre(fenceKey), keyLen - sizeof(uint64_t), lvl)))
-		return stat;
-
-	ptr = slotkey(set->slot);
-
-	// update child pageNo
-
-	assert(!memcmp(ptr, fenceKey, keyLen + keypre(fenceKey) - sizeof(uint64_t)));
-	assert(keylen(ptr) == keyLen);
-
-	memcpy(ptr + keypre(ptr) + keylen(ptr) - sizeof(uint64_t), fenceKey + keypre(fenceKey) + keyLen - sizeof(uint64_t), sizeof(uint64_t));
-
-	return DB_OK;
-}
-
 //	move slot from one page to another page
+//	note:  this function is not thread safe
 
 uint16_t btree2InstallSlot (Handle *index, Btree2Page *page, Btree2Slot *source, uint16_t *fwd) {
 uint8_t height = btree2GenHeight(index);
@@ -281,15 +254,19 @@ int idx;
 	  fwd[idx] = off;
 	}
 
+	if( height > *page->height )
+		*page->height = height;
+
 	return off;
 }
 
-//	install new key onto page at assigned offset
+//	install new key onto page at assigned offset,  fill-in skip list tower slots
+//	this function IS thread safe, and uses latches for synchronization
 
 DbStatus btree2InstallKey (Handle *index, Btree2Set *set, uint16_t off, uint8_t *key, uint32_t keyLen, uint8_t height) {
 Btree2Slot *slot = slotptr(set->page, off), *prev;
+uint8_t *ptr, prevHeight;
 uint16_t prevFwd;
-uint8_t *ptr;
 int idx;
 
 	// install slot into page
@@ -306,6 +283,10 @@ int idx;
 	memcpy (ptr, key, keyLen);
 	*slot->state = Btree2_slotactive;
 	slot->height = height;
+
+	while( prevHeight = *set->page->height, height > prevHeight )
+	  if (atomicCAS8(set->page->height, prevHeight, height))
+		break;
 
 	//  splice new slot into tower structure
 

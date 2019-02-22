@@ -111,13 +111,13 @@ DbAddr left;
 //	return with pages unlocked.
 
 DbStatus btree1SplitPage (Handle *index, Btree1Set *set) {
-uint8_t leftKey[Btree1_maxkey], rightKey[Btree1_maxkey];
 Btree1Index *btree1 = btree1index(index->map);
 uint32_t cnt = 0, idx = 0, max, nxt, off;
 Btree1Slot librarian, *source, *dest;
 uint32_t size = btree1->pageSize;
 Btree1Page *frame, *rightPage;
 uint8_t lvl = set->page->lvl;
+uint8_t *leftKey, *rightKey;
 uint32_t totLen, keyLen;
 uint8_t *key = NULL;
 DbAddr right, addr;
@@ -158,7 +158,8 @@ DbStatus stat;
 		totLen = keylen(key) + keypre(key);
 		nxt -= totLen;
 
-		memcpy (keyaddr(rightPage, nxt), key, totLen);
+		rightKey = keyaddr(rightPage, nxt);
+		memcpy (rightKey, key, totLen);
 		rightPage->act++;
 
 		//	add librarian slot
@@ -176,31 +177,7 @@ DbStatus stat;
 		idx++;
 	}
 
-	//	remember right fence key for larger page
-	//	extend right leaf fence key with
-	//	the right page number on leaf page.
-
 	stopper = dest->type == Btree1_stopper;
-	keyLen = keylen(key);
-
-	if( set->page->lvl)
-		keyLen -= sizeof(uint64_t);		// strip off pageNo
-
-	if( keyLen + sizeof(uint64_t) < 128 )
-		off = 1;
-	else
-		off = 2;
-
-	//	copy key and add pageNo
-
-	memcpy (rightKey + off, key + keypre(key), keyLen);
-	btree1PutPageNo(rightKey + off, keyLen, right.bits);
-	keyLen += sizeof(uint64_t);
-
-	if (off == 1)
-		rightKey[0] = keyLen;
-	else
-		rightKey[0] = keyLen / 256 | 0x80, rightKey[1] = keyLen;
 
 	rightPage->min = nxt;
 	rightPage->cnt = idx;
@@ -255,11 +232,11 @@ DbStatus stat;
 		if( source->dead )
 			continue;
 
-		key = keyaddr(frame, source->off);
-		totLen = keylen(key) + keypre(key);
+		leftKey = keyaddr(frame, source->off);
+		totLen = keylen(leftKey) + keypre(leftKey);
 		nxt -= totLen;
 
-		memcpy (keyaddr(set->page, nxt), key, totLen);
+		memcpy (keyaddr(set->page, nxt), leftKey, totLen);
 
 		//	add librarian slot, except before fence key
 
@@ -282,39 +259,19 @@ DbStatus stat;
 	set->page->min = nxt;
 	set->page->cnt = idx;
 
-	//	remember left fence key for smaller page
-	//	extend left leaf fence key with
-	//	the left page number.
-
-	keyLen = keylen(key);
-
-	if( set->page->lvl)
-		keyLen -= sizeof(uint64_t);		// strip off pageNo
-
-	if( keyLen + sizeof(uint64_t) < 128 )
-		off = 1;
-	else
-		off = 2;
-
-	//	copy key and add pageNo
-
-	memcpy (leftKey + off, key + keypre(key), keyLen);
-	btree1PutPageNo(leftKey + off, keyLen, set->pageNo.bits);
-	keyLen += sizeof(uint64_t);
-
-	if (off == 1)
-		leftKey[0] = keyLen;
-	else
-		leftKey[0] = keyLen / 256 | 0x80, leftKey[1] = keyLen;
-
-	//  return temporary frame
-
-	addSlotToFrame(index->map, listFree(index, addr.type), NULL, addr.bits);
-
 	// if current page is the root page, split it
 
-	if( set->pageNo.type == Btree1_rootPage )
-		return btree1SplitRoot (index, set, right, leftKey);
+	if (set->pageNo.type == Btree1_rootPage) {
+          if (!(stat = btree1SplitRoot(index, set, right, leftKey)))
+            if (addSlotToFrame(index->map, listFree(index, addr.type), NULL,
+                               addr.bits))
+              return DB_OK;
+            else
+              return DB_ERROR_outofmemory;
+          else
+            return stat;
+        return stat;
+	}
 
 	// insert new fences in their parent pages
 
@@ -322,9 +279,12 @@ DbStatus stat;
 	btree1LockPage (set->page, Btree1_lockParent);
 	btree1UnlockPage (set->page, Btree1_lockWrite);
 
-	// insert new fence for reformulated left block of smaller keys
+	keyLen = keylen(leftKey);
 
-	if( (stat = btree1InsertKey(index, leftKey + keypre(leftKey), keylen(leftKey), lvl+1, Btree1_indexed) ))
+	if (set->page->lvl) 
+		keyLen -= size64(keystr(leftKey), keyLen);  // strip off pageNo
+
+    if ((stat = btree1InsertKey(index, leftKey + keypre(leftKey), keylen(leftKey), set->pageNo.bits, lvl + 1, Btree1_indexed)))
 		return stat;
 
 	// switch fence for right block of larger keys to new right page
@@ -334,7 +294,11 @@ DbStatus stat;
 
 	btree1UnlockPage (set->page, Btree1_lockParent);
 	btree1UnlockPage (rightPage, Btree1_lockParent);
-	return DB_OK;
+
+	if (addSlotToFrame(index->map, listFree(index, addr.type), NULL, addr.bits))
+          return DB_OK;
+
+    return DB_ERROR_outofmemory;
 }
 
 //	check page for space available,

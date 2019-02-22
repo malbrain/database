@@ -97,26 +97,31 @@ uint32_t len;
   return true;
 }
 
-DbStatus artInsertKey( Handle *index, void *key, uint32_t keyLen) {
+DbStatus artInsertKey( Handle *index, void *key, uint32_t keyLen, uint64_t suffixValue) {
+uint8_t keyBuff[MAX_key];
+ArtIndex *artIndex;
 bool pass = false;
 InsertParam p[1];
-ArtIndex *artIdx;
-DbIndex *dbIdx;
 DbAddr slot;
 
-	dbIdx = (DbIndex *)(index->map->arena + 1);
-	artIdx = (ArtIndex *)((uint8_t *)(dbIdx + 1) + dbIdx->xtra);
+	artIndex = (ArtIndex *)(index->map->arena + 1);
+
+	if (keyLen > MAX_key)
+		return DB_ERROR_keylength;
+
+    memcpy(keyBuff, key, keyLen);
+    keyLen += store64(keyBuff, keyLen, suffixValue, artIndex->base->binaryFlds);
 
 	memset(p, 0, sizeof(p));
-	p->binaryFlds = index->map->arenaDef->params[IdxKeyFlds].boolVal;
+	p->binaryFlds = artIndex->base->binaryFlds;
 
 	do {
-		p->slot = artIdx->root;
-		p->restart = false;
-		p->keyLen = keyLen;
-		p->index = index;
+        p->slot = artIndex->root;
+        p->keyLen = keyLen;
+        p->restart = false;
+        p->key = keyBuff;
+        p->index = index;
 		p->fldLen = 0;
-		p->key = key;
 		p->off = 0;
 	
 		//  we encountered a dead node
@@ -169,7 +174,7 @@ DbAddr slot;
 	if (p->stat)
 		return p->stat;
 
-	atomicAdd64(dbIdx->numKeys, 1);
+	atomicAdd64(artIndex->base->numKeys, 1);
 	return DB_OK;
 }
 

@@ -35,19 +35,21 @@ uint32_t size;
 	return size;
 }
 
-// generate slot tower height
+// generate slot tower height (1-16)
+//	w/frequency 1/2 down to 1/65536
 
 uint8_t btree2GenHeight(Handle *index) {
 uint32_t nrand32 = mynrand48(index->nrandState);
-unsigned long height;
+unsigned long height = 0;
 
+	nrand32 |= 0x10000;
 #ifdef _WIN32
 	_BitScanReverse((unsigned long *)&height, nrand32);
-	height++;
+    return 32 - height;
 #else
 	height = __builtin_clz(nrand32);
+	return height + 1;
 #endif
-	return height % Btree2_maxskip + 1;
 }
 
 //	calculate amount (in skipBits) of space needed to install slot in page
@@ -61,8 +63,6 @@ uint32_t amt = (uint16_t)(sizeof(Btree2Slot) + height * sizeof(uint16_t) + totKe
 }
 
 // allocate space for new slot (in skipBits units)
-//	return page offset or zero on overflow
-
 uint16_t btree2AllocSlot(Btree2Page *page, uint16_t size) {
 uint16_t base = (sizeof(*page) + (1 << page->skipBits) - 1) >> page->skipBits;
 union Btree2Alloc alloc[1], before[1];
@@ -88,7 +88,6 @@ union Btree2Alloc alloc[1], before[1];
 
 DbStatus btree2LoadPage(DbMap *map, Btree2Set *set, uint8_t *key, uint32_t keyLen, uint8_t lvl) {
 Btree2Index *btree2 = btree2index(map);
-uint8_t drill = 0xff;
 ObjId *pageNoPtr;
 
   set->pageNo.bits = btree2->root.bits;
@@ -99,9 +98,6 @@ ObjId *pageNoPtr;
 	pageNoPtr = fetchIdSlot (map, set->pageNo);
 	set->pageAddr.bits = pageNoPtr->bits;
 	set->page = getObj(map, set->pageAddr);
-
-	if( drill == 0xff )
-		drill = set->page->lvl;
 
 	assert(lvl <= set->page->lvl);
 
@@ -117,17 +113,15 @@ ObjId *pageNoPtr;
 		}
 	}
 
-	if( drill == lvl )
-		return DB_OK;
-
 	//  find first key on page greater or equal to target key
 	//  and continue to next level
 
-	  btree2FindSlot (set, key, keyLen);
-	  set->pageNo.bits = btree2GetPageNo(set->slot);
+	btree2FindSlot (set, key, keyLen);
 
-	  assert(drill > 0);
-	  drill--;
+	if (set->page->lvl == lvl)
+		return DB_OK;
+
+	set->pageNo.bits = get64(key, keyLen, btree2->base->binaryFlds);
   } while( set->pageNo.bits );
 
   // return error on end of right chain

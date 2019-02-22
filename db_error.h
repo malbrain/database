@@ -20,6 +20,7 @@ typedef enum {
 	DB_ERROR_cursorop,
 	DB_ERROR_writeconflict,
 	DB_ERROR_duplicatekey,
+	DB_ERROR_keylength,
 	DB_ERROR_keynotfound,
 	DB_ERROR_badtxnstep,
 	DB_ERROR_rollbackidxkey,

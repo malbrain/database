@@ -191,10 +191,9 @@ ArrayHdr *hdr;
 	exit(0);
 }
 
-//	peel off 64 bit suffix value from key
-//	return number of key bytes taken
+//	return 64 bit suffix value from key
 
-uint32_t get64(uint8_t *key, uint32_t len, uint64_t *where, bool binaryFlds) {
+uint64_t get64(uint8_t *key, uint32_t len, bool binaryFlds) {
 int idx = 0, xtraBytes = key[len - 1] & 0x7;
 int off = binaryFlds ? 2 : 0;
 uint64_t result;
@@ -229,42 +228,20 @@ uint64_t result;
 	result <<= 4;
 	result |= key[len + xtraBytes + 1] >> 4;
 
-	if (where)
-		*where = result;
-
-	return off + xtraBytes + 2;
+	return result;
 }
 
-//	calc size required to store64
-
-uint32_t size64(int64_t recId, bool binaryFlds) {
-int off = binaryFlds ? 2 : 0;
-int64_t tst64 = recId >> 8;
-uint32_t xtraBytes = 0;
-bool neg;
-
-	neg = recId < 0;
-
-	while (tst64)
-	  if (neg && tst64 == -1)
-		break;
-	  else
-		xtraBytes++, tst64 >>= 8;
-
-    return xtraBytes + 2 + off;
-}
-
-// concatenate key with 64 bit value
+// concatenate key with sortable 64 bit value
 // returns number of bytes concatenated
 
-uint32_t store64(uint8_t *key, uint32_t keyLen, int64_t recId, bool binaryFlds) {
+uint32_t store64(uint8_t *key, uint32_t keyLen, int64_t value, bool binaryFlds) {
 int off = binaryFlds ? 2 : 0;
-int64_t tst64 = recId >> 8;
+int64_t tst64 = value >> 8;
 uint32_t xtraBytes = 0;
 uint32_t idx, len;
 bool neg;
 
-	neg = recId < 0;
+	neg = value < 0;
 
 	while (tst64)
 	  if (neg && tst64 == -1)
@@ -272,24 +249,24 @@ bool neg;
 	  else
 		xtraBytes++, tst64 >>= 8;
 
-	//	store low order 4 bits
+	//	store low order 4 bits of given value
+	//	in final key byte
+ 
+    key[keyLen + xtraBytes + off + 1] = (uint8_t)((value & 0xf) << 4 | xtraBytes);
+    value >>= 4;
 
-    key[keyLen + xtraBytes + off + 1] = (uint8_t)((recId & 0xf) << 4 | xtraBytes);
-    recId >>= 4;
-
-	//	store complete bytes
-	//	up to 56 bits worth
+	//	store complete value bytes
 
     for (idx = xtraBytes; idx; idx--) {
-        key[keyLen + off + idx] = (recId & 0xff);
-        recId >>= 8;
+        key[keyLen + off + idx] = (value & 0xff);
+        value >>= 8;
     }
 
 	//	store high order 4 bits and
 	//	the 3 bits of xtraBytes
 	//	and the sign bit
 
-    key[keyLen + off] = (uint8_t)((recId & 0xf) | (xtraBytes << 4) | 0x80);
+    key[keyLen + off] = (uint8_t)((value & 0xf) | (xtraBytes << 4) | 0x80);
 
 	//	if neg, complement the sign bit & xtraBytes bits to
 	//	make negative numbers lexically smaller than positive ones
@@ -304,10 +281,16 @@ bool neg;
 		key[keyLen + 1] = len;
 	}
 
-    return len + off;
+	return len + off;
 }
 
-//	de-duplication
+// calcukate size of suffix at end of a key
+
+uint32_t size64(uint8_t *key, uint32_t len) {
+	return (key[len - 1] & 0x7) + 2;
+}
+
+    //	de-duplication
 //	set mmbrship
 
 uint16_t mmbrSizes[] = { 13, 29, 61, 113, 251, 503, 1021, 2039, 4093, 8191, 16381, 32749, 65521};

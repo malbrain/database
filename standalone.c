@@ -42,8 +42,18 @@ extern uint64_t nodeWait[64];
 #endif
 
 bool debug = false;
+bool dropDb = false;
+bool noExit = false;
+bool noDocs = false;
+bool noIdx = false;
+bool pipeLine = false;
+bool pennysort = false;
+
 
 double getCpuTime(int type);
+
+void mynrand48seed(uint16_t *nrandState);
+int createB64(char *key, int size, unsigned short next[3]);
 
 void printBinary(uint8_t *key, int len, FILE *file) {
 int off = 0;
@@ -116,6 +126,8 @@ DbHandle cursor[1];
 DbHandle idxHndl[1];
 DbHandle *parent;
 
+int16_t nrandState[3];
+
 uint8_t rec[4096];
 Doc *doc = (Doc *)rec;
 uint8_t *key = rec + sizeof(Doc);
@@ -123,7 +135,7 @@ uint8_t *key = rec + sizeof(Doc);
 int ch, len = 0;
 bool binaryFlds; 
 char *idxName;
-
+uint32_t count;
 uint32_t foundLen = 0;
 uint32_t prevLen = 0;
 bool reverse = false;
@@ -135,6 +147,11 @@ void *foundKey;
 ObjId docId;
 FILE *in;
 int stat;
+
+	mynrand48seed(nrandState);
+
+	if (debug)
+          memset(nrandState, 0, sizeof(nrandState));
 
 	cloneHandle(database, args->database);
 
@@ -206,7 +223,11 @@ int stat;
 		break;
 
 	case 'w':
-		fprintf(stderr, "started writing from %s\n", args->inFile);
+		if( pennysort )
+			fprintf(stderr, "started writing %d random keys\n", count = atoi (args->inFile));
+		else
+			fprintf(stderr, "started writing from %s\n", args->inFile);
+
 		parent = database;
 
 		if (!args->noDocs) {
@@ -226,6 +247,47 @@ int stat;
 
 		if (binaryFlds)
 			len += 2;
+
+		if( pennysort ) {
+		 while( line++ < count ) {
+           if (debug && !(line % 100000))
+               fprintf(stderr, "line %" PRIu64 "\n", line);
+
+          len = createB64(key, args->keyLen, nrandState);
+
+		  if (binaryFlds) {
+			key[lastFld] = (len - lastFld - 2) >> 8;
+			key[lastFld + 1] = (len - lastFld - 2);
+		  }
+
+		  // store the entry in the docStore?
+
+		  if (docHndl->hndlBits) {
+			doc->size = len;
+			if ((stat = storeDoc (docHndl, doc, sizeof(Doc) + len, &docId)))
+			  fprintf(stderr, "Add Doc %s Error %d Line: %" PRIu64 "\n", args->inFile, stat, line), exit(0);
+		  } else
+			docId.bits = line;
+
+		  if (len > args->keyLen)
+			len = args->keyLen;
+ 
+		  if (idxHndl->hndlBits)
+			switch ((stat = insertKey(idxHndl, key, len, docId.bits))) {
+			  case DB_ERROR_unique_key_constraint:
+				fprintf(stderr, "Duplicate key <%.*s> line: %" PRIu64 "\n", len, key, line);
+				break;
+			  case DB_OK:
+				break;
+			  default:
+			    fprintf(stderr, "Insert Key %s Error %d Line: %" PRIu64 "\n", args->inFile, stat, line);
+				myExit(args);
+			}
+		  }
+
+		  fprintf(stderr, " Total records processed %" PRIu64 "\n", line);
+		  break;
+		}
 
 		if((!fopen_s (&in, args->inFile, "r"))) {
 		  while( ch = getc(in), ch != EOF )
@@ -252,11 +314,8 @@ int stat;
 			  if (len > args->keyLen)
 				len = args->keyLen;
 
-			  if (docHndl->hndlBits && idxHndl->hndlBits)
-				suffixLen = store64(key, len, docId.bits, false);
- 
 			  if (idxHndl->hndlBits)
-				switch ((stat = insertKey(idxHndl, key, len, suffixLen))) {
+				switch ((stat = insertKey(idxHndl, key, len, docId.bits))) {
 				  case DB_ERROR_unique_key_constraint:
 					fprintf(stderr, "Duplicate key <%.*s> line: %" PRIu64 "\n", len, key, line);
 					break;
@@ -325,8 +384,10 @@ int stat;
 			  if ((stat = keyAtCursor (cursor, &foundKey, &foundLen)))
 				fprintf(stderr, "findKey %s Error %d Syserr %d Line: %" PRIu64 "\n", args->inFile, stat, errno, line), myExit(args);
 
-			  if (docHndl->hndlBits && idxHndl->hndlBits)
-				foundLen -= get64(foundKey, foundLen, &docId.bits, binaryFlds);
+			  if (docHndl->hndlBits && idxHndl->hndlBits) {
+                  docId.bits = get64(foundKey, foundLen, binaryFlds);
+                  foundLen -= size64(foundKey, foundLen);
+			  }
 
 			  if (!binaryFlds) {
 			   if (foundLen != len)
@@ -461,7 +522,7 @@ int stat;
 			 else
 			  fwrite (foundKey, foundLen, 1, stdout);
 			else {
-			  get64(foundKey, foundLen, &docId.bits, false);
+			  docId.bits = get64(foundKey, foundLen, false);
 			  fetchDoc(docHndl, (void **)&doc, docId);
 			  fwrite (doc + 1, doc->size, 1, stdout);
 			}
@@ -515,12 +576,6 @@ HANDLE *threads;
 
 DbHandle database[1];
 
-bool dropDb = false;
-bool noExit = false;
-bool noDocs = false;
-bool noIdx = false;
-bool pipeLine = false;
-
 char buf[512];
 ThreadArg *args;
 double elapsed;
@@ -567,37 +622,39 @@ int num = 0;
 // process configuration arguments
 
 	while (--argc > 0 && (++argv)[0][0] == '-')
-  if (!memcmp(argv[0], "-xtra=", 6))
+  if (!_strnicmp(argv[0], "-xtra=", 6))
 	params[Btree1Xtra].intVal = atoi(argv[0] + 6);
-  else if (!memcmp(argv[0], "-keyLen=", 8))
+  else if (!_strnicmp(argv[0], "-keyLen=", 8))
 	keyLen = atoi(argv[0] + 8);
-  else if (!memcmp(argv[0], "-bits=", 6))
+  else if (!_strnicmp(argv[0], "-bits=", 6))
 	params[Btree1Bits].intVal = atoi(argv[0] + 6);
-  else if (!memcmp(argv[0], "-cmds=", 6))
+  else if (!_strnicmp(argv[0], "-cmds=", 6))
 	cmds = argv[0] + 6;
-  else if (!memcmp(argv[0], "-debug", 6))
+  else if (!_strnicmp(argv[0], "-debug", 6))
 	debug = true;
-  else if (!memcmp(argv[0], "-drop", 5))
+  else if (!_strnicmp(argv[0], "-drop", 5))
 	dropDb = true;
-  else if (!memcmp(argv[0], "-noIdx", 6))
+  else if (!_strnicmp(argv[0], "-noIdx", 6))
 	noIdx = true;
-  else if (!memcmp(argv[0], "-noDocs", 7))
+  else if (!_strnicmp(argv[0], "-noDocs", 7))
 	noDocs = true;
-  else if (!memcmp(argv[0], "-pipeline", 9))
+  else if (!_strnicmp(argv[0], "-pennysort", 10))
+	pennysort = true;
+  else if (!_strnicmp(argv[0], "-pipeline", 9))
 	pipeLine = true;
-  else if (!memcmp(argv[0], "-noExit", 7))
+  else if (!_strnicmp(argv[0], "-noExit", 7))
 	noExit = true;
-  else if (!memcmp(argv[0], "-uniqueKeys", 11))
+  else if (!_strnicmp(argv[0], "-uniqueKeys", 11))
 	params[IdxKeyUnique].boolVal = true;
-  else if (!memcmp(argv[0], "-idxType=", 9))
+  else if (!_strnicmp(argv[0], "-idxType=", 9))
 	params[IdxType].intVal = atoi(argv[0] + 9);
-  else if (!memcmp(argv[0], "-inMem", 6))
+  else if (!_strnicmp(argv[0], "-inMem", 6))
 	params[OnDisk].boolVal = false;
-  else if (!memcmp(argv[0], "-idxBinary", 10))
+  else if (!_strnicmp(argv[0], "-idxBinary", 10))
 	params[IdxKeyFlds].boolVal = true;
-  else if (!memcmp(argv[0], "-minKey=", 8))
+  else if (!_strnicmp(argv[0], "-minKey=", 8))
 	minKey = argv[0] + 8;
-  else if (!memcmp(argv[0], "-maxKey=", 8))
+  else if (!_strnicmp(argv[0], "-maxKey=", 8))
 	maxKey = argv[0] + 8;
   else
 	fprintf(stderr, "Unknown option %s ignored\n", argv[0]);

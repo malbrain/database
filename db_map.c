@@ -207,7 +207,7 @@ void lockLatchGrp(volatile char* latch, int bitNo) {
 }
 
 void unlockLatchGrp(volatile char* latch, int bitNo) {
-	int mask = 1 << bitNo % 8;
+	int mask = 1 << (bitNo % 8);
 	latch += bitNo / 8;
 
 #ifndef _WIN32
@@ -247,9 +247,9 @@ char atomicAnd8(volatile char *value, char mask) {
 
 //	atomic install 8 bit value
 
-bool atomicCAS8(uint8_t *dest, uint8_t value, uint8_t comp) {
+bool atomicCAS8(uint8_t *dest, uint8_t comp, uint8_t newValue) {
 #ifdef _WIN32
-	return _InterlockedCompareExchange8 (dest, value, comp) == comp;
+	return _InterlockedCompareExchange8 (dest, newValue, comp) == comp;
 #else
 	return __sync_bool_compare_and_swap (dest, comp, value);
 #endif
@@ -584,48 +584,5 @@ int amt;
 #endif
 
 	return amt;
-}
-
-//	implement reentrant nrand48
-
-#define RAND48_SEED_0   (0x330e)
-#define RAND48_SEED_1   (0xabcd)
-#define RAND48_SEED_2   (0x1234)
-#define RAND48_MULT_0   (0xe66d)
-#define RAND48_MULT_1   (0xdeec)
-#define RAND48_MULT_2   (0x0005)
-#define RAND48_ADD      (0x000b)
-
-unsigned short _rand48_add = RAND48_ADD;
-
-unsigned short _rand48_seed[3] = {
-    RAND48_SEED_0,
-    RAND48_SEED_1,
-    RAND48_SEED_2
-};
-
-unsigned short _rand48_mult[3] = {
-    RAND48_MULT_0,
-    RAND48_MULT_1,
-    RAND48_MULT_2
-};
-
-long mynrand48(unsigned short xseed[3]) 
-{
-unsigned short temp[2];
-unsigned long accu;
-
-    accu = (unsigned long)_rand48_mult[0] * (unsigned long)xseed[0] + (unsigned long)_rand48_add;
-    temp[0] = (unsigned short)accu;        /* lower 16 bits */
-    accu >>= sizeof(unsigned short) * 8;
-    accu += (unsigned long)_rand48_mult[0] * (unsigned long)xseed[1]; 
-	accu += (unsigned long)_rand48_mult[1] * (unsigned long)xseed[0];
-    temp[1] = (unsigned short)accu;        /* middle 16 bits */
-    accu >>= sizeof(unsigned short) * 8;
-    accu += _rand48_mult[0] * xseed[2] + _rand48_mult[1] * xseed[1] + _rand48_mult[2] * xseed[0];
-    xseed[0] = temp[0];
-    xseed[1] = temp[1];
-    xseed[2] = (unsigned short)accu;
-    return ((long)xseed[2] << 15) + ((long)xseed[1] >> 1);
 }
 
