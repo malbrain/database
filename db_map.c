@@ -187,8 +187,8 @@ void waitNonZero64(volatile uint64_t *zero) {
 #endif
 }
 
-void lockLatchGrp(volatile char* latch, int bitNo) {
-	int mask = 1 << bitNo % 8;
+void lockLatchGrp(volatile uint8_t *latch, uint8_t bitNo) {
+	uint8_t mask = 1 << (bitNo % 8);
 	latch += bitNo / 8;
 
 #ifndef _WIN32
@@ -206,12 +206,12 @@ void lockLatchGrp(volatile char* latch, int bitNo) {
 	}
 }
 
-void unlockLatchGrp(volatile char* latch, int bitNo) {
-	int mask = 1 << (bitNo % 8);
+void unlockLatchGrp(volatile uint8_t *latch, uint8_t bitNo) {
+	uint8_t mask = 1 << (bitNo % 8);
 	latch += bitNo / 8;
 
 #ifndef _WIN32
-	__sync_fetch_and_and(latch, (char)~mask);
+	__sync_fetch_and_and(latch, (uint8_t)~mask);
 #else
 	_InterlockedAnd8(latch, (uint8_t)~mask);
 #endif

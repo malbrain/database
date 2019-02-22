@@ -144,7 +144,6 @@ DbStatus btree2InsertKey(Handle *hndl, uint8_t *key, uint32_t keyLen, uint64_t s
 DbStatus btree2DeleteKey(Handle *hndl, uint8_t *key, uint32_t keyLen);
 DbStatus btree2LoadPage(DbMap *map, Btree2Set *set, uint8_t *key, uint32_t keyLen, uint8_t lvl);
 
-uint64_t btree2AllocPage(Handle *index, int type, uint32_t size);
 uint64_t btree2NewPage (Handle *hndl, uint8_t lvl);
 
 DbStatus btree2CleanPage(Handle *hndl, Btree2Set *set);

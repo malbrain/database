@@ -74,6 +74,7 @@ DbAddr addr;
 	else
 		return DB_ERROR_outofmemory;
 
+	page->pageNo.bits = pageNo.bits;
 	page->attributes = Btree2_rootPage;
 	pageSlot->bits = addr.bits;
 
