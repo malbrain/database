@@ -251,7 +251,7 @@ bool atomicCAS8(uint8_t *dest, uint8_t comp, uint8_t newValue) {
 #ifdef _WIN32
 	return _InterlockedCompareExchange8 (dest, newValue, comp) == comp;
 #else
-	return __sync_bool_compare_and_swap (dest, comp, value);
+	return __sync_bool_compare_and_swap (dest, comp, newValue);
 #endif
 }
 

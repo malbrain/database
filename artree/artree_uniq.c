@@ -6,7 +6,7 @@ bool evalUniq(DbMap *map, ARTKeyUniq *keyUniqNode, UniqCbFcn *evalFcn);
 //  insert unique key
 //	clear defer if unique
 
-DbStatus artInsertUniq( Handle *index, void *key, uint32_t uniqueLen, uint32_t suffixLen, UniqCbFcn *evalFcn, uint8_t *defer) {
+DbStatus artInsertUniq( Handle *index, void *key, uint32_t uniqueLen, uint32_t suffixLen, UniqCbFcn *evalFcn, bool *defer) {
 volatile DbAddr *uniq, slot;
 ARTKeyUniq *keyUniqNode;
 bool pass = false;

@@ -23,8 +23,8 @@ uint64_t allocFrame(DbMap *map);
 
 void lockAddr(volatile uint64_t* bits);
 void unlockAddr(volatile uint64_t* bits);
-void lockLatchGrp(volatile char* latch, int bitNo);
-void unlockLatchGrp(volatile char* latch, int bitNo);
+void lockLatchGrp(volatile uint8_t *latch, uint8_t bitNo);
+void unlockLatchGrp(volatile uint8_t *latch, uint8_t bitNo);
 void waitNonZero(volatile char *zero);
 void waitNonZero32(volatile uint32_t *zero);
 void waitNonZero64(volatile uint64_t *zero);

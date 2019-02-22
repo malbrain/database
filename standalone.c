@@ -20,6 +20,7 @@
 #endif
 
 #ifdef _WIN32
+#define strncasecmp _strnicmp
 #define fwrite	_fwrite_nolock
 #define fputc	_fputc_nolock
 #define getc	_getc_nolock
@@ -622,39 +623,39 @@ int num = 0;
 // process configuration arguments
 
 	while (--argc > 0 && (++argv)[0][0] == '-')
-  if (!_strnicmp(argv[0], "-xtra=", 6))
+  if (!strncasecmp(argv[0], "-xtra=", 6))
 	params[Btree1Xtra].intVal = atoi(argv[0] + 6);
-  else if (!_strnicmp(argv[0], "-keyLen=", 8))
+  else if (!strncasecmp(argv[0], "-keyLen=", 8))
 	keyLen = atoi(argv[0] + 8);
-  else if (!_strnicmp(argv[0], "-bits=", 6))
+  else if (!strncasecmp(argv[0], "-bits=", 6))
 	params[Btree1Bits].intVal = atoi(argv[0] + 6);
-  else if (!_strnicmp(argv[0], "-cmds=", 6))
+  else if (!strncasecmp(argv[0], "-cmds=", 6))
 	cmds = argv[0] + 6;
-  else if (!_strnicmp(argv[0], "-debug", 6))
+  else if (!strncasecmp(argv[0], "-debug", 6))
 	debug = true;
-  else if (!_strnicmp(argv[0], "-drop", 5))
+  else if (!strncasecmp(argv[0], "-drop", 5))
 	dropDb = true;
-  else if (!_strnicmp(argv[0], "-noIdx", 6))
+  else if (!strncasecmp(argv[0], "-noIdx", 6))
 	noIdx = true;
-  else if (!_strnicmp(argv[0], "-noDocs", 7))
+  else if (!strncasecmp(argv[0], "-noDocs", 7))
 	noDocs = true;
-  else if (!_strnicmp(argv[0], "-pennysort", 10))
+  else if (!strncasecmp(argv[0], "-pennysort", 10))
 	pennysort = true;
-  else if (!_strnicmp(argv[0], "-pipeline", 9))
+  else if (!strncasecmp(argv[0], "-pipeline", 9))
 	pipeLine = true;
-  else if (!_strnicmp(argv[0], "-noExit", 7))
+  else if (!strncasecmp(argv[0], "-noExit", 7))
 	noExit = true;
-  else if (!_strnicmp(argv[0], "-uniqueKeys", 11))
+  else if (!strncasecmp(argv[0], "-uniqueKeys", 11))
 	params[IdxKeyUnique].boolVal = true;
-  else if (!_strnicmp(argv[0], "-idxType=", 9))
+  else if (!strncasecmp(argv[0], "-idxType=", 9))
 	params[IdxType].intVal = atoi(argv[0] + 9);
-  else if (!_strnicmp(argv[0], "-inMem", 6))
+  else if (!strncasecmp(argv[0], "-inMem", 6))
 	params[OnDisk].boolVal = false;
-  else if (!_strnicmp(argv[0], "-idxBinary", 10))
+  else if (!strncasecmp(argv[0], "-idxBinary", 10))
 	params[IdxKeyFlds].boolVal = true;
-  else if (!_strnicmp(argv[0], "-minKey=", 8))
+  else if (!strncasecmp(argv[0], "-minKey=", 8))
 	minKey = argv[0] + 8;
-  else if (!_strnicmp(argv[0], "-maxKey=", 8))
+  else if (!strncasecmp(argv[0], "-maxKey=", 8))
 	maxKey = argv[0] + 8;
   else
 	fprintf(stderr, "Unknown option %s ignored\n", argv[0]);
