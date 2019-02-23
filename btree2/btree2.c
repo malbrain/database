@@ -33,7 +33,6 @@ DbAddr addr;
 	page->leafXtra = btree2->leafXtra;
 	page->skipBits = btree2->skipBits;
 	page->pageType = type;
-    *page->height = 1;
     page->size = size;
 	page->lvl = lvl;
 

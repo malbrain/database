@@ -100,12 +100,11 @@ ObjId *pageNoPtr;
 DbStatus btree2SplitPage (Handle *index, Btree2Set *set) {
 uint16_t *tower, fwd[Btree2_maxskip];
 Btree2Page *leftPage, *rightPage;
-uint8_t leftKey[Btree2_maxkey];
 Btree2Slot *rSlot, *lSlot;
 uint16_t off, keyLen, max;
 DbAddr left, right;
-ObjId *pageNoPtr;
-ObjId lPageNo;
+ObjId *lPageNoPtr;
+ObjId *rPageNoPtr;
 uint8_t *key;
 DbStatus stat;
 
@@ -135,11 +134,6 @@ DbStatus stat;
 		}
 	}
 
-	//	splice pages together
-
-	rightPage->left.bits = leftPage->pageNo.bits;
-	leftPage->right.bits = rightPage->pageNo.bits;
-
 	//	copy over remaining slots from old page into new right page
 
 	memset (fwd, 0, sizeof(fwd));
@@ -155,50 +149,49 @@ DbStatus stat;
 		}
 	}
 
-	//	allocate a new pageNo for left page,
-	//	reuse existing pageNo for right page
+	//	reuse existing pageNo for right page 
+	//	and allocate new pageNo for left page
 
-	if ((lPageNo.bits = btree2AllocPageNo(index)))
-		pageNoPtr = fetchIdSlot(index->map, lPageNo);
+	rightPage->pageNo.bits = set->page->pageNo.bits;
+    rPageNoPtr = fetchIdSlot(index->map, rightPage->pageNo);
+
+	if ((leftPage->pageNo.bits = btree2AllocPageNo(index)))
+		lPageNoPtr = fetchIdSlot(index->map, leftPage->pageNo);
 	else
 		return DB_ERROR_outofmemory;
 
-	pageNoPtr->bits = left.bits;
+	//	splice pages together
 
-	//	install left page addr into original pageNo slot
+	rightPage->left.bits = leftPage->pageNo.bits;
+    rightPage->right.bits = set->page->right.bits;
 
-	pageNoPtr = fetchIdSlot(index->map, set->pageNo);
-	pageNoPtr->bits = left.bits;
+	leftPage->right.bits = rightPage->pageNo.bits;
+    leftPage->left.bits = set->page->left.bits;
 
-	//	install right page addr into right pageNo slot
+	//	install left page addr and right into original pageNo slot
 
-	pageNoPtr = fetchIdSlot(index->map, rightPage->pageNo);
-	pageNoPtr->bits = right.bits;
+    rPageNoPtr->bits = right.bits;
+    lPageNoPtr->bits = left.bits;
 
-	//	extend left fence key with
-	//	the left page number on non-leaf page.
+	//	insert left fence key into parent
 
-	key = slotkey(lSlot);
+    key = slotkey(lSlot);
 	keyLen = keylen(key);
+    key += keypre(key);
 
 	if( set->page->lvl)
 		keyLen -= size64(key, keyLen);		// strip off pageNo
 
-	//	insert key for left page in parent
+    //	insert key for left page in parent
 
-	if( (stat = btree2InsertKey(index, key, keyLen, lPageNo.bits, set->page->lvl + 1, Btree2_slotactive)) )
+	if( (stat = btree2InsertKey(index, key, keyLen, leftPage->pageNo.bits, set->page->lvl + 1, Btree2_slotactive)) )
 		return stat;
 
 	//	install right page addr into original pageNo slot
 
-	pageNoPtr = fetchIdSlot(index->map, set->pageNo);
-	pageNoPtr->bits = right.bits;
+	rPageNoPtr->bits = right.bits;
 
 	//	recycle original page to free list
-	//	and pageNo
-
-	if( !btree2RecyclePageNo(index, set->pageNo) )
-		return DB_ERROR_outofmemory;
 
 	if( !btree2RecyclePage(index, set->page->pageType, set->pageAddr) )
 		return DB_ERROR_outofmemory;
