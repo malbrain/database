@@ -21,7 +21,7 @@ Usage: dbtest db_name -cmds=[crwsdf]... -idxType=[012] -bits=# -xtra=# -inMem -n
 ```
 Linux compilation command:
 
-    [karl@test7x64 xlink]# cc -std=c11 -O2 -g -o dbtest standalone.c db*.c artree/*.c btree1/*.c -lpthread
+    [karl@test7x64 xlink]# cc -std=c11 -O2 -g -o dbtest standalone.c base64.c db*.c artree/*.c btree1/*.c btree2/*.c -lpthread
 
 Sample single thread output from indexing 40M pennysort keys:
 
