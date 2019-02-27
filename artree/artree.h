@@ -119,6 +119,7 @@ typedef struct {
 } CursorStack;
 
 typedef struct {
+	DbCursor base[1];
 	uint32_t depth;					// current depth of cursor
 	uint16_t lastFld;				// previous field start
 	uint16_t fldLen;				// length remaining in current field
@@ -143,6 +144,8 @@ typedef struct {
 	uint8_t binaryFlds;	// string fields are binary
 	uint8_t restart;	// restart insert from beginning
 } InsertParam;
+
+#define artindex(map) ((ArtIndex *)(map->arena + 1))
 
 DbStatus artNewCursor(DbCursor *cursor, DbMap *map);
 DbStatus artReturnCursor(DbCursor *dbCursor, DbMap *map);

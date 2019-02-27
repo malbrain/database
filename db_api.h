@@ -15,8 +15,8 @@
 
 typedef struct {
 	uint64_t numKeys[1];	// number of keys in index
-	uint32_t xtra;			// amount of user space
     bool binaryFlds;		// keys made with field values
+    bool uniqueKeys;		// keys made with field values
 } DbIndex;
 
 typedef enum {

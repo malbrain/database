@@ -38,7 +38,7 @@ uint32_t size;
 // generate slot tower height (1-16)
 //	w/frequency 1/2 down to 1/65536
 
-uint8_t btree2GenHeight(Handle *index) {
+uint32_t btree2GenHeight(Handle *index) {
 uint32_t nrand32 = mynrand48(index->nrandState);
 unsigned long height = 0;
 
@@ -54,17 +54,18 @@ unsigned long height = 0;
 
 //	calculate amount (in skipBits) of space needed to install slot in page
 
-uint16_t btree2SizeSlot (Btree2Page *page, uint32_t totKeySize, uint8_t height)
+uint16_t btree2SizeSlot (uint8_t skipBits, uint32_t totKeySize, uint8_t height)
 {
 uint32_t amt = (uint16_t)(sizeof(Btree2Slot) + height * sizeof(uint16_t) + totKeySize);
 
-	amt += (1LL << page->skipBits) - 1;
-	return amt >> page->skipBits;
+	amt += (1 << skipBits) - 1;
+	return amt >> skipBits;
 }
 
 // allocate space for new slot (in skipBits units)
+
 uint16_t btree2AllocSlot(Btree2Page *page, uint16_t size) {
-uint16_t base = (sizeof(*page) + (1 << page->skipBits) - 1) >> page->skipBits;
+uint16_t base = (sizeof(*page) + (1ULL << page->skipBits) - 1) >> page->skipBits;
 union Btree2Alloc alloc[1], before[1];
 
 	do {
@@ -99,17 +100,25 @@ ObjId *pageNoPtr;
 	set->pageAddr.bits = pageNoPtr->bits;
 	set->page = getObj(map, set->pageAddr);
 
-	assert(lvl <= set->page->lvl);
+	if( set->page->lvl > set->rootLvl )
+		set->rootLvl = set->rootLvl;
 
 	//  compare with fence key and
-	//  slide right to next page
+	//  slide right to next page,
+	//	or select the stopper page
+	//	on far right end
 
 	if( set->page->fence ) {
 		set->slot = slotptr(set->page, set->page->fence);
 
 		if( btree2KeyCmp (slotkey(set->slot), key, keyLen) < 0 ) {
-	  		set->pageNo.bits = set->page->right.bits;
-	  		continue;
+	  		if( (set->pageNo.bits = set->page->right.bits) )
+	  			continue;
+
+	  		if( (set->pageNo.bits = set->page->stopper.bits) )
+				continue;
+
+			return DB_BTREE_error;
 		}
 	}
 

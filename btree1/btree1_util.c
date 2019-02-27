@@ -112,7 +112,7 @@ DbAddr left;
 
 DbStatus btree1SplitPage (Handle *index, Btree1Set *set) {
 Btree1Index *btree1 = btree1index(index->map);
-uint32_t cnt = 0, idx = 0, max, nxt, off;
+uint32_t cnt = 0, idx = 0, max, nxt;
 Btree1Slot librarian, *source, *dest;
 uint32_t size = btree1->pageSize;
 Btree1Page *frame, *rightPage;
@@ -123,7 +123,7 @@ uint8_t *key = NULL;
 DbAddr right, addr;
 bool stopper;
 DbStatus stat;
-
+uint16_t off;
 #ifdef DEBUG
 	atomicAdd32(&Splits, 1);
 #endif

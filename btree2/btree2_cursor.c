@@ -29,7 +29,7 @@ Btree2Slot *slot;
 }
 
 DbStatus btree2NewCursor(DbCursor *dbCursor, DbMap *map) {
-Btree2Cursor *cursor = (Btree2Cursor *)((char *)dbCursor + dbCursor->xtra);
+Btree2Cursor *cursor = (Btree2Cursor *)dbCursor;
 Btree2Index *btree2 = btree2index(map);
 uint32_t size;
 
@@ -45,7 +45,7 @@ uint32_t size;
 }
 
 DbStatus btree2ReturnCursor(DbCursor *dbCursor, DbMap *map) {
-Btree2Cursor *cursor = (Btree2Cursor *)((char *)dbCursor + dbCursor->xtra);
+Btree2Cursor *cursor = (Btree2Cursor *)dbCursor;
 
 	// return cursor page buffer
 
@@ -54,7 +54,7 @@ Btree2Cursor *cursor = (Btree2Cursor *)((char *)dbCursor + dbCursor->xtra);
 }
 
 DbStatus btree2LeftKey(DbCursor *dbCursor, DbMap *map) {
-Btree2Cursor *cursor = (Btree2Cursor *)((char *)dbCursor + dbCursor->xtra);
+Btree2Cursor *cursor = (Btree2Cursor *)dbCursor;
 Btree2Index *btree2 = btree2index(map);
 DbAddr *pageNoPtr;
 uint32_t pageSize;
@@ -74,7 +74,7 @@ Btree2Page *left;
 }
 
 DbStatus btree2RightKey(DbCursor *dbCursor, DbMap *map) {
-Btree2Cursor *cursor = (Btree2Cursor *)((char *)dbCursor + dbCursor->xtra);
+Btree2Cursor *cursor = (Btree2Cursor *)dbCursor;
 Btree2Index *btree2 = btree2index(map);
 DbAddr *pageNoPtr;
 uint32_t pageSize;
@@ -94,7 +94,7 @@ Btree2Page *right;
 }
 
 DbStatus btree2NextKey (DbCursor *dbCursor, DbMap *map) {
-Btree2Cursor *cursor = (Btree2Cursor *)((char *)dbCursor + dbCursor->xtra);
+Btree2Cursor *cursor = (Btree2Cursor *)dbCursor;
 DbAddr *pageNoPtr;
 Btree2Page *right;
 uint32_t pageSize;
@@ -150,7 +150,7 @@ uint8_t *key;
 }
 
 DbStatus btree2PrevKey (DbCursor *dbCursor, DbMap *map) {
-Btree2Cursor *cursor = (Btree2Cursor *)((char *)dbCursor + dbCursor->xtra);
+Btree2Cursor *cursor = (Btree2Cursor *)dbCursor;
 DbAddr *pageNoPtr;
 uint32_t pageSize;
 Btree2Page *left;

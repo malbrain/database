@@ -12,10 +12,8 @@ ARTKeyUniq *keyUniqNode;
 bool pass = false;
 InsertParam p[1];
 ArtIndex *artIdx;
-DbIndex *dbIdx;
 
-	dbIdx = (DbIndex *)(index->map->arena + 1);
-	artIdx = (ArtIndex *)((uint8_t *)(dbIdx + 1) + dbIdx->xtra);
+	artIdx = artindex(index->map);
 
 	memset(p, 0, sizeof(p));
 	p->binaryFlds = index->map->arenaDef->params[IdxKeyFlds].boolVal;
@@ -144,20 +142,17 @@ DbCursor *dbCursor;
 CursorStack* stack;
 ArtCursor *cursor;
 ArtIndex *artIdx;
-DbIndex *dbIdx;
 DbStatus stat;
 bool isDup;
 
-	dbIdx = (DbIndex *)(map->arena + 1);
-	artIdx = (ArtIndex *)((uint8_t *)(dbIdx + 1) + dbIdx->xtra);
+	artIdx = artindex(map);
 
 	dbCursor = (DbCursor *)(area);
 	memset(dbCursor, 0, sizeof(DbCursor));
 
-	dbCursor->xtra = sizeof(ArtCursor);
 	dbCursor->state = CursorPosAt;
 
-	cursor = (ArtCursor *)((char *)dbCursor + dbCursor->xtra);
+	cursor = (ArtCursor *)dbCursor;
 	memset(cursor, 0, offsetof(ArtCursor, key));
 	dbCursor->key = cursor->key;
 
@@ -208,7 +203,7 @@ bool isDup;
 }
 
 bool evalUniq(DbMap *map, ARTKeyUniq *keyUniqNode, UniqCbFcn *evalFcn) {
-uint8_t area[sizeof(ArtCursor) + sizeof(DbCursor)];
+uint8_t area[sizeof(ArtCursor)];
 DbCursor *dbCursor;
 CursorStack* stack;
 ArtCursor *cursor;
@@ -218,10 +213,9 @@ ArtCursor *cursor;
 	dbCursor = (DbCursor *)(area);
 	memset(dbCursor, 0, sizeof(DbCursor));
 
-	dbCursor->xtra = sizeof(ArtCursor);
 	dbCursor->state = CursorPosAt;
 
-	cursor = (ArtCursor *)((char *)dbCursor + dbCursor->xtra);
+	cursor = (ArtCursor *)dbCursor;
 	memset(cursor, 0, offsetof(ArtCursor, key));
 	dbCursor->key = cursor->key;
 

@@ -104,7 +104,7 @@ bool pass = false;
 InsertParam p[1];
 DbAddr slot;
 
-	artIndex = (ArtIndex *)(index->map->arena + 1);
+	artIndex = artindex(index->map);
 
 	if (keyLen > MAX_key)
 		return DB_ERROR_keylength;

@@ -14,7 +14,7 @@ typedef enum {
 
 typedef struct {
 	void *key;			// cursor key bytes
-	uint32_t xtra;		// size of user data
+	uint32_t size;		// size of user data
 	uint32_t keyLen;	// cursor key length
 	PosState state;		// cursor position state enum
 	uint8_t foundKey;	// cursor position found the key

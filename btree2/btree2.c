@@ -100,44 +100,4 @@ bool btree2RecyclePageNo(Handle *index, ObjId pageNo) {
 bool btree2RecyclePage(Handle *index, int type, DbAddr addr) {
 	return addSlotToFrame(index->map, listHead(index, type), listWait(index, type), addr.bits);
 }
-/*
-//	append page no at end of slot key
-//  for non-leaf keys
 
-void btree2PutPageNo(Btree2Slot *slot, ObjId pageNo) {
-uint8_t *key = slotkey(slot), buff[Btree2_maxkey];
-int len = keylen(key);
-int off, preLen;
-
-	if (keyLen + sizeof(uint64_t) < 128)
-		off = 1;
-	else
-		off = 2;
-
-//  copy leftkey and add its pageNo
-
-	memcpy(buff + off, key + keypre(key), keyLen);
-	tail = store64(uint8_t * key, uint32_t keyL..22222222222222222222222222222222222222222en, int64_t value, bool binaryFlds) 
-	btree2PutPageNo(lSlot, lPageNo);
-	keyLen += sizeof(uint64_t);
-
-	key += keypre(key);
-	memcpy(buff, key, len);
-
-	do key[len - ++idx] = (uint8_t)bits, bits >>= 8;
-	while( idx < sizeof(uint64_t) );
-}
-
-uint64_t btree2GetPageNo(Btree2Slot *slot) {
-uint8_t *key = slotkey(slot);
-uint64_t result = 0;
-int idx = 0, off;
-
-	off = keylen(key) - sizeof(uint64_t);
-	key += keypre(key);
-	do result <<= 8, result |= key[off + idx];
-	while (++idx < sizeof(uint64_t));
-
-	return result;
-}
-*/

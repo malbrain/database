@@ -1,7 +1,7 @@
 #include "btree1.h"
 
 DbStatus btree1NewCursor(DbCursor *dbCursor, DbMap *map) {
-Btree1Cursor *cursor = (Btree1Cursor *)((char *)dbCursor + dbCursor->xtra);
+Btree1Cursor *cursor = (Btree1Cursor *)dbCursor;
 Btree1Index *btree1 = btree1index(map);
 uint32_t size;
 
@@ -16,7 +16,7 @@ uint32_t size;
 }
 
 DbStatus btree1ReturnCursor(DbCursor *dbCursor, DbMap *map) {
-Btree1Cursor *cursor = (Btree1Cursor *)((char *)dbCursor + dbCursor->xtra);
+Btree1Cursor *cursor = (Btree1Cursor *)dbCursor;
 
 	// return cursor page buffer
 
@@ -25,7 +25,7 @@ Btree1Cursor *cursor = (Btree1Cursor *)((char *)dbCursor + dbCursor->xtra);
 }
 
 DbStatus btree1LeftKey(DbCursor *dbCursor, DbMap *map) {
-Btree1Cursor *cursor = (Btree1Cursor *)((char *)dbCursor + dbCursor->xtra);
+Btree1Cursor *cursor = (Btree1Cursor *)dbCursor;
 Btree1Index *btree1 = btree1index(map);
 Btree1Page *left;
 
@@ -40,7 +40,7 @@ Btree1Page *left;
 }
 
 DbStatus btree1RightKey(DbCursor *dbCursor, DbMap *map) {
-Btree1Cursor *cursor = (Btree1Cursor *)((char *)dbCursor + dbCursor->xtra);
+Btree1Cursor *cursor = (Btree1Cursor *)dbCursor;
 Btree1Index *btree1 = btree1index(map);
 Btree1Page *right;
 
@@ -55,7 +55,7 @@ Btree1Page *right;
 }
 
 DbStatus btree1NextKey (DbCursor *dbCursor, DbMap *map) {
-Btree1Cursor *cursor = (Btree1Cursor *)((char *)dbCursor + dbCursor->xtra);
+Btree1Cursor *cursor = (Btree1Cursor *)dbCursor;
 uint8_t *key;
 
 	switch (dbCursor->state) {
@@ -102,7 +102,7 @@ uint8_t *key;
 }
 
 DbStatus btree1PrevKey (DbCursor *dbCursor, DbMap *map) {
-Btree1Cursor *cursor = (Btree1Cursor *)((char *)dbCursor + dbCursor->xtra);
+Btree1Cursor *cursor = (Btree1Cursor *)dbCursor;
 uint8_t *key;
 
 	switch (dbCursor->state) {

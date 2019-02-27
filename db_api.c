@@ -19,7 +19,8 @@ char *hndlNames[] = {
 	"docVersion"
 };
 
-int cursorSize[8] = {0, 0, 0, 0, sizeof(ArtCursor), sizeof(Btree1Cursor), sizeof(Btree2Cursor)};
+int cursorSize[] = {0, 0, 0, 0, sizeof(ArtCursor), sizeof(Btree1Cursor), sizeof(Btree2Cursor)};
+int indexSize[] = { sizeof (ArtIndex), sizeof (Btree1Index), sizeof (Btree2Index) };
 
 extern DbMap memMap[1];
 
@@ -85,6 +86,7 @@ DbMap *map;
 	rbEntry = procParam(hndlMap, name, nameLen, params);
 	arenaDef = (ArenaDef *)(rbEntry + 1);
 
+	arenaDef->mapXtra = (uint32_t)params[MapXtra].intVal;
 	arenaDef->objSize = (uint32_t)params[ObjIdSize].intVal;
 	arenaDef->arenaType = Hndl_database;
 	arenaDef->numTypes = ObjIdType + 1;
@@ -96,7 +98,7 @@ DbMap *map;
 	else
 		return DB_ERROR_createdatabase;
 
-	if ((dbHndl = makeHandle(map, 0, Hndl_database)))
+	if ((dbHndl = makeHandle(map, 0, 0, Hndl_database)))
 		hndl->hndlBits = dbHndl->hndlId.bits;
 	else
 		return DB_ERROR_outofmemory;
@@ -124,7 +126,7 @@ RedBlack *rbEntry;
 	rbEntry = procParam(parent, name, nameLen, params);
 
 	arenaDef = (ArenaDef *)(rbEntry + 1);
-	arenaDef->localSize = (uint32_t)params[MapXtra].intVal;
+	arenaDef->mapXtra = (uint32_t)params[MapXtra].intVal;
 	arenaDef->arenaType = Hndl_docStore;
 	arenaDef->objSize = sizeof(ObjId);
 	arenaDef->numTypes = MAX_blk + 1;
@@ -138,7 +140,7 @@ RedBlack *rbEntry;
 	
 	releaseHandle(database, dbHndl);
 
-	if ((docHndl = makeHandle(map, (uint32_t)params[HndlXtra].intVal, Hndl_docStore)))
+	if ((docHndl = makeHandle(map, 0, (uint32_t)params[UserXtra].intVal, Hndl_docStore)))
 		hndl->hndlBits = docHndl->hndlId.bits;
 	else
 		return DB_ERROR_outofmemory;
@@ -149,7 +151,7 @@ RedBlack *rbEntry;
 
 DbStatus createIndex(DbHandle hndl[1], DbHandle docHndl[1], char *name, uint32_t nameLen, Params *params) {
 uint32_t type = (uint32_t)(params[IdxType].intVal + Hndl_artIndex);
-uint32_t xtra = (uint32_t)params[ArenaXtra].intVal;
+uint32_t mapXtra = (uint32_t)params[MapXtra].intVal;
 DbMap *map, *parent;
 Handle *parentHndl;
 ArenaDef *arenaDef;
@@ -175,15 +177,15 @@ DbIndex *index;
 	switch (type) {
 	case Hndl_artIndex:
 		arenaDef->numTypes = MaxARTType;
-		arenaDef->baseSize = sizeof(ArtIndex) + xtra;
+		arenaDef->baseSize = sizeof(ArtIndex);
 		break;
 	case Hndl_btree1Index:
 		arenaDef->numTypes = MAXBtree1Type;
-		arenaDef->baseSize = sizeof(Btree1Index) + xtra;
+		arenaDef->baseSize = sizeof(Btree1Index);
 		break;
 	case Hndl_btree2Index:
 		arenaDef->numTypes = MAXBtree2Type;
-		arenaDef->baseSize = sizeof(Btree2Index) + xtra;
+		arenaDef->baseSize = sizeof(Btree2Index);
 		break;
 	default:
 		releaseHandle(parentHndl, docHndl);
@@ -195,7 +197,7 @@ DbIndex *index;
 	  return DB_ERROR_createindex;
 	}
 
-	if ((idxHndl = makeHandle(map, 0, type)))
+	if ((idxHndl = makeHandle(map, 0, mapXtra, type)))
 		hndl->hndlBits = idxHndl->hndlId.bits;
 	else {
 		releaseHandle(parentHndl, docHndl);
@@ -208,7 +210,6 @@ DbIndex *index;
 	// each arena map is followed by a DbIndex base instance
 
 	index = (DbIndex *)(map->arena + 1);
-	index->xtra = xtra;
 
 	switch (type) {
 	  case Hndl_artIndex:
@@ -238,7 +239,7 @@ createXit:
 //
 
 DbStatus createIterator(DbHandle hndl[1], DbHandle docHndl[1], Params *params) {
-uint32_t xtra = (uint32_t)params[HndlXtra].intVal;
+uint32_t userXtra = (uint32_t)params[UserXtra].intVal;
 Handle *parentHndl, *iterHndl;
 Iterator *it;
 
@@ -247,7 +248,7 @@ Iterator *it;
 	if (!(parentHndl = bindHandle(docHndl)))
 		return DB_ERROR_handleclosed;
 
-	if ((iterHndl = makeHandle(parentHndl->map, sizeof(Iterator) + xtra, Hndl_iterator)))
+	if ((iterHndl = makeHandle(parentHndl->map, sizeof(Iterator), userXtra, Hndl_iterator)))
 		it = (Iterator *)(iterHndl + 1);
 	else {
 		releaseHandle(parentHndl, docHndl);
@@ -256,7 +257,7 @@ Iterator *it;
 
 	it->state = IterLeftEof;
 	it->docId.bits = 0;
-	it->xtra = xtra;
+	it->xtra = userXtra;
 
 	//	return handle for iterator
 
@@ -317,7 +318,7 @@ DbAddr *slot;
 //	create new cursor
 
 DbStatus createCursor(DbHandle hndl[1], DbHandle dbIdxHndl[1], Params *params) {
-uint32_t xtra = (uint32_t)params[HndlXtra].intVal;
+uint32_t userXtra = (uint32_t)params[UserXtra].intVal;
 Handle *idxHndl, *cursorHndl;
 DbStatus stat = DB_OK;
 DbCursor *dbCursor;
@@ -327,7 +328,7 @@ DbCursor *dbCursor;
 	if (!(idxHndl = bindHandle(dbIdxHndl)))
 		return DB_ERROR_handleclosed;
 
-	if ((cursorHndl = makeHandle(idxHndl->map, xtra + sizeof(DbCursor) + cursorSize[*(uint8_t *)idxHndl->map->arena->type], Hndl_cursor)))
+	if ((cursorHndl = makeHandle(idxHndl->map, cursorSize[*(uint8_t *)idxHndl->map->arena->type], userXtra, Hndl_cursor)))
 
 		dbCursor = (DbCursor *)(cursorHndl + 1);
 	else {
@@ -335,8 +336,7 @@ DbCursor *dbCursor;
 		return DB_ERROR_outofmemory;
 	}
 
-	dbCursor->binaryFlds = idxHndl->map->arenaDef->params[IdxKeyFlds].boolVal;
-	dbCursor->xtra = xtra + cursorSize[*(uint8_t *)idxHndl->map->arena->type];
+	dbCursor->binaryFlds = params[IdxKeyFlds].boolVal;
 	dbCursor->deDup = params[CursorDeDup].boolVal;
 
 	switch (*idxHndl->map->arena->type) {
@@ -498,7 +498,7 @@ Handle *hndl, *hndl2;
 	if (!(hndl = bindHandle(oldHndl)))
 		return DB_ERROR_handleclosed;
 
-	if ((hndl2 = makeHandle(hndl->map, hndl->xtraSize, hndl->hndlType)))
+	if ((hndl2 = makeHandle(hndl->map, hndl->baseSize, hndl->xtraSize, hndl->hndlType)))
 		newHndl->hndlBits = hndl2->hndlId.bits;
 	else
 		stat = DB_ERROR_outofmemory;

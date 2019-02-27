@@ -87,11 +87,9 @@ typedef struct DbMap_ DbMap;
 typedef enum {
 	Size = 0,		// total Params structure size
 	OnDisk,			// Arena resides on disk
-	InitSize,		// initial arena size
-	HndlXtra,		// extra bytes in handle struct
+	UserXtra,		// user extra bytes in handle struct
 	ObjIdSize,		// size of arena ObjId array element
 	MapXtra,		// local process extra map storage
-	ArenaXtra,		// extra bytes in arena
 	ResetVersion,	// reset arena version
 
 	IdxKeyUnique = 10,
@@ -147,3 +145,4 @@ typedef struct {
 uint32_t store64(uint8_t *key, uint32_t keylen, int64_t what, bool binaryFlds);
 uint64_t get64(uint8_t *key, uint32_t len, bool binaryFlds);
 uint32_t size64(uint8_t *key, uint32_t len);
+uint32_t calc64(uint64_t value, bool binaryFlds);

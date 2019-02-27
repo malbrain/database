@@ -204,7 +204,7 @@ void lockLatchGrp(volatile uint8_t *latch, uint8_t bitNo) {
 #endif
 		while (*latch & mask);
 	}
-}
+ }
 
 void unlockLatchGrp(volatile uint8_t *latch, uint8_t bitNo) {
 	uint8_t mask = 1 << (bitNo % 8);

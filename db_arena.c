@@ -66,7 +66,7 @@ int amt;
 	  }
 	}
 
-	map = db_malloc(sizeof(DbMap) + arenaDef->localSize, true);
+	map = db_malloc(sizeof(DbMap) + arenaDef->mapXtra, true);
 
 	if ((map->parent = parent)) {
 		*childMap = map;
@@ -159,7 +159,7 @@ int amt;
 //	call with arena locked
 
 DbMap *initArena (DbMap *map, ArenaDef *arenaDef, char *name, uint32_t nameLen, RedBlack *rbEntry) {
-uint64_t initSize = arenaDef->params[InitSize].intVal;
+uint64_t initSize;
 uint32_t segOffset;
 uint32_t bits;
 
@@ -169,8 +169,7 @@ uint32_t bits;
 	segOffset += 63;
 	segOffset &= -64;
 
-	if (initSize < segOffset)
-		initSize = segOffset;
+	initSize = segOffset;
 
 	if (initSize < MIN_segsize)
 		initSize = MIN_segsize;

@@ -23,8 +23,9 @@ union Handle_ {
 	uint64_t entryTs;		// time stamp of first api call
 	uint32_t bindCnt[1];	// count of open api calls (handle binds)
 	uint16_t nrandState[3];	// random number generator state
-	uint16_t xtraSize;		// size of following structure
-	uint16_t listIdx;		// arena free frames entry index
+    uint16_t baseSize;		// size of  areaa following Handle structure
+    uint16_t xtraSize;      // additional user areaa following base structure
+    uint16_t listIdx;       // arena free frames entry index
 	uint16_t arrayIdx;		// arena handle array index
 	uint8_t maxType[1];		// number of arena list entries
 	uint8_t status[1];		// current status of the handle
@@ -37,7 +38,8 @@ union Handle_ {
 uint32_t disableHndls(DbAddr *hndlCalls);
 uint64_t scanHandleTs(DbMap *map);
 
-Handle *makeHandle(DbMap *map, uint32_t xtraSize, HandleType type);
+Handle *makeHandle(DbMap *map, uint32_t baseSize, uint32_t userSize,
+                   HandleType type);
 void releaseHandle(Handle *hndl, DbHandle *dbHndl);
 bool enterHandle(Handle *handle, DbAddr *slot);
 Handle *bindHandle(DbHandle *dbHndl);

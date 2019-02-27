@@ -64,7 +64,7 @@ ArenaDef arenaDef[1];
 //	make handle from map pointer
 //	leave it bound
 
-Handle *makeHandle(DbMap *map, uint32_t xtraSize, HandleType type) {
+Handle *makeHandle(DbMap *map, uint32_t baseSize,  uint32_t xtraSize, HandleType type) {
 DbAddr *hndlAddr, *slot;
 Handle *handle;
 ObjId hndlId;
@@ -78,7 +78,7 @@ DbAddr addr;
 
 	// total size of the Handle structure
 
-	amt = sizeof(Handle) + xtraSize;
+	amt = sizeof(Handle) + baseSize + xtraSize;
 
 	//	get a new or recycled ObjId
 
@@ -95,8 +95,9 @@ DbAddr addr;
 	handle->entryTs = atomicAdd64(&map->arena->nxtTs, 1);
 	handle->hndlId.bits = hndlId.bits;
 	handle->addr.bits = addr.bits;
-	handle->xtraSize = xtraSize;	// size of following structure
-	handle->hndlType = type;
+    handle->baseSize = baseSize;  // size of following database cursor, etc
+    handle->xtraSize = xtraSize;  // size of following user area
+    handle->hndlType = type;
 	handle->bindCnt[0] = 1;
 	handle->map = map;
 

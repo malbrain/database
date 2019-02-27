@@ -284,13 +284,32 @@ bool neg;
 	return len + off;
 }
 
-// calcukate size of suffix at end of a key
+//	calc space needed to store 64 bit vsalue
+
+uint32_t calc64 (uint64_t value, bool binaryFlds) {
+int off = binaryFlds ? 2 : 0;
+int64_t tst64 = value >> 8;
+uint32_t xtraBytes = 0;
+bool neg;
+
+	neg = value < 0;
+
+	while (tst64)
+	  if (neg && tst64 == -1)
+		break;
+	  else
+		xtraBytes++, tst64 >>= 8;
+
+    return off + xtraBytes + 2;
+}
+
+//  size of suffix at end of a key
 
 uint32_t size64(uint8_t *key, uint32_t len) {
 	return (key[len - 1] & 0x7) + 2;
 }
 
-    //	de-duplication
+//	de-duplication
 //	set mmbrship
 
 uint16_t mmbrSizes[] = { 13, 29, 61, 113, 251, 503, 1021, 2039, 4093, 8191, 16381, 32749, 65521};
