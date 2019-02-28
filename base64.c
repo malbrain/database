@@ -49,11 +49,11 @@ void mynrand48seed(uint16_t *nrandState) {
 time_t tod[1];
 
 	time(tod);
-	nrandState[0] = RAND48_SEED_0 ^ *tod & 0xffff;
+	nrandState[0] = RAND48_SEED_0; // ^ *tod & 0xffff;
 	*tod >>= 16;
-	nrandState[1] = RAND48_SEED_1 ^ *tod & 0xffff;
+	nrandState[1] = RAND48_SEED_1; // ^ *tod & 0xffff;
 	*tod >>= 16;
-	nrandState[2] = RAND48_SEED_2 ^ *tod & 0xffff;
+	nrandState[2] = RAND48_SEED_2; // ^ *tod & 0xffff;
 }
 
 long mynrand48(unsigned short xseed[3]) 

@@ -23,15 +23,13 @@ uint8_t *btree2Key(Btree2Slot *slot)
 
 //	calc size of slot
 
-uint16_t btree2SlotSize(Btree2Slot *slot, uint8_t skipBits, uint8_t height)
+uint32_t btree2SlotSize(Btree2Slot *slot, uint8_t skipBits, uint8_t height)
 {
 uint8_t *key = slotkey(slot);
 uint32_t size;
 
 	size = sizeof(*slot) + keylen(key);
 	size += (height ? height : slot->height) * sizeof(uint16_t);
-	size += (1 << skipBits) - 1;
-	size >>= skipBits;
 	return size;
 }
 
@@ -52,20 +50,20 @@ unsigned long height = 0;
 #endif
 }
 
-//	calculate amount (in skipBits) of space needed to install slot in page
+//	calculate amount of space needed to install slot in page
 
-uint16_t btree2SizeSlot (uint8_t skipBits, uint32_t totKeySize, uint8_t height)
+uint32_t btree2SizeSlot (uint32_t keySize, uint8_t height)
 {
-uint32_t amt = (uint16_t)(sizeof(Btree2Slot) + height * sizeof(uint16_t) + totKeySize);
+uint32_t amt = (uint16_t)(sizeof(Btree2Slot) + height * sizeof(uint16_t) + keySize);
 
-	amt += (1 << skipBits) - 1;
-	return amt >> skipBits;
+	return amt + (keySize > 125 ? 2 : 1);
 }
 
 // allocate space for new slot (in skipBits units)
 
-uint16_t btree2AllocSlot(Btree2Page *page, uint16_t size) {
+uint16_t btree2AllocSlot(Btree2Page *page, uint32_t bytes) {
 uint16_t base = (sizeof(*page) + (1ULL << page->skipBits) - 1) >> page->skipBits;
+uint16_t size = (bytes + (1ULL << page->skipBits) - 1) >> page->skipBits;
 union Btree2Alloc alloc[1], before[1];
 
 	do {
@@ -80,7 +78,7 @@ union Btree2Alloc alloc[1], before[1];
 		else
 			return 0;
 
-	} while( !atomicCAS32(page->alloc->word, *alloc->word, *before->word) );
+	} while( !atomicCAS32(page->alloc->word, *before->word, *alloc->word) );
 
 	return alloc->nxt;
 }
@@ -105,8 +103,6 @@ ObjId *pageNoPtr;
 
 	//  compare with fence key and
 	//  slide right to next page,
-	//	or select the stopper page
-	//	on far right end
 
 	if( set->page->fence ) {
 		set->slot = slotptr(set->page, set->page->fence);
@@ -114,9 +110,6 @@ ObjId *pageNoPtr;
 		if( btree2KeyCmp (slotkey(set->slot), key, keyLen) < 0 ) {
 	  		if( (set->pageNo.bits = set->page->right.bits) )
 	  			continue;
-
-	  		if( (set->pageNo.bits = set->page->stopper.bits) )
-				continue;
 
 			return DB_BTREE_error;
 		}

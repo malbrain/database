@@ -257,7 +257,7 @@ bool atomicCAS8(uint8_t *dest, uint8_t comp, uint8_t newValue) {
 
 //	atomic install 16 bit value
 
-bool atomicCAS16(uint16_t *dest, uint16_t value, uint16_t comp) {
+bool atomicCAS16(uint16_t *dest, uint16_t comp, uint16_t value) {
 #ifdef _WIN32
 	return _InterlockedCompareExchange16 (dest, value, comp) == comp;
 #else
@@ -267,7 +267,7 @@ bool atomicCAS16(uint16_t *dest, uint16_t value, uint16_t comp) {
 
 //	atomic install 32 bit value
 
-bool atomicCAS32(uint32_t *dest, uint32_t value, uint32_t comp) {
+bool atomicCAS32(uint32_t *dest, uint32_t comp, uint32_t value) {
 #ifdef _WIN32
 	return _InterlockedCompareExchange (dest, value, comp) == comp;
 #else
@@ -277,7 +277,7 @@ bool atomicCAS32(uint32_t *dest, uint32_t value, uint32_t comp) {
 
 //	atomic install 64 bit value
 
-bool atomicCAS64(uint64_t *dest, uint64_t value, uint64_t comp) {
+bool atomicCAS64(uint64_t *dest, uint64_t comp, uint64_t value) {
 #ifdef _WIN32
 	return _InterlockedCompareExchange64 (dest, value, comp) == comp;
 #else

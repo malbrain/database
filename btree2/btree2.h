@@ -79,7 +79,6 @@ typedef struct {
 	uint8_t skipBits;	// unit size for skip list allocations
 	uint8_t pageType;	// allocation type
 	DbAddr newPage;		// replacement page
-	ObjId stopper;		// go here when right page is zero
 	ObjId pageNo;		// page number
 	ObjId right;		// page to right
 	ObjId left;			// page to left
@@ -149,18 +148,17 @@ uint64_t btree2NewPage (Handle *hndl, uint8_t lvl);
 
 DbStatus btree2CleanPage(Handle *hndl, Btree2Set *set);
 DbStatus btree2SplitPage (Handle *hndl, Btree2Set *set);
-DbStatus btree2FixKey (Handle *hndl, uint8_t *fenceKey, uint8_t lvl);
 DbStatus btree2InstallKey(Handle *index, Btree2Set *set, uint16_t off, uint8_t *key, uint32_t keyLen, uint8_t height);
 
 int btree2KeyCmp(uint8_t *key1, uint8_t *key2, uint32_t len2);
 void btree2FindSlot(Btree2Set *set, uint8_t *key, uint32_t keyLen);
 uint64_t btree2AllocPageNo(Handle *index);
 
-uint16_t btree2AllocSlot(Btree2Page *page, uint16_t size);
+uint16_t  btree2AllocSlot(Btree2Page *page, uint32_t bytes);
 uint16_t btree2FillFwd(Btree2Cursor *cursor, Btree2Page *page, uint16_t findOff, uint32_t pageSize);
-uint16_t btree2SizeSlot(uint8_t , uint32_t totKeySize, uint8_t height);
 uint16_t btree2InstallSlot(Handle *index, Btree2Page *page, Btree2Slot *slot, uint16_t *fwd);
-uint16_t btree2SlotSize(Btree2Slot *slot, uint8_t skipBits, uint8_t height);
+uint32_t btree2SlotSize(Btree2Slot *slot, uint8_t skipBits, uint8_t height);
+uint32_t btree2SizeSlot(uint32_t keyLen, uint8_t height);
 uint32_t btree2GenHeight(Handle *index);
 bool btree2RecyclePage(Handle *index, int type, DbAddr page);
 bool btree2RecyclePageNo(Handle *ind6x, ObjId pageNo);

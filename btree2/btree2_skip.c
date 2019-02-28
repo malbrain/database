@@ -32,29 +32,28 @@ void btree2FindSlot (Btree2Set *set, uint8_t *key, uint32_t keyLen)
 {
 uint8_t idx = *set->page->height;
 uint16_t *tower = set->page->towerHead;
+Btree2Slot *slot;
 int result = 0;
 
 	//	Starting at the head tower go down or right after each comparison
 
 	while( idx-- ) {
-	  set->off = 0;			// page head tower
+		while( (set->nextSlot[idx] = tower[idx]) ) {
+			slot = slotptr(set->page, tower[idx]);	// test right
+			result = btree2KeyCmp (slotkey(slot), key, keyLen); 
 
-	  do {
-		set->prevSlot[idx] = set->off;
+			if( result > 0 )		
+				break;
 
-		if( (set->off = tower[idx]) ) {
-			set->slot = slotptr(set->page, set->off);	// go right
-			tower = set->slot->tower;
-			result = btree2KeyCmp (slotkey(set->slot), key, keyLen); 
-		} else
-			result = 1;						// drop down
+			// go right
 
-	  } while( result < 0 );
-
-	  set->nextSlot[idx] = set->off;
+			set->prevSlot[idx] = set->off;
+			set->found = !result;
+			set->off = tower[idx];
+			tower = slot->tower;
+			set->slot = slot;
+		}
 	}
-
-	set->found = !result;
 }
 
 // find next non-dead slot -- the fence key if nothing else

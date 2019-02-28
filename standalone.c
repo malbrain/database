@@ -250,7 +250,7 @@ int stat;
 			len += 2;
 
 		if( pennysort ) {
-		 while( line++ < count ) {
+		 while( ++line < count ) {
            if (debug && !(line % 100000))
                fprintf(stderr, "line %" PRIu64 "\n", line);
 
