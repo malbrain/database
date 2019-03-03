@@ -105,14 +105,12 @@ typedef struct {
 } Btree2Slot;
 
 typedef struct {
-	uint8_t rootLvl;
-	uint8_t height;		// tower height
+	uint8_t rootLvl;    // last discovered root  level
 	bool found;			// key found as prefix of entry
 	ObjId pageNo;		// current page Number
 	DbAddr pageAddr;	// current page address
-	Btree2Page *page;	// current page
-	Btree2Slot *slot;	// height zero slot
-	uint16_t off;		// offset of current slot
+	Btree2Page *page;	// current page content
+	uint16_t prev, off, next;	// offset of prev, new, and next slot
 	uint16_t prevSlot[Btree2_maxskip];
 	uint16_t nextSlot[Btree2_maxskip];
 } Btree2Set;
@@ -148,13 +146,14 @@ uint64_t btree2NewPage (Handle *hndl, uint8_t lvl);
 
 DbStatus btree2CleanPage(Handle *hndl, Btree2Set *set);
 DbStatus btree2SplitPage (Handle *hndl, Btree2Set *set);
-DbStatus btree2InstallKey(Handle *index, Btree2Set *set, uint16_t off, uint8_t *key, uint32_t keyLen, uint8_t height);
+DbStatus btree2InstallKey(Handle *index, Btree2Set *set, uint8_t *key, uint32_t keyLen, uint8_t height);
 
 int btree2KeyCmp(uint8_t *key1, uint8_t *key2, uint32_t len2);
 void btree2FindSlot(Btree2Set *set, uint8_t *key, uint32_t keyLen);
 uint64_t btree2AllocPageNo(Handle *index);
-
-uint16_t  btree2AllocSlot(Btree2Page *page, uint32_t bytes);
+uint64_t btree2Get64 (Btree2Slot *slot, bool binaryFlds);
+uint32_t btree2Store64(Btree2Slot *slot, uint64_t value, bool binaryFlds);
+uint16_t btree2AllocSlot(Btree2Page *page, uint32_t bytes);
 uint16_t btree2FillFwd(Btree2Cursor *cursor, Btree2Page *page, uint16_t findOff, uint32_t pageSize);
 uint16_t btree2InstallSlot(Handle *index, Btree2Page *page, Btree2Slot *slot, uint16_t *fwd);
 uint32_t btree2SlotSize(Btree2Slot *slot, uint8_t skipBits, uint8_t height);

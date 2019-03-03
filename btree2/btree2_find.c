@@ -9,13 +9,17 @@ uint32_t pageSize;
 uint8_t *foundKey;
 Btree2Set set[1];
 DbStatus stat;
+Btree2Slot *slot;
 
 	// find the level 0 page containing the key
+
+    memset (set, 0, sizeof(set));
 
 	if ((stat = btree2LoadPage(map, set, key, keyLen, 0)))
 		return stat;
 
-	foundKey = slotkey(set->slot);
+	slot = slotptr(set->page, set->next);
+	foundKey = slotkey(slot);
 	cursor->base->state = CursorPosAt;
 
 	if (onlyOne) {

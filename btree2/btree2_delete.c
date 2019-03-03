@@ -7,6 +7,7 @@ bool btree2DeadTower(Btree2Set *set) {
 
 DbStatus btree2DeleteKey(Handle *index, uint8_t *key, uint32_t keyLen) {
 Btree2Index *btree2 = btree2index(index->map);
+Btree2Slot *slot;
 Btree2Set set[1];
 DbStatus stat;
 
@@ -17,8 +18,10 @@ DbStatus stat;
 	if ((stat = btree2LoadPage(index->map, set, key, keyLen, 0)))
 		return stat;
 
+	slot =  slotptr(set->page, set->next);
+
 	if( set->found )
-	  if( atomicCAS8(set->slot->state, Btree2_slotactive, Btree2_slotdeleted) )
+	  if( atomicCAS8(slot->state, Btree2_slotactive, Btree2_slotdeleted) )
 		btree2DeadTower(set);
 
 	return DB_OK;

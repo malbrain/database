@@ -124,7 +124,7 @@ uint8_t *key;
 		else
 			continue;
 
-		dbCursor->key = key + keypre(key);
+		dbCursor->key = keystr(key);
 		dbCursor->keyLen = keylen(key);
 		dbCursor->state = CursorPosAt;
 		return DB_OK;
@@ -180,7 +180,7 @@ uint8_t *key;
 		else
 		  continue;
 
-		dbCursor->key = key + keypre(key);
+		dbCursor->key = keystr(key);
 		dbCursor->keyLen = keylen(key);
 		dbCursor->state = CursorPosAt;
 		return DB_OK;

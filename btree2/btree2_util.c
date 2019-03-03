@@ -28,7 +28,7 @@ uint32_t btree2SlotSize(Btree2Slot *slot, uint8_t skipBits, uint8_t height)
 uint8_t *key = slotkey(slot);
 uint32_t size;
 
-	size = sizeof(*slot) + keylen(key);
+	size = sizeof(*slot) + keylen(key) + keypre(key);
 	size += (height ? height : slot->height) * sizeof(uint16_t);
 	return size;
 }
@@ -51,12 +51,13 @@ unsigned long height = 0;
 }
 
 //	calculate amount of space needed to install slot in page
+//	include key length bytes, and tower height
 
 uint32_t btree2SizeSlot (uint32_t keySize, uint8_t height)
 {
 uint32_t amt = (uint16_t)(sizeof(Btree2Slot) + height * sizeof(uint16_t) + keySize);
 
-	return amt + (keySize > 125 ? 2 : 1);
+	return amt + (keySize > 127 ? 2 : 1);
 }
 
 // allocate space for new slot (in skipBits units)
@@ -88,6 +89,7 @@ union Btree2Alloc alloc[1], before[1];
 DbStatus btree2LoadPage(DbMap *map, Btree2Set *set, uint8_t *key, uint32_t keyLen, uint8_t lvl) {
 Btree2Index *btree2 = btree2index(map);
 ObjId *pageNoPtr;
+Btree2Slot *slot;
 
   set->pageNo.bits = btree2->root.bits;
 
@@ -99,15 +101,15 @@ ObjId *pageNoPtr;
 	set->page = getObj(map, set->pageAddr);
 
 	if( set->page->lvl > set->rootLvl )
-		set->rootLvl = set->rootLvl;
+		set->rootLvl = set->page->lvl;
 
 	//  compare with fence key and
 	//  slide right to next page,
 
-	if( set->page->fence ) {
-		set->slot = slotptr(set->page, set->page->fence);
+	if( set->next = set->page->fence ) {
+		slot = slotptr(set->page, set->next);
 
-		if( btree2KeyCmp (slotkey(set->slot), key, keyLen) < 0 ) {
+		if( btree2KeyCmp (slotkey(slot), key, keyLen) < 0 ) {
 	  		if( (set->pageNo.bits = set->page->right.bits) )
 	  			continue;
 
@@ -115,7 +117,7 @@ ObjId *pageNoPtr;
 		}
 	}
 
-	//  find first key on page greater or equal to target key
+	//  find first key on page that is greater or equal to target key
 	//  and continue to next level
 
 	btree2FindSlot (set, key, keyLen);
@@ -123,7 +125,8 @@ ObjId *pageNoPtr;
 	if (set->page->lvl == lvl)
 		return DB_OK;
 
-	set->pageNo.bits = get64(key, keyLen, btree2->base->binaryFlds);
+	slot = slotptr(set->page, set->next);
+	set->pageNo.bits = btree2Get64(slot, btree2->base->binaryFlds);
   } while( set->pageNo.bits );
 
   // return error on end of right chain
@@ -131,3 +134,14 @@ ObjId *pageNoPtr;
   return DB_BTREE_error;
 }
 
+uint64_t btree2Get64 (Btree2Slot *slot, bool binaryFlds) {
+uint8_t *key = slotkey(slot);
+
+	return get64 (keystr(key), keylen(key), binaryFlds);
+}
+
+uint32_t btree2Store64 (Btree2Slot *slot, uint64_t value, bool binaryFlds) {
+uint8_t *key = slotkey(slot);
+
+	return store64(keystr(key), keylen(key), value, binaryFlds);
+}
