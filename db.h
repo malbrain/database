@@ -146,3 +146,5 @@ uint32_t store64(uint8_t *key, uint32_t keylen, int64_t what, bool binaryFlds);
 uint64_t get64(uint8_t *key, uint32_t len, bool binaryFlds);
 uint32_t size64(uint8_t *key, uint32_t len);
 uint32_t calc64(uint64_t value, bool binaryFlds);
+
+#define db_abort(expr, msg, val) (fprintf(stderr, "db_abort: line:%d file:%s\nexpr:(%s) is false: %s\n", __LINE__, __FILE__, #expr, msg), abort(), val)
