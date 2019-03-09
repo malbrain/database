@@ -140,7 +140,7 @@ RedBlack *rbEntry;
 	
 	releaseHandle(database, dbHndl);
 
-	if ((docHndl = makeHandle(map, 0, (uint32_t)params[UserXtra].intVal, Hndl_docStore)))
+	if ((docHndl = makeHandle(map, 0, (uint32_t)params[HndlXtra].intVal, Hndl_docStore)))
 		hndl->hndlBits = docHndl->hndlId.bits;
 	else
 		return DB_ERROR_outofmemory;
@@ -239,7 +239,7 @@ createXit:
 //
 
 DbStatus createIterator(DbHandle hndl[1], DbHandle docHndl[1], Params *params) {
-uint32_t userXtra = (uint32_t)params[UserXtra].intVal;
+uint32_t hndlXtra = (uint32_t)params[HndlXtra].intVal;
 Handle *parentHndl, *iterHndl;
 Iterator *it;
 
@@ -248,7 +248,7 @@ Iterator *it;
 	if (!(parentHndl = bindHandle(docHndl)))
 		return DB_ERROR_handleclosed;
 
-	if ((iterHndl = makeHandle(parentHndl->map, sizeof(Iterator), userXtra, Hndl_iterator)))
+	if ((iterHndl = makeHandle(parentHndl->map, sizeof(Iterator), hndlXtra, Hndl_iterator)))
 		it = (Iterator *)(iterHndl + 1);
 	else {
 		releaseHandle(parentHndl, docHndl);
@@ -257,7 +257,7 @@ Iterator *it;
 
 	it->state = IterLeftEof;
 	it->docId.bits = 0;
-	it->xtra = userXtra;
+	it->xtra = hndlXtra;
 
 	//	return handle for iterator
 
@@ -318,7 +318,7 @@ DbAddr *slot;
 //	create new cursor
 
 DbStatus createCursor(DbHandle hndl[1], DbHandle dbIdxHndl[1], Params *params) {
-uint32_t userXtra = (uint32_t)params[UserXtra].intVal;
+uint32_t hndlXtra = (uint32_t)params[HndlXtra].intVal;
 Handle *idxHndl, *cursorHndl;
 DbStatus stat = DB_OK;
 DbCursor *dbCursor;
@@ -328,7 +328,7 @@ DbCursor *dbCursor;
 	if (!(idxHndl = bindHandle(dbIdxHndl)))
 		return DB_ERROR_handleclosed;
 
-	if ((cursorHndl = makeHandle(idxHndl->map, cursorSize[*(uint8_t *)idxHndl->map->arena->type], userXtra, Hndl_cursor)))
+     	if ((cursorHndl = makeHandle(idxHndl->map, cursorSize[*(uint8_t *)idxHndl->map->arena->type], hndlXtra, Hndl_cursor)))
 
 		dbCursor = (DbCursor *)(cursorHndl + 1);
 	else {

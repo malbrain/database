@@ -111,8 +111,8 @@ typedef struct {
 	DbAddr pageAddr;	// current page address
 	Btree2Page *page;	// current page content
 	uint16_t prev, off, next;	// offset of prev, new, and next slot
-	uint16_t prevSlot[Btree2_maxskip];
-	uint16_t nextSlot[Btree2_maxskip];
+	uint16_t prevOff[Btree2_maxskip];
+//	uint16_t nextOfff[Btree2_maxskip];
 } Btree2Set;
 
 typedef struct {

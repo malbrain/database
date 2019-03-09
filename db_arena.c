@@ -159,7 +159,7 @@ int amt;
 //	call with arena locked
 
 DbMap *initArena (DbMap *map, ArenaDef *arenaDef, char *name, uint32_t nameLen, RedBlack *rbEntry) {
-uint64_t initSize;
+uint64_t initSize = arenaDef->params[InitSize].intVal;
 uint32_t segOffset;
 uint32_t bits;
 
@@ -169,7 +169,8 @@ uint32_t bits;
 	segOffset += 63;
 	segOffset &= -64;
 
-	initSize = segOffset;
+	if (initSize < segOffset)
+		initSize = segOffset;
 
 	if (initSize < MIN_segsize)
 		initSize = MIN_segsize;
@@ -345,7 +346,7 @@ DbAddr slot;
 	if (zeroit)
 		memset (getObj(map, slot), 0, amt);
 
-	*slot.latch = type << BYTE_SHIFT;
+	*slot.latch = type;
 	return slot.bits;
 }
 

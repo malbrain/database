@@ -34,25 +34,27 @@ Btree2Slot *slot;
 int result = 0;
 
 	//	Starting at the page head tower go down or right after each comparison
+	//	build up previous path through the towers into prevOff with either
+	//	the offset or zero to indicate the towerHead slot
 
-	while( idx-- ) {
-		while( (set->next = tower[idx]) ) {
-			set->nextSlot[idx] = set->next;
-			slot = slotptr(set->page, set->next);	// test right
-			result = btree2KeyCmp (slotkey(slot), key, keyLen); 
+    memset (set->prevOff, 0, sizeof set->prevOff);
 
-			if( result > 0 )		
-				break;
+	while( (idx--) )
+	  while( (set->next = tower[idx]) ) {
+//		set->nextOff[idx] = set->next;
+		slot = slotptr(set->page, set->next);	// test right
+		result = btree2KeyCmp (slotkey(slot), key, keyLen); 
 
-			// go right
+		if( result >= 0 )
+			break;
 
-			set->prevSlot[idx] = set->next;
-			set->found = !result;
-			set->prev = set->next;
+		// go right
 
-			tower = slot->tower;
-		}
-	}
+		set->prevOff[idx] = set->next;
+		set->found = !result;
+		set->prev = set->next;
+		tower = slot->tower;
+	  }
 }
 
 // find next non-dead slot -- the fence key if nothing else
@@ -61,7 +63,7 @@ bool btree2SkipDead (Btree2Set *set) {
 Btree2Slot *slot = slotptr(set->page, set->next);
 
   while( *slot->state == Btree2_slotdeleted ) {
-	set->prevSlot[0] = set->next; 
+	set->prevOff[0] = set->next; 
 	if( (set->next = slot->tower[0]) )	// successor offset
 	  slot = slotptr(set->page, set->next);
 	else

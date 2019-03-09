@@ -286,7 +286,7 @@ uint16_t off;
 uint8_t *dest;
 int idx;
 
-	key = slotkey(source);
+    key = slotkey (source);
 	keyLen = keylen(key);
 
 	slotSize = btree2SizeSlot(keyLen, height);
@@ -354,25 +354,23 @@ uint16_t prevFwd;
 	//  splice new slot into tower structure
 
 	while( idx < height ) {
+		if( idx >= *set->page->height)  {
+			lockLatchGrp (set->page->bitLatch, idx);
 
-		//	prevSlot[idx] > 0 => prevFwd is last key smaller than new key
-		//	scan right from prevFwd until next slot has a larger key
+			if( idx >= *set->page->height )
+			  if( !set->page->towerHead[idx] )
+				set->page->towerHead[idx] = set->off;
 
-		while( *set->page->height < idx ) {
-			tst = *set->page->height;
-			lockLatchGrp (set->page->bitLatch, tst);
-
-			if( !set->page->towerHead[tst] )
-				set->page->towerHead[tst] = set->off;
-
-			atomicCAS8(set->page->height, tst, tst + 1);
-			unlockLatchGrp(set->page->bitLatch, tst);
+			++set->page->height[0];
+			unlockLatchGrp (set->page->bitLatch, idx);
+			idx += 1;
+			continue;
 		}
 
 		//	prevSlot[idx] > 0 => prevFwd is last key smaller than new key
 		//	scan right from prevFwd until next slot has a larger key
 
-		if( (prevFwd = set->prevSlot[idx]) ) {
+		if( (prevFwd = set->prevOff[idx]) ) {
 			prev = slotptr(set->page, prevFwd); 
 
  			if( btree2LinkTower(set->page, prev->tower, prev->bitLatch, idx, set->off) )
@@ -395,26 +393,14 @@ uint16_t prevFwd;
 
 bool btree2LinkTower(Btree2Page *page, uint16_t *tower, uint8_t *bitLatch, uint8_t idx, uint16_t off ) {
 Btree2Slot *next, *slot = slotptr(page, off);
-uint8_t *key = slotkey(slot), *prevLatch = NULL;
+uint8_t *key = slotkey(slot);
 uint32_t keyLen = keylen(key);
-uint16_t *prevTower;
 
   do {
 	lockLatchGrp(bitLatch, idx);
 
-	if( tower[idx] )
-		next = slotptr(page, tower[idx]);
-	else
+	if( tower[idx] == 0 )
 		break;
-
-	if( prevLatch )
-		unlockLatchGrp (prevLatch, idx);
-
-	prevLatch = bitLatch;
-	prevTower = tower;
-
-	bitLatch = next->bitLatch;
-	tower = next->tower;
 
 	//  if another node was inserted on the left,
 	//	continue to the right until it is greater
@@ -424,16 +410,23 @@ uint16_t *prevTower;
 	//  -1: key2 > key1
 	//  +1: key2 < key1
 
-  } while( btree2KeyCmp (slotkey(next), keystr(key), keyLen) > 0 );
+	next = slotptr(page, tower[idx]);
 
-	//  link forward pointers
+	if (btree2KeyCmp (slotkey (next), keystr (key), keyLen) >= 0)
+		break;
 
-	slot->tower[idx] = tower[idx];
-	tower[idx] = off;
+	unlockLatchGrp (bitLatch, idx);
 
-	if( prevLatch )
-		unlockLatchGrp (prevLatch, idx);
+	tower = next->tower;
+	bitLatch = next->bitLatch;
 
-	unlockLatchGrp(bitLatch, idx);
-	return true;
+  } while( true );
+
+//  link forward pointers
+
+  slot->tower[idx] = tower[idx];
+  tower[idx] = off;
+
+  unlockLatchGrp (bitLatch, idx);
+  return true;
 }

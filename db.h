@@ -87,9 +87,11 @@ typedef struct DbMap_ DbMap;
 typedef enum {
 	Size = 0,		// total Params structure size
 	OnDisk,			// Arena resides on disk
-	UserXtra,		// user extra bytes in handle struct
+	InitSize,		// initial arena size
+	HndlXtra,		// extra bytes in handle struct
 	ObjIdSize,		// size of arena ObjId array element
 	MapXtra,		// local process extra map storage
+	ArenaXtra,		// extra bytes in arena
 	ResetVersion,	// reset arena version
 
 	IdxKeyUnique = 10,
