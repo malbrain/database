@@ -123,7 +123,7 @@ uint8_t *key = NULL;
 DbAddr right, addr;
 bool stopper;
 DbStatus stat;
-uint16_t off;
+
 #ifdef DEBUG
 	atomicAdd32(&Splits, 1);
 #endif

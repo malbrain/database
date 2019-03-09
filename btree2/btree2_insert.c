@@ -10,7 +10,6 @@ uint8_t keyBuff[MAX_key];
 uint32_t slotSize;
 Btree2Set set[1];
 DbStatus stat;
-uint16_t off;
 
 	if (keyLen > MAX_key)
 		return DB_ERROR_keylength;
@@ -96,7 +95,7 @@ Btree2Slot *slot, *source;
 Btree2Page *rootPage;
 ObjId *rootObjId;
 uint8_t *key, *dest;
-uint16_t off, height = 1;
+uint16_t off;
 DbAddr root;
 
 	if( (root.bits = btree2NewPage (index, lvl + 1)) )
@@ -121,7 +120,7 @@ DbAddr root;
 		keyLen -= size64(keystr(key), keyLen);
 
 	newLen = calc64(rightPage->pageNo.bits, btree2->base->binaryFlds) + keyLen;
-	newLen = btree2SizeSlot (newLen, height);
+	newLen = btree2SizeSlot (newLen, 1);
 
 	if( (off = btree2AllocSlot(rootPage, newLen)) )
 		slot = slotptr(rootPage, off);
@@ -132,7 +131,7 @@ DbAddr root;
 	*slot->state = Btree2_slotactive;
 	dest = slotkey(slot);
 
-	*rootPage->height = height;
+	*rootPage->height = 1;
 	rootPage->towerHead[0] = off;
 
 	if( newLen > 128 * 256 )
@@ -162,11 +161,11 @@ DbAddr root;
 
 
 DbStatus btree2SplitPage (Handle *index, Btree2Set *set) {
-uint16_t *tower, fwd[Btree2_maxskip];
 uint8_t *lKey, lvl = set->page->lvl;
 Btree2Page *leftPage, *rightPage;
-Btree2Slot *rSlot, *lSlot;
+uint16_t fwd[Btree2_maxskip];
 uint16_t lKeyLen, max, next;
+Btree2Slot *rSlot, *lSlot;
 DbAddr left, right;
 ObjId *lPageNoPtr;
 ObjId *rPageNoPtr;
@@ -331,10 +330,10 @@ int idx;
 //	this function IS thread safe, and uses latches for synchronization
 
 DbStatus btree2InstallKey (Handle *index, Btree2Set *set, uint8_t *key, uint32_t keyLen, uint8_t height) {
-uint8_t *dest, prevHeight, tst;
 Btree2Slot *slot, *prev;
-int idx = 0, lenOff;
 uint16_t prevFwd;
+uint8_t *dest;
+int idx = 0;
 
 	// install new slot into page
 

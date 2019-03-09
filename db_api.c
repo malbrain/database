@@ -617,11 +617,11 @@ DbIndex *index;
 
 	switch (*idxHndl->map->arena->type) {
 	case Hndl_artIndex: {
-		bool defer = idxHndl->map->arenaDef->params[IdxKeyDeferred].boolVal;
+	//	bool defer = idxHndl->map->arenaDef->params[IdxKeyDeferred].boolVal;
 
-		if (idxHndl->map->arenaDef->params[IdxKeyUnique].boolVal)
-			stat = artInsertUniq(idxHndl, key, len, suffixValue, uniqueKey, &defer);
-		else
+	//	if (idxHndl->map->arenaDef->params[IdxKeyUnique].boolVal)
+	//		stat = artInsertUniq(idxHndl, key, len, uniqueKey, &defer);
+	//	else
 			stat = artInsertKey(idxHndl, key, len, suffixValue);
 		break;
 	}

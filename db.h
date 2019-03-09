@@ -119,6 +119,7 @@ typedef union {
 	uint64_t intVal;
 	uint32_t offset;
 	double dblVal;
+	char charVal;
 	bool boolVal;
 	DbAddr addr;
 	void *obj;
