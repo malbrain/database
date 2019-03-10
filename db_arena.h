@@ -35,7 +35,7 @@ typedef struct {
 	uint32_t objSize;			// size of ObjectId array slot
 	uint8_t arenaType;			// type of the arena
 	uint8_t numTypes;			// number of node types
-	char dead[1];				// arena file killed/deleted
+	uint8_t dead[1];				// arena file killed/deleted
 	DbAddr nameTree[1];			// child arena name red/black tree
 	DbAddr childList[1];		// array of childId to arenaDef RbAddr
 	DbAddr hndlArray[1];		// array of handle ids for this arena
@@ -57,8 +57,8 @@ typedef struct {
 	uint32_t objSize;				// size of ObjectId array slot
 	uint16_t currSeg;				// index of highest segment
 	uint16_t objSeg;				// current segment index for ObjIds
-	char mutex[1];					// arena allocation lock/drop flag
-	char type[1];					// arena type
+	uint8_t mutex[1];					// arena allocation lock/drop flag
+	uint8_t type[1];					// arena type
 	uint8_t filler[128];
 } DbArena;
 
@@ -82,9 +82,9 @@ struct DbMap_ {
 	uint32_t objSize;		// size of ObjectId array slot
 	uint16_t pathLen;		// length of arena path
 	uint16_t numSeg;		// number of mapped segments
-	char mapMutex[1];		// segment mapping mutex
-	char drop[1];			// arena map being killed
-	char type[1];			// arena type
+	uint8_t mapMutex[1];		// segment mapping mutex
+	uint8_t drop[1];			// arena map being killed
+	uint8_t type[1];			// arena type
 };
 
 #define skipSize(addr) (((1ULL << addr->type) - sizeof(SkipNode)) / sizeof(SkipEntry))

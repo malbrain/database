@@ -25,10 +25,10 @@ void lockAddr(volatile uint64_t* bits);
 void unlockAddr(volatile uint64_t* bits);
 void lockLatchGrp(volatile uint8_t *latch, uint8_t bitNo);
 void unlockLatchGrp(volatile uint8_t *latch, uint8_t bitNo);
-void waitNonZero(volatile char *zero);
+void waitNonZero(volatile uint8_t *zero);
 void waitNonZero32(volatile uint32_t *zero);
 void waitNonZero64(volatile uint64_t *zero);
-void waitZero(volatile char *zero);
+void waitZero(volatile uint8_t *zero);
 void waitZero32(volatile uint32_t *zero);
 void waitZero64(volatile uint64_t *zero);
 void art_yield(void);
@@ -40,7 +40,7 @@ void art_yield(void);
  * atomic integer ops
  */
 
-void kill_slot(volatile char* latch);
+void kill_slot(volatile uint8_t* latch);
 
 bool atomicCAS8(uint8_t *dest, uint8_t comp, uint8_t newValue);
 bool atomicCAS16(uint16_t *dest, uint16_t comp, uint16_t newValue);
@@ -54,9 +54,9 @@ uint64_t atomicOr64(volatile uint64_t *value, uint64_t amt);
 uint32_t atomicOr32(volatile uint32_t *value, uint32_t amt);
 uint64_t atomicExchange(uint64_t *target, uint64_t value);
 uint64_t compareAndSwap(uint64_t* target, uint64_t compare_val, uint64_t swap_val);
-char atomicExchange8(volatile char *target, char value);
-char atomicAnd8(volatile char *value, char mask);
-char atomicOr8(volatile char *value, char mask);
+uint8_t atomicExchange8(volatile uint8_t *target, uint8_t value);
+uint8_t atomicAnd8(volatile uint8_t *value, uint8_t mask);
+uint8_t atomicOr8(volatile uint8_t *value, uint8_t mask);
 
 int readSegZero(DbMap *map, DbArena *segZero);
 
