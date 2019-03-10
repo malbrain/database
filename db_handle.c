@@ -130,7 +130,7 @@ DbAddr addr;
 //	after bindcnt goes to zero
 
 void disableHndl(Handle *handle) {
-	char maxType = atomicExchange8((char *)handle->maxType, 0);
+	char maxType = atomicExchange8((uint8_t *)handle->maxType, 0);
 
 	if (maxType)
 		arrayRelease(handle->map, handle->map->arena->listArray, handle->listIdx);
@@ -214,7 +214,7 @@ bool enterHandle(Handle *handle, DbAddr *slot) {
 	//	is there a DROP request for this arena?
 
 	if (handle->map->drop[0] & KILL_BIT) {
-		atomicOr8((volatile char *)handle->status, KILL_BIT);
+		atomicOr8((volatile uint8_t *)handle->status, KILL_BIT);
 
 		if (!atomicAdd32(handle->bindCnt, -1))
 			destroyHandle (handle, slot);
@@ -303,7 +303,7 @@ DbAddr addr;
 		  addr.bits = hndlAddr[seg * 64 + slotIdx].bits;
 		  handle = getObj(hndlMap, addr);
 
-		  atomicOr8((volatile char *)handle->status, KILL_BIT);
+		  atomicOr8((volatile uint8_t *)handle->status, KILL_BIT);
 		  count += *handle->bindCnt;
 		} while (slotIdx++, bits /= 2);
 	  }

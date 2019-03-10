@@ -42,7 +42,7 @@ typedef union {
 				uint8_t kill  :1;	// kill entry
 				uint8_t type  :6;	// object type
 			};
-			volatile uintt8_t latch[1];
+			volatile uint8_t latch[1];
 		};
 		union {
 			uint8_t nbyte;		// number of bytes in a span node

@@ -72,7 +72,7 @@ DbMap *ourDb;
 	if (atomicOr8(map->drop, KILL_BIT) & KILL_BIT)
 		return DB_ERROR_arenadropped;
 
-	atomicOr8((volatile char *)map->arena->mutex, KILL_BIT);
+	atomicOr8((volatile uint8_t *)map->arena->mutex, KILL_BIT);
 
 	//	remove id from parent's childMap list
 

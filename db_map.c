@@ -133,7 +133,7 @@ int hndl, flags = O_RDWR;
 #endif
 }
 
-void waitZero(volatile char *zero) {
+void waitZero(volatile uint8_t *zero) {
 	while (*zero)
 #ifndef _WIN32
 			pause();
@@ -160,7 +160,7 @@ void waitZero64(volatile uint64_t *zero) {
 #endif
 }
 
-void waitNonZero(volatile char *zero) {
+void waitNonZero(volatile uint8_t *zero) {
 	while (!*zero)
 #ifndef _WIN32
 			pause();
@@ -235,7 +235,7 @@ void unlockAddr(volatile uint64_t* bits) {
 	*bits = *bits & ~ADDR_MUTEX_SET;
 }
 
-char atomicAnd8(volatile char *value, char mask) {
+uint8_t atomicAnd8(volatile uint8_t *value, uint8_t mask) {
 #ifndef _WIN32
 	return __sync_fetch_and_and(value, mask);
 #else
@@ -283,7 +283,7 @@ bool atomicCAS64(uint64_t *dest, uint64_t comp, uint64_t value) {
 #endif
 }
 
-char atomicOr8(volatile char *value, char mask) {
+uint8_t atomicOr8(volatile uint8_t *value, uint8_t mask) {
 #ifndef _WIN32
 	return __sync_fetch_and_or(value, mask);
 #else
@@ -398,7 +398,7 @@ uint64_t atomicExchange(uint64_t *target, uint64_t swapVal) {
 #endif
 }
 
-char atomicExchange8(volatile char *target, char swapVal) {
+uint8_t atomicExchange8(volatile uint8_t *target, uint8_t swapVal) {
 #ifndef _WIN32
 	return __sync_lock_test_and_set(target, swapVal);
 #else
@@ -407,7 +407,7 @@ char atomicExchange8(volatile char *target, char swapVal) {
 }
 
 #ifdef _WIN32
-void lockArena (HANDLE hndl, char *path) {
+void lockArena (HANDLE hndl, uint8_t *path) {
 OVERLAPPED ovl[1];
 
 	memset (ovl, 0, sizeof(ovl));
@@ -420,7 +420,7 @@ OVERLAPPED ovl[1];
 	exit(1);
 }
 #else
-void lockArena (int hndl, char *path) {
+void lockArena (int hndl, uint8_t *path) {
 
 	if (!flock(hndl, LOCK_EX))
 		return;
@@ -431,7 +431,7 @@ void lockArena (int hndl, char *path) {
 #endif
 
 #ifdef _WIN32
-void unlockArena (HANDLE hndl, char *path) {
+void unlockArena (HANDLE hndl, uint8_t *path) {
 OVERLAPPED ovl[1];
 
 	memset (ovl, 0, sizeof(ovl));
@@ -526,7 +526,7 @@ DbMap map[1];
 
 	if ((map->base[0] = mapMemory(map, 0, sizeof(DbArena), 0))) {
 		map->arena = (DbArena *)map->base[0];
-		atomicOr8((volatile char *)map->arena->mutex, KILL_BIT);
+		atomicOr8((volatile uint8_t *)map->arena->mutex, KILL_BIT);
 		unmapSeg (map, 0);
 	}
 

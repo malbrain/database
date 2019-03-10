@@ -157,7 +157,6 @@ Handle *parentHndl;
 ArenaDef *arenaDef;
 RedBlack *rbEntry;
 Handle *idxHndl;
-DbIndex *index;
 
 	memset (hndl, 0, sizeof(DbHandle));
 
@@ -208,8 +207,6 @@ DbIndex *index;
 		goto createXit;
 
 	// each arena map is followed by a DbIndex base instance
-
-	index = (DbIndex *)(map->arena + 1);
 
 	switch (type) {
 	  case Hndl_artIndex:
@@ -483,7 +480,7 @@ DbStatus closeHandle(DbHandle hndl[1]) {
 	handle = getObj(hndlMap, *slot);
 	hndl->hndlBits = 0;
 
-	atomicOr8((volatile char *)handle->status, KILL_BIT);
+	atomicOr8((volatile uint8_t *)handle->status, KILL_BIT);
 
 	if (!handle->bindCnt[0])
   		destroyHandle(handle, slot);

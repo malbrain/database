@@ -106,7 +106,7 @@ Btree2Slot *slot;
 	//  compare with fence key and
 	//  slide right to next page,
 
-	if( set->next = set->page->fence ) {
+	if( (set->next = set->page->fence) ) {
 		slot = slotptr(set->page, set->next);
 
 		if( btree2KeyCmp (slotkey(slot), key, keyLen) < 0 ) {
