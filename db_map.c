@@ -407,7 +407,7 @@ uint8_t atomicExchange8(volatile uint8_t *target, uint8_t swapVal) {
 }
 
 #ifdef _WIN32
-void lockArena (HANDLE hndl, uint8_t *path) {
+void lockArena (HANDLE hndl, char *path) {
 OVERLAPPED ovl[1];
 
 	memset (ovl, 0, sizeof(ovl));
@@ -420,7 +420,7 @@ OVERLAPPED ovl[1];
 	exit(1);
 }
 #else
-void lockArena (int hndl, uint8_t *path) {
+void lockArena (int hndl, char *path) {
 
 	if (!flock(hndl, LOCK_EX))
 		return;
@@ -431,7 +431,7 @@ void lockArena (int hndl, uint8_t *path) {
 #endif
 
 #ifdef _WIN32
-void unlockArena (HANDLE hndl, uint8_t *path) {
+void unlockArena (HANDLE hndl, char *path) {
 OVERLAPPED ovl[1];
 
 	memset (ovl, 0, sizeof(ovl));

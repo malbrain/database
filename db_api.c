@@ -268,8 +268,8 @@ Iterator *it;
 //	advance/reverse iterator
 
 DbStatus moveIterator (DbHandle hndl[1], IteratorOp op, void **doc, ObjId *docId) {
+DbStatus stat = DB_ERROR_indextype;
 Handle *docHndl;
-DbStatus stat;
 Iterator *it;
 DbAddr *slot;
 
