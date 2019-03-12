@@ -1,4 +1,8 @@
 #include <stdint.h>
+#include <stdlib.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <inttypes.h>
 #include <time.h>
 
 const char* base64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -75,3 +79,149 @@ unsigned long accu;
     return ((long)xseed[2] << 15) + ((long)xseed[1] >> 1);
 }
 
+//	return 64 bit suffix value from key
+
+uint64_t get64(uint8_t *key, uint32_t len, bool binaryFlds) {
+int idx = 0, xtraBytes = key[len - 1] & 0x7;
+int off = binaryFlds ? 2 : 0;
+uint64_t result;
+
+	//	set len to the number start
+
+	len -= xtraBytes + 2;
+
+	//  get sign of the result
+	// 	positive has high bit set
+
+	if (key[len] & 0x80)
+		result = 0;
+	else
+		result = -1;
+
+	// get high order 4 bits
+
+	result <<= 4;
+	result |= key[len] & 0x0f;
+
+	//	assemble complete bytes
+	//	up to 56 bits
+
+	while (idx++ < xtraBytes) {
+	  result <<= 8;
+	  result |= key[len + idx];
+	}
+
+	//	add in low order 4 bits
+
+	result <<= 4;
+	result |= key[len + xtraBytes + 1] >> 4;
+
+	return result;
+}
+
+// concatenate key with sortable 64 bit value
+// returns number of bytes concatenated
+
+uint32_t store64(uint8_t *key, uint32_t keyLen, int64_t value, bool binaryFlds) {
+int off = binaryFlds ? 2 : 0;
+int64_t tst64 = value >> 8;
+uint32_t xtraBytes = 0;
+uint32_t idx, len;
+bool neg;
+
+	neg = value < 0;
+
+	while (tst64)
+	  if (neg && tst64 == -1)
+		break;
+	  else
+		xtraBytes++, tst64 >>= 8;
+
+	//	store low order 4 bits of given value
+	//	in final key byte
+ 
+    key[keyLen + xtraBytes + off + 1] = (uint8_t)((value & 0xf) << 4 | xtraBytes);
+    value >>= 4;
+
+	//	store complete value bytes
+
+    for (idx = xtraBytes; idx; idx--) {
+        key[keyLen + off + idx] = (value & 0xff);
+        value >>= 8;
+    }
+
+	//	store high order 4 bits and
+	//	the 3 bits of xtraBytes
+	//	and the sign bit
+
+    key[keyLen + off] = (uint8_t)((value & 0xf) | (xtraBytes << 4) | 0x80);
+
+	//	if neg, complement the sign bit & xtraBytes bits to
+	//	make negative numbers lexically smaller than positive ones
+
+	if (neg)
+		key[keyLen + off] ^= 0xf0;
+
+    len = xtraBytes + 2;
+
+	if (binaryFlds) {
+		key[keyLen] = len >> 8;
+		key[keyLen + 1] = len;
+	}
+
+	return len + off;
+}
+
+//	calc space needed to store 64 bit vsalue
+
+uint32_t calc64 (int64_t value, bool binaryFlds) {
+int off = binaryFlds ? 2 : 0;
+int64_t tst64 = value >> 8;
+uint32_t xtraBytes = 0;
+bool neg;
+
+	neg = value < 0;
+
+	while (tst64)
+	  if (neg && tst64 == -1)
+		break;
+	  else
+		xtraBytes++, tst64 >>= 8;
+
+    return off + xtraBytes + 2;
+}
+
+//  size of suffix at end of a key
+
+uint32_t size64(uint8_t *key, uint32_t len) {
+	return (key[len - 1] & 0x7) + 2;
+}
+
+#ifdef STANDALONE
+int main (int argc, char **argv) {
+uint8_t buff[128];
+int i;
+
+	while((++argv)[0]) {
+		uint64_t nxt = strtoll(argv[0], NULL, 0), conv;
+		int len = store64(buff, 0, nxt, false);
+
+		printf("calc64: %d\n", calc64(nxt, false));
+		printf("store64:%d  ", len);
+
+		for( i=0; i<len; i++) {
+			printf(" %.2x", buff[i]);
+		
+			if( i % 16 == 15 || i+1==len)
+				printf ("\n");
+		}
+
+		printf ("size64: %d\n", size64 (buff, len));
+
+		conv = get64(buff, len, false);
+		printf("get64: 0x%" PRIx64 "  %" PRId64 "\n", conv, conv);
+	}
+
+	return 0;
+}
+#endif
