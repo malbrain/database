@@ -49,9 +49,10 @@ typedef struct {
 
 typedef enum {
 	Btree2_pageempty = 0,
-	Btree2_pageactive,	// page is live
-	Btree2_pageclean,	// page being cleaned
-	Btree2_pagesplit,	// page being split
+	Btree2_pageactive= 1,	// page is live
+	Btree2_pageclean = 2,	// page being redone or split
+	Btree2_pageleft  = 4,	// page is leftmost
+	Btree2_pageright = 8,	// page is rightmost
 } Btree2PageState;
 
 //	This structure is immediately
@@ -79,6 +80,7 @@ typedef struct {
 	uint8_t skipBits;	// unit size for skip list allocations
 	uint8_t pageType;	// allocation type
 	DbAddr newPage;		// replacement page
+	ObjId stopper;      // page down right-most
 	ObjId pageNo;		// page number
 	ObjId right;		// page to right
 	ObjId left;			// page to left
@@ -96,6 +98,8 @@ typedef enum {
 } Btree2SlotState;
 
 //	Page key slot definition.
+//	length of key (one or two bytes), 
+//	and key bytes follow these fields
 
 typedef struct {
 	uint8_t height;		// final tower height 
@@ -110,9 +114,8 @@ typedef struct {
 	ObjId pageNo;		// current page Number
 	DbAddr pageAddr;	// current page address
 	Btree2Page *page;	// current page content
-	uint16_t prev, off, next;	// offset of prev, new, and next slot
+	uint16_t prev, off;	// offset of prev, new slot
 	uint16_t prevOff[Btree2_maxskip];
-//	uint16_t nextOfff[Btree2_maxskip];
 } Btree2Set;
 
 typedef struct {
@@ -140,8 +143,8 @@ DbStatus btree2PrevKey (DbCursor *cursor, DbMap *map);
 DbStatus btree2Init(Handle *hndl, Params *params);
 DbStatus btree2InsertKey(Handle *hndl, uint8_t *key, uint32_t keyLen, uint64_t suffixValue, uint8_t lvl, Btree2SlotState state);
 DbStatus btree2DeleteKey(Handle *hndl, uint8_t *key, uint32_t keyLen);
-DbStatus btree2LoadPage(DbMap *map, Btree2Set *set, uint8_t *key, uint32_t keyLen, uint8_t lvl);
 
+uint16_t btree2LoadPage(DbMap *map, Btree2Set *set, uint8_t *key, uint32_t keyLen, uint8_t lvl);
 uint64_t btree2NewPage (Handle *hndl, uint8_t lvl);
 
 DbStatus btree2CleanPage(Handle *hndl, Btree2Set *set);

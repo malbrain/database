@@ -22,6 +22,7 @@ union Handle_ {
 	DbAddr *frames;			// recycle frames ready or waiting **
 	uint64_t entryTs;		// time stamp of first api call
 	uint32_t bindCnt[1];	// count of open api calls (handle binds)
+	uint32_t lcgState[1];   // Lehmer's RNG state
 	uint16_t nrandState[3];	// random number generator state
     uint16_t baseSize;		// size of  areaa following Handle structure
     uint16_t xtraSize;      // additional user areaa following base structure

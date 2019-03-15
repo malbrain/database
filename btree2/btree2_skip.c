@@ -24,48 +24,77 @@ int ans;
 	return 0;
 }
 
-//  find prev slot in page for given key
+//  find and load page at given level for given key
 
-void btree2FindSlot (Btree2Set *set, uint8_t *key, uint32_t keyLen)
-{
-uint16_t *tower = set->page->towerHead;
-uint8_t idx = *set->page->height;
+uint16_t btree2LoadPage(DbMap *map, Btree2Set *set, uint8_t *key, uint32_t keyLen, uint8_t lvl) {
+Btree2Index *btree2 = btree2index(map);
+ObjId *pageNoPtr;
 Btree2Slot *slot;
-int result = 0;
+int idx, result = 0;
+uint16_t *tower, next;
 
-	//	Starting at the page head tower go down or right after each comparison
-	//	build up previous path through the towers into prevOff with either
-	//	the offset or zero to indicate the towerHead slot
+  //	Starting at the page head tower go down or right after each comparison
+  //	build up previous path through the towers into prevOff with either
+  //	the offset or zero to indicate the towerHead slot
 
-    memset (set->prevOff, 0, sizeof set->prevOff);
+  set->pageNo.bits = btree2->root.bits;
 
-	while( (idx--) )
-	  while( (set->next = tower[idx]) ) {
-//		set->nextOff[idx] = set->next;
-		slot = slotptr(set->page, set->next);	// test right
+  //  start at the root level of the btree2 and drill down
+
+  do {
+	pageNoPtr = fetchIdSlot (map, set->pageNo);
+	set->pageAddr.bits = pageNoPtr->bits;
+	set->page = getObj(map, set->pageAddr);
+
+	if( set->page->lvl > set->rootLvl )
+		set->rootLvl = set->page->lvl;
+
+	memset (set->prevOff, 0, sizeof set->prevOff);
+	tower = set->page->towerHead;
+	idx = *set->page->height;
+	next = 0;
+	
+	while( idx-- )
+	  while( (next = tower[idx]) ) {
+		slot = slotptr(set->page, next);	// test right
 		result = btree2KeyCmp (slotkey(slot), key, keyLen); 
 
-		if( result >= 0 )
+		if( result >= 0 )  // go down
 			break;
 
 		// go right
 
-		set->prevOff[idx] = set->next;
-		set->found = !result;
-		set->prev = set->next;
 		tower = slot->tower;
+		set->found = !result;
+		set->prev = next;
+		set->prevOff[idx] = next;
 	  }
+
+	if (set->page->lvl == lvl)
+		return next;
+
+	if( next ) {
+		slot = slotptr (set->page, next);
+		set->pageNo.bits = btree2Get64 (slot, btree2->base->binaryFlds);
+		continue;
+	}
+
+	set->pageNo.bits = set->page->stopper.bits;
+
+  } while( set->pageNo.bits );
+
+  return DB_BTREE_error;
 }
 
 // find next non-dead slot -- the fence key if nothing else
 
 bool btree2SkipDead (Btree2Set *set) {
-Btree2Slot *slot = slotptr(set->page, set->next);
+Btree2Slot *slot = slotptr(set->page, set->prev);
 
   while( *slot->state == Btree2_slotdeleted ) {
-	set->prevOff[0] = set->next; 
-	if( (set->next = slot->tower[0]) )	// successor offset
-	  slot = slotptr(set->page, set->next);
+	set->prevOff[0] = set->prev; 
+	if( (set->prev = slot->tower[0]) )	// successor offset
+	  slot = slotptr(set->page, set->prev);
 	else
 	  return 0;
   }

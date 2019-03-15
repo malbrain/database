@@ -10,6 +10,7 @@ uint8_t keyBuff[MAX_key];
 uint32_t slotSize;
 Btree2Set set[1];
 DbStatus stat;
+uint16_t next;
 
 	if (keyLen > MAX_key)
 		return DB_ERROR_keylength;
@@ -21,19 +22,15 @@ DbStatus stat;
 	slotSize = btree2SizeSlot (keyLen, height);
 	memset(set, 0, sizeof(set));
 
-	while (true) {
-	  if ((stat = btree2LoadPage(index->map, set, keyBuff, keyLen, lvl)))
-		return stat;
+	do {
+	  next = btree2LoadPage(index->map, set, keyBuff, keyLen, lvl);
 
-	  if((set->off = btree2AllocSlot (set->page, slotSize))) {
-		  if((stat = btree2InstallKey (index, set, keyBuff, keyLen, height)))
-			  return stat;
+	  if( (set->off = btree2AllocSlot (set->page, slotSize) ))
+		 return btree2InstallKey (index, set, keyBuff, keyLen, height);
 
-		  return DB_OK;
-	  } else
-		  if((stat = btree2CleanPage (index, set)))
-			  return stat;
-	}  
+	   if( (stat = btree2CleanPage (index, set)))
+		 return stat;
+	} while( true);
 
 	return DB_OK;
 }
@@ -88,9 +85,9 @@ ObjId *pageNoPtr;
 // create and install new root page with right page fence key
 //	and raise the height of the btree2
 
-DbStatus btree2NewRoot(Handle *index, Btree2Page *rightPage, int lvl) {
+DbStatus btree2NewRoot(Handle *index, Btree2Page *rightPage, Btree2Page *leftPage, int lvl) {
 Btree2Index *btree2 = btree2index(index->map);
-uint32_t keyLen, newLen = 0;
+uint32_t keyLen, newLen, totLen;
 Btree2Slot *slot, *source;
 Btree2Page *rootPage;
 ObjId *rootObjId;
@@ -108,8 +105,10 @@ DbAddr root;
 	else
 		return DB_ERROR_outofmemory;
 
+	rootPage->stopper.bits = rightPage->pageNo.bits;
 	rootPage->attributes = Btree2_rootPage;
- 	source = slotptr(rightPage, rightPage->fence);
+
+	source = slotptr(leftPage, leftPage->fence);
 
 	key = slotkey(source);
 	keyLen = keylen(key);
@@ -119,10 +118,10 @@ DbAddr root;
 	if( lvl > 0 )
 		keyLen -= size64(keystr(key), keyLen);
 
-	newLen = calc64(rightPage->pageNo.bits, btree2->base->binaryFlds) + keyLen;
-	newLen = btree2SizeSlot (newLen, 1);
+	newLen = calc64(leftPage->pageNo.bits, btree2->base->binaryFlds);
+	totLen = btree2SizeSlot (newLen + keyLen, 1);
 
-	if( (off = btree2AllocSlot(rootPage, newLen)) )
+	if( (off = btree2AllocSlot(rootPage, totLen)) )
 		slot = slotptr(rootPage, off);
 	else
 		return DB_ERROR_pageisgarbage;
@@ -134,21 +133,23 @@ DbAddr root;
 	*rootPage->height = 1;
 	rootPage->towerHead[0] = off;
 
-	if( newLen > 128 * 256 )
+	keyLen += newLen;
+
+	if( keyLen > 128 * 256 )
 		return DB_ERROR_keylength;
 
-	if( newLen > 127 )
-		*dest++ = newLen >> 8 | 0x80, *dest++ = newLen;
+	if( keyLen > 127 )
+		*dest++ = keyLen >> 8 | 0x80, *dest++ = keyLen;
 	else
-		*dest++ = newLen;
+		*dest++ = keyLen;
 
-	memcpy(dest, keystr(key), keyLen);
-	btree2Store64(slot, rightPage->pageNo.bits, btree2->base->binaryFlds);
+	memcpy(dest, keystr(key), keyLen - newLen);
+	store64(dest, keyLen - newLen, leftPage->pageNo.bits, btree2->base->binaryFlds);
 
 	//   install new root page, and return to insert left fence key into root
 	
-	rootObjId->bits = root.bits;
 	btree2->root.bits = rootPage->pageNo.bits;
+	rootObjId->bits = root.bits;
 	return DB_OK;
 }
 
@@ -161,6 +162,7 @@ DbAddr root;
 
 
 DbStatus btree2SplitPage (Handle *index, Btree2Set *set) {
+Btree2Index *btree2 = btree2index(index->map);
 uint8_t *lKey, lvl = set->page->lvl;
 Btree2Page *leftPage, *rightPage;
 uint16_t fwd[Btree2_maxskip];
@@ -215,7 +217,7 @@ DbStatus stat;
 
 		next = rSlot->tower[0];
 
-	  }	while( next && rightPage->alloc->nxt > max / 2 );
+	  }	while( next ); //&& rightPage->alloc->nxt > max / 2 );
 
 	//	reuse existing parent key/pageNo for right page
 	//	allocate new pageNo and insert new key for left page
@@ -253,15 +255,22 @@ DbStatus stat;
 	//  if root page was split, install a new root page
 
 	if( lvl + 1 > set->rootLvl )
-		if( (stat = btree2NewRoot (index, rightPage, lvl)) )
-			return stat;
+		stat = btree2NewRoot (index, rightPage, leftPage, lvl);
+	else 
+		stat = btree2InsertKey (index, keystr (lKey), lKeyLen, leftPage->pageNo.bits, lvl, Btree2_slotactive);
 
-	if( (stat = btree2InsertKey(index, keystr(lKey), lKeyLen, leftPage->pageNo.bits, lvl + 1, Btree2_slotactive)) )
+	if( stat )
 		return stat;
 
 	//	install right page addr into its pageNo ObjId slot
 
 	rPageNoPtr->bits = right.bits;
+
+	// rightmost leaf page is always 1
+
+	if( lvl == 0 )
+		if( leftPage->left.bits == 0 )
+			btree2->left.bits = leftPage->pageNo.bits;
 
 	//	recycle original page to free list
 
@@ -318,7 +327,8 @@ int idx;
 	  if( fwd[idx] ) {
 		prev = slotptr(page, fwd[idx]);
 		prev->tower[idx] = off;
-	  }
+	  } else
+		  page->towerHead[idx] = off;
 
 	  fwd[idx] = off;
 	}
@@ -382,7 +392,9 @@ int idx = 0;
 		//	lock page->bitLatch 
 
 		if( btree2LinkTower(set->page, set->page->towerHead, set->page->bitLatch, idx, set->off ) )
-			idx += 1;	continue;
+			idx += 1;
+
+		continue;
 	}
 
 	return DB_OK;

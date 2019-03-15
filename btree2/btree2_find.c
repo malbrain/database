@@ -7,6 +7,7 @@ DbStatus btree2FindKey( DbCursor *dbCursor, DbMap *map, uint8_t *key, uint32_t k
 Btree2Cursor *cursor = (Btree2Cursor *)dbCursor;
 uint32_t pageSize;
 uint8_t *foundKey;
+uint16_t next;
 Btree2Set set[1];
 DbStatus stat;
 Btree2Slot *slot;
@@ -15,10 +16,11 @@ Btree2Slot *slot;
 
     memset (set, 0, sizeof(set));
 
-	if ((stat = btree2LoadPage(map, set, key, keyLen, 0)))
-		return stat;
+	if( (next = btree2LoadPage(map, set, key, keyLen, 0)))
+		slot = slotptr (set->page, next);
+	else
+		return DB_ERROR_keynotfound;
 
-	slot = slotptr(set->page, set->next);
 	foundKey = slotkey(slot);
 	cursor->base->state = CursorPosAt;
 

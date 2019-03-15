@@ -10,15 +10,16 @@ Btree2Index *btree2 = btree2index(index->map);
 Btree2Slot *slot;
 Btree2Set set[1];
 DbStatus stat;
+uint16_t next;
 
 	memset(set, 0, sizeof(set));
 
 	// find the level 0 page containing the key
 
-	if ((stat = btree2LoadPage(index->map, set, key, keyLen, 0)))
-		return stat;
-
-	slot =  slotptr(set->page, set->next);
+	if ((next = btree2LoadPage(index->map, set, key, keyLen, 0)))
+		slot = slotptr (set->page, next);
+	else
+		return DB_ERROR_deletekey;
 
 	if( set->found )
 	  if( atomicCAS8(slot->state, Btree2_slotactive, Btree2_slotdeleted) )

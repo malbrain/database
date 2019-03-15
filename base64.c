@@ -79,6 +79,14 @@ unsigned long accu;
     return ((long)xseed[2] << 15) + ((long)xseed[1] >> 1);
 }
 
+uint32_t lcg_parkmiller(uint32_t *state)
+{
+	if( !*state )
+		*state = 0xdeadbeef;
+
+    return *state = ((uint64_t)*state * 48271u) % 0x7fffffff;
+}
+
 //	return 64 bit suffix value from key
 
 uint64_t get64(uint8_t *key, uint32_t len, bool binaryFlds) {
