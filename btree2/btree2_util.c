@@ -44,17 +44,14 @@ uint32_t btree2GenHeight(Handle *index) {
 uint32_t nrand32 = lcg_parkmiller(index->lcgState);
 unsigned long height = 0;
 
+#ifdef _WIN32
 	nrand32 |= 0x10000;
 	return __lzcnt(nrand32) + 1;
-/*
-#ifdef _WIN32
-	_BitScanReverse((unsigned long *)&height, nrand32);
-    return 31 - height;
 #else
 	height = __builtin_clz(nrand32);
 	return height + 1;
 #endif
-*/}
+}
 
 //	calculate amount of space needed to install slot in page
 //	include key length bytes, and tower height
