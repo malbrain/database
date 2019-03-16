@@ -115,7 +115,7 @@ DbAddr root;
 
 	//	strip pageno from the key in non-leaf pages
 
-	if( lvl > 0 )
+	if(lvl > 0)
 		keyLen -= size64(keystr(key), keyLen);
 
 	newLen = calc64(leftPage->pageNo.bits, btree2->base->binaryFlds);
@@ -164,12 +164,13 @@ DbAddr root;
 DbStatus btree2SplitPage (Handle *index, Btree2Set *set) {
 Btree2Index *btree2 = btree2index(index->map);
 uint8_t *lKey, lvl = set->page->lvl;
-Btree2Page *leftPage, *rightPage;
+Btree2Page *leftPage, *rightPage, *tmpPage;
 uint16_t fwd[Btree2_maxskip];
 uint16_t lKeyLen, max, next;
 Btree2Slot *rSlot, *lSlot;
-DbAddr left, right;
+DbAddr left, right, addr;
 ObjId *lPageNoPtr;
+ObjId *tmpPageNoPtr;
 ObjId *rPageNoPtr;
 DbStatus stat;
 
@@ -238,6 +239,20 @@ DbStatus stat;
 	leftPage->right.bits = rightPage->pageNo.bits;
     leftPage->left.bits = set->page->left.bits;
 
+	if(set->page->left.bits) {
+		tmpPageNoPtr = fetchIdSlot (index->map, set->page->left);
+		addr.bits = tmpPageNoPtr->bits;
+		tmpPage = getObj (index->map, addr);
+		tmpPage->right.bits = leftPage->pageNo.bits;
+	}
+
+	if(set->page->right.bits) {
+		tmpPageNoPtr = fetchIdSlot (index->map, set->page->right);
+		addr.bits = tmpPageNoPtr->bits;
+		tmpPage = getObj (index->map, addr);
+		tmpPage->left.bits = rightPage->pageNo.bits;
+	}
+
 	//	install left page addr into original pageNo slot and
 	//	into a new left key/pageNo 
 
@@ -268,9 +283,12 @@ DbStatus stat;
 
 	// rightmost leaf page is always 1
 
-	if( lvl == 0 )
+	if( lvl == 0 ) { 
 		if( leftPage->left.bits == 0 )
 			btree2->left.bits = leftPage->pageNo.bits;
+		if( rightPage->right.bits == 0 )
+			btree2->right.bits = rightPage->pageNo.bits;
+	}
 
 	//	recycle original page to free list
 
