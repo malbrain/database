@@ -4,6 +4,129 @@
 #include <stdio.h>
 #include <inttypes.h>
 #include <time.h>
+#include <memory.h>
+
+//	return 64 bit suffix value from key
+
+uint64_t get64(uint8_t *key, uint32_t len, bool binaryFlds) {
+int idx = 0, xtraBytes = key[len - 1] & 0x7;
+int off = binaryFlds ? 2 : 0;
+uint64_t result;
+
+	//  get sign of the result
+	// 	positive has bit set
+
+	if (key[len - 1] & 0x08)
+		result = 0;
+	else
+		result = -1;
+
+	len -= xtraBytes + 2;
+
+	// get high order 4 bits
+	//	from first byte
+
+	result <<= 4;
+	result |= key[len] & 0x0f;
+
+	//	assemble complete bytes
+	//	up to 56 bits
+
+	while (idx++ < xtraBytes) {
+	  result <<= 8;
+	  result |= key[len + idx];
+	}
+
+	//	add in low order 4 bits
+
+	result <<= 4;
+	result |= key[len + xtraBytes + 1] >> 4;
+	return result;
+}
+
+// concatenate key with sortable 64 bit value
+// returns number of bytes concatenated
+
+uint32_t store64(uint8_t *key, uint32_t keyLen, int64_t value, bool binaryFlds) {
+int off = binaryFlds ? 2 : 0;
+int64_t tst64 = value >> 8;
+uint32_t xtraBytes = 0;
+uint32_t idx, len;
+bool neg;
+
+	neg = value < 0;
+
+	while (tst64)
+	  if (neg && tst64 == -1)
+		break;
+	  else
+		xtraBytes++, tst64 >>= 8;
+
+	//	store low order 4 bits of given
+	//	value in final extended key byte
+ 
+    key[keyLen + xtraBytes + off + 1] = (uint8_t)((value & 0xf) << 4 | xtraBytes);
+
+	if( !neg )
+		key[keyLen + xtraBytes + off + 1] |= 0x08;
+
+    value >>= 4;
+
+	//	store complete value bytes
+
+    for (idx = xtraBytes; idx; idx--) {
+        key[keyLen + off + idx] = (value & 0xff);
+        value >>= 8;
+    }
+
+	//	store high order 4 bits and
+	//	the 3 bits of xtraBytes and
+	//	the sign bit in the first byte
+
+    key[keyLen + off] = (uint8_t)((value & 0xf) | (xtraBytes << 4) | 0x80);
+
+	//	if neg, complement the sign bit & xtraBytes bits to
+	//	make negative numbers lexically smaller than positive ones
+
+	if (neg)
+		key[keyLen + off] ^= 0xf0;
+
+    len = xtraBytes + 2;
+
+	if (binaryFlds) {
+		key[keyLen] = len >> 8;
+		key[keyLen + 1] = len;
+	}
+
+	return len + off;
+}
+
+//	calc space needed to store 64 bit value
+
+uint32_t calc64 (int64_t value, bool binaryFlds) {
+int off = binaryFlds ? 2 : 0;
+int64_t tst64 = value >> 8;
+uint32_t xtraBytes = 0;
+bool neg;
+
+	neg = value < 0;
+
+	while (tst64)
+	  if (neg && tst64 == -1)
+		break;
+	  else
+		xtraBytes++, tst64 >>= 8;
+
+    return off + xtraBytes + 2;
+}
+
+//  size of suffix at end of a key
+
+uint32_t size64(uint8_t *key, uint32_t len) {
+	return (key[len - 1] & 0x7) + 2;
+}
+
+//	generate random base64 string
 
 const char* base64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
@@ -25,6 +148,7 @@ int base;
 
 	return base;
 }
+// random number implementations
 
 //	implement reentrant nrand48
 
@@ -87,128 +211,85 @@ uint32_t lcg_parkmiller(uint32_t *state)
     return *state = ((uint64_t)*state * 48271u) % 0x7fffffff;
 }
 
-//	return 64 bit suffix value from key
+/*
+ * The package generates far better random numbers than a linear
+ * congruential generator.  The random number generation technique
+ * is a linear feedback shift register approach.  In this approach,
+ * the least significant bit of all the numbers in the RandTbl table
+ * will act as a linear feedback shift register, and will have period
+ * of approximately 2^96 - 1.
+ *
+ */
 
-uint64_t get64(uint8_t *key, uint32_t len, bool binaryFlds) {
-int idx = 0, xtraBytes = key[len - 1] & 0x7;
-int off = binaryFlds ? 2 : 0;
-uint64_t result;
+#define RAND_order (7 * sizeof(unsigned))
+#define RAND_size (96 * sizeof(unsigned))
 
-	//	set len to the number start
+unsigned char RandTbl[RAND_size + RAND_order];
+int RandHead = 0;
 
-	len -= xtraBytes + 2;
+/*
+ * random: 	x**96 + x**7 + x**6 + x**4 + x**3 + x**2 + 1
+ *
+ * The basic operation is to add to the number at the head index
+ * the XOR sum of the lower order terms in the polynomial.
+ * Then the index is advanced to the next location cyclically
+ * in the table.  The value returned is the sum generated.
+ *
+ */
 
-	//  get sign of the result
-	// 	positive has high bit set
+unsigned xrandom ()
+{
+register unsigned fact;
 
-	if (key[len] & 0x80)
-		result = 0;
-	else
-		result = -1;
-
-	// get high order 4 bits
-
-	result <<= 4;
-	result |= key[len] & 0x0f;
-
-	//	assemble complete bytes
-	//	up to 56 bits
-
-	while (idx++ < xtraBytes) {
-	  result <<= 8;
-	  result |= key[len + idx];
+	if( (RandHead -= sizeof(unsigned)) < 0 ) {
+		RandHead = RAND_size - sizeof(unsigned);
+		memcpy (RandTbl + RAND_size, RandTbl, RAND_order);
 	}
 
-	//	add in low order 4 bits
-
-	result <<= 4;
-	result |= key[len + xtraBytes + 1] >> 4;
-
-	return result;
+	fact = *(unsigned *)(RandTbl + RandHead + 7 * sizeof(unsigned));
+	fact ^= *(unsigned *)(RandTbl + RandHead + 6 * sizeof(unsigned));
+	fact ^= *(unsigned *)(RandTbl + RandHead + 4 * sizeof(unsigned));
+	fact ^= *(unsigned *)(RandTbl + RandHead + 3 * sizeof(unsigned));
+	fact ^= *(unsigned *)(RandTbl + RandHead + 2 * sizeof(unsigned));
+	return *(unsigned *)(RandTbl + RandHead) += fact;
 }
 
-// concatenate key with sortable 64 bit value
-// returns number of bytes concatenated
+/*
+ * mrandom:
+ * 		Initialize the random number generator based on the given seed.
+ *
+ */
 
-uint32_t store64(uint8_t *key, uint32_t keyLen, int64_t value, bool binaryFlds) {
-int off = binaryFlds ? 2 : 0;
-int64_t tst64 = value >> 8;
-uint32_t xtraBytes = 0;
-uint32_t idx, len;
-bool neg;
+void mrandom (int len, char *ptr)
+{
+unsigned short rand = *ptr;
+int idx, bit = len * 4;
 
-	neg = value < 0;
+	memset (RandTbl, 0, sizeof(RandTbl));
+	RandHead = 0;
 
-	while (tst64)
-	  if (neg && tst64 == -1)
-		break;
-	  else
-		xtraBytes++, tst64 >>= 8;
+	while( rand *= 20077, rand += 11, bit-- )
+		if( ptr[bit >> 2] & (1 << (bit & 3)) )
+			for (idx = 0; idx < 5; idx++) {
+				rand *= 20077, rand += 11;
+				RandTbl[rand % 96 << 2] ^= 1;
+			}
 
-	//	store low order 4 bits of given value
-	//	in final key byte
- 
-    key[keyLen + xtraBytes + off + 1] = (uint8_t)((value & 0xf) << 4 | xtraBytes);
-    value >>= 4;
-
-	//	store complete value bytes
-
-    for (idx = xtraBytes; idx; idx--) {
-        key[keyLen + off + idx] = (value & 0xff);
-        value >>= 8;
-    }
-
-	//	store high order 4 bits and
-	//	the 3 bits of xtraBytes
-	//	and the sign bit
-
-    key[keyLen + off] = (uint8_t)((value & 0xf) | (xtraBytes << 4) | 0x80);
-
-	//	if neg, complement the sign bit & xtraBytes bits to
-	//	make negative numbers lexically smaller than positive ones
-
-	if (neg)
-		key[keyLen + off] ^= 0xf0;
-
-    len = xtraBytes + 2;
-
-	if (binaryFlds) {
-		key[keyLen] = len >> 8;
-		key[keyLen + 1] = len;
-	}
-
-	return len + off;
-}
-
-//	calc space needed to store 64 bit vsalue
-
-uint32_t calc64 (int64_t value, bool binaryFlds) {
-int off = binaryFlds ? 2 : 0;
-int64_t tst64 = value >> 8;
-uint32_t xtraBytes = 0;
-bool neg;
-
-	neg = value < 0;
-
-	while (tst64)
-	  if (neg && tst64 == -1)
-		break;
-	  else
-		xtraBytes++, tst64 >>= 8;
-
-    return off + xtraBytes + 2;
-}
-
-//  size of suffix at end of a key
-
-uint32_t size64(uint8_t *key, uint32_t len) {
-	return (key[len - 1] & 0x7) + 2;
+	for( idx = 0; idx < 96 * 63; idx++ )
+		xrandom ();
 }
 
 #ifdef STANDALONE
+
+unsigned short xseed[3];
+unsigned int lcgState[1];
+
+int bucket[16];
+uint32_t hxgram();
+
 int main (int argc, char **argv) {
 uint8_t buff[128];
-int i;
+int i, idx;
 
 	while((++argv)[0]) {
 		uint64_t nxt = strtoll(argv[0], NULL, 0), conv;
@@ -230,6 +311,28 @@ int i;
 		printf("get64: 0x%" PRIx64 "  %" PRId64 "\n", conv, conv);
 	}
 
+	mynrand48seed(xseed);
+
+	for( idx = 0; idx < 65536; idx++ )
+		bucket[hxgram()]++;
+
+	for( idx = 0; idx < 16; idx++ )
+		printf("%.2d: %.6d  ", idx, bucket[idx]);
+
+	putchar(0x0a);
 	return 0;
+}
+
+uint32_t hxgram() {
+uint32_t nrand32 = mynrand48(xseed);
+//uint32_t nrand32 = lcg_parkmiller(lcgState);
+
+	nrand32 |= 0x10000;
+
+#ifdef _WIN32
+	return __lzcnt(nrand32);
+#else
+	return __builtin_clz(nrand32);
+#endif
 }
 #endif

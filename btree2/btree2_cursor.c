@@ -7,14 +7,15 @@
 //  index listMax + 1 is right EOF.
 
 uint16_t btree2FillFwd(Btree2Cursor *cursor, Btree2Page *page, uint16_t findOff, uint32_t pageSize) {
-uint16_t off = page->towerHead[0], foundIdx = 0;
+uint16_t off, foundIdx = 0;
 Btree2Slot *slot;
 
 	memcpy (cursor->page, page, pageSize);
-	cursor->listMax = 0;
+    off = cursor->page->towerHead[0];
+    cursor->listMax = 0;
 
 	while( off ) {
-		slot = slotptr(page, off);
+		slot = slotptr(cursor->page, off);
 
 		if( *slot->state == Btree2_slotactive)
 			cursor->listFwd[++cursor->listMax] = off;

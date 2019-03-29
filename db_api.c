@@ -439,7 +439,7 @@ DbStatus stat;
 
 //	return cursor key
 
-DbStatus keyAtCursor(DbHandle *hndl, void **key, uint32_t *keyLen) {
+DbStatus keyAtCursor(DbHandle *hndl, uint8_t **key, uint32_t *keyLen) {
 DbCursor *dbCursor;
 Handle *idxHndl;
 
@@ -564,7 +564,7 @@ void *doc;
 	return DB_OK;
 }
 
-DbStatus deleteKey(DbHandle hndl[1], void *key, uint32_t len) {
+DbStatus deleteKey(DbHandle hndl[1], uint8_t *key, uint32_t len) {
 DbStatus stat = DB_OK;
 Handle *idxHndl;
 DbIndex *index;
@@ -604,7 +604,7 @@ bool uniqueKey(DbMap *map, DbCursor *dbCursor) {
 	return true;
 }
 
-DbStatus insertKey(DbHandle hndl[1], void *key, uint32_t len, uint64_t suffixValue) {
+DbStatus insertKey(DbHandle hndl[1], uint8_t *key, uint32_t len, uint32_t sfxLen) {
 DbStatus stat = DB_OK;
 Handle *idxHndl;
 DbIndex *index;
@@ -619,16 +619,16 @@ DbIndex *index;
 	//	if (idxHndl->map->arenaDef->params[IdxKeyUnique].boolVal)
 	//		stat = artInsertUniq(idxHndl, key, len, uniqueKey, &defer);
 	//	else
-			stat = artInsertKey(idxHndl, key, len, suffixValue);
+			stat = artInsertKey(idxHndl, key, len, sfxLen);
 		break;
 	}
 
 	case Hndl_btree1Index:
-		stat = btree1InsertKey(idxHndl, key, len, suffixValue, 0, Btree1_indexed);
+		stat = btree1InsertKey(idxHndl, key, len, sfxLen, 0, Btree1_indexed);
 		break;
 
 	case Hndl_btree2Index:
-		stat = btree2InsertKey(idxHndl, key, len, suffixValue, 0, Btree2_slotactive);
+		stat = btree2InsertKey(idxHndl, key, len, sfxLen, 0, Btree2_slotactive);
 		break;
 	}
 

@@ -35,21 +35,20 @@ uint32_t size;
 
 uint32_t lcg_parkmiller(uint32_t *state);
 
-// generate slot tower height (1-16)
+// generate slot tower height (1-15)
 //	w/frequency 1/2 down to 1/65536
 
 
 uint32_t btree2GenHeight(Handle *index) {
-// uint32_t nrand32 = mynrand48(index->nrandState);
-uint32_t nrand32 = lcg_parkmiller(index->lcgState);
-unsigned long height = 0;
+uint32_t nrand32 = mynrand48(index->nrandState);
+// uint32_t nrand32 = lcg_parkmiller(index->lcgState);
+
+	nrand32 |= 0x10000;
 
 #ifdef _WIN32
-	nrand32 |= 0x10000;
-	return __lzcnt(nrand32) + 1;
+	return __lzcnt(nrand32);
 #else
-	height = __builtin_clz(nrand32);
-	return height + 1;
+	return __builtin_clz(nrand32);
 #endif
 }
 
@@ -67,7 +66,7 @@ uint32_t amt = (uint16_t)(sizeof(Btree2Slot) + height * sizeof(uint16_t) + keySi
 
 uint16_t btree2AllocSlot(Btree2Page *page, uint32_t bytes) {
 uint16_t base = (sizeof(*page) + (1ULL << page->skipBits) - 1) >> page->skipBits;
-uint16_t size = (bytes + (1ULL << page->skipBits) - 1) >> page->skipBits;
+uint16_t size = (uint16_t)(bytes + (1ULL << page->skipBits) - 1) >> page->skipBits;
 union Btree2Alloc alloc[1], before[1];
 
 	do {

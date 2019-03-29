@@ -49,12 +49,14 @@ bool noDocs = false;
 bool noIdx = false;
 bool pipeLine = false;
 bool pennysort = false;
-
+bool numbers = false;
+bool keyList = false;
 
 double getCpuTime(int type);
 
 void mynrand48seed(uint16_t *nrandState);
 int createB64(char *key, int size, unsigned short next[3]);
+uint64_t get64(uint8_t *key, uint32_t len, bool binaryFlds);
 
 void printBinary(uint8_t *key, int len, FILE *file) {
 int off = 0;
@@ -144,7 +146,7 @@ bool cntOnly = false;
 bool verify = false;
 int suffixLen = 0;
 int lastFld = 0;
-void *foundKey;
+uint8_t *foundKey;
 ObjId docId;
 FILE *in;
 int stat;
@@ -251,7 +253,7 @@ int stat;
 
 		if( pennysort ) {
 		 while( line < count && ++line ) {
-           if (debug && !(line % 100000))
+          if (debug && !(line % 100000))
                fprintf(stderr, "line %" PRIu64 "\n", line);
 
           len = createB64(key, args->keyLen, nrandState);
@@ -273,8 +275,10 @@ int stat;
 		  if (len > args->keyLen)
 			len = args->keyLen;
  
-		  if (idxHndl->hndlBits)
-			switch ((stat = insertKey(idxHndl, key, len, docId.bits))) {
+		  if (idxHndl->hndlBits) {
+			uint32_t sfxLen = store64 (key, len, docId.bits, binaryFlds);
+
+			switch ((stat = insertKey(idxHndl, key, len, sfxLen))) {
 			  case DB_ERROR_unique_key_constraint:
 				fprintf(stderr, "Duplicate key <%.*s> line: %" PRIu64 "\n", len, key, line);
 				break;
@@ -284,16 +288,16 @@ int stat;
 			    fprintf(stderr, "Insert Key %s Error %d Line: %" PRIu64 "\n", args->inFile, stat, line);
 				myExit(args);
 			}
+		   }
 		  }
 
 		  fprintf(stderr, " Total records processed %" PRIu64 "\n", line);
 		  break;
 		}
 
-		if((!fopen_s (&in, args->inFile, "r"))) {
+		if( !fopen_s (&in, args->inFile, "r")) {
 		  while( ch = getc(in), ch != EOF )
-			if( ch == '\n' )
-			{
+			if( ch == '\n' ) {
 			  if (binaryFlds) {
 				key[lastFld] = (len - lastFld - 2) >> 8;
 				key[lastFld + 1] = (len - lastFld - 2);
@@ -315,8 +319,10 @@ int stat;
 			  if (len > args->keyLen)
 				len = args->keyLen;
 
-			  if (idxHndl->hndlBits)
-				switch ((stat = insertKey(idxHndl, key, len, docId.bits))) {
+			  if(idxHndl->hndlBits) {
+				uint32_t sfxLen = store64 (key, len, docId.bits, binaryFlds);
+
+				switch ((stat = insertKey(idxHndl, key, len, sfxLen))) {
 				  case DB_ERROR_unique_key_constraint:
 					fprintf(stderr, "Duplicate key <%.*s> line: %" PRIu64 "\n", len, key, line);
 					break;
@@ -326,6 +332,7 @@ int stat;
 				    fprintf(stderr, "Insert Key %s Error %d Line: %" PRIu64 "\n", args->inFile, stat, line);
 					myExit(args);
 				}
+			  }
 
 			  lastFld = 0;
 			  len = binaryFlds ? 2 : 0;
@@ -501,13 +508,29 @@ int stat;
 
 			cnt++;
 
-			if (verify) {
-			  if(prevLen && prevLen == foundLen)
-			   if (memcmp(foundKey, rec, prevLen) > 0)
-			  	fprintf(stderr, "verifyKey compare error: %d\n", (int)cnt), exit(0);
+			if( numbers ) {
+				uint64_t lineNo = get64(foundKey, foundLen, false);
+				fprintf(stdout, "%.12llu\t", lineNo);
+			}
 
-			 prevLen = foundLen;
-			 memcpy (rec, foundKey, foundLen);
+			if( keyList )
+				fprintf(stdout, "%.*s", foundLen - size64(foundKey, foundLen), foundKey);
+
+			if( numbers || keyList )
+				fputc('\n', stdout);
+
+			if (verify) {
+			  foundLen -= size64(foundKey, foundLen);
+
+			  if(prevLen == foundLen) {
+				 int comp = memcmp (foundKey, rec, prevLen);
+
+				 if(reverse && comp >= 0 || !reverse && comp <= 0)
+					 fprintf (stderr, "verify: Key compare error: %d\n", (int)cnt), exit (0);
+			  }
+
+			  prevLen = foundLen;
+			  memcpy (rec, foundKey, foundLen);
 			}
 
 			if (cntOnly) {
@@ -535,6 +558,7 @@ int stat;
 		  fprintf(stderr, "Scan: Error %d Syserr %d Line: %" PRIu64 "\n", stat, errno, cnt), exit(0);
 
 		fprintf(stderr, " Total keys %" PRIu64 "\n", cnt);
+		prevLen = 0;
 		break;
 	}
 
@@ -645,6 +669,10 @@ int num = 0;
 	pipeLine = true;
   else if (!strncasecmp(argv[0], "-noExit", 7))
 	noExit = true;
+  else if (!strncasecmp(argv[0], "-numbers", 8))
+	numbers = true;
+  else if (!strncasecmp(argv[0], "-keyList", 8))
+	keyList = true;
   else if (!strncasecmp(argv[0], "-uniqueKeys", 11))
 	params[IdxKeyUnique].boolVal = true;
   else if (!strncasecmp(argv[0], "-idxType=", 9))

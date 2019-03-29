@@ -13,7 +13,7 @@ typedef enum {
 //	DbCursor handle extension
 
 typedef struct {
-	void *key;			// cursor key bytes
+	uint8_t *key;			// cursor key bytes
 	uint32_t size;		// size of user data
 	uint32_t keyLen;	// cursor key length
 	PosState state;		// cursor position state enum

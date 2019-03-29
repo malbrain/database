@@ -11,6 +11,7 @@ Btree2PageType type;
 Btree2Page *page;
 uint32_t size;
 DbAddr addr;
+int idx;
 
 	size = btree2->pageSize;
 	type = Btree2_interior;

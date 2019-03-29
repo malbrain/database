@@ -25,13 +25,15 @@ int ans;
 }
 
 //  find and load page at given level for given key
+//	returm slot with key ,ge. given key
 
 uint16_t btree2LoadPage(DbMap *map, Btree2Set *set, uint8_t *key, uint32_t keyLen, uint8_t lvl) {
 Btree2Index *btree2 = btree2index(map);
+uint16_t *tower, towerOff;
 ObjId *pageNoPtr;
 Btree2Slot *slot;
 int idx, result = 0;
-uint16_t *tower, next;
+bool targetLvl;
 
   //	Starting at the page head tower go down or right after each comparison
   //	build up previous path through the towers into prevOff with either
@@ -46,48 +48,91 @@ uint16_t *tower, next;
 	set->pageAddr.bits = pageNoPtr->bits;
 	set->page = getObj(map, set->pageAddr);
 
+	targetLvl = set->page->lvl == lvl;
+
 	if( set->page->lvl > set->rootLvl )
 		set->rootLvl = set->page->lvl;
+	
+	//	build vector of slots that are lexically
+	//	before the key and whose towers point
+	//	to slots past the key.  A slot at offset zero
+	//	are referring to towerHead slots for the page.
 
 	memset (set->prevOff, 0, sizeof set->prevOff);
 	tower = set->page->towerHead;
-	idx = *set->page->height;
-	next = 0;
-	
+	towerOff = TowerHeadSlot;
+	idx = set->page->height;
+
 	while( idx-- )
-	  while( (next = tower[idx]) ) {
-		slot = slotptr(set->page, next);	// test right
+	  do {
+	    if( tower[idx] )
+		  slot = slotptr (set->page, tower[idx]);	// test right
+		else {
+			set->prevOff[idx] = towerOff;
+			break;
+		}
+
 		result = btree2KeyCmp (slotkey(slot), key, keyLen); 
 
-		if( result >= 0 )  // go down
+		if( targetLvl && result == 0 )
+			set->found = towerOff;
+
+		if( result >= 0 ) {  // past the key, go down
+			set->prevOff[idx] = towerOff;
 			break;
+		}
 
-		// go right
+		// to find a better candidate, go right
 
+		towerOff = tower[idx];
 		tower = slot->tower;
-		set->found = !result;
-		set->prev = next;
-		set->prevOff[idx] = next;
+	  } while( true );
+
+	//	if we never moved away from the towerHead slots
+	//	check page to the left
+
+	if( set->page->height && set->page->lFence )
+	  if( tower == set->page->towerHead ) {
+	  	slot = slotptr (set->page, set->page->lFence);	// test right
+		result = btree2KeyCmp (slotkey(slot), key, keyLen); 
+
+		if( result >= 0 ) {  // go left
+			set->pageNo.bits = set->page->left.bits;
+			continue;
+		}
 	  }
 
-	if (set->page->lvl == lvl)
-		return next;
+	if( targetLvl )
+		return towerOff;
 
-	if( next ) {
-		slot = slotptr (set->page, next);
-		set->pageNo.bits = btree2Get64 (slot, btree2->base->binaryFlds);
+	//	if the key is .gt. every key in the page
+	//	follow link to stopper page or right page
+
+	if( towerOff == TowerHeadSlot ) {
+	  if( set->page->stopper.bits ) {
+		set->pageNo.bits = set->page->stopper.bits;
 		continue;
+	  }
+
+	  if( set->page->right.bits ) {
+		set->pageNo.bits = set->page->right.bits;
+		continue;
+	  }
 	}
 
-	set->pageNo.bits = set->page->stopper.bits;
 
+	//	otherwise follow slot that is .gt. or .eq. the search key
+
+	slot = slotptr (set->page, towerOff);
+	set->pageNo.bits = btree2Get64 (slot, btree2->base->binaryFlds);
+	
   } while( set->pageNo.bits );
 
   return DB_BTREE_error;
 }
 
 // find next non-dead slot -- the fence key if nothing else
-
+/*
 bool btree2SkipDead (Btree2Set *set) {
 Btree2Slot *slot = slotptr(set->page, set->prev);
 
@@ -100,4 +145,4 @@ Btree2Slot *slot = slotptr(set->page, set->prev);
   }
 
   return 1;
-}
+}*/

@@ -10,12 +10,20 @@
 #include "../db_lock.h"
 
 #define Btree2_maxkey		4096	// max key size
-#define Btree2_maxskip		16		// max height of skip tower
+#define Btree2_maxtower		16		// max height of skip tower
 #define Btree2_maxslots		65536	// max skip entries
 #define Btree2_maxbits		29	// maximum page size in bits
 #define Btree2_minbits		9	// minimum page size in bits
 #define Btree2_minpage		(1 << Btree2_minbits)	// minimum page size
 #define Btree2_maxpage		(1 << Btree2_maxbits)	// maximum page size
+
+//	tower slot status values
+
+typedef enum {
+	TowerSlotEmpty = 0,
+	TowerHeadSlot,
+	TowerSlotOff
+} Btree2TowerSlot;
 
 //	types of btree pages/allocations
 
@@ -70,22 +78,22 @@ typedef struct {
 		uint32_t word[1];
 	} alloc[1];
 	uint32_t size;		// page size
-	uint16_t garbage[1];	// page garbage in skip units
-	uint16_t fence;		// fence slot offset in skip units
+	uint16_t lFence, rFence;// fence slot offsets in skip units
+	uint16_t garbage[1];// page garbage in skip units
 	uint8_t attributes;	// page attributes
-	uint8_t height[1];	// height of skip list
+	uint8_t height; 	// height of skip list
 	uint8_t lvl;		// level of page
 	uint8_t pageBits;
 	uint8_t leafXtra;
 	uint8_t skipBits;	// unit size for skip list allocations
 	uint8_t pageType;	// allocation type
 	DbAddr newPage;		// replacement page
-	ObjId stopper;      // page down right-most
+	ObjId stopper;      // page down chain of right-most pages
 	ObjId pageNo;		// page number
-	ObjId right;		// page to right
-	ObjId left;			// page to left
-	uint8_t bitLatch[Btree2_maxskip / 8];
-	uint16_t towerHead[Btree2_maxskip];
+	ObjId right;		// page number to right
+	ObjId left;			// page numberto left
+	uint8_t bitLatch[Btree2_maxtower / 8];
+	uint16_t towerHead[Btree2_maxtower];
 } Btree2Page;
 
 //	Slot types
@@ -104,18 +112,17 @@ typedef enum {
 typedef struct {
 	uint8_t height;		// final tower height 
 	uint8_t state[1];
-	uint8_t bitLatch[Btree2_maxskip / 8];
+	uint8_t bitLatch[Btree2_maxtower / 8];
 	uint16_t tower[];	// skip list tower
 } Btree2Slot;
 
 typedef struct {
 	uint8_t rootLvl;    // last discovered root  level
-	bool found;			// key found as prefix of entry
 	ObjId pageNo;		// current page Number
 	DbAddr pageAddr;	// current page address
 	Btree2Page *page;	// current page content
-	uint16_t prev, off;	// offset of prev, new slot
-	uint16_t prevOff[Btree2_maxskip];
+	uint16_t found, off;// offset of prev, new slot
+	uint16_t prevOff[Btree2_maxtower];
 } Btree2Set;
 
 typedef struct {
@@ -141,7 +148,7 @@ DbStatus btree2NextKey (DbCursor *cursor, DbMap *map);
 DbStatus btree2PrevKey (DbCursor *cursor, DbMap *map);
 
 DbStatus btree2Init(Handle *hndl, Params *params);
-DbStatus btree2InsertKey(Handle *hndl, uint8_t *key, uint32_t keyLen, uint64_t suffixValue, uint8_t lvl, Btree2SlotState state);
+DbStatus btree2InsertKey(Handle *hndl, uint8_t *key, uint32_t keyLen, uint32_t sfxLen, uint8_t lvl, Btree2SlotState state);
 DbStatus btree2DeleteKey(Handle *hndl, uint8_t *key, uint32_t keyLen);
 
 uint16_t btree2LoadPage(DbMap *map, Btree2Set *set, uint8_t *key, uint32_t keyLen, uint8_t lvl);
@@ -149,7 +156,7 @@ uint64_t btree2NewPage (Handle *hndl, uint8_t lvl);
 
 DbStatus btree2CleanPage(Handle *hndl, Btree2Set *set);
 DbStatus btree2SplitPage (Handle *hndl, Btree2Set *set);
-DbStatus btree2InstallKey(Handle *index, Btree2Set *set, uint8_t *key, uint32_t keyLen, uint8_t height);
+DbStatus btree2InstallKey(Btree2Set *set, uint8_t *key, uint32_t keyLen, uint8_t height);
 
 int btree2KeyCmp(uint8_t *key1, uint8_t *key2, uint32_t len2);
 void btree2FindSlot(Btree2Set *set, uint8_t *key, uint32_t keyLen);
@@ -158,7 +165,6 @@ uint64_t btree2Get64 (Btree2Slot *slot, bool binaryFlds);
 uint32_t btree2Store64(Btree2Slot *slot, uint64_t value, bool binaryFlds);
 uint16_t btree2AllocSlot(Btree2Page *page, uint32_t bytes);
 uint16_t btree2FillFwd(Btree2Cursor *cursor, Btree2Page *page, uint16_t findOff, uint32_t pageSize);
-uint16_t btree2InstallSlot(Handle *index, Btree2Page *page, Btree2Slot *slot, uint16_t *fwd);
 uint32_t btree2SlotSize(Btree2Slot *slot, uint8_t skipBits, uint8_t height);
 uint32_t btree2SizeSlot(uint32_t keyLen, uint8_t height);
 uint32_t btree2GenHeight(Handle *index);

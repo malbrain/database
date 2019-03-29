@@ -97,7 +97,8 @@ uint32_t len;
   return true;
 }
 
-DbStatus artInsertKey( Handle *index, void *key, uint32_t keyLen, uint64_t suffixValue) {
+DbStatus artInsertKey( Handle *index, void *key, uint32_t keyLen, uint32_t sfxLen) {
+uint32_t totLen = keyLen + sfxLen;
 uint8_t keyBuff[MAX_key];
 ArtIndex *artIndex;
 bool pass = false;
@@ -106,20 +107,17 @@ DbAddr slot;
 
 	artIndex = artindex(index->map);
 
-	if (keyLen > MAX_key)
+	if (totLen > MAX_key)
 		return DB_ERROR_keylength;
-
-    memcpy(keyBuff, key, keyLen);
-    keyLen += store64(keyBuff, keyLen, suffixValue, artIndex->base->binaryFlds);
 
 	memset(p, 0, sizeof(p));
 	p->binaryFlds = artIndex->base->binaryFlds;
 
 	do {
         p->slot = artIndex->root;
-        p->keyLen = keyLen;
+        p->keyLen = totLen;
         p->restart = false;
-        p->key = keyBuff;
+        p->key = key;
         p->index = index;
 		p->fldLen = 0;
 		p->off = 0;
