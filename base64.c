@@ -128,7 +128,7 @@ uint32_t size64(uint8_t *key, uint32_t len) {
 
 //	generate random base64 string
 
-const char* base64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+const char* base64 = "+/0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
 long mynrand48(unsigned short xseed[3]);
  

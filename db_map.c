@@ -245,7 +245,7 @@ uint8_t atomicAnd8(volatile uint8_t *value, uint8_t mask) {
 
 //	atomic install 8 bit value
 
-bool atomicCAS8(uint8_t *dest, uint8_t comp, uint8_t newValue) {
+bool atomicCAS8(volatile uint8_t *dest, uint8_t comp, uint8_t newValue) {
 #ifdef _WIN32
 	return _InterlockedCompareExchange8 (dest, newValue, comp) == comp;
 #else
@@ -255,7 +255,7 @@ bool atomicCAS8(uint8_t *dest, uint8_t comp, uint8_t newValue) {
 
 //	atomic install 16 bit value
 
-bool atomicCAS16(uint16_t *dest, uint16_t comp, uint16_t value) {
+bool atomicCAS16(volatile uint16_t *dest, uint16_t comp, uint16_t value) {
 #ifdef _WIN32
 	return _InterlockedCompareExchange16 (dest, value, comp) == comp;
 #else
@@ -265,7 +265,7 @@ bool atomicCAS16(uint16_t *dest, uint16_t comp, uint16_t value) {
 
 //	atomic install 32 bit value
 
-bool atomicCAS32(uint32_t *dest, uint32_t comp, uint32_t value) {
+bool atomicCAS32(volatile uint32_t *dest, uint32_t comp, uint32_t value) {
 #ifdef _WIN32
 	return _InterlockedCompareExchange (dest, value, comp) == comp;
 #else
@@ -275,7 +275,7 @@ bool atomicCAS32(uint32_t *dest, uint32_t comp, uint32_t value) {
 
 //	atomic install 64 bit value
 
-bool atomicCAS64(uint64_t *dest, uint64_t comp, uint64_t value) {
+bool atomicCAS64(volatile uint64_t *dest, uint64_t comp, uint64_t value) {
 #ifdef _WIN32
 	return _InterlockedCompareExchange64 (dest, value, comp) == comp;
 #else
@@ -382,7 +382,7 @@ void unmapSeg (DbMap *map, uint32_t segNo) {
 #endif
 }
 
-uint64_t compareAndSwap(uint64_t* target, uint64_t compareVal, uint64_t swapVal) {
+uint64_t compareAndSwap(volatile uint64_t* target, uint64_t compareVal, uint64_t swapVal) {
 #ifndef _WIN32
 	return __sync_val_compare_and_swap(target, compareVal, swapVal);
 #else
@@ -390,7 +390,7 @@ uint64_t compareAndSwap(uint64_t* target, uint64_t compareVal, uint64_t swapVal)
 #endif
 }
 
-uint64_t atomicExchange(uint64_t *target, uint64_t swapVal) {
+uint64_t atomicExchange(volatile uint64_t *target, uint64_t swapVal) {
 #ifndef _WIN32
 	return __sync_lock_test_and_set(target, swapVal);
 #else

@@ -42,18 +42,18 @@ void art_yield(void);
 
 void kill_slot(volatile uint8_t* latch);
 
-bool atomicCAS8(uint8_t *dest, uint8_t comp, uint8_t newValue);
-bool atomicCAS16(uint16_t *dest, uint16_t comp, uint16_t newValue);
-bool atomicCAS32(uint32_t *dest, uint32_t comp, uint32_t newValue);
-bool atomicCAS64(uint64_t *dest, uint64_t comp, uint64_t newValue);
+bool atomicCAS8(volatile uint8_t *dest, uint8_t comp, uint8_t newValue);
+bool atomicCAS16(volatile uint16_t *dest, uint16_t comp, uint16_t newValue);
+bool atomicCAS32(volatile uint32_t *dest, uint32_t comp, uint32_t newValue);
+bool atomicCAS64(volatile uint64_t *dest, uint64_t comp, uint64_t newValue);
 
 uint64_t atomicAdd64(volatile uint64_t *value, int64_t amt);
 uint32_t atomicAdd32(volatile uint32_t *value, int32_t amt);
 uint16_t atomicAdd16(volatile uint16_t *value, int16_t amt);
 uint64_t atomicOr64(volatile uint64_t *value, uint64_t amt);
 uint32_t atomicOr32(volatile uint32_t *value, uint32_t amt);
-uint64_t atomicExchange(uint64_t *target, uint64_t value);
-uint64_t compareAndSwap(uint64_t* target, uint64_t compare_val, uint64_t swap_val);
+uint64_t atomicExchange(volatile uint64_t *target, uint64_t value);
+uint64_t compareAndSwap(volatile uint64_t* target, uint64_t compare_val, uint64_t swap_val);
 uint8_t atomicExchange8(volatile uint8_t *target, uint8_t value);
 uint8_t atomicAnd8(volatile uint8_t *value, uint8_t mask);
 uint8_t atomicOr8(volatile uint8_t *value, uint8_t mask);

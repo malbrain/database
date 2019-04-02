@@ -29,7 +29,8 @@ int ans;
 
 uint16_t btree2LoadPage(DbMap *map, Btree2Set *set, uint8_t *key, uint32_t keyLen, uint8_t lvl) {
 Btree2Index *btree2 = btree2index(map);
-uint16_t *tower, towerOff;
+volatile uint16_t *tower;
+uint16_t towerOff;
 ObjId *pageNoPtr;
 Btree2Slot *slot;
 int idx, result = 0;
@@ -66,18 +67,19 @@ bool targetLvl;
 	while( idx-- )
 	  do {
 	    if( tower[idx] )
-		  slot = slotptr (set->page, tower[idx]);	// test right
+			set->next = tower[idx];
 		else {
 			set->prevOff[idx] = towerOff;
 			break;
 		}
 
+		slot = slotptr (set->page, tower[idx]);	// test right
 		result = btree2KeyCmp (slotkey(slot), key, keyLen); 
 
 		if( targetLvl && result == 0 )
 			set->found = towerOff;
 
-		if( result >= 0 ) {  // past the key, go down
+		if( result >= 0 ) {  // new key is .le. next key, go down
 			set->prevOff[idx] = towerOff;
 			break;
 		}
@@ -88,42 +90,22 @@ bool targetLvl;
 		tower = slot->tower;
 	  } while( true );
 
-	//	if we never moved away from the towerHead slots
-	//	check page to the left
-
-	if( set->page->height && set->page->lFence )
-	  if( tower == set->page->towerHead ) {
-	  	slot = slotptr (set->page, set->page->lFence);	// test right
-		result = btree2KeyCmp (slotkey(slot), key, keyLen); 
-
-		if( result >= 0 ) {  // go left
-			set->pageNo.bits = set->page->left.bits;
-			continue;
-		}
-	  }
-
 	if( targetLvl )
 		return towerOff;
 
-	//	if the key is .gt. every key in the page
-	//	follow link to stopper page or right page
+	//	The key is .lt. every key in the page tower
 
 	if( towerOff == TowerHeadSlot ) {
-	  if( set->page->stopper.bits ) {
-		set->pageNo.bits = set->page->stopper.bits;
-		continue;
-	  }
-
-	  if( set->page->right.bits ) {
-		set->pageNo.bits = set->page->right.bits;
+	  if( set->page->left.bits ) {
+		set->pageNo.bits = set->page->left.bits;
 		continue;
 	  }
 	}
 
 
-	//	otherwise follow slot that is .gt. or .eq. the search key
+	//	otherwise follow slot that is .ge. the new key
 
-	slot = slotptr (set->page, towerOff);
+	slot = slotptr (set->page, set->next);
 	set->pageNo.bits = btree2Get64 (slot, btree2->base->binaryFlds);
 	
   } while( set->pageNo.bits );

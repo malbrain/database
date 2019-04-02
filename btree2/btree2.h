@@ -67,7 +67,7 @@ typedef enum {
 //	followed by the key slots
 
 typedef struct {
-	union Btree2Alloc {
+	volatile union Btree2Alloc {
 		struct {
 			uint8_t state;
 			uint8_t filler;
@@ -109,11 +109,11 @@ typedef enum {
 //	length of key (one or two bytes), 
 //	and key bytes follow these fields
 
-typedef struct {
+typedef volatile struct {
 	uint8_t height;		// final tower height 
 	uint8_t state[1];
 	uint8_t bitLatch[Btree2_maxtower / 8];
-	uint16_t tower[];	// skip list tower
+	uint16_t volatile tower[];	// skip list tower
 } Btree2Slot;
 
 typedef struct {
@@ -121,7 +121,7 @@ typedef struct {
 	ObjId pageNo;		// current page Number
 	DbAddr pageAddr;	// current page address
 	Btree2Page *page;	// current page content
-	uint16_t found, off;// offset of prev, new slot
+	uint16_t found, off, next;  // offset of new and next slot
 	uint16_t prevOff[Btree2_maxtower];
 } Btree2Set;
 
