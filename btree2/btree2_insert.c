@@ -41,7 +41,7 @@ DbStatus btree2CleanPage(Handle *index, Btree2Set *set) {
 Btree2Index *btree2 = btree2index(index->map);
 volatile uint16_t *tower;
 uint16_t fwd[Btree2_maxtower], off;
-uint32_t size = btree2->pageSize, max;
+uint32_t size = btree2->pageSize;
 Btree2Page *newPage;
 Btree2Slot *slot;
 DbAddr addr;
@@ -263,10 +263,8 @@ uint8_t *key;
 uint32_t keyLen;
 uint32_t slotSize;
 Btree2Slot *slot;
-Btree2Slot *prev;
 uint16_t off;
 uint8_t *dest;
-int idx;
 
     key = slotkey (source);
 	keyLen = keylen(key);

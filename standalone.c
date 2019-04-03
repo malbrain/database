@@ -271,8 +271,7 @@ int stat;
 			  fprintf(stderr, "Add Doc %s Error %d Line: %" PRIu64 "\n", args->inFile, stat, line), exit(0);
 		  } else
 			docId.bits = line;
-/*if(line == 751)
-line += 1;*/
+
 		  if (len > args->keyLen)
 			len = args->keyLen;
  
@@ -511,7 +510,7 @@ line += 1;*/
 
 			if( numbers ) {
 				uint64_t lineNo = get64(foundKey, foundLen, false);
-				fprintf(stdout, "%.12llu\t", lineNo);
+				fprintf(stdout, "%.12" PRIu64 "\t", lineNo);
 			}
 
 			if( keyList )

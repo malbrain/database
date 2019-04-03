@@ -66,25 +66,22 @@ bool targetLvl;
 
 	while( idx-- )
 	  do {
-	    if( tower[idx] )
-			set->next = tower[idx];
-		else {
-			set->prevOff[idx] = towerOff;
-			break;
-		}
+		set->prevOff[idx] = towerOff;
 
-		slot = slotptr (set->page, tower[idx]);	// test right
+		if(	(set->next = tower[idx]) )
+			slot = slotptr (set->page, set->next);	// test right
+		else
+			break;
+
 		result = btree2KeyCmp (slotkey(slot), key, keyLen); 
 
 		if( targetLvl && result == 0 )
 			set->found = towerOff;
 
-		if( result >= 0 ) {  // new key is .le. next key, go down
-			set->prevOff[idx] = towerOff;
+		if( result >= 0 )   // new key is .le. next key, go down
 			break;
-		}
 
-		// to find a better candidate, go right
+		// to find a larger candidate, go right in tower
 
 		towerOff = tower[idx];
 		tower = slot->tower;
@@ -93,19 +90,32 @@ bool targetLvl;
 	if( targetLvl )
 		return towerOff;
 
-	//	The key is .lt. every key in the page tower
+	//	The key is .lt. every key in the page towerHead vector
 
 	if( towerOff == TowerHeadSlot ) {
 	  if( set->page->left.bits ) {
-		set->pageNo.bits = set->page->left.bits;
+		Btree2Slot	*lFenceSlot = slotptr (set->page, set->page->lFence);	// test left fence
+		int fResult = btree2KeyCmp (slotkey(lFenceSlot), key, keyLen);
+		if( fResult >= 0 ) {
+			set->pageNo.bits = set->page->left.bits;
+			continue;
+		}
+	  }
+	}
+
+	if( set->next == 0 ) {
+	  if( set->page->stopper.bits ) {
+		set->pageNo.bits = set->page->stopper.bits;
+		continue;
+	  }
+	  if( set->page->right.bits ) {
+		set->pageNo.bits = set->page->right.bits;
 		continue;
 	  }
 	}
 
+	//	otherwise follow slot that is .ge. the search key
 
-	//	otherwise follow slot that is .ge. the new key
-
-	slot = slotptr (set->page, set->next);
 	set->pageNo.bits = btree2Get64 (slot, btree2->base->binaryFlds);
 	
   } while( set->pageNo.bits );
