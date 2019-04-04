@@ -647,13 +647,15 @@ int num = 0;
 // process configuration arguments
 
 	while (--argc > 0 && (++argv)[0][0] == '-')
-  if (!strncasecmp(argv[0], "-xtra=", 6))
-	params[Btree1Xtra].intVal = atoi(argv[0] + 6);
-  else if (!strncasecmp(argv[0], "-keyLen=", 8))
+  if (!strncasecmp(argv[0], "-xtra=", 6)) {
+  	params[Btree1Xtra].intVal = atoi(argv[0] + 6);
+  	params[Btree2Xtra].intVal = atoi(argv[0] + 6);
+  } else if (!strncasecmp(argv[0], "-keyLen=", 8))
 	keyLen = atoi(argv[0] + 8);
-  else if (!strncasecmp(argv[0], "-bits=", 6))
+  else if (!strncasecmp(argv[0], "-bits=", 6)) {
 	params[Btree1Bits].intVal = atoi(argv[0] + 6);
-  else if (!strncasecmp(argv[0], "-cmds=", 6))
+	params[Btree2Bits].intVal = atoi(argv[0] + 6);
+  } else if (!strncasecmp(argv[0], "-cmds=", 6))
 	cmds = argv[0] + 6;
   else if (!strncasecmp(argv[0], "-debug", 6))
 	debug = true;
@@ -746,7 +748,19 @@ int num = 0;
 	//  run index_file once for each command
 
 	while ((pipeLine && args[0].idx < strlen(cmds))) {
+	  double startx1 = getCpuTime(0);
+	  double startx2 = getCpuTime(1);
+	  double startx3 = getCpuTime(2);
+
 	  index_file(args);
+
+	  elapsed = getCpuTime(0) - startx1;
+	  fprintf(stderr, " real %dm%.3fs\n", (int)(elapsed/60), elapsed - (int)(elapsed/60)*60);
+	  elapsed = getCpuTime(1) - startx2;
+	  fprintf(stderr, " user %dm%.3fs\n", (int)(elapsed/60), elapsed - (int)(elapsed/60)*60);
+	  elapsed = getCpuTime(2) - startx3;
+	  fprintf(stderr, " sys  %dm%.3fs\n", (int)(elapsed/60), elapsed - (int)(elapsed/60)*60);
+	  
 	  args[0].idx += 1;
 	}		  
 
@@ -795,9 +809,11 @@ int num = 0;
 	fputc(0x0a, stderr);
 #endif
 
-	fprintf(stderr, " real %dm%.3fs\n", (int)(elapsed/60), elapsed - (int)(elapsed/60)*60);
-	elapsed = getCpuTime(1);
-	fprintf(stderr, " user %dm%.3fs\n", (int)(elapsed/60), elapsed - (int)(elapsed/60)*60);
-	elapsed = getCpuTime(2);
-	fprintf(stderr, " sys  %dm%.3fs\n", (int)(elapsed/60), elapsed - (int)(elapsed/60)*60);
+	if (!pipeLine ) {
+  	  fprintf(stderr, " real %dm%.3fs\n", (int)(elapsed/60), elapsed - (int)(elapsed/60)*60);
+	  elapsed = getCpuTime(1);
+	  fprintf(stderr, " user %dm%.3fs\n", (int)(elapsed/60), elapsed - (int)(elapsed/60)*60);
+	  elapsed = getCpuTime(2);
+	  fprintf(stderr, " sys  %dm%.3fs\n", (int)(elapsed/60), elapsed - (int)(elapsed/60)*60);
+	}
 }

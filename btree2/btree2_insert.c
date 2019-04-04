@@ -98,7 +98,7 @@ uint8_t *key, lvl = set->page->lvl, keyBuff[MAX_key];
 Btree2Page *leftPage, *rightPage, *rootPage = NULL, *tmpPage;
 Btree2Index *btree2 = btree2index(index->map);
 Btree2Slot *rSlot, *lSlot, *slot;
-uint16_t keyLen, max, next, off;
+uint16_t keyLen, min, next, off;
 uint16_t fwd[Btree2_maxtower];
 DbAddr left, right, root;
 DbAddr *tmpPageNoPtrL;
@@ -122,7 +122,7 @@ DbStatus stat;
 	//	copy over smaller first half keys from old page into new left page
 
 	memset (fwd, 0, sizeof(fwd));
-	max = leftPage->size >> leftPage->skipBits;
+	min = leftPage->size >> leftPage->skipBits >> 1;
 
 	if( (next = set->page->towerHead[0]) )
 	  do {
@@ -138,7 +138,7 @@ DbStatus stat;
 
 		next = lSlot->tower[0];
 
-	  } while( next && leftPage->alloc->nxt > max / 2 );
+	  } while( next && leftPage->alloc->nxt > min );
 
 	leftPage->rFence = off;
 	rightPage->lFence = btree2InstallSlot(rightPage, lSlot, 0);
