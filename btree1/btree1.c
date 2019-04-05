@@ -44,6 +44,7 @@ Btree1Index *btree1 = btree1index(hndl->map);
 Btree1Page *page;
 Btree1Slot *slot;
 uint8_t *buff;
+uint32_t amt;
 
 	if (params[Btree1Bits].intVal > Btree1_maxbits) {
 		fprintf(stderr, "createIndex: bits = %" PRIu64 " > max = %d\n", params[Btree1Bits].intVal, Btree1_maxbits);
@@ -67,6 +68,7 @@ uint8_t *buff;
 		return DB_ERROR_outofmemory;
 
 	//  set up new leaf page with stopper key
+	// of length zero
 
 	btree1->left.type = Btree1_leafPage;
 	btree1->right.bits = btree1->left.bits;
@@ -74,6 +76,8 @@ uint8_t *buff;
 	page->min -= 1;
 	page->cnt = 1;
 	page->act = 1;
+
+	//	set up nil stopper key
 
 	buff = keyaddr(page, page->min);
 	buff[0] = 0;
@@ -91,18 +95,18 @@ uint8_t *buff;
 	else
 		return DB_ERROR_outofmemory;
 
-	//  set up new root page with stopper key
-
 	btree1->root.type = Btree1_rootPage;
-	page->min -= 1 + sizeof(uint64_t);
+
+	amt = calc64(btree1->left.bits, false);
+	page->min -= amt + 1;
 	page->cnt = 1;
 	page->act = 1;
 
-	//  set up stopper key
+	//  set up nil stopper key for leaf page
 
 	buff = keyaddr(page, page->min);
-	btree1PutPageNo(buff + 1, 0, btree1->left.bits);
-	buff[0] = sizeof(uint64_t);
+	store64(buff + 1, 0, btree1->left.bits, false);
+	buff[0] = amt;
 
 	//  set up slot
 
@@ -149,23 +153,4 @@ void btree1UnlockPage(Btree1Page *page, Btree1Lock mode)
 		writeUnlock (page->latch->link);
 		break;
 	}
-}
-
-void btree1PutPageNo(uint8_t *key, uint32_t len, uint64_t bits) {
-int idx = sizeof(uint64_t);
-
-	while (idx--)
-		key[len + idx] = (uint8_t)bits, bits >>= 8;
-}
-
-uint64_t btree1GetPageNo(uint8_t *key, uint32_t len) {
-uint64_t result = 0;
-int idx = 0;
-
-	len -= sizeof(uint64_t);
-
-	do result <<= 8, result |= key[len + idx];
-	while (++idx < sizeof(uint64_t));
-
-	return result;
 }

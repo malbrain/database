@@ -36,8 +36,8 @@ Btree1Index *btree1 = btree1index(index->map);
 uint32_t keyLen, nxt = btree1->pageSize;
 Btree1Page *leftPage, *rightPage;
 Btree1Slot *slot;
-uint8_t *ptr;
-uint32_t off;
+uint8_t *dest;
+uint32_t off, amt;
 DbAddr left;
 
 	//  Obtain an empty page to use, and copy the current
@@ -64,36 +64,45 @@ DbAddr left;
 	// pointing to right half page 
 	// and increase the root height
 
-	nxt -= 1 + sizeof(uint64_t);
+	amt = 1 + calc64(right.bits, false);
 	slot = slotptr(root->page, 2);
 	slot->type = Btree1_stopper;
-	slot->off = nxt;
+	slot->off = nxt -= amt;
 
-	ptr = keyaddr(root->page, nxt);
-	btree1PutPageNo(ptr + 1, 0, right.bits);
-	ptr[0] = sizeof(uint64_t);
+	dest = keyaddr(root->page, nxt);
+	*dest++ = amt;
+
+	store64(dest, 0, right.bits, false);
 
 	// next insert lower keys (left) fence key on newroot page as
 	// first key and reserve space for the key.
 
 	keyLen = keylen(leftKey);
-	off = keypre(leftKey);
 
-	nxt -= keyLen + off;
+	if( leftPage->lvl )
+		keyLen -= size64(keystr(leftKey), keyLen);
+
+	amt = keyLen + calc64(left.bits, false);
+	
+	if( amt > 127 )
+		off = 2;
+	else
+		off = 1;
+
 	slot = slotptr(root->page, 1);
 	slot->type = Btree1_indexed;
-	slot->off = nxt;
+	slot->off = nxt -= amt + off;
 
 	//	construct lower (left) page key
 
-	ptr = keyaddr(root->page, nxt);
-	memcpy (ptr + off, leftKey + keypre(leftKey), keyLen - sizeof(uint64_t));
-	btree1PutPageNo(ptr + off, keyLen - sizeof(uint64_t), left.bits);
+	dest = keyaddr(root->page, nxt);
+	memcpy (dest + off, keystr(leftKey), keyLen);
+	store64(dest + off, keyLen, left.bits, false);
 
 	if (off == 1)
-		ptr[0] = keyLen;
+		*dest++ = amt;
 	else
-		ptr[0] = keyLen / 256 | 0x80, ptr[1] = keyLen;
+		*dest++ = amt / 256 | 0x80, *dest++ = amt;
 	
 	root->page->right.bits = 0;
 	root->page->min = nxt;
@@ -284,7 +293,7 @@ DbStatus stat;
 	if (set->page->lvl) 
 		keyLen -= size64(keystr(leftKey), keyLen);  // strip off pageNo
 
-    if ((stat = btree1InsertKey(index, leftKey + keypre(leftKey), keylen(leftKey), set->pageNo.bits, lvl + 1, Btree1_indexed)))
+    if ((stat = btree1InsertSfxKey(index, keystr(leftKey), keyLen, set->pageNo.bits, lvl + 1, Btree1_indexed)))
 		return stat;
 
 	// switch fence for right block of larger keys to new right page
@@ -548,7 +557,7 @@ DbAddr prevPageNo;
 	  // get next page down
 
 	  ptr = keyptr(set->page, set->slotIdx);
-	  set->pageNo.bits = btree1GetPageNo(ptr + keypre(ptr), keylen(ptr));
+	  set->pageNo.bits = get64(keystr(ptr), keylen(ptr), false);
 
 	  assert(drill > 0);
 	  drill--;
