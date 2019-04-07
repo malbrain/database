@@ -66,18 +66,18 @@ volatile int idx;
 
 void lock_sleep (int ticks) {
 LARGE_INTEGER start[1], freq[1], next[1];
-int idx, interval;
-double conv;
+double conv, interval;
+uint32_t idx;
 
 	QueryPerformanceFrequency(freq);
 	QueryPerformanceCounter(next);
-	conv = (double)freq->QuadPart / 1000000000; 
+	conv = (double)freq->QuadPart / 100000000.; 
 
-	for (idx = 0; idx < ticks; idx += interval) {
+	for (idx = 0; idx < ticks; idx += (uint32_t)interval) {
 		*start = *next;
 		Sleep(0);
 		QueryPerformanceCounter(next);
-		interval = (int)((next->QuadPart - start->QuadPart) / conv);
+		interval = ((next->QuadPart - start->QuadPart) / conv);
 	}
 }
 

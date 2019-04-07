@@ -204,6 +204,8 @@ DbStatus stat;
 			farRight->left.bits = right.bits;
 			btree1UnlockPage (farRight, Btree1_lockLink);
 		}
+		if( !lvl && !rightPage->right.bits )
+			btree1->right.bits = right.bits;
 	}
 
 	//	copy lower keys from temporary frame back into old page
@@ -298,7 +300,7 @@ DbStatus stat;
 
 	// switch fence for right block of larger keys to new right page
 
-	if( (stat = btree1FixKey(index, rightKey, lvl+1, stopper) ))
+	if( (stat = btree1FixKey(index, rightKey, set->pageNo.bits, right.bits, lvl+1, stopper) ))
 		return stat;
 
 	btree1UnlockPage (set->page, Btree1_lockParent);

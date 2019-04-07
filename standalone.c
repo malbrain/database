@@ -561,7 +561,8 @@ int stat;
 		prevLen = 0;
 		break;
 	}
-
+	if( cursor->hndlBits )
+	    closeCursor (cursor);
 	if (iterator->hndlBits)
 		closeHandle(iterator);
 	if (docHndl->hndlBits)
