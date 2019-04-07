@@ -346,7 +346,7 @@ DbAddr slot;
 	if (zeroit)
 		memset (getObj(map, slot), 0, amt);
 
-	*slot.latch = type;
+	*slot.latch = type << BYTE_SHIFT;
 	return slot.bits;
 }
 
