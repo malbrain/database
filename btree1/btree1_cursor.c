@@ -11,7 +11,7 @@ uint32_t size;
 
 	cursor->pageAddr.bits = db_rawAlloc(size, false);
 	cursor->page = db_memObj(cursor->pageAddr.bits);
-	cursor->slotIdx = 0;
+	cursor->slotIdx = 1;
 	return DB_OK;
 }
 
@@ -35,7 +35,7 @@ Btree1Page *left;
 	memcpy (cursor->page, left, btree1->pageSize);
 	btree1UnlockPage (left, Btree1_lockRead);
 
-	cursor->slotIdx = 0;
+	cursor->slotIdx = 1;
 	return DB_OK;
 }
 
@@ -73,11 +73,8 @@ uint8_t *key;
 	while (true) {
 	  uint32_t max = cursor->page->cnt;
 
-	  if (!cursor->page->right.bits)
-		max--;
-
-	  while (++cursor->slotIdx <= max) {
-		Btree1Slot *slot = slotptr(cursor->page, cursor->slotIdx);
+	  while (cursor->slotIdx <= max) {
+		Btree1Slot *slot = slotptr(cursor->page, cursor->slotIdx++);
 
 		if (slot->dead)
 		  continue;
@@ -94,7 +91,7 @@ uint8_t *key;
 	  else
 		break;
 
-	  cursor->slotIdx = 0;
+	  cursor->slotIdx = 1;
 	}
 
 	dbCursor->state = CursorRightEof;
@@ -118,8 +115,8 @@ uint8_t *key;
 	}
 
 	while (true) {
-	  if (cursor->slotIdx > 1) {
-		Btree1Slot *slot = slotptr(cursor->page, --cursor->slotIdx);
+	  if (cursor->slotIdx ) {
+		Btree1Slot *slot = slotptr(cursor->page, cursor->slotIdx--);
 
 		if (slot->dead)
 		  continue;
@@ -131,12 +128,12 @@ uint8_t *key;
 		return DB_OK;
 	  }
 
-	  if (cursor->page->left.bits)
+	  if (cursor->addr.bits = cursor->page->left.bits)
 		cursor->page = getObj(map, cursor->page->left);
 	  else
 		break;
 
-	  cursor->slotIdx = cursor->page->cnt + 1;
+	  cursor->slotIdx = cursor->page->cnt;
 	}
 
 	dbCursor->state = CursorLeftEof;

@@ -38,7 +38,7 @@ int sys_futex(void *addr1, int op, int val1, struct timespec *timeout, void *add
 #define pause() __asm __volatile("pause\n": : : "memory")
 #endif
 
-void lock_sleep (int cnt) {
+void lock_sleep (uint32_t cnt) {
 struct timespec ts[1];
 
 	ts->tv_sec = 0;
@@ -47,7 +47,7 @@ struct timespec ts[1];
 }
 
 int lock_spin (uint32_t *cnt) {
-volatile int idx;
+volatile uint32_t idx;
 
 	if (!*cnt)
 	  *cnt = 8;
@@ -64,7 +64,7 @@ volatile int idx;
 }
 #else
 
-void lock_sleep (int ticks) {
+void lock_sleep (uint32_t ticks) {
 LARGE_INTEGER start[1], freq[1], next[1];
 double conv, interval;
 uint32_t idx;

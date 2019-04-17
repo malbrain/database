@@ -111,7 +111,7 @@ typedef union {
 typedef struct {
 	DbCursor base[1];	// base object
 	Btree1Page *page;	// cursor position page buffer
-	DbAddr pageAddr;	// cursor page buffer address
+	DbAddr addr, pageAddr;	// cursor page buffer address
 	uint32_t slotIdx;	// cursor position index
 } Btree1Cursor;
 
@@ -139,13 +139,15 @@ DbStatus btree1Init(Handle *hndl, Params *params);
 DbStatus btree1InsertKey(Handle *hndl, uint8_t *key, uint32_t keyLen, uint32_t sfxLen, uint8_t lvl, Btree1SlotType type);
 DbStatus btree1DeleteKey(Handle *hndl, void *key, uint32_t keyLen);
 
-DbStatus btree1LoadPage(DbMap *map, Btree1Set *set, void *key, uint32_t keyLen, uint8_t lvl, Btree1Lock lock, bool stopper);
+DbStatus btree1LoadPage(DbMap *map, Btree1Set *set, void *key, uint32_t keyLen, uint8_t lvl, Btree1Lock lock);
 
 uint64_t btree1NewPage (Handle *hndl, uint8_t lvl);
 
 DbStatus btree1CleanPage(Handle *hndl, Btree1Set *set, uint32_t totKeyLen);
 DbStatus btree1SplitPage (Handle *hndl, Btree1Set *set);
 DbStatus btree1FixKey (Handle *index, uint8_t *fenceKey, uint64_t prev, uint64_t suffix, uint8_t lvl, bool stopper);
+DbStatus btree1InsertSfxKey(Handle *hndl, uint8_t *key, uint32_t keyLen, uint64_t suffix, uint8_t lvl, Btree1SlotType type);
 
 void btree1LockPage(Btree1Page *page, Btree1Lock mode);
 void btree1UnlockPage(Btree1Page *page, Btree1Lock mode);
+int btree1KeyCmp (uint8_t *key1, uint8_t *key2, uint32_t len2);

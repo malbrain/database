@@ -1,7 +1,5 @@
 #include "btree1.h"
 
-DbStatus btree1InsertSlot (Btree1Set *set, uint8_t *key, uint32_t keyLen, Btree1SlotType type);
-
 DbStatus btree1InsertSfxKey(Handle *index, uint8_t *key, uint32_t keyLen, uint64_t suffix, uint8_t lvl, Btree1SlotType type) {
 uint8_t keyBuff[MAX_key];
 uint32_t sfxLen;
@@ -14,17 +12,20 @@ uint32_t sfxLen;
 
 DbStatus btree1InsertKey(Handle *index, uint8_t *key, uint32_t keyLen, uint32_t sfxLen, uint8_t lvl, Btree1SlotType type) {
 Btree1Index *btree1 = btree1index(index->map);
-uint32_t slotSize, totLen = keyLen + sfxLen;
+uint32_t totLen = keyLen + sfxLen;
+uint32_t idx, prefixLen;
+Btree1Slot *slot;
 Btree1Set set[1];
 DbStatus stat;
+uint8_t *ptr;
 
 	if (keyLen > MAX_key)
 		return DB_ERROR_keylength;
 
-	memset(set, 0, sizeof(set));
-
 	while (true) {
-	  if ((stat = btree1LoadPage(index->map, set, key, totLen, lvl, Btree1_lockWrite, false)))
+	  memset(set, 0, sizeof(set));
+
+	  if ((stat = btree1LoadPage(index->map, set, key, totLen, lvl, Btree1_lockWrite)))
 		return stat;
 
 	  if ((stat = btree1CleanPage(index, set, totLen))) {
@@ -37,11 +38,66 @@ DbStatus stat;
 			return stat;
 	  }
 
-	  // add the key to the page
-
-	  return btree1InsertSlot (set, key, totLen, type);
+	  break;
 	}
 
+	if( set->page->cnt ) {
+	  slot = slotptr(set->page, set->slotIdx);
+
+	  ptr = keyaddr(set->page, slot->off);
+
+	  if( !btree1KeyCmp(ptr, key, totLen) )
+		return DB_ERROR_duplicatekey;
+
+	} else {
+		slot = slotptr(set->page, 1);
+		set->slotIdx = 1;
+		slot->dead = true;
+	}
+
+	//	if previous slot is a librarian slot, use it
+
+	if( set->slotIdx > 1 && slot[-1].type == Btree1_librarian )
+		set->slotIdx--, slot--;
+
+	//	slot now points to where the new 
+	//	key will be inserted
+
+	// add the key to the page
+
+	prefixLen = totLen < 128 ? 1 : 2;
+	set->page->min -= prefixLen + totLen;
+	ptr = keyaddr(set->page, set->page->min);
+
+	if( totLen < 128 )	
+		*ptr++ = totLen;
+	else
+		*ptr++ = totLen/256 | 0x80, *ptr++ = totLen;
+
+	memcpy (ptr, key, totLen);
+	
+	//	find first empty slot
+
+	for( idx = 0; idx + set->slotIdx <= set->page->cnt; idx++ )
+	  if( slot[idx].dead )
+		break;
+
+	if( idx + set->slotIdx >= set->page->cnt )
+		set->page->cnt++;
+
+	set->page->act++;
+	  
+	//  move subsequent slots out of our way
+
+	while( idx-- )
+		slot[idx + 1].bits = slot[idx].bits;
+
+	//	fill in new slot
+
+	slot->bits = set->page->min;
+	slot->type = type;
+
+	btree1UnlockPage (set->page, Btree1_lockWrite);
 	return DB_OK;
 }
 
@@ -69,9 +125,9 @@ DbStatus stat;
 	memcpy(keyBuff, key, keyLen);
 	sfxLen = store64(keyBuff, keyLen, prev, false);
 
-	amt = keyLen + calc64(suffix, false);
+	//	calculate new key length
 
-	//	calculate new key prefix length
+	amt = keyLen + calc64(suffix, false);
 
 	pfxLen = amt < 128 ? 1 : 2;
 
@@ -79,10 +135,12 @@ DbStatus stat;
 		return DB_ERROR_keylength;
 
 	while (true) {
-	  if ((stat = btree1LoadPage(index->map, set, keyBuff, keyLen + sfxLen, lvl, Btree1_lockWrite, false)))
+	  memset(set, 0, sizeof(set));
+
+	  if ((stat = btree1LoadPage(index->map, set, keyBuff, keyLen + sfxLen, lvl, Btree1_lockWrite)))
 		return stat;
 
-	  if ((stat = btree1CleanPage(index, set, amt))) {
+	  if ((stat = btree1CleanPage(index, set, amt + pfxLen))) {
 		if (stat == DB_BTREE_needssplit) {
 		  if ((stat = btree1SplitPage(index, set)))
 			return stat;
@@ -104,9 +162,12 @@ DbStatus stat;
 
 	ptr = keyaddr(set->page, slot->off);
 
-	// does the new key fit in the old slot?
+	if( btree1KeyCmp(ptr, keyBuff, keyLen) )
+		return DB_ERROR_invaliddeleterecord;
 
-	if( keylen(ptr) < amt ) {
+	// does the new key fit in the old slot key?
+
+	if( keylen(ptr) < (int)amt ) {
 	  set->page->garbage += keylen (ptr) + keypre (ptr);
 
 	  slot->off = set->page->min -= pfxLen + amt;  
@@ -126,60 +187,3 @@ DbStatus stat;
 	btree1UnlockPage (set->page, Btree1_lockWrite);
 	return DB_OK;
 }
-
-//	install new key onto page
-//	page must already be checked for
-//	adequate space
-
-DbStatus btree1InsertSlot (Btree1Set *set, uint8_t *key, uint32_t keyLen, Btree1SlotType type) {
-uint32_t idx, prefixLen;
-Btree1Slot *slot;
-uint8_t *ptr;
-
-	//	if found slot > desired slot and previous slot
-	//	is a librarian slot, use it
-
-	if( set->slotIdx > 1 )
-	  if( slotptr(set->page, set->slotIdx-1)->type == Btree1_librarian )
-		set->slotIdx--;
-
-	//	calculate key prefix length
-
-	prefixLen = keyLen < 128 ? 1 : 2;
-
-	// copy key onto page
-
-	set->page->min -= prefixLen + keyLen;
-	ptr = keyaddr(set->page, set->page->min);
-
-	if( keyLen < 128 )	
-		*ptr++ = keyLen;
-	else
-		*ptr++ = keyLen/256 | 0x80, *ptr++ = keyLen;
-
-	memcpy (ptr, key, keyLen);
-	slot = slotptr(set->page, set->slotIdx);
-	
-	//	find first empty slot
-
-	for( idx = set->slotIdx; idx < set->page->cnt; slot++, idx++ )
-		if( slot->dead )
-			break;
-
-	if( idx == set->page->cnt )
-		idx++, set->page->cnt++, slot++;
-
-	set->page->act++;
-
-	while( idx-- > set->slotIdx )
-		slot->bits = slot[-1].bits, slot--;
-
-	//	fill in new slot
-
-	slot->bits = set->page->min;
-	slot->type = type;
-
-	btree1UnlockPage (set->page, Btree1_lockWrite);
-	return DB_OK;
-}
-

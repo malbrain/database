@@ -64,10 +64,10 @@ DbAddr left;
 	// pointing to right half page 
 	// and increase the root height
 
-	amt = 1 + calc64(right.bits, false);
+	amt = calc64(right.bits, false);
 	slot = slotptr(root->page, 2);
 	slot->type = Btree1_stopper;
-	slot->off = nxt -= amt;
+	slot->off = nxt -= amt + 1;
 
 	dest = keyaddr(root->page, nxt);
 	*dest++ = amt;
@@ -96,13 +96,14 @@ DbAddr left;
 	//	construct lower (left) page key
 
 	dest = keyaddr(root->page, nxt);
-	memcpy (dest + off, keystr(leftKey), keyLen);
-	store64(dest + off, keyLen, left.bits, false);
 
 	if (off == 1)
 		*dest++ = amt;
 	else
 		*dest++ = amt / 256 | 0x80, *dest++ = amt;
+
+	memcpy (dest, keystr(leftKey), keyLen);
+	store64(dest, keyLen, left.bits, false);
 	
 	root->page->right.bits = 0;
 	root->page->min = nxt;
@@ -447,62 +448,59 @@ int ans;
 	return 0;
 }
 
-//  find slot in page for given key at a given level
+//  find slot in page that is .ge. given search key
 
-uint32_t btree1FindSlot (Btree1Page *page, uint8_t *key, uint32_t keyLen, bool stopper)
+//	return zero if past end of all slots
+//	return slot idx for key that is .ge. passed key.
+
+uint32_t btree1FindSlot (Btree1Page *page, uint8_t *key, uint32_t keyLen)
 {
-uint32_t diff, higher = page->cnt, low = 1, slot;
-uint32_t good = 0;
+uint32_t diff, higher = page->cnt + 1, low = 1, slot;
+bool stopper = false;
 
-	assert(higher > 0);
+	if( page->lvl && !page->right.bits )
+	  higher--, stopper = true;
 
-	//	are we being asked for the stopper(fence) key?
-
-	if (stopper)
-		return higher;
-
-	//	  make stopper key an infinite fence value
-
-	if( page->right.bits )
-		higher++;
-	else
-		good++;
-
-	//	low is the lowest candidate.
+	//	low is a candidate.
+	//  higher is already
+	//	tested as .ge. the given key.
 	//  loop ends when they meet
 
-	//  higher is already
-	//	tested as .ge. the passed key.
-
 	while( (diff = higher - low) ) {
-		slot = low + diff / 2;
-		if( btree1KeyCmp (keyptr(page, slot), key, keyLen) < 0 )
-			low = slot + 1;
+	  slot = low + diff / 2;
+
+//	  if( !stopper || slot < page->cnt )
+		if( btree1KeyCmp (keyptr (page, slot), key, keyLen) < 0 )
+		  low = slot + 1;
 		else
-			higher = slot, good++;
+		  higher = slot, stopper = false;
+//	  else
+//		return page->cnt;
 	}
 
-	//	return zero if key is on next right page
-
-	return good ? higher : 0;
+	return higher;
 }
 
 //  find and load page at given level for given key
 //	leave page rd or wr locked as requested
 
-DbStatus btree1LoadPage(DbMap *map, Btree1Set *set, void *key, uint32_t keyLen, uint8_t lvl, Btree1Lock lock, bool stopper) {
+//	Librarian slots have the same key offset as their higher neighbor
+
+DbStatus btree1LoadPage(DbMap *map, Btree1Set *set, void *key, uint32_t keyLen, uint8_t lvl, Btree1Lock lock) {
 Btree1Index *btree1 = btree1index(map);
 uint8_t drill = 0xff, *ptr;
 Btree1Page *prevPage = NULL;
 Btree1Lock mode, prevMode;
 DbAddr prevPageNo;
+uint64_t bits;
 
-  set->pageNo.bits = btree1->root.bits;
+  bits = btree1->root.bits;
   prevPageNo.bits = 0;
 
   //  start at our idea of the root level of the btree1 and drill down
 
-  do {
+  while( (set->pageNo.bits = bits) ) {
+
 	// determine lock mode of drill level
 
 	mode = (drill == lvl) ? lock : Btree1_lockRead; 
@@ -543,33 +541,45 @@ DbAddr prevPageNo;
 	//  find key on page at this level
 	//  and descend to requested level
 
-	if( !set->page->kill )
-	 if( (set->slotIdx = btree1FindSlot (set->page, key, keyLen, stopper)) ) {
-	  if( drill == lvl )
+	if( set->page->kill ) {
+		bits = set->page->right.bits;
+		continue;
+	}
+
+	// find slot on page
+
+	if( (set->slotIdx = btree1FindSlot (set->page, key, keyLen) )) {
+
+	  if(drill == lvl)
 		return DB_OK;
 
-	  // find next non-dead slot -- the fence key if nothing else
+	  // find next higher non-dead slot
 
-	  while( slotptr(set->page, set->slotIdx)->dead )
-		if( set->slotIdx++ < set->page->cnt )
-		  continue;
-		else
+	  while( set->slotIdx < set->page->cnt )
+		if(slotptr (set->page, set->slotIdx)->dead)
+		  set->slotIdx++;
+	    else
 		  return DB_BTREE_error;
 
 	  // get next page down
-
+	
 	  ptr = keyptr(set->page, set->slotIdx);
-	  set->pageNo.bits = get64(keystr(ptr), keylen(ptr), false);
+	  bits = get64(keystr(ptr), keylen(ptr), false);
 
 	  assert(drill > 0);
 	  drill--;
 	  continue;
-	 }
+	}
+
+	//	if page is empty
+
+	if( set->page->cnt == 0 )
+		return DB_OK;
 
 	//  or slide right into next page
 
-	set->pageNo.bits = set->page->right.bits;
-  } while( set->pageNo.bits );
+	bits = set->page->right.bits;
+  }
 
   // return error on end of right chain
 
