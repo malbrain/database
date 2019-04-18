@@ -456,10 +456,11 @@ int ans;
 uint32_t btree1FindSlot (Btree1Page *page, uint8_t *key, uint32_t keyLen)
 {
 uint32_t diff, higher = page->cnt + 1, low = 1, slot;
-bool stopper = false;
+
+    //	stopper key?
 
 	if( page->lvl && !page->right.bits )
-	  higher--, stopper = true;
+	  higher--;
 
 	//	low is a candidate.
 	//  higher is already
@@ -469,13 +470,10 @@ bool stopper = false;
 	while( (diff = higher - low) ) {
 	  slot = low + diff / 2;
 
-//	  if( !stopper || slot < page->cnt )
-		if( btree1KeyCmp (keyptr (page, slot), key, keyLen) < 0 )
-		  low = slot + 1;
-		else
-		  higher = slot, stopper = false;
-//	  else
-//		return page->cnt;
+	  if( btree1KeyCmp (keyptr (page, slot), key, keyLen) < 0 )
+		low = slot + 1;
+	  else
+		higher = slot;
 	}
 
 	return higher;

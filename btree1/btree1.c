@@ -74,20 +74,7 @@ uint32_t amt;
 	btree1->right.bits = btree1->left.bits;
 
 	page->min -= 1;
-/*	page->cnt = 1;
-	page->act = 1;
 
-	//	set up nil stopper key
-
-	buff = keyaddr(page, page->min);
-	buff[0] = 0;
-
-	//  set up stopper slot
-
-	slot = slotptr(page, 1);
-	slot->type = Btree1_stopper;
-	slot->off = page->min;
-*/
 	//	set  up the tree root page with stopper key
 
 	if ((btree1->root.bits = btree1NewPage(hndl, 1)))
