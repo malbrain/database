@@ -64,15 +64,17 @@ DbAddr left;
 	// pointing to right half page 
 	// and increase the root height
 
-	amt = calc64(right.bits, false);
 	slot = slotptr(root->page, 2);
 	slot->type = Btree1_stopper;
-	slot->off = nxt -= amt + 1;
+	slot->off = nxt -= Btree1_pagenobytes + 1;
 
 	dest = keyaddr(root->page, nxt);
-	*dest++ = amt;
+	*dest++ = Btree1_pagenobytes + 1;
 
-	store64(dest, 0, right.bits, false);
+	amt = store64(dest, 0, right.bits, false);
+
+	while( amt < Btree1_pagenobytes )
+		dest[amt++] = 0;
 
 	// next insert lower keys (left) fence key on newroot page as
 	// first key and reserve space for the key.
@@ -80,10 +82,10 @@ DbAddr left;
 	keyLen = keylen(leftKey);
 
 	if( leftPage->lvl )
-		keyLen -= size64(keystr(leftKey), keyLen);
+		keyLen -= Btree1_pagenobytes;
 
-	amt = keyLen + calc64(left.bits, false);
-	
+	amt = keyLen + Btree1_pagenobytes;
+
 	if( amt > 127 )
 		off = 2;
 	else
@@ -103,8 +105,11 @@ DbAddr left;
 		*dest++ = amt / 256 | 0x80, *dest++ = amt;
 
 	memcpy (dest, keystr(leftKey), keyLen);
-	store64(dest, keyLen, left.bits, false);
-	
+	amt = store64(dest, keyLen, left.bits, false);
+
+	while( amt < Btree1_pagenobytes )
+		dest[amt++] = 0;
+
 	root->page->right.bits = 0;
 	root->page->min = nxt;
 	root->page->cnt = 2;
@@ -294,7 +299,7 @@ DbStatus stat;
 	keyLen = keylen(leftKey);
 
 	if (set->page->lvl) 
-		keyLen -= size64(keystr(leftKey), keyLen);  // strip off pageNo
+		keyLen -= Btree1_pagenobytes;  // strip off pageNo
 
     if ((stat = btree1InsertSfxKey(index, keystr(leftKey), keyLen, set->pageNo.bits, lvl + 1, Btree1_indexed)))
 		return stat;
@@ -470,7 +475,7 @@ uint32_t diff, higher = page->cnt + 1, low = 1, slot;
 	while( (diff = higher - low) ) {
 	  slot = low + diff / 2;
 
-	  if( btree1KeyCmp (keyptr (page, slot), key, keyLen) < 0 )
+	  if(btree1KeyCmp (keyptr (page, slot), key, keyLen) < 0)
 		low = slot + 1;
 	  else
 		higher = slot;
@@ -557,7 +562,7 @@ uint64_t bits;
 		if(slotptr (set->page, set->slotIdx)->dead)
 		  set->slotIdx++;
 	    else
-		  return DB_BTREE_error;
+		  break;
 
 	  // get next page down
 	

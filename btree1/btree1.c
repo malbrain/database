@@ -84,16 +84,19 @@ uint32_t amt;
 
 	btree1->root.type = Btree1_rootPage;
 
-	amt = calc64(btree1->left.bits, false);
-	page->min -= amt + 1;
+	page->min -= Btree1_pagenobytes + 1;
 	page->cnt = 1;
 	page->act = 1;
 
 	//  set up nil stopper key for leaf page
 
 	buff = keyaddr(page, page->min);
-	store64(buff + 1, 0, btree1->left.bits, false);
-	buff[0] = amt;
+	*buff++ = Btree1_pagenobytes;
+
+	amt = store64(buff, 0, btree1->left.bits, false);
+
+	while( amt < Btree1_pagenobytes )
+		buff[amt++] = 0;
 
 	//  set up slot
 

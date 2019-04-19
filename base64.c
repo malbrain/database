@@ -9,19 +9,26 @@
 //	return 64 bit suffix value from key
 
 uint64_t get64(uint8_t *key, uint32_t len, bool binaryFlds) {
-int idx = 0, xtraBytes = key[len - 1] & 0x7;
 int off = binaryFlds ? 2 : 0;
+int idx = 0, xtraBytes;
 uint64_t result;
+
+    // toss filler
+
+	while( key[len - 1] == 0 )
+		len--;
+
+	xtraBytes = key[len - 1] & 7;
 
 	//  get sign of the result
 	// 	positive has bit set
 
-	if (key[len - 1] & 0x08)
+	len -= xtraBytes + 2;
+
+	if (key[len] & 0x80)
 		result = 0;
 	else
 		result = -1;
-
-	len -= xtraBytes + 2;
 
 	// get high order 4 bits
 	//	from first byte
@@ -65,10 +72,7 @@ bool neg;
 	//	store low order 4 bits of given
 	//	value in final extended key byte
  
-    key[keyLen + xtraBytes + off + 1] = (uint8_t)((value & 0xf) << 4 | xtraBytes);
-
-	if( !neg )
-		key[keyLen + xtraBytes + off + 1] |= 0x08;
+    key[keyLen + xtraBytes + off + 1] = (uint8_t)((value & 0xf) << 4 | xtraBytes | 8);
 
     value >>= 4;
 
@@ -123,6 +127,9 @@ bool neg;
 //  size of suffix at end of a key
 
 uint32_t size64(uint8_t *key, uint32_t len) {
+	while( key[len - 1] == 0 )
+		len--;
+
 	return (key[len - 1] & 0x7) + 2;
 }
 

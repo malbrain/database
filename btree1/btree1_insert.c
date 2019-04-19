@@ -7,6 +7,9 @@ uint32_t sfxLen;
     memcpy(keyBuff, key, keyLen);
 	sfxLen = store64(keyBuff, keyLen, suffix, false);
 
+	while( sfxLen < Btree1_pagenobytes )
+		keyBuff[keyLen + sfxLen++] = 0;
+
 	return btree1InsertKey(index, keyBuff, keyLen, sfxLen, lvl, type);
 }
 
@@ -104,9 +107,8 @@ uint8_t *ptr;
 //	update page's fence key in its parent
 
 DbStatus btree1FixKey (Handle *index, uint8_t *fenceKey, uint64_t prev, uint64_t suffix, uint8_t lvl, bool stopper) {
-uint32_t pfxLen, keyLen, amt;
 uint8_t keyBuff[MAX_key];
-uint32_t sfxLen;
+uint32_t keyLen, sfxLen;
 Btree1Set set[1];
 Btree1Slot *slot;
 uint8_t *ptr, *key;
@@ -120,38 +122,18 @@ DbStatus stat;
 	// add prev child pageNo to key
 
 	if( lvl > 1 )
-		keyLen -= size64 (key, keyLen);
+		keyLen -= Btree1_pagenobytes;
 
 	memcpy(keyBuff, key, keyLen);
 	sfxLen = store64(keyBuff, keyLen, prev, false);
 
-	//	calculate new key length
+	while( sfxLen < Btree1_pagenobytes )
+		keyBuff[keyLen + sfxLen++] = 0;
 
-	amt = keyLen + calc64(suffix, false);
+	memset(set, 0, sizeof(set));
 
-	pfxLen = amt < 128 ? 1 : 2;
-
-	if (amt + pfxLen > MAX_key)
-		return DB_ERROR_keylength;
-
-	while (true) {
-	  memset(set, 0, sizeof(set));
-
-	  if ((stat = btree1LoadPage(index->map, set, keyBuff, keyLen + sfxLen, lvl, Btree1_lockWrite)))
+	if ((stat = btree1LoadPage(index->map, set, keyBuff, keyLen + sfxLen, lvl, Btree1_lockWrite)))
 		return stat;
-
-	  if ((stat = btree1CleanPage(index, set, amt + pfxLen))) {
-		if (stat == DB_BTREE_needssplit) {
-		  if ((stat = btree1SplitPage(index, set)))
-			return stat;
-		  else
-			continue;
-	    } else
-			return stat;
-	  }
-
-	  break;
-	}
 
 	slot = slotptr(set->page, set->slotIdx);
 
@@ -162,25 +144,14 @@ DbStatus stat;
 
 	ptr = keyaddr(set->page, slot->off);
 
-	if( btree1KeyCmp(ptr, keyBuff, keyLen) )
+	if( slot->type == Btree1_indexed )
+	  if( btree1KeyCmp(ptr, keyBuff, keyLen) )
 		return DB_ERROR_invaliddeleterecord;
 
-	// does the new key fit in the old slot key?
+	sfxLen = store64(keystr(ptr), keylen(ptr), suffix, false);
 
-	if( keylen(ptr) < (int)amt ) {
-	  set->page->garbage += keylen (ptr) + keypre (ptr);
-
-	  slot->off = set->page->min -= pfxLen + amt;  
-	  ptr = keyaddr(set->page, slot->off);
-	}
-
-	if( amt < 128 )	
-		*ptr++ = amt;
-	else
-		*ptr++ = amt/256 | 0x80, *ptr++ = amt;
-
-	memcpy (ptr, key, keyLen);
-	store64(ptr, keyLen, suffix, false);
+	while( sfxLen < Btree1_pagenobytes )
+		keyBuff[keylen(ptr) + sfxLen++] = 0;
 
 	// release write lock
 
