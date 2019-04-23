@@ -10,7 +10,7 @@ DbStatus stat;
 
 	// find the level 0 page containing the key
 
-	if ((stat = btree1LoadPage(map, set, key, keyLen, 0, Btree1_lockRead)))
+	if ((stat = btree1LoadPage(map, set, key, keyLen, 0, true, Btree1_lockRead)))
 		return stat;
 
 	slot = slotptr(set->page, set->slotIdx);

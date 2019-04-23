@@ -1,5 +1,7 @@
 #include "btree1.h"
 
+DbStatus btree1LoadStopper(DbMap *map, Btree1Set *set, uint8_t lvl);
+
 DbStatus btree1InsertSfxKey(Handle *index, uint8_t *key, uint32_t keyLen, uint64_t suffix, uint8_t lvl, Btree1SlotType type) {
 uint8_t keyBuff[MAX_key];
 uint32_t sfxLen;
@@ -16,11 +18,13 @@ uint32_t sfxLen;
 DbStatus btree1InsertKey(Handle *index, uint8_t *key, uint32_t keyLen, uint32_t sfxLen, uint8_t lvl, Btree1SlotType type) {
 Btree1Index *btree1 = btree1index(index->map);
 uint32_t totLen = keyLen + sfxLen;
-uint32_t idx, prefixLen;
+uint32_t idx, pfxLen;
 Btree1Slot *slot;
 Btree1Set set[1];
 DbStatus stat;
 uint8_t *ptr;
+
+	pfxLen = totLen < 128 ? 1 : 2;
 
 	if (keyLen > MAX_key)
 		return DB_ERROR_keylength;
@@ -28,10 +32,10 @@ uint8_t *ptr;
 	while (true) {
 	  memset(set, 0, sizeof(set));
 
-	  if ((stat = btree1LoadPage(index->map, set, key, totLen, lvl, Btree1_lockWrite)))
+	  if ((stat = btree1LoadPage(index->map, set, key, totLen, lvl, false, Btree1_lockWrite)))
 		return stat;
 
-	  if ((stat = btree1CleanPage(index, set, totLen))) {
+	  if ((stat = btree1CleanPage(index, set, totLen + pfxLen))) {
 		if (stat == DB_BTREE_needssplit) {
 		  if ((stat = btree1SplitPage(index, set)))
 			return stat;
@@ -46,7 +50,6 @@ uint8_t *ptr;
 
 	if( set->page->cnt ) {
 	  slot = slotptr(set->page, set->slotIdx);
-
 	  ptr = keyaddr(set->page, slot->off);
 
 	  if( !btree1KeyCmp(ptr, key, totLen) )
@@ -58,9 +61,9 @@ uint8_t *ptr;
 		slot->dead = true;
 	}
 
-	//	if previous slot is a librarian slot, use it
+	//	if previous slot is a librarian/dead slot, use it
 
-	if( set->slotIdx > 1 && slot[-1].type == Btree1_librarian )
+	if( set->slotIdx > 1 && slot[-1].dead )
 		set->slotIdx--, slot--;
 
 	//	slot now points to where the new 
@@ -68,8 +71,7 @@ uint8_t *ptr;
 
 	// add the key to the page
 
-	prefixLen = totLen < 128 ? 1 : 2;
-	set->page->min -= prefixLen + totLen;
+	set->page->min -= pfxLen + totLen;
 	ptr = keyaddr(set->page, set->page->min);
 
 	if( totLen < 128 )	
@@ -79,7 +81,7 @@ uint8_t *ptr;
 
 	memcpy (ptr, key, totLen);
 	
-	//	find first empty slot
+	//	find first dead/librarian slot
 
 	for( idx = 0; idx + set->slotIdx <= set->page->cnt; idx++ )
 	  if( slot[idx].dead )
@@ -107,51 +109,54 @@ uint8_t *ptr;
 //	update page's fence key in its parent
 
 DbStatus btree1FixKey (Handle *index, uint8_t *fenceKey, uint64_t prev, uint64_t suffix, uint8_t lvl, bool stopper) {
-uint8_t keyBuff[MAX_key];
-uint32_t keyLen, sfxLen;
+uint32_t keyLen, sfxLen, len;
+uint8_t *ptr, *key, *dest;
+uint64_t oldSuffix;
 Btree1Set set[1];
 Btree1Slot *slot;
-uint8_t *ptr, *key;
 DbStatus stat;
 
     key = fenceKey + keypre (fenceKey);
 	keyLen = keylen(fenceKey);
 
-	memset(set, 0, sizeof(set));
-
-	// add prev child pageNo to key
+	// remove prev child pageNo from interior keys
 
 	if( lvl > 1 )
 		keyLen -= Btree1_pagenobytes;
 
-	memcpy(keyBuff, key, keyLen);
-	sfxLen = store64(keyBuff, keyLen, prev, false);
-
-	while( sfxLen < Btree1_pagenobytes )
-		keyBuff[keyLen + sfxLen++] = 0;
-
 	memset(set, 0, sizeof(set));
 
-	if ((stat = btree1LoadPage(index->map, set, keyBuff, keyLen + sfxLen, lvl, Btree1_lockWrite)))
+	if( stopper ) {
+	  if( (stat = btree1LoadStopper (index->map, set, lvl)) )
 		return stat;
+	} else {
+	  if ((stat = btree1LoadPage(index->map, set, key, keyLen,  lvl, true, Btree1_lockWrite)))
+		return stat;
+	}
 
 	slot = slotptr(set->page, set->slotIdx);
-
-	// if librarian slot
-
-	if (slot->type == Btree1_librarian)
-		slot = slotptr(set->page, ++set->slotIdx);
-
 	ptr = keyaddr(set->page, slot->off);
+	dest = keystr(ptr);
+	len = keylen(ptr);
 
-	if( slot->type == Btree1_indexed )
-	  if( btree1KeyCmp(ptr, keyBuff, keyLen) )
+	if( !set->page->right.bits ) {
+	  if( slot->type == Btree1_indexed )
+		if (btree1KeyCmp (ptr, key, keyLen))
+		  return DB_ERROR_invaliddeleterecord;
+
+	  oldSuffix = get64(dest, len, false);
+
+	  if( oldSuffix != prev )
 		return DB_ERROR_invaliddeleterecord;
+	}
 
-	sfxLen = store64(keystr(ptr), keylen(ptr), suffix, false);
+	//	overwrite pageAddr 
+
+	len -= Btree1_pagenobytes;
+	sfxLen = store64(dest, len, suffix, false);
 
 	while( sfxLen < Btree1_pagenobytes )
-		keyBuff[keylen(ptr) + sfxLen++] = 0;
+		dest[len + sfxLen++] = 0;
 
 	// release write lock
 
