@@ -25,15 +25,41 @@ Linux compilation command:
 
 Sample single thread output from indexing 40M pennysort keys:
 
-    [karl@test7x64 xlink]# ./dbtest tstdb -cmds=w -noDocs -keyLen=10 pennykey0-3
-    started indexing for pennykey0-3
-     Total keys indexed 40000000
-     real 0m35.022s
-     user 0m31.067s
-     sys  0m4.048s
 
-    -rw-rw-r-- 1 karl engr    1048576 Oct 18 09:16 tstdb
-    -rw-rw-r-- 1 karl engr 2147483648 Oct 18 09:16 tstdb.ARTreeIdx
+karl@DESKTOP-8G6NRQ9:/mnt/c/Users/Owner/Source/Repos/malbrain/database$ ./millionRandomKeyTest
+
+started writing 40000000 random keys  index type 0
+      Total records processed 40000000
+       real 0m23.119s
+       user 0m21.594s
+       sys  0m1.391s
+      started reverse cursor key ordering verification count keys
+       Total keys 40000000
+       real 0m11.199s
+       user 0m11.188s
+       sys  0m0.000s
+
+started writing 40000000 random keys  index type 1
+       Total records processed 40000000
+       real 0m50.396s
+       user 0m49.594s
+       sys  0m0.578s
+      started reverse cursor key ordering verification count keys
+       Total keys 40000000
+       real 0m2.428s
+       user 0m2.422s
+       sys  0m0.000s
+
+started writing 40000000 random keys  index type 2
+       Total records processed 40000000
+       real 1m14.907s
+       user 1m13.625s
+       sys  0m1.109s
+      started reverse cursor key ordering verification count keys
+       Total keys 40000000
+       real 0m2.785s
+       user 0m2.781s
+       sys  0m0.000s
 
 Sample four thread output from indexing 40M pennysort keys:
 
