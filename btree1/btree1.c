@@ -32,8 +32,8 @@ DbAddr addr;
 		return 0;
 
 	btree1InitPage(page);
+	page->min = size - 1;
 	page->lvl = lvl;
-	page->min = size;
 	return addr.bits;
 }
 
@@ -67,13 +67,10 @@ uint32_t amt;
 	else
 		return DB_ERROR_outofmemory;
 
-	//  set up new leaf page with stopper key
-	// of length zero
+	//  set up new leaf page with no keys
 
 	btree1->left.type = Btree1_leafPage;
 	btree1->right.bits = btree1->left.bits;
-
-	page->min -= 1;
 
 	//	set  up the tree root page with stopper key
 
@@ -88,7 +85,7 @@ uint32_t amt;
 	page->cnt = 1;
 	page->act = 1;
 
-	//  set up nil stopper key for leaf page
+	//  set up nil root stopper key for leaf page
 
 	buff = keyaddr(page, page->min);
 	*buff++ = Btree1_pagenobytes;

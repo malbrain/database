@@ -33,7 +33,7 @@ uint32_t Splits;
 
 DbStatus btree1SplitRoot(Handle *index, Btree1Set *root, DbAddr right, uint8_t *leftKey) {
 Btree1Index *btree1 = btree1index(index->map);
-uint32_t keyLen, nxt = btree1->pageSize;
+uint32_t keyLen, nxt = btree1->pageSize - 1;
 Btree1Page *leftPage, *rightPage;
 Btree1Slot *slot;
 uint8_t *dest;
@@ -159,7 +159,7 @@ DbStatus stat;
 
 	max = set->page->cnt;
 	cnt = max / 2;
-	nxt = size;
+	nxt = size - 1;
 	idx = 0;
 
 	source = slotptr(set->page, cnt);
@@ -209,7 +209,7 @@ DbStatus stat;
 
 	set->page->garbage = 0;
 	set->page->act = 0;
-	nxt = size;
+	nxt = size - 1;
 	max /= 2;
 	cnt = 0;
 	idx = 0;
@@ -458,29 +458,30 @@ int ans;
 
 uint32_t btree1FindSlot (Btree1Page *page, uint8_t *key, uint32_t keyLen)
 {
-uint32_t diff, higher = page->cnt, low = 1, slot;
+uint32_t diff, higher = page->cnt + 1, low = 1, slot;
+bool good;
 
     // virtual stopper key?
 
-	if( page->right.bits )
-	  higher++;
-
+	if( (good = !page->right.bits) )
+	  if( page->lvl )
+		  higher -= 1;
+	  
 	//	low is a candidate.
 	//  higher is already
 	//	tested as .ge. the given key.
 	//  loop ends when they meet
 
-	if( higher )
-	 while( (diff = higher - low) ) {
+	while( (diff = higher - low) ) {
 	  slot = low + diff / 2;
 
 	  if(btree1KeyCmp (keyptr (page, slot), key, keyLen) < 0)
 		low = slot + 1;
 	  else
-		higher = slot;
-	 }
+		higher = slot, good = true;
+	}
 
-	return higher;
+	return good ? higher : 0;
 }
 
 //  find and load page at given level for given key
@@ -493,6 +494,7 @@ Btree1Index *btree1 = btree1index(map);
 uint8_t drill = 0xff, *ptr;
 Btree1Page *prevPage = NULL;
 Btree1Lock mode, prevMode;
+Btree1Slot *slot;
 DbAddr prevPageNo;
 uint64_t bits;
 
@@ -565,7 +567,8 @@ uint64_t bits;
 
 	  // get next page down
 	
-	  ptr = keyptr(set->page, set->slotIdx);
+	  slot = slotptr(set->page, set->slotIdx);
+	  ptr = keyaddr(set->page, slot->off);
 	  bits = get64(keystr(ptr), keylen(ptr), false);
 
 	  assert(drill > 0);
@@ -593,6 +596,7 @@ Btree1Index *btree1 = btree1index(map);
 uint8_t drill = 0xff, *ptr;
 Btree1Page *prevPage = NULL;
 Btree1Lock mode, prevMode;
+Btree1Slot *slot;
 DbAddr prevPageNo;
 uint64_t bits;
 
@@ -655,7 +659,8 @@ uint64_t bits;
 
 	// get next page down
 	
-	ptr = keyptr(set->page, set->slotIdx);
+	slot = slotptr(set->page, set->slotIdx);
+	ptr = keyaddr(set->page, slot->off);
 	bits = get64(keystr(ptr), keylen(ptr), false);
 
 	assert(drill > 0);

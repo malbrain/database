@@ -227,7 +227,7 @@ int stat;
 
 	case 'w':
 		if( pennysort )
-			fprintf(stderr, "started writing %d random keys\n", count = atoi (args->inFile));
+			fprintf(stderr, "started writing %d random keys  index type %d\n", count = atoi (args->inFile), (int)args->params[IdxType].intVal);
 		else
 			fprintf(stderr, "started writing from %s\n", args->inFile);
 
@@ -253,7 +253,7 @@ int stat;
 
 		if( pennysort ) {
 		 while( line < count && ++line ) {
-          if (debug && !(line % 100000))
+          if (debug && !(line % 1000000))
                fprintf(stderr, "line %" PRIu64 "\n", line);
 
           len = createB64(key, args->keyLen, nrandState);
@@ -272,13 +272,13 @@ int stat;
 		  } else
 			docId.bits = line;
 
-		  if (len > args->keyLen)
+          if(len > args->keyLen)
 			len = args->keyLen;
  
 		  if (idxHndl->hndlBits) {
 			uint32_t sfxLen = store64 (key, len, docId.bits, binaryFlds);
 
-			switch ((stat = insertKey(idxHndl, key, len, sfxLen))) {
+			switch((stat = insertKey (idxHndl, key, len, sfxLen))) {
 			  case DB_ERROR_unique_key_constraint:
 				fprintf(stderr, "Duplicate key <%.*s> line: %" PRIu64 "\n", len, key, line);
 				break;
@@ -305,7 +305,7 @@ int stat;
 
 			  line++;
 
-			  if (debug && !(line % 100000))
+			  if (debug && !(line % 1000000))
 				fprintf(stderr, "line %" PRIu64 "\n", line);
 
 			  // store the entry in the docStore?
@@ -381,7 +381,7 @@ int stat;
 
 			  line++;
 
-			  if (debug && !(line % 100000))
+			  if (debug && !(line % 1000000))
 				fprintf(stderr, "line %" PRIu64 "\n", line);
 
 			  len = args->keyLen;
@@ -461,7 +461,7 @@ int stat;
 			fprintf(stderr, " key ordering verification");
 
 		if (cntOnly)
-			fprintf(stderr, " count Only");
+			fprintf(stderr, " count keys");
 
 		if (args->minKey)
 			fprintf(stderr, " min key: %s", args->minKey);
@@ -534,7 +534,7 @@ int stat;
 			}
 
 			if (cntOnly) {
-			  if (debug && !(cnt % 100000))
+			  if (debug && !(cnt % 1000000))
 				fprintf(stderr, "key %" PRIu64 "\n", cnt);
 
 			  continue;
@@ -608,10 +608,6 @@ double elapsed;
 double start;
 int num = 0;
 
-#ifdef _WIN32
-	GetSystemInfo(info);
-	fprintf(stderr, "CWD: %s PageSize: %d, # Processors: %d, Allocation Granularity: %d\n\n", _getcwd(buf, 512), (int)info->dwPageSize, (int)info->dwNumberOfProcessors, (int)info->dwAllocationGranularity);
-#endif
 	if( argc < 3 ) {
 		fprintf (stderr, "Usage: %s db_name -cmds=[crwsdfiv]... -idxType=[012] -bits=# -xtra=# -inMem -debug -uniqueKeys -noDocs -noIdx -keyLen=# -minKey=abcd -maxKey=abce -drop -idxBinary -pipeline src_file1 src_file2 ... ]\n", argv[0]);
 		fprintf (stderr, "  where db_name is the prefix name of the database file\n");
@@ -816,5 +812,11 @@ int num = 0;
 	  fprintf(stderr, " user %dm%.3fs\n", (int)(elapsed/60), elapsed - (int)(elapsed/60)*60);
 	  elapsed = getCpuTime(2);
 	  fprintf(stderr, " sys  %dm%.3fs\n", (int)(elapsed/60), elapsed - (int)(elapsed/60)*60);
+	}
+	if( debug ) {
+#ifdef _WIN32
+	  GetSystemInfo(info);
+	  fprintf(stderr, "CWD: %s PageSize: %d, # Processors: %d, Allocation Granularity: %d\n\n", _getcwd(buf, 512), (int)info->dwPageSize, (int)info->dwNumberOfProcessors, (int)info->dwAllocationGranularity);
+#endif
 	}
 }

@@ -99,7 +99,6 @@ uint32_t len;
 
 DbStatus artInsertKey( Handle *index, void *key, uint32_t keyLen, uint32_t sfxLen) {
 uint32_t totLen = keyLen + sfxLen;
-uint8_t keyBuff[MAX_key];
 ArtIndex *artIndex;
 bool pass = false;
 InsertParam p[1];

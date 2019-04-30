@@ -1,5 +1,7 @@
 #include "btree1.h"
 
+extern bool debug;
+
 DbStatus btree1LoadStopper(DbMap *map, Btree1Set *set, uint8_t lvl);
 
 DbStatus btree1InsertSfxKey(Handle *index, uint8_t *key, uint32_t keyLen, uint64_t suffix, uint8_t lvl, Btree1SlotType type) {
@@ -23,6 +25,7 @@ Btree1Slot *slot;
 Btree1Set set[1];
 DbStatus stat;
 uint8_t *ptr;
+uint32_t fence;
 
 	pfxLen = totLen < 128 ? 1 : 2;
 
@@ -48,26 +51,22 @@ uint8_t *ptr;
 	  break;
 	}
 
-	if( set->page->cnt ) {
-	  slot = slotptr(set->page, set->slotIdx);
-	  ptr = keyaddr(set->page, slot->off);
-
-	  if( !btree1KeyCmp(ptr, key, totLen) )
-		return DB_ERROR_duplicatekey;
-
-	} else {
-		slot = slotptr(set->page, 1);
-		set->slotIdx = 1;
-		slot->dead = true;
+	if(debug) {
+		slot = slotptr(set->page, set->page->cnt);
+		fence = slot->off;
 	}
 
-	//	if previous slot is a librarian/dead slot, use it
+	slot = slotptr(set->page, set->slotIdx);
 
-	if( set->slotIdx > 1 && slot[-1].dead )
-		set->slotIdx--, slot--;
+    if( set->slotIdx < set->page->cnt )
+	  if(slot->type == Btree1_librarian)
+	    set->slotIdx++, slot++;
 
-	//	slot now points to where the new 
-	//	key will be inserted
+	ptr = keyaddr(set->page, slot->off);
+
+	if( set->slotIdx <= set->page->cnt )
+	  if( !btree1KeyCmp(ptr, key, totLen) )
+		return DB_ERROR_duplicatekey;
 
 	// add the key to the page
 
@@ -81,26 +80,53 @@ uint8_t *ptr;
 
 	memcpy (ptr, key, totLen);
 	
+	if( !set->page->cnt ) {
+		slot = slotptr(set->page, 1);
+		set->page->act = 1;
+		set->page->cnt = 1;
+		set->slotIdx = 1;
+		goto fillSlot;
+	}
+
+	//	if previous slot is a librarian/dead slot, use it
+
+	if( set->slotIdx > 1 && slot[-1].dead ) {
+		set->slotIdx--, slot--;
+		goto fillSlot;
+	}
+
+	//	slot now points to where the new 
+	//	key will be inserted
+
 	//	find first dead/librarian slot
 
 	for( idx = 0; idx + set->slotIdx <= set->page->cnt; idx++ )
 	  if( slot[idx].dead )
 		break;
 
+	//	slots 0 thru idx-1 get moved up one slot
+
 	if( idx + set->slotIdx >= set->page->cnt )
 		set->page->cnt++;
 
-	set->page->act++;
-	  
-	//  move subsequent slots out of our way
+	//  move these slots out of our way
 
 	while( idx-- )
 		slot[idx + 1].bits = slot[idx].bits;
 
 	//	fill in new slot
 
+fillSlot:
+	set->page->act++;
+	  
 	slot->bits = set->page->min;
 	slot->type = type;
+
+	if( debug && set->page->right.bits ) {
+		slot = slotptr(set->page, set->page->cnt);
+		if(fence != slot->off)
+			fence += 0;
+	}
 
 	btree1UnlockPage (set->page, Btree1_lockWrite);
 	return DB_OK;
@@ -139,7 +165,7 @@ DbStatus stat;
 	dest = keystr(ptr);
 	len = keylen(ptr);
 
-	if( !set->page->right.bits ) {
+	if( !stopper ) {
 	  if( slot->type == Btree1_indexed )
 		if (btree1KeyCmp (ptr, key, keyLen))
 		  return DB_ERROR_invaliddeleterecord;
