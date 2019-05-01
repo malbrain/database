@@ -489,7 +489,7 @@ bool good;
 
 //	Librarian slots have the same key offset as their higher neighbor
 
-DbStatus btree1LoadPage(DbMap *map, Btree1Set *set, void *key, uint32_t keyLen, uint8_t lvl, bool findGood, Btree1Lock lock) {
+DbStatus btree1LoadPage(DbMap *map, Btree1Set *set, void *key, uint32_t keyLen, uint8_t lvl, bool findGood, bool stopper, Btree1Lock lock) {
 Btree1Index *btree1 = btree1index(map);
 uint8_t drill = 0xff, *ptr;
 Btree1Page *prevPage = NULL;
@@ -550,115 +550,41 @@ uint64_t bits;
 		continue;
 	}
 
+	//	if page is empty
+
+	if( set->page->cnt == 0 ) {
+		set->slotIdx = 0;
+		return DB_OK;
+	}
+
 	// find slot on page
 
-	if( (set->slotIdx = btree1FindSlot (set->page, key, keyLen) )) {
-	  // find next higher non-dead slot
+	if( stopper )
+		set->slotIdx = set->page->cnt;
+	else
+		set->slotIdx = btree1FindSlot (set->page, key, keyLen);
 
-	  if( drill == lvl && findGood || drill > lvl )
+	//  slide right into next page
+
+	if( !set->slotIdx ) {
+		bits = set->page->right.bits;
+		continue;
+	}
+
+	// find next higher non-dead slot
+
+	if( drill == lvl && findGood || drill > lvl )
 	    while( set->slotIdx < set->page->cnt )
 		  if(slotptr (set->page, set->slotIdx)->dead)
 		    set->slotIdx++;
 	      else
 		    break;
 
-	  if(drill == lvl)
+	if( drill == lvl )
 		return DB_OK;
 
-	  // get next page down
-	
-	  slot = slotptr(set->page, set->slotIdx);
-	  ptr = keyaddr(set->page, slot->off);
-	  bits = get64(keystr(ptr), keylen(ptr), false);
+	// continue on next page down
 
-	  assert(drill > 0);
-	  drill--;
-	  continue;
-	}
-
-	//	if page is empty
-
-	if( set->page->cnt == 0 )
-		return DB_OK;
-
-	//  or slide right into next page
-
-	bits = set->page->right.bits;
-  }
-
-  // return error on end of right chain
-
-  return DB_BTREE_error;
-}
-
-DbStatus btree1LoadStopper(DbMap *map, Btree1Set *set, uint8_t lvl) {
-Btree1Index *btree1 = btree1index(map);
-uint8_t drill = 0xff, *ptr;
-Btree1Page *prevPage = NULL;
-Btree1Lock mode, prevMode;
-Btree1Slot *slot;
-DbAddr prevPageNo;
-uint64_t bits;
-
-  bits = btree1->root.bits;
-  prevPageNo.bits = 0;
-
-  //  start at our idea of the root level of the btree1 and drill down
-
-  while( (set->pageNo.bits = bits) ) {
-
-	// determine lock mode of drill level
-
-	mode = (drill == lvl) ? Btree1_lockWrite : Btree1_lockRead; 
-	set->page = getObj(map, set->pageNo);
-
-	//	release parent or left sibling page
-
-	if( prevPageNo.bits ) {
-	  btree1UnlockPage(prevPage, prevMode);
-	  prevPageNo.bits = 0;
-	}
-
- 	// obtain mode lock
-
-	btree1LockPage(set->page, mode);
-
-	if( set->page->free )
-		return DB_BTREE_error;
-
-	// re-read and re-lock root after determining actual level of root
-
-	if( set->page->lvl != drill) {
-		assert(drill == 0xff);
-		drill = set->page->lvl;
-
-		btree1UnlockPage (set->page, mode);
-		continue;
-	}
-
-	assert(lvl <= set->page->lvl);
-
-	prevPageNo.bits = set->pageNo.bits;
-	prevPage = set->page;
-	prevMode = mode;
-
-	//  find key on page at this level
-	//  and descend to requested level
-
-	if( set->page->kill ) {
-		bits = set->page->right.bits;
-		continue;
-	}
-
-	// find slot on page
-
-	set->slotIdx = set->page->cnt;
-
-	if(drill == lvl)
-	  return DB_OK;
-
-	// get next page down
-	
 	slot = slotptr(set->page, set->slotIdx);
 	ptr = keyaddr(set->page, slot->off);
 	bits = get64(keystr(ptr), keylen(ptr), false);
@@ -666,6 +592,8 @@ uint64_t bits;
 	assert(drill > 0);
 	drill--;
   }
+
+  // return error on end of right chain
 
   return DB_BTREE_error;
 }

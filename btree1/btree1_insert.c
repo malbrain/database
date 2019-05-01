@@ -35,7 +35,7 @@ uint32_t fence;
 	while (true) {
 	  memset(set, 0, sizeof(set));
 
-	  if ((stat = btree1LoadPage(index->map, set, key, totLen, lvl, false, Btree1_lockWrite)))
+	  if ((stat = btree1LoadPage(index->map, set, key, totLen, lvl, false, false, Btree1_lockWrite)))
 		return stat;
 
 	  if ((stat = btree1CleanPage(index, set, totLen + pfxLen))) {
@@ -49,6 +49,14 @@ uint32_t fence;
 	  }
 
 	  break;
+	}
+
+	if( !set->page->cnt ) {
+		slot = slotptr(set->page, 1);
+		set->page->act = 1;
+		set->page->cnt = 1;
+		set->slotIdx = 1;
+		goto fillSlot;
 	}
 
 	if(debug) {
@@ -67,26 +75,6 @@ uint32_t fence;
 	if( set->slotIdx <= set->page->cnt )
 	  if( !btree1KeyCmp(ptr, key, totLen) )
 		return DB_ERROR_duplicatekey;
-
-	// add the key to the page
-
-	set->page->min -= pfxLen + totLen;
-	ptr = keyaddr(set->page, set->page->min);
-
-	if( totLen < 128 )	
-		*ptr++ = totLen;
-	else
-		*ptr++ = totLen/256 | 0x80, *ptr++ = totLen;
-
-	memcpy (ptr, key, totLen);
-	
-	if( !set->page->cnt ) {
-		slot = slotptr(set->page, 1);
-		set->page->act = 1;
-		set->page->cnt = 1;
-		set->slotIdx = 1;
-		goto fillSlot;
-	}
 
 	//	if previous slot is a librarian/dead slot, use it
 
@@ -119,6 +107,17 @@ uint32_t fence;
 fillSlot:
 	set->page->act++;
 	  
+	// add the key to the page
+
+	set->page->min -= pfxLen + totLen;
+	ptr = keyaddr(set->page, set->page->min);
+
+	if( totLen < 128 )	
+		*ptr++ = totLen;
+	else
+		*ptr++ = totLen/256 | 0x80, *ptr++ = totLen;
+
+	memcpy (ptr, key, totLen);
 	slot->bits = set->page->min;
 	slot->type = type;
 
@@ -152,13 +151,8 @@ DbStatus stat;
 
 	memset(set, 0, sizeof(set));
 
-	if( stopper ) {
-	  if( (stat = btree1LoadStopper (index->map, set, lvl)) )
+	if ((stat = btree1LoadPage(index->map, set, key, keyLen,  lvl, true, stopper, Btree1_lockWrite)))
 		return stat;
-	} else {
-	  if ((stat = btree1LoadPage(index->map, set, key, keyLen,  lvl, true, Btree1_lockWrite)))
-		return stat;
-	}
 
 	slot = slotptr(set->page, set->slotIdx);
 	ptr = keyaddr(set->page, slot->off);

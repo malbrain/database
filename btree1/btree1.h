@@ -140,7 +140,7 @@ DbStatus btree1Init(Handle *hndl, Params *params);
 DbStatus btree1InsertKey(Handle *hndl, uint8_t *key, uint32_t keyLen, uint32_t sfxLen, uint8_t lvl, Btree1SlotType type);
 DbStatus btree1DeleteKey(Handle *hndl, void *key, uint32_t keyLen);
 
-DbStatus btree1LoadPage(DbMap *map, Btree1Set *set, void *key, uint32_t keyLen, uint8_t lvl, bool goodOnly, Btree1Lock lock);
+DbStatus btree1LoadPage(DbMap *map, Btree1Set *set, void *key, uint32_t keyLen, uint8_t lvl, bool goodOnly, bool stopper, Btree1Lock lock);
 
 uint64_t btree1NewPage (Handle *hndl, uint8_t lvl);
 

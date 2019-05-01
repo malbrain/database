@@ -141,7 +141,7 @@ long mynrand48(unsigned short xseed[3]);
  
 int createB64(char *key, int size, unsigned short next[3])
 {
-uint64_t byte8;
+uint64_t byte8 = 0;
 int base;
 
 	for( base = 0; base < size; base++ ) {
@@ -244,7 +244,7 @@ int RandHead = 0;
  *
  */
 
-unsigned xrandom ()
+unsigned xrandom (void)
 {
 register unsigned fact;
 
