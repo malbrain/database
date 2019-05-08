@@ -6,7 +6,6 @@ bool btree2LinkTower(Btree2Set *set, volatile uint16_t *tower, volatile uint8_t 
 void btree2FillTower(Btree2Page *page, uint16_t off, uint16_t *fwd, uint8_t height);
 
 DbStatus btree2InsertKey(Handle *index, uint8_t *key, uint32_t keyLen, uint32_t sfxLen, uint8_t lvl, Btree2SlotState type) {
-Btree2Index *btree2 = btree2index(index->map);
 uint32_t slotSize, totLen = keyLen + sfxLen;
 uint8_t height = btree2GenHeight(index);
 Btree2Set set[1];

@@ -128,7 +128,7 @@ uint8_t *key;
 		return DB_OK;
 	  }
 
-	  if (cursor->addr.bits = cursor->page->left.bits)
+	  if( (cursor->addr.bits = cursor->page->left.bits) )
 		cursor->page = getObj(map, cursor->page->left);
 	  else
 		break;

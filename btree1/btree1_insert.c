@@ -18,7 +18,6 @@ uint32_t sfxLen;
 }
 
 DbStatus btree1InsertKey(Handle *index, uint8_t *key, uint32_t keyLen, uint32_t sfxLen, uint8_t lvl, Btree1SlotType type) {
-Btree1Index *btree1 = btree1index(index->map);
 uint32_t totLen = keyLen + sfxLen;
 uint32_t idx, pfxLen;
 Btree1Slot *slot;

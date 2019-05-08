@@ -1,3 +1,5 @@
+#define __STDC_WANT_LIB_EXT1__ 1
+
 #include <errno.h>
 #include <string.h>
 #include <inttypes.h>
@@ -7,12 +9,7 @@
 #include "db.h"
 #include "db_api.h"
 
-#ifndef _WIN32
-#include <sys/time.h>
-#include <sys/resource.h>
-#include <pthread.h>
-#include <stdlib.h>
-#else
+#ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <direct.h>
@@ -21,18 +18,11 @@
 
 #ifdef _WIN32
 #define strncasecmp _strnicmp
-#define fwrite	_fwrite_nolock
-#define fputc	_fputc_nolock
-#define getc	_getc_nolock
+#define fwrite_unlocked _fwrite_nolock
+#define fputc_unlocked _fputc_nolock
+#define getc_unlocked _getc_nolock
 #else
 #define fopen_s(file, path, mode) ((*file = fopen(path, mode)) ? 0 : errno)
-#ifndef apple
-#undef getc
-#define fputc	fputc_unlocked
-#define fwrite	fwrite_unlocked
-#define getc	getc_unlocked
-#endif
-
 #endif
 
 #ifdef DEBUG
@@ -52,6 +42,7 @@ bool pennysort = false;
 bool numbers = false;
 bool keyList = false;
 
+int numThreads = 1;
 double getCpuTime(int type);
 
 void mynrand48seed(uint16_t *nrandState);
@@ -64,15 +55,16 @@ int off = 0;
 	while(off < len) {
 		int fldLen = key[off] << 8 | key[off + 1];
 		if (off)
-			fputc (':', file);
+			fputc_unlocked (':', file);
 		off += 2;
-		fwrite (key + off, fldLen, 1, file);
+		fwrite_unlocked (key + off, fldLen, 1, file);
 		off += fldLen;
 	}
 }
 
 typedef struct {
 	char *cmds;
+	char *scanCmd;
 	uint8_t idx;
 	char *inFile;
 	char *minKey;
@@ -112,24 +104,18 @@ void myExit (ThreadArg *args) {
 }
 
 //  standalone program to index file of keys
-//  then list them onto std-out
 
-#ifndef _WIN32
-void *index_file (void *arg)
-#else
-unsigned __stdcall index_file (void *arg)
-#endif
+int index_file(ThreadArg *args, char cmd, char *msg, int msgMax)
 {
 uint64_t line = 0, cnt = 0;
-ThreadArg *args = arg;
 DbHandle database[1];
 DbHandle iterator[1];
 DbHandle docHndl[1];
 DbHandle cursor[1];
 DbHandle idxHndl[1];
 DbHandle *parent;
-
-int16_t nrandState[3];
+uint16_t nrandState[3];
+int msgLen = 0;
 
 uint8_t rec[4096];
 Doc *doc = (Doc *)rec;
@@ -138,23 +124,24 @@ uint8_t *key = rec + sizeof(Doc);
 int ch, len = 0;
 bool binaryFlds; 
 char *idxName;
-uint32_t count;
 uint32_t foundLen = 0;
 uint32_t prevLen = 0;
 bool reverse = false;
 bool cntOnly = false;
 bool verify = false;
-int suffixLen = 0;
 int lastFld = 0;
 uint8_t *foundKey;
+uint64_t count;
 ObjId docId;
 FILE *in;
 int stat;
 
 	mynrand48seed(nrandState);
 
-	if (debug)
-          memset(nrandState, 0, sizeof(nrandState));
+	if (debug) {
+      memset(nrandState, 0, sizeof(nrandState));
+	  nrandState[0] = args->idx;
+	}
 
 	cloneHandle(database, args->database);
 
@@ -167,16 +154,11 @@ int stat;
 	binaryFlds = args->params[IdxKeyFlds].boolVal;
 	docHndl->hndlBits = 0;
 
-	if( args->idx < (int)strlen (args->cmds) )
-		ch = args->cmds[args->idx];
-	else
-		ch = args->cmds[(int)strlen(args->cmds) - 1];
-
-	switch(ch | 0x20)
-	{
+	switch(cmd | 0x20) 	{
 
 	case 'd':
-		fprintf(stderr, "started delete key for %s\n", args->inFile);
+		msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1, "thrd:%d cmd:%c file:%s\n", args->idx, cmd, args->inFile);
+
 		parent = database;
 
 		if ((stat = createIndex(idxHndl, parent, idxName, (int)strlen(idxName), args->params)))
@@ -188,7 +170,7 @@ int stat;
 			len = 2;
 
 		if( !fopen_s (&in, args->inFile, "r") )
-		  while( ch = getc(in), ch != EOF ) {
+		  while( ch = getc_unlocked(in), ch != EOF ) {
 			if( ch == '\n' ) {
 			  if (binaryFlds) {
 				key[lastFld] = (len - lastFld - 2) >> 8;
@@ -222,14 +204,16 @@ int stat;
 			}
 		}
 
-		fprintf(stderr, "finished delete %s for %" PRIu64 " keys, found %" PRIu64 "\n", args->inFile, line, cnt);
+		msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1, "thrd:%d cmd:%c file:%s keys processed %" PRIu64 " \n", args->idx, cmd, args->inFile, line);
+
 		break;
 
 	case 'w':
-		if( pennysort )
-			fprintf(stderr, "started writing %d random keys  index type %d\n", count = atoi (args->inFile), (int)args->params[IdxType].intVal);
-		else
-			fprintf(stderr, "started writing from %s\n", args->inFile);
+		if( pennysort ) {
+		  msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1, "thrd:%d cmd:%c random keys:%s\n", args->idx, cmd, args->inFile);
+		  count = atoi(args->inFile);
+		} else
+		  msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1, "thrd:%d cmd:%c file:%s\n", args->idx, cmd, args->inFile);
 
 		parent = database;
 
@@ -254,7 +238,7 @@ int stat;
 		if( pennysort ) {
 		 while( line < count && ++line ) {
           if (debug && !(line % 1000000))
-               fprintf(stderr, "line %" PRIu64 "\n", line);
+		    fprintf_s(stderr, "thrd:%d cmd:%c line: %" PRIu64 "\n", args->idx, cmd, line);
 
           len = createB64(key, args->keyLen, nrandState);
 
@@ -291,12 +275,13 @@ int stat;
 		   }
 		  }
 
-		  fprintf(stderr, " Total records processed %" PRIu64 "\n", line);
+		  msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1, "thrd:%d cmd:%c file:%s records processed: %" PRIu64 "\n", args->idx, cmd, args->inFile, line);
+
 		  break;
 		}
 
 		if( !fopen_s (&in, args->inFile, "r")) {
-		  while( ch = getc(in), ch != EOF )
+		  while( ch = getc_unlocked(in), ch != EOF )
 			if( ch == '\n' ) {
 			  if (binaryFlds) {
 				key[lastFld] = (len - lastFld - 2) >> 8;
@@ -306,7 +291,7 @@ int stat;
 			  line++;
 
 			  if (debug && !(line % 1000000))
-				fprintf(stderr, "line %" PRIu64 "\n", line);
+				fprintf_s (stderr, "thrd:%d cmd:%c line: %"   PRIu64 "\n", args->idx, cmd, line);
 
 			  // store the entry in the docStore?
 
@@ -350,11 +335,15 @@ int stat;
 			}
 		}
 
-		fprintf(stderr, " Total records processed %" PRIu64 "\n", line);
+		msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1, "thrd:%d cmd:%c file:%s records processed: %" PRIu64 "\n", args->idx, cmd, args->inFile, line);
+
 		break;
 
 	case 'f':
-		fprintf(stderr, "started finding keys for %s\n", args->inFile);
+		if( pennysort )
+		  msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1, "thrd:%d cmd:%c file:%s find random keys\n", args->idx, cmd, args->inFile);
+		else
+		  msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1, "thrd:%d cmd:%c file:%s find given keys\n", args->idx, cmd, args->inFile);
 
 		if (args->noDocs)
 			parent = database;
@@ -372,7 +361,7 @@ int stat;
 			len = 2;
 
 		if((!fopen_s (&in, args->inFile, "r"))) {
-		  while( ch = getc(in), ch != EOF )
+		  while( ch = getc_unlocked(in), ch != EOF )
 			if( ch == '\n' ) {
 			  if (binaryFlds) {
 				key[lastFld] = (len - lastFld - 2) >> 8;
@@ -382,7 +371,7 @@ int stat;
 			  line++;
 
 			  if (debug && !(line % 1000000))
-				fprintf(stderr, "line %" PRIu64 "\n", line);
+				fprintf_s (stderr, "thrd:%d cmd:%c line: %"   PRIu64 "\n", args->idx, cmd, line);
 
 			  len = args->keyLen;
 
@@ -421,11 +410,73 @@ int stat;
 			}
 		}
 
-		fprintf(stderr, "finished %s for %" PRIu64 " keys, found %" PRIu64 "\n", args->inFile, line, cnt);
-		break;
+		msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1, "thrd:%d cmd:%c file:%s keys processed: %" PRIu64 " keys found: %" PRIu64 "\n", args->idx, cmd, args->inFile, line, cnt);
 
-	case 'i':
-		fprintf(stderr, "started iterator scan\n");
+		break;
+	}
+
+	if (docHndl->hndlBits)
+		closeHandle(docHndl);
+	if (idxHndl->hndlBits)
+		closeHandle(idxHndl);
+
+	closeHandle(database);
+	return msgLen;
+}
+
+int index_scan(ThreadArg *args, char *msg, int msgMax) {
+uint64_t line = 0, cnt = 0;
+DbHandle database[1];
+DbHandle iterator[1];
+DbHandle docHndl[1];
+DbHandle cursor[1];
+DbHandle idxHndl[1];
+DbHandle *parent;
+
+int16_t nrandState[3];
+int msgLen = 0;
+
+uint8_t rec[4096];
+Doc *doc = (Doc *)rec;
+uint8_t *key = rec + sizeof(Doc);
+
+int len = 0;
+bool binaryFlds; 
+char *idxName, cmd;
+uint32_t foundLen = 0;
+uint32_t prevLen = 0;
+bool reverse = false;
+bool cntOnly = false;
+bool verify = false;
+int suffixLen = 0;
+int lastFld = 0;
+uint8_t *foundKey;
+ObjId docId;
+int stat;
+
+	mynrand48seed(nrandState);
+
+	if (debug) {
+      memset(nrandState, 0, sizeof(nrandState));
+	  nrandState[0] = args->idx;
+	}
+
+	cloneHandle(database, args->database);
+
+	iterator->hndlBits = 0;
+	docHndl->hndlBits = 0;
+	cursor->hndlBits = 0;
+	idxHndl->hndlBits = 0;
+
+	idxName = indexNames[args->params[IdxType].intVal];
+	binaryFlds = args->params[IdxKeyFlds].boolVal;
+	docHndl->hndlBits = 0;
+
+	while( (cmd = *args->scanCmd++) )
+	  switch(cmd | 0x20) {
+
+	  case 'i':
+		msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1, "iterator scan\n");
 
 		if (args->noDocs)
 		  fprintf(stderr, "Cannot specify noDocs with iterator scan\n"), exit(0);
@@ -437,161 +488,221 @@ int stat;
 		  fprintf(stderr, "createIterator Error %d\n", stat), exit(0);
 
 		while ((moveIterator(iterator, IterNext, (void **)&doc, &docId) == DB_OK)) {
-            fwrite (doc + 1, doc->size, 1, stdout);
-            fputc ('\n', stdout);
+            fwrite_unlocked (doc + 1, doc->size, 1, stdout);
+            fputc_unlocked ('\n', stdout);
             cnt++;
 		}
 
-		fprintf(stderr, " Total docs read %" PRIu64 "\n", cnt);
-		break;
+		msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1, "iterator scan total: %" PRIu64 "\n",cnt);
+
+		if(iterator->hndlBits)
+		  closeHandle (iterator);
+		
+		if(docHndl->hndlBits)
+		  closeHandle (docHndl);
+		
+		if(database->hndlBits)
+		  closeHandle (database);
+		
+		return msgLen;
 
 	case 'v':
 		verify = true;
+		continue;
+
 	case 'c':
 		cntOnly = true;
+		continue;
+
 	case 'r':
 		reverse = true;
+		continue;
+
 	case 's':
-		if (reverse)
-			fprintf(stderr, "started reverse cursor");
-		else
-			fprintf(stderr, "started forward cursor");
-
-		if (verify)
-			fprintf(stderr, " key ordering verification");
-
-		if (cntOnly)
-			fprintf(stderr, " count keys");
-
-		if (args->minKey)
-			fprintf(stderr, " min key: %s", args->minKey);
-
-		if (args->maxKey)
-			fprintf(stderr, " max key: %s", args->maxKey);
-
-		fprintf(stderr, "\n");
-
-		if (args->noDocs)
-			parent = database;
-		else {
-			openDocStore(docHndl, database, "documents", (int)strlen("documents"), args->params);
-			parent = docHndl;
-		}
-
-		if ((stat = createIndex(idxHndl, parent, idxName, (int)strlen(idxName), args->params)))
-		  fprintf(stderr, "createIndex Error %d name: %s\n", stat, idxName), exit(0);
-
-		// create cursor
-
-		createCursor (cursor, idxHndl, args->params);
-
-		if (!reverse && args->minKey)
-			stat = positionCursor (cursor, OpBefore, args->minKey, (int)strlen(args->minKey));
-		else if (reverse && args->maxKey)
-			stat = positionCursor (cursor, OpAfter, args->maxKey, (int)strlen(args->maxKey));
-		else 
-			stat = moveCursor (cursor, reverse ? OpRight : OpLeft);
-
-		if (stat)
-			fprintf(stderr, "positionCursor Error %d\n", stat), exit(0);
-
-		while (!(stat = moveCursor(cursor, reverse ? OpPrev : OpNext))) {
-			if ((stat = keyAtCursor (cursor, &foundKey, &foundLen)))
-			  fprintf(stderr, "keyAtCursor Error %d\n", stat), exit(0);
-
-			if (reverse && args->minKey)
-			  if (memcmp(foundKey, args->minKey, (int)strlen(args->minKey)) < 0)
-				break;
-			if (!reverse && args->maxKey)
-			  if (memcmp(foundKey, args->maxKey, (int)strlen(args->maxKey)) > 0)
-				break;
-
-			cnt++;
-
-			if( numbers ) {
-				uint64_t lineNo = get64(foundKey, foundLen, false);
-				fprintf(stdout, "%.12" PRIu64 "\t", lineNo);
-			}
-
-			if( keyList )
-				fprintf(stdout, "%.*s", foundLen - size64(foundKey, foundLen), foundKey);
-
-			if( numbers || keyList )
-				fputc('\n', stdout);
-
-			if (verify) {
-			  foundLen -= size64(foundKey, foundLen);
-
-			  if(prevLen == foundLen) {
-				 int comp = memcmp (foundKey, rec, prevLen);
-
-				 if(reverse && comp >= 0 || !reverse && comp <= 0)
-					 fprintf (stderr, "verify: Key compare error: %d\n", (int)cnt), exit (0);
-			  }
-
-			  prevLen = foundLen;
-			  memcpy (rec, foundKey, foundLen);
-			}
-
-			if (cntOnly) {
-			  if (debug && !(cnt % 1000000))
-				fprintf(stderr, "key %" PRIu64 "\n", cnt);
-
-			  continue;
-			}
-
-			if (args->noDocs)
-			 if (binaryFlds)
-			  printBinary(foundKey, foundLen, stdout);
-			 else
-			  fwrite (foundKey, foundLen, 1, stdout);
-			else {
-			  docId.bits = get64(foundKey, foundLen, false);
-			  fetchDoc(docHndl, (void **)&doc, docId);
-			  fwrite (doc + 1, doc->size, 1, stdout);
-			}
-
-			fputc ('\n', stdout);
-		}
-
-		if (stat && stat != DB_CURSOR_eof)
-		  fprintf(stderr, "Scan: Error %d Syserr %d Line: %" PRIu64 "\n", stat, errno, cnt), exit(0);
-
-		fprintf(stderr, " Total keys %" PRIu64 "\n", cnt);
-		prevLen = 0;
 		break;
 	}
-	if( cursor->hndlBits )
-	    closeCursor (cursor);
-	if (iterator->hndlBits)
-		closeHandle(iterator);
-	if (docHndl->hndlBits)
-		closeHandle(docHndl);
-	if (cursor->hndlBits)
-		closeHandle(cursor);
-	if (idxHndl->hndlBits)
-		closeHandle(idxHndl);
 
-	closeHandle(database);
+	if (reverse)
+	  msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1, "reverse index cursor -- ");
 
-#ifndef _WIN32
-	return NULL;
-#else
-	return 0;
-#endif
+	else
+   	  msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1, "forward index cursor -- ");
+
+	if( verify )
+	  msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1, "order verification ");
+
+	if( cntOnly )
+	  msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1, " key count\n");
+	else
+	  msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1, " doc/key dump\n");
+
+	if (args->minKey)
+	  msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1, "thrd:%d cmd:%c min key: <%s>\n", args->idx, cmd, args->minKey);
+
+	if (args->maxKey)
+	  msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1, "thrd:%d cmd:%c max key: <%s>\n", args->idx, cmd, args->maxKey);
+
+	if (args->noDocs)
+		parent = database;
+	else {
+		openDocStore(docHndl, database, "documents", (int)strlen("documents"), args->params);
+		parent = docHndl;
+	}
+
+	if ((stat = createIndex(idxHndl, parent, idxName, (int)strlen(idxName), args->params)))
+	  fprintf(stderr, "createIndex Error %d name: %s\n", stat, idxName), exit(0);
+
+	// create cursor
+
+	createCursor (cursor, idxHndl, args->params);
+
+	if (!reverse && args->minKey)
+		stat = positionCursor (cursor, OpBefore, args->minKey, (int)strlen(args->minKey));
+	else if (reverse && args->maxKey)
+		stat = positionCursor (cursor, OpAfter, args->maxKey, (int)strlen(args->maxKey));
+	else 
+		stat = moveCursor (cursor, reverse ? OpRight : OpLeft);
+
+	if (stat)
+		fprintf(stderr, "positionCursor Error %d\n", stat), exit(0);
+
+	while (!(stat = moveCursor(cursor, reverse ? OpPrev : OpNext))) {
+		if ((stat = keyAtCursor (cursor, &foundKey, &foundLen)))
+		  fprintf(stderr, "keyAtCursor Error %d\n", stat), exit(0);
+
+		if (reverse && args->minKey)
+		  if (memcmp(foundKey, args->minKey, (int)strlen(args->minKey)) < 0)
+			break;
+		if (!reverse && args->maxKey)
+		  if (memcmp(foundKey, args->maxKey, (int)strlen(args->maxKey)) > 0)
+			break;
+
+		cnt++;
+
+		if( numbers ) {
+			uint64_t lineNo = get64(foundKey, foundLen, false);
+			fprintf(stdout, "%.12" PRIu64 "\t", lineNo);
+		}
+
+		if( keyList )
+			fprintf(stdout, "%.*s", foundLen - size64(foundKey, foundLen), foundKey);
+
+		if( numbers || keyList )
+			fputc_unlocked('\n', stdout);
+
+		if (verify) {
+		  foundLen -= size64(foundKey, foundLen);
+
+		  if(prevLen == foundLen) {
+			 int comp = memcmp (foundKey, rec, prevLen);
+
+			 if((reverse && comp >= 0) || (!reverse && comp <= 0))
+				 fprintf (stderr, "verify: Key compare error: %d\n", (int)cnt), exit (0);
+		  }
+
+		  prevLen = foundLen;
+		  memcpy (rec, foundKey, foundLen);
+		}
+
+		if (cntOnly) {
+		  if (debug && !(cnt % 1000000))
+			fprintf_s (stderr, "scan cout: %" PRIu64 "\n", cnt);
+		  continue;
+		}
+
+		if (args->noDocs)
+		 if (binaryFlds)
+		  printBinary(foundKey, foundLen, stdout);
+		 else
+		  fwrite_unlocked (foundKey, foundLen, 1, stdout);
+		else {
+		  docId.bits = get64(foundKey, foundLen, false);
+		  fetchDoc(docHndl, (void **)&doc, docId);
+		  fwrite_unlocked (doc + 1, doc->size, 1, stdout);
+		}
+
+		fputc_unlocked ('\n', stdout);
+	}
+
+	if (stat && stat != DB_CURSOR_eof)
+	  fprintf(stderr, "Scan: Error %d Syserr %d Line: %" PRIu64 "\n", stat, errno, cnt), exit(0);
+
+	msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1, "thrd:%d cmd:%c file:%s\n", args->idx, cmd, args->inFile);
+
+	fprintf(stderr, " Total keys %" PRIu64 "\n", cnt);
+	prevLen = 0;
+ 
+	if(cursor->hndlBits)
+	  closeCursor (cursor);
+
+	if(docHndl->hndlBits)
+	  closeHandle (docHndl);
+		
+	if(idxHndl->hndlBits)
+	  closeHandle (idxHndl);
+		
+	if(database->hndlBits)
+	  closeHandle (database);
+		
+	return msgLen;
 }
 
-typedef struct timeval timer;
+//  run index_file once for each command
+
+#ifndef _WIN32
+void *pipego (void *arg) {
+#else
+unsigned __stdcall pipego (void *arg) {
+#endif
+ThreadArg *args = arg;
+int len = 0, max, cmd;
+char msg[4096];
+double elapsed;
+
+	while( (cmd = *args->cmds++) ) {
+	  double startx1 = getCpuTime(0);
+	  double startx2 = getCpuTime(1);
+	  double startx3 = getCpuTime(2);
+
+	  len += sprintf_s(msg + len, sizeof(msg) - len - 1, "thrd:%d cmd:%c begin\n", args->idx, cmd);
+
+	  max = sizeof(msg) - len - 1;
+	  len += index_file(args, cmd, msg + len, max);
+	  
+	  elapsed = getCpuTime(0) - startx1;
+
+	  len += sprintf_s(msg + len, sizeof(msg) - len - 1, "thrd:%d cmd:%c end\n", args->idx, cmd);
+
+	  len += sprintf_s(msg + len, sizeof(msg) - len - 1, " real %dm%.3fs\n", (int)(elapsed/60), elapsed - (int)(elapsed/60)*60);
+
+	  elapsed = getCpuTime(1) - startx2;
+
+	  len += sprintf_s(msg + len, sizeof(msg) - len - 1, " user %dm%.3fs\n", (int)(elapsed/60), elapsed - (int)(elapsed/60)*60);
+
+	  elapsed = getCpuTime(2) - startx3;
+
+	  len += sprintf_s(msg + len, sizeof(msg) - len - 1, " sys  %dm%.3fs\n", (int)(elapsed/60), elapsed - (int)(elapsed/60)*60);
+  }
+
+  fwrite(msg, 1ULL, len, stderr);
+
+#ifndef _WIN32
+  return NULL;
+#else
+  return 0;
+#endif
+}
 
 int main (int argc, char **argv)
 {
 Params params[MaxParam];
+char *summary = NULL;
 char *minKey = NULL;
 char *maxKey = NULL;
 char *dbName = NULL;
 char *cmds = NULL;
 int keyLen = 10;
-int idx, cnt;
+int idx, cnt, len;
 
 #ifndef _WIN32
 pthread_t *threads;
@@ -602,7 +713,7 @@ HANDLE *threads;
 
 DbHandle database[1];
 
-char buf[512];
+char buf[512], msg[4096];
 ThreadArg *args;
 double elapsed;
 double start;
@@ -684,10 +795,14 @@ int num = 0;
 	minKey = argv[0] + 8;
   else if (!strncasecmp(argv[0], "-maxKey=", 8))
 	maxKey = argv[0] + 8;
+  else if (!strncasecmp(argv[0], "-threads=", 9))
+	numThreads = atoi(argv[0] + 9);
+  else if (!strncasecmp(argv[0], "-summary=", 9))
+	summary = argv[0] + 9;
   else
 	fprintf(stderr, "Unknown option %s ignored\n", argv[0]);
   
-  cnt = argc;
+  cnt = numThreads > argc ? numThreads : argc;
   
   initialize();
   
@@ -715,7 +830,8 @@ int num = 0;
 
   do {
 	args[idx].database = database;
-	args[idx].inFile = argv[idx];
+	args[idx].inFile = idx < argc ? argv[idx] : argv[argc - 1];
+	args[idx].scanCmd = summary;
 	args[idx].minKey = minKey;
 	args[idx].maxKey = maxKey;
 	args[idx].params = params;
@@ -727,56 +843,42 @@ int num = 0;
 	args[idx].num = num;
 	args[idx].idx = idx;
 
-	if (!pipeLine && cnt > 1) {
+	if (cnt > 1) {
 #ifndef _WIN32
 		int err;
 
 		if ((err = pthread_create(threads + idx, NULL, index_file, args + idx)))
 			fprintf(stderr, "Error creating thread %d\n", err);
 #else
-		while (((int64_t)(threads[idx] = (HANDLE)_beginthreadex(NULL, 65536, index_file, args + idx, 0, NULL)) < 0LL))
+		while (((int64_t)(threads[idx] = (HANDLE)_beginthreadex(NULL, 65536, pipego, args + idx, 0, NULL)) < 0LL))
 			fprintf(stderr, "Error creating thread errno = %d\n", errno);
 
 #endif
 		continue;
-	}
-
-	//  if pipeline or zero or one files specified,
-	//  run index_file once for each command
-
-	while ((pipeLine && args[0].idx < strlen(cmds))) {
-	  double startx1 = getCpuTime(0);
-	  double startx2 = getCpuTime(1);
-	  double startx3 = getCpuTime(2);
-
-	  index_file(args);
-
-	  elapsed = getCpuTime(0) - startx1;
-	  fprintf(stderr, " real %dm%.3fs\n", (int)(elapsed/60), elapsed - (int)(elapsed/60)*60);
-	  elapsed = getCpuTime(1) - startx2;
-	  fprintf(stderr, " user %dm%.3fs\n", (int)(elapsed/60), elapsed - (int)(elapsed/60)*60);
-	  elapsed = getCpuTime(2) - startx3;
-	  fprintf(stderr, " sys  %dm%.3fs\n", (int)(elapsed/60), elapsed - (int)(elapsed/60)*60);
-	  
-	  args[0].idx += 1;
-	}		  
+	} else
+		pipego (args);
 
   } while (++idx < cnt);
 
 	// 	wait for termination
 
 #ifndef _WIN32
-	if (!pipeLine && cnt > 1)
+	if (cnt > 1)
 	  for( idx = 0; idx < cnt; idx++ )
 		pthread_join (threads[idx], NULL);
 #else
-	if (!pipeLine && cnt > 1)
+	if (cnt > 1)
 	  WaitForMultipleObjects (cnt, threads, TRUE, INFINITE);
 
-	if (!pipeLine && cnt > 1)
+	if (cnt > 1)
 	  for( idx = 0; idx < cnt; idx++ )
 		CloseHandle(threads[idx]);
 #endif
+
+	if( (args->scanCmd = summary) ) {
+		len = index_scan (args, msg, sizeof(msg) - 1);
+		fwrite(msg, 1, len, stderr);
+	}
 
 	elapsed = getCpuTime(0) - start;
 
@@ -805,7 +907,7 @@ int num = 0;
 
 	fputc(0x0a, stderr);
 #endif
-
+/*
 	if (!pipeLine ) {
   	  fprintf(stderr, " real %dm%.3fs\n", (int)(elapsed/60), elapsed - (int)(elapsed/60)*60);
 	  elapsed = getCpuTime(1);
@@ -813,7 +915,8 @@ int num = 0;
 	  elapsed = getCpuTime(2);
 	  fprintf(stderr, " sys  %dm%.3fs\n", (int)(elapsed/60), elapsed - (int)(elapsed/60)*60);
 	}
-	if( debug ) {
+*/
+	if(debug) {
 #ifdef _WIN32
 	  GetSystemInfo(info);
 	  fprintf(stderr, "CWD: %s PageSize: %d, # Processors: %d, Allocation Granularity: %d\n\n", _getcwd(buf, 512), (int)info->dwPageSize, (int)info->dwNumberOfProcessors, (int)info->dwAllocationGranularity);

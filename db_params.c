@@ -1,3 +1,9 @@
+
+#ifdef __MACH__
+#include <mach/clock.h>
+#include <mach/mach.h>
+#endif
+
 #include "db.h"
 #include "db_object.h"
 #include "db_redblack.h"
@@ -66,16 +72,6 @@ DbAddr *slot;
 	unlockLatch(parent->arenaDef->nameTree->latch);
 	return rbEntry;
 }
-
-#ifdef __MACH__
-#include <mach/clock.h>
-#include <mach/mach.h>
-#endif
-
-#ifndef _WIN32
-#include <time.h>
-#include <sys/time.h>
-#endif
 
 //  get millisecond precision system timestamp epoch
 

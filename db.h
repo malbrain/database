@@ -6,8 +6,12 @@
 #include <limits.h>
 #include <string.h>
 #include <assert.h>
-//#include <intrin.h>
 #include <stdlib.h>
+
+#ifdef unix
+#include <unistd.h>
+#include <pthread.h>
+#endif
 
 #include "db_error.h"
 #include "db_malloc.h"

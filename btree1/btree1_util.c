@@ -573,7 +573,7 @@ uint64_t bits;
 
 	// find next higher non-dead slot
 
-	if( drill == lvl && findGood || drill > lvl )
+	if( (drill == lvl && findGood) || drill > lvl )
 	    while( set->slotIdx < set->page->cnt )
 		  if(slotptr (set->page, set->slotIdx)->dead)
 		    set->slotIdx++;
