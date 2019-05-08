@@ -338,7 +338,11 @@ void *mem;
 int flags = MAP_SHARED;
 
 	if( map->hndl < 0 ) {
+#ifdef MAP_ANON
 		flags |= MAP_ANON;
+#else
+		flags |= MAP_ANONYMOUS;
+#endif
 		offset = 0;
 	}
 

@@ -8,7 +8,7 @@
 #include <assert.h>
 #include <stdlib.h>
 
-#ifdef unix
+#ifndef _WIN32
 #include <unistd.h>
 #include <pthread.h>
 #endif
