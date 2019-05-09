@@ -1,4 +1,5 @@
 #define __STDC_WANT_LIB_EXT1__ 1
+#define _DEFAULT_SOURCE 1
 
 #include <errno.h>
 #include <string.h>
@@ -23,6 +24,7 @@
 #define getc_unlocked _getc_nolock
 #else
 #define fopen_s(file, path, mode) ((*file = fopen(path, mode)) ? 0 : errno)
+#define sprintf_s snprintf
 #endif
 
 #ifdef DEBUG
@@ -238,7 +240,7 @@ int stat;
 		if( pennysort ) {
 		 while( line < count && ++line ) {
           if (debug && !(line % 1000000))
-		    fprintf_s(stderr, "thrd:%d cmd:%c line: %" PRIu64 "\n", args->idx, cmd, line);
+		    fprintf(stderr, "thrd:%d cmd:%c line: %" PRIu64 "\n", args->idx, cmd, line);
 
           len = createB64(key, args->keyLen, nrandState);
 
@@ -291,7 +293,7 @@ int stat;
 			  line++;
 
 			  if (debug && !(line % 1000000))
-				fprintf_s (stderr, "thrd:%d cmd:%c line: %"   PRIu64 "\n", args->idx, cmd, line);
+				fprintf (stderr, "thrd:%d cmd:%c line: %"   PRIu64 "\n", args->idx, cmd, line);
 
 			  // store the entry in the docStore?
 
@@ -371,7 +373,7 @@ int stat;
 			  line++;
 
 			  if (debug && !(line % 1000000))
-				fprintf_s (stderr, "thrd:%d cmd:%c line: %"   PRIu64 "\n", args->idx, cmd, line);
+				fprintf (stderr, "thrd:%d cmd:%c line: %"   PRIu64 "\n", args->idx, cmd, line);
 
 			  len = args->keyLen;
 
@@ -606,7 +608,7 @@ int stat;
 
 		if (cntOnly) {
 		  if (debug && !(cnt % 1000000))
-			fprintf_s (stderr, "scan cout: %" PRIu64 "\n", cnt);
+			fprintf (stderr, "scan cout: %" PRIu64 "\n", cnt);
 		  continue;
 		}
 
@@ -847,7 +849,7 @@ int num = 0;
 #ifndef _WIN32
 		int err;
 
-		if ((err = pthread_create(threads + idx, NULL, index_file, args + idx)))
+		if ((err = pthread_create(threads + idx, NULL, pipego, args + idx)))
 			fprintf(stderr, "Error creating thread %d\n", err);
 #else
 		while (((int64_t)(threads[idx] = (HANDLE)_beginthreadex(NULL, 65536, pipego, args + idx, 0, NULL)) < 0LL))
