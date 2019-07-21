@@ -90,31 +90,31 @@ typedef struct DbMap_ DbMap;
 //	param slots
 
 typedef enum {
-	Size = 0,		// total Params structure size
-	OnDisk,			// Arena resides on disk
-	InitSize,		// initial arena size
-	HndlXtra,		// extra bytes in handle struct
-	ObjIdSize,		// size of arena ObjId array element
-	MapXtra,		// local process extra map storage
-	ArenaXtra,		// extra bytes in arena
+	Size = 0,		// total Params structure size	(int)
+	OnDisk,			// Arena resides on disk	(bool)
+	InitSize,		// initial arena size	(int)
+	HndlXtra,		// extra bytes in handle struct	(int)
+	ObjIdSize,		// size of arena ObjId array element	(int)
+	MapXtra,		// local process extra map storage	(int)
+	ArenaXtra,		// extra bytes in arena	(int)
 	ResetVersion,	// reset arena version
 
-	IdxKeyUnique = 10,
-	IdxKeyDeferred,		// uniqueness constraints deferred to commit
+	IdxKeyUnique = 10,	// index keys uniqueness constraint	(bool)
+	IdxKeyDeferred,		// uniqueness constraints deferred to commit	(bool)
 	IdxKeyAddr,			// index key definition address
 	IdxKeySparse,
 	IdxKeyPartial,		// offset of partial document
-	IdxKeyFlds,			// store field lengths in keys
-	IdxType,			// 0 for artree, 1 & 2 for btree
-	IdxNoDocs,			// stand-alone index file
+	IdxKeyFlds,			// store field lengths in keys	(bool)
+	IdxType,			// 0 for artree, 1 & 2 for btree	(int)
+	IdxNoDocs,			// stand-alone index file	(bool)
 
-	Btree1Bits = 20,	// Btree1 set
-	Btree1Xtra,
+	Btree1Bits = 20,	// Btree1 page size in bits	(int)
+	Btree1Xtra,			// leaf page extra bits	(int)
 
-	Btree2Bits = 23,	// Btree2 set
-	Btree2Xtra,
+	Btree2Bits = 23,	// Btree2 page size in bits	(int)
+	Btree2Xtra,			// leaf page extra bits	(int)
 
-	CursorDeDup = 25,	// de-duplicate cursor results
+	CursorDeDup = 25,	// de-duplicate cursor results	(bool)
 
 	UserParams = 30,
 	MaxParam = 64		// count of param slots defined
