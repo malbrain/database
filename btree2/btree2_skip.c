@@ -116,7 +116,7 @@ bool targetLvl;
 
 	//	otherwise follow slot that is .ge. the search key
 
-	set->pageNo.bits = btree2Get64 (slot, btree2->base->binaryFlds);
+	set->pageNo.bits = btree2Get64 (slot);
 	
   } while( set->pageNo.bits );
 

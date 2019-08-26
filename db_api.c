@@ -333,7 +333,7 @@ DbCursor *dbCursor;
 		return DB_ERROR_outofmemory;
 	}
 
-	dbCursor->binaryFlds = params[IdxKeyFlds].boolVal;
+	dbCursor->binaryFlds = params[IdxKeyFlds].charVal;
 	dbCursor->deDup = params[CursorDeDup].boolVal;
 
 	switch (*idxHndl->map->arena->type) {

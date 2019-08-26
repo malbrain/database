@@ -90,7 +90,7 @@ uint32_t amt;
 	buff = keyaddr(page, page->min);
 	*buff++ = Btree1_pagenobytes;
 
-	amt = store64(buff, 0, btree1->left.bits, false);
+	amt = store64(buff, 0, btree1->left.bits);
 
 	while( amt < Btree1_pagenobytes )
 		buff[amt++] = 0;

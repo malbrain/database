@@ -1,27 +1,26 @@
 #include "artree.h"
 
-DbStatus artFindKey( DbCursor *dbCursor, DbMap *map, void *findKey, uint32_t uniqueLen, uint32_t suffixLen) {
+DbStatus artFindKey( DbCursor *dbCursor, DbMap *map, void *findKey, uint16_t keyLen, uint16_t suffixLen) {
 ArtCursor *cursor = (ArtCursor *)dbCursor;
-uint32_t idx, offset = 0, spanMax, keyLen = uniqueLen + suffixLen;
-bool binaryFlds = map->arenaDef->params[IdxKeyFlds].boolVal;
+uint32_t fldLen = 0, idx, offset = 0, spanMax;
+bool binaryFlds = map->arenaDef->params[IdxKeyFlds].charVal;
 CursorStack* stack = NULL;
 uint8_t *key = findKey;
 volatile DbAddr *slot;
 ArtIndex *artIdx;
+uint16_t lastFld = 0;
 
   artIdx = artindex(map);
 
   dbCursor->keyLen = 0;
-  cursor->lastFld = 0;
-  cursor->fldLen = 0;
   cursor->depth = 0;
 
   // loop through the key bytes
-
+  // 
   slot = artIdx->root;
 
   if (binaryFlds && !dbCursor->keyLen) {
-	cursor->fldLen = key[offset] << 8 | key[offset + 1];
+	fldLen = key[offset] << 8 | key[offset + 1];
 	dbCursor->keyLen = 2;
 	offset += 2;
   }
@@ -34,7 +33,6 @@ ArtIndex *artIdx;
 
 	stack->slot->bits = slot->bits;
 	stack->off = dbCursor->keyLen;
-	stack->lastFld = cursor->lastFld;
 	stack->ch = key[offset];
 	stack->addr = slot;
 
@@ -46,15 +44,15 @@ ArtIndex *artIdx;
 
 		// do we need to finish the search key field?
 
-		if (cursor && cursor->fldLen) {
+		if (fldLen) {
 		  slot = fldEndNode->sameFld;
 		  stack->ch = 256;
 		  continue;
 		}
 
 		if (cursor) {
-		  cursor->lastFld = dbCursor->keyLen;
-		  cursor->fldLen = key[offset] << 8 | key[offset + 1];
+		  lastFld = dbCursor->keyLen;
+		  fldLen = key[offset] << 8 | key[offset + 1];
 		  dbCursor->keyLen += 2;
 		  stack->ch = 256;
 		  offset += 2;
@@ -64,7 +62,7 @@ ArtIndex *artIdx;
 		continue;
 	  }
 
-	  case KeyUniq: {
+/*	  case KeyUniq: {
 	   	  ARTKeyUniq* keyUniqNode = getObj(map, *slot);
 
 		  if (stack->off == uniqueLen)
@@ -77,7 +75,7 @@ ArtIndex *artIdx;
 
 		  continue;
 		}
-
+*/
 	  case KeyEnd: {
 		if (slot->addr) {	// do key bytes fork here?
 	   	  ARTKeyEnd* keyEndNode = getObj(map, *slot);
@@ -118,7 +116,7 @@ ArtIndex *artIdx;
 		offset += spanMax;
 
 		if (binaryFlds)
-		  cursor->fldLen -= spanMax;
+		  fldLen -= spanMax;
 
 		continue;
 	  }
@@ -138,7 +136,7 @@ ArtIndex *artIdx;
 		  dbCursor->keyLen++;
 
 		  if (binaryFlds)
-			cursor->fldLen--;
+			fldLen--;
 
 		  offset++;
 		  continue;
@@ -164,7 +162,7 @@ ArtIndex *artIdx;
 		  dbCursor->keyLen++;
 
 		  if (binaryFlds)
-			cursor->fldLen--;
+			fldLen--;
 
 		  offset++;
 		  continue;
@@ -184,7 +182,7 @@ ArtIndex *artIdx;
 		  dbCursor->keyLen++;
 
 		  if (binaryFlds)
-			cursor->fldLen--;
+			fldLen--;
 
 		  offset++;
 		  continue;
@@ -204,7 +202,7 @@ ArtIndex *artIdx;
 		  dbCursor->keyLen++;
 
 		  if (binaryFlds)
-			cursor->fldLen--;
+			fldLen--;
 
 		  offset++;
 		  continue;
@@ -240,7 +238,6 @@ ArtIndex *artIdx;
   else
 	return DB_ERROR_cursoroverflow;
 
-  stack->lastFld = cursor->lastFld;
   stack->slot->bits = slot->bits;
   stack->off = dbCursor->keyLen;
   stack->addr = slot;

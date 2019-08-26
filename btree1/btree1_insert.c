@@ -9,7 +9,7 @@ uint8_t keyBuff[MAX_key];
 uint32_t sfxLen;
 
     memcpy(keyBuff, key, keyLen);
-	sfxLen = store64(keyBuff, keyLen, suffix, false);
+	sfxLen = store64(keyBuff, keyLen, suffix);
 
 	while( sfxLen < Btree1_pagenobytes )
 		keyBuff[keyLen + sfxLen++] = 0;
@@ -163,7 +163,7 @@ DbStatus stat;
 		if (btree1KeyCmp (ptr, key, keyLen))
 		  return DB_ERROR_invaliddeleterecord;
 
-	  oldSuffix = get64(dest, len, false);
+	  oldSuffix = get64(dest, len);
 
 	  if( oldSuffix != prev )
 		return DB_ERROR_invaliddeleterecord;
@@ -172,7 +172,7 @@ DbStatus stat;
 	//	overwrite pageAddr 
 
 	len -= Btree1_pagenobytes;
-	sfxLen = store64(dest, len, suffix, false);
+	sfxLen = store64(dest, len, suffix);
 
 	while( sfxLen < Btree1_pagenobytes )
 		dest[len + sfxLen++] = 0;

@@ -1,0 +1,1 @@
+gcc -std=c11 -Wall -Wshadow -Wpointer-arith -Wstrict-prototypes -D WSL -O2 -ggdb -o dbtest -fno-omit-frame-pointer standalone.c db*.c btree1/*.c btree2/*.c artree/*.c base64.c -lpthread -latomic

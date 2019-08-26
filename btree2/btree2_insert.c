@@ -232,7 +232,7 @@ DbStatus stat;
 		keyLen -= size64(keystr(key), keyLen);		// strip off pageNo
 	
 	memcpy(keyBuff, keystr(key), keyLen);
-	sfxLen = store64(keyBuff, keyLen, leftPage->pageNo.bits, btree2->base->binaryFlds);
+	sfxLen = store64(keyBuff, keyLen, leftPage->pageNo.bits);
 	
 	if( (stat = btree2InsertKey (index, keyBuff, keyLen, sfxLen, lvl + 1, Btree2_slotactive)) )
 		return stat;

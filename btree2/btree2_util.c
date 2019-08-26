@@ -86,14 +86,14 @@ union Btree2Alloc alloc[1], before[1];
 	return alloc->nxt;
 }
 
-uint64_t btree2Get64 (Btree2Slot *slot, bool binaryFlds) {
+uint64_t btree2Get64 (Btree2Slot *slot) {
 uint8_t *key = slotkey(slot);
 
-	return get64 (keystr(key), keylen(key), binaryFlds);
+	return get64 (keystr(key), keylen(key));
 }
 
-uint32_t btree2Store64 (Btree2Slot *slot, uint64_t value, bool binaryFlds) {
+uint32_t btree2Store64 (Btree2Slot *slot, uint64_t value) {
 uint8_t *key = slotkey(slot);
 
-	return store64(keystr(key), keylen(key), value, binaryFlds);
+	return store64(keystr(key), keylen(key), value);
 }

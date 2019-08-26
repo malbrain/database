@@ -1,6 +1,6 @@
 #include "artree.h"
 #include <stddef.h>
-
+/*
 bool evalUniq(DbMap *map, ARTKeyUniq *keyUniqNode, UniqCbFcn *evalFcn);
 
 //  insert unique key
@@ -231,4 +231,4 @@ ArtCursor *cursor;
 		return false;
 
 	return true;
-}
+} */

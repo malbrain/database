@@ -3,7 +3,8 @@
 typedef enum {
 	DB_OK = 0,
 	DB_START = 1000,
-	DB_ERROR_outofmemory,
+    DB_ERROR_duplicate_suffix,
+    DB_ERROR_outofmemory,
 	DB_ERROR_handleclosed,
 	DB_ERROR_createdatabase,
 	DB_ERROR_createindex,

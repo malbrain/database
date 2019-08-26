@@ -71,7 +71,7 @@ DbAddr left;
 	dest = keyaddr(root->page, nxt);
 	*dest++ = Btree1_pagenobytes;
 
-	amt = store64(dest, 0, right.bits, false);
+	amt = store64(dest, 0, right.bits);
 
 	while( amt < Btree1_pagenobytes )
 		dest[amt++] = 0;
@@ -105,7 +105,7 @@ DbAddr left;
 		*dest++ = amt / 256 | 0x80, *dest++ = amt;
 
 	memcpy (dest, keystr(leftKey), keyLen);
-	amt = store64(dest, keyLen, left.bits, false);
+	amt = store64(dest, keyLen, left.bits);
 
 	while( amt < Btree1_pagenobytes )
 		dest[keyLen + amt++] = 0;
@@ -587,7 +587,7 @@ uint64_t bits;
 
 	slot = slotptr(set->page, set->slotIdx);
 	ptr = keyaddr(set->page, slot->off);
-	bits = get64(keystr(ptr), keylen(ptr), false);
+	bits = get64(keystr(ptr), keylen(ptr));
 
 	assert(drill > 0);
 	drill--;

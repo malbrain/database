@@ -20,8 +20,8 @@ enum ARTNodeType {
 	Array64,					// 3: node contains 64 radix slots
 	Array256,					// 4: node contains 256 radix slots
 	FldEnd,						// 5: node ends a binary string field
-	KeyEnd,						// 6: node ends a complete key value
-	KeyUniq,					// 7: node fans out duplicate keys
+	KeyEnd,						// 6: node ends the end of a key value
+	SuffixEnd,					// 7: node ends a suffix string
 	SpanNode,					// 8: node contains up to 8 key bytes
 	MaxARTType = SpanNode + 17	// 8-24: node spans up to 256 bytes
 };
@@ -38,18 +38,19 @@ typedef struct {
 /**
  * node ends the uniqueness part of the key
  */
-
+ /*
 typedef struct {
 	DbAddr dups[1];		// sub-tree of duplicate keys
 	DbAddr next[1];		// keys that haven't ended yet
 } ARTKeyUniq;
-
+*/
 /**
  * key is a prefix of another longer key
  */
 
 typedef struct {
 	DbAddr next[1];
+	DbAddr suffix[1];   // end key and continue w/ set of unique suffix strings
 } ARTKeyEnd;
 
 /**
@@ -113,16 +114,18 @@ typedef struct {
 typedef struct {
 	volatile DbAddr *addr;		// tree addr of slot
 	volatile DbAddr slot[1];	// slot that points to node
-	uint16_t lastFld;			// previous field start
-	uint16_t off;				// offset within key
-	int16_t ch;					// character of key
+	uint16_t off:16;			// offset within key
+	uint16_t lastFld:16;        // offset of current field
+	int16_t ch:16;				// character of key
+	BOOL startFld:16;			// flag to start field
 } CursorStack;
 
 typedef struct {
 	DbCursor base[1];
-	uint32_t depth;					// current depth of cursor
-	uint16_t lastFld;				// previous field start
-	uint16_t fldLen;				// length remaining in current field
+	uint16_t depth;					// current depth of cursor
+	uint16_t fldLen;	// length remaining in current field
+	char binaryFlds;	// keys have binary fields
+	char inSuffix;      //  binaryFlds in suffix string
 	uint8_t key[MAX_key];			// current cursor key
 	CursorStack stack[MAX_cursor];	// cursor stack
 } ArtCursor;
@@ -137,11 +140,12 @@ typedef struct {
 	Handle *index;
 	uint8_t *key;
 
-	uint32_t keyLen;	// length of the key
-	uint32_t off;	 	// progress down the key bytes
-	uint16_t fldLen;	// remaining field length
+	uint16_t keyLen;	// length of the key
+	uint16_t off;	 	// progress down the key bytes
+	uint16_t lastFld;	// previous field start
+	uint16_t fldLen;	// length remaining in current field
 	uint8_t ch;			// current key character
-	uint8_t binaryFlds;	// string fields are binary
+	char binaryFlds;	// keys have binary fields
 	uint8_t restart;	// restart insert from beginning
 } InsertParam;
 
@@ -153,15 +157,15 @@ DbStatus artReturnCursor(DbCursor *dbCursor, DbMap *map);
 DbStatus artLeftKey(DbCursor *cursor, DbMap *map);
 DbStatus artRightKey(DbCursor *cursor, DbMap *map);
 
-DbStatus artFindKey( DbCursor *dbCursor, DbMap *map, void *key, uint32_t keyLen, uint32_t uniqueLen);
+DbStatus artFindKey( DbCursor *dbCursor, DbMap *map, void *key, uint16_t keyLen, uint16_t suffixLen);
 DbStatus artNextKey(DbCursor *dbCursor, DbMap *map);
 DbStatus artPrevKey(DbCursor *dbCursor, DbMap *map);
 
 DbStatus artInit(Handle *hndl, Params *params);
-DbStatus artDeleteKey (Handle *hndl, void *key, uint32_t keyLen, uint32_t uniqueLen);
-DbStatus artInsertKey (Handle *hndl, void *key, uint32_t keyLen, uint32_t sfxLen);
-DbStatus artInsertUniq (Handle *hndl, void *key, uint32_t keyLen, uint32_t uniqueLen, UniqCbFcn *fcn, bool *defer);
-DbStatus artEvalUniq( DbMap *map, void *key, uint32_t keyLen, uint32_t uniqueLen, UniqCbFcn *evalFcn);
+DbStatus artDeleteKey (Handle *hndl, void *key, uint16_t keyLen, uint16_t suffixLen);
+DbStatus artInsertKey (Handle *hndl, void *key, uint16_t keyLen, uint16_t suffixLen);
+DbStatus artInsertUniq (Handle *hndl, void *key, uint16_t keyLen, uint16_t suffixLen, UniqCbFcn *fcn, bool *defer);
+DbStatus artEvalUniq( DbMap *map, void *key, uint16_t keyLen, uint16_t suffixLen, UniqCbFcn *evalFcn);
 
 uint64_t artAllocateNode(Handle *index, int type, uint32_t size);
 

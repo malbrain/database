@@ -161,8 +161,8 @@ DbStatus btree2InstallKey(Btree2Set *set, uint8_t *key, uint32_t keyLen, uint8_t
 int btree2KeyCmp(uint8_t *key1, uint8_t *key2, uint32_t len2);
 void btree2FindSlot(Btree2Set *set, uint8_t *key, uint32_t keyLen);
 uint64_t btree2AllocPageNo(Handle *index);
-uint64_t btree2Get64 (Btree2Slot *slot, bool binaryFlds);
-uint32_t btree2Store64(Btree2Slot *slot, uint64_t value, bool binaryFlds);
+uint64_t btree2Get64 (Btree2Slot *slot);
+uint32_t btree2Store64(Btree2Slot *slot, uint64_t value);
 uint16_t btree2AllocSlot(Btree2Page *page, uint32_t bytes);
 uint16_t btree2FillFwd(Btree2Cursor *cursor, Btree2Page *page, uint16_t findOff, uint32_t pageSize);
 uint32_t btree2SlotSize(Btree2Slot *slot, uint8_t skipBits, uint8_t height);
