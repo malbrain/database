@@ -117,7 +117,7 @@ typedef struct {
 	uint16_t off:16;			// offset within key
 	uint16_t lastFld:16;        // offset of current field
 	int16_t ch:16;				// character of key
-	BOOL startFld:16;			// flag to start field
+	int16_t startFld:16;			// flag to start field
 } CursorStack;
 
 typedef struct {

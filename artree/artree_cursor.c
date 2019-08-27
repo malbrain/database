@@ -363,7 +363,7 @@ int slot, len;
 
 	  case Array256: {
 		ARTNode256* radix256Node = getObj(map, *stack->slot);
-		BOOL startFld = stack->startFld && stack->ch == -1;
+		bool startFld = stack->startFld && stack->ch == -1;
 
 		while (stack->ch < 256) {
 		  uint32_t idx = ++stack->ch;
