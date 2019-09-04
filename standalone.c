@@ -27,12 +27,12 @@
 #define sprintf_s snprintf
 #endif
 
-#ifdef DEBUG
+bool stats = true;
+
 extern uint64_t totalMemoryReq[1];
 extern uint64_t nodeAlloc[64];
 extern uint64_t nodeFree[64];
 extern uint64_t nodeWait[64];
-#endif
 
 bool debug = false;
 bool dropDb = false;
@@ -44,7 +44,10 @@ bool pennysort = false;
 bool numbers = false;
 bool keyList = false;
 
+char* idxName;
 int numThreads = 1;
+char binaryFlds = 0;
+
 double getCpuTime(int type);
 
 void mynrand48seed(uint16_t *nrandState);
@@ -77,13 +80,12 @@ typedef struct {
 	bool noExit;
 	bool noDocs;
 	bool noIdx;
-	int num;
 } ThreadArg;
 
 char *indexNames[] = {
-"ARTreeIdx",
-"Btree1Idx",
-"Btree2Idx"
+	"Adaptive Radix Tree",
+	"Btree1 paged arrays of keys",
+	"Btree2 paged skiplists"
 };
 
 HandleType indexType[] = {
@@ -125,8 +127,6 @@ uint8_t key[4096];
 int keyLen = 0, docLen = 0;
 int ch, len = 0, keyOff;
 int docMax, keyMax;
-char binaryFlds = 0;
-char *idxName;
 uint32_t foundLen = 0;
 uint32_t prevLen = 0;
 bool reverse = false;
@@ -137,19 +137,19 @@ uint8_t *foundKey;
 uint64_t count = ~0ULL;
 ObjId docId;
 FILE *in;
-int stat;
+DbStatus stat;
 
     docMax = 4096 - sizeof(Doc);
 
 	if( pennysort )
 		docMax = 100;
 
-	mynrand48seed(nrandState);
+	if (debug)
+		memset(nrandState, 0, sizeof(nrandState));
+	else
+		mynrand48seed(nrandState);
 
-	if (debug) {
-      memset(nrandState, 0, sizeof(nrandState));
-	  nrandState[0] = args->idx;
-	}
+	nrandState[0] ^= args->idx;
 
 	cloneHandle(database, args->database);
 
@@ -158,8 +158,6 @@ int stat;
 	cursor->hndlBits = 0;
 	idxHndl->hndlBits = 0;
 
-	idxName = indexNames[args->params[IdxType].intVal];
-	binaryFlds = args->params[IdxKeyFlds].charVal;
 	docHndl->hndlBits = 0;
 
 	switch(cmd | 0x20) 	{
@@ -170,7 +168,7 @@ int stat;
 		parent = database;
 
 		if ((stat = createIndex(idxHndl, parent, idxName, (int)strlen(idxName), args->params)))
-		  fprintf(stderr, "createIndex %s Error %d name: %s\n", args->inFile, stat, idxName), exit(0);
+		  fprintf(stderr, "createIndex %s Error %d type: %s\n", args->inFile, stat, idxName), exit(0);
 
 		createCursor (cursor, idxHndl, args->params);
 
@@ -238,7 +236,7 @@ int stat;
 
 		if (!args->noIdx)
 		  if ((stat = createIndex(idxHndl, parent, idxName, (int)strlen(idxName), args->params)))
-			fprintf(stderr, "createIndex %s Error %d name: %s\n", args->inFile, stat, idxName), exit(0);
+			fprintf(stderr, "createIndex %s Error %d type: %s\n", args->inFile, stat, idxName), exit(0);
 
 		if (args->noDocs && args->noIdx)
 		  fprintf(stderr, "Cannot specify both -noDocs and -noIdx\n"), exit(0);
@@ -327,7 +325,7 @@ int stat;
 			  case DB_OK:
 				break;
 			  default:
-			    fprintf(stderr, "Insert Key %s Error %d Line: %" PRIu64 "\n", args->inFile, stat, line);
+			    fprintf(stderr, "thrd:%d Insert Key %s Error %d Line: %" PRIu64 "\n", args->idx, args->inFile, stat, line);
 				myExit(args);
 			}
 		  }
@@ -351,7 +349,7 @@ int stat;
 		}
 
 		if ((stat = createIndex(idxHndl, parent, idxName, (int)strlen(idxName), args->params)))
-		  fprintf(stderr, "createIndex %s Error %d name: %s\n", args->inFile, stat, idxName), exit(0);
+		  fprintf(stderr, "createIndex %s Error %d type: %s\n", args->inFile, stat, idxName), exit(0);
 
 		createCursor (cursor, idxHndl, args->params);
 
@@ -422,7 +420,7 @@ int stat;
 	return msgLen;
 }
 
-int index_scan(ThreadArg *args, char *msg, int msgMax) {
+uint64_t index_scan(ThreadArg *args) {
 uint64_t line = 0, cnt = 0;
 DbHandle database[1];
 DbHandle iterator[1];
@@ -431,7 +429,6 @@ DbHandle cursor[1];
 DbHandle idxHndl[1];
 DbHandle *parent;
 
-int16_t nrandState[3];
 int msgLen = 0;
 
 uint8_t rec[4096];
@@ -439,8 +436,7 @@ Doc *doc = (Doc *)rec;
 uint8_t *key = rec + sizeof(Doc);
 
 int len = 0;
-char binaryFlds = 0;
-char *idxName, cmd;
+char cmd;
 uint32_t foundLen = 0;
 uint32_t prevLen = 0;
 bool reverse = false;
@@ -452,29 +448,20 @@ uint8_t *foundKey;
 ObjId docId;
 int stat;
 
-	mynrand48seed(nrandState);
-
-	if (debug) {
-      memset(nrandState, 0, sizeof(nrandState));
-	  nrandState[0] = args->idx;
-	}
-
 	cloneHandle(database, args->database);
+	fprintf(stderr, "\nIndex %s summary scan:\n", idxName);
 
 	iterator->hndlBits = 0;
 	docHndl->hndlBits = 0;
 	cursor->hndlBits = 0;
 	idxHndl->hndlBits = 0;
-
-	idxName = indexNames[args->params[IdxType].intVal];
-	binaryFlds = args->params[IdxKeyFlds].charVal;
 	docHndl->hndlBits = 0;
 
 	while( (cmd = *args->scanCmd++) )
 	  switch(cmd | 0x20) {
 
 	  case 'i':
-		msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1, "iterator scan\n");
+		fprintf(stderr," iterator scan\n");
 
 		if (args->noDocs)
 		  fprintf(stderr, "Cannot specify noDocs with iterator scan\n"), exit(0);
@@ -491,7 +478,7 @@ int stat;
             cnt++;
 		}
 
-		msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1, "iterator scan total: %" PRIu64 "\n",cnt);
+		fprintf(stderr, " iterator scan total: %" PRIu64 "\n",cnt);
 
 		if(iterator->hndlBits)
 		  closeHandle (iterator);
@@ -502,7 +489,7 @@ int stat;
 		if(database->hndlBits)
 		  closeHandle (database);
 		
-		return msgLen;
+		return cnt;
 
 	case 'v':
 		verify = true;
@@ -521,24 +508,24 @@ int stat;
 	}
 
 	if (reverse)
-	  msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1, "reverse index cursor -- ");
+	  fprintf(stderr, " reverse index cursor\n");
 
 	else
-   	  msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1, "forward index cursor -- ");
+   	  fprintf(stderr, " forward index cursor\n");
 
 	if( verify )
-	  msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1, "order verification ");
+	  fprintf(stderr, " key order verification\n");
 
 	if( cntOnly )
-	  msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1, " key count\n");
+	  fprintf(stderr, " index key count\n");
 	else
-	  msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1, " doc/key dump\n");
+	  fprintf_s(stderr, " doc/key dump\n");
 
 	if (args->minKey)
-	  msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1, "thrd:%d cmd:%c min key: <%s>\n", args->idx, cmd, args->minKey);
+	  fprintf(stderr, " min key: <%s>\n", args->minKey);
 
 	if (args->maxKey)
-	  msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1, "thrd:%d cmd:%c max key: <%s>\n", args->idx, cmd, args->maxKey);
+	  fprintf(stderr, " max key: <%s>\n", args->maxKey);
 
 	if (args->noDocs)
 		parent = database;
@@ -548,7 +535,7 @@ int stat;
 	}
 
 	if ((stat = createIndex(idxHndl, parent, idxName, (int)strlen(idxName), args->params)))
-	  fprintf(stderr, "createIndex Error %d name: %s\n", stat, idxName), exit(0);
+	  fprintf(stderr, "createIndex Error %d type: %s\n", stat, idxName), exit(0);
 
 	// create cursor
 
@@ -609,7 +596,7 @@ int stat;
 
 		if (cntOnly) {
 		  if (debug && !(cnt % 1000000))
-			fprintf (stderr, "scan cout: %" PRIu64 "\n", cnt);
+			fprintf (stderr, " scan %s count: %" PRIu64 "\n", idxName, cnt);
 		  continue;
 		}
 
@@ -628,11 +615,9 @@ int stat;
 	}
 
 	if (stat && stat != DB_CURSOR_eof)
-	  fprintf(stderr, "Scan: Error %d Syserr %d Line: %" PRIu64 "\n", stat, errno, cnt), exit(0);
+	  fprintf(stderr, " Index %s Scan: Error %d Syserr %d Line: %" PRIu64 "\n", idxName, stat, errno, cnt), exit(0);
 
-	msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1, "thrd:%d cmd:%c file:%s", args->idx, cmd, args->inFile);
-
-	msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1, " Total keys %" PRIu64 "\n", cnt);
+	fprintf(stderr, " Index scan complete \n Total keys %" PRIu64 "\n", cnt);
 	prevLen = 0;
  
 	if(cursor->hndlBits)
@@ -646,8 +631,8 @@ int stat;
 		
 	if(database->hndlBits)
 	  closeHandle (database);
-		
-	return msgLen;
+
+	return cnt;
 }
 
 //  run index_file once for each command
@@ -667,7 +652,7 @@ double elapsed;
 	  double startx2 = getCpuTime(1);
 	  double startx3 = getCpuTime(2);
 
-	  len += sprintf_s(msg + len, sizeof(msg) - len - 1, "thrd:%d cmd:%c begin\n", args->idx, cmd);
+	  len += sprintf_s(msg + len, sizeof(msg) - len - 1, "\nthrd:%d cmd:%c %s: begin\n", args->idx, cmd, idxName);
 
 	  max = sizeof(msg) - len - 1;
 	  len += index_file(args, cmd, msg + len, max);
@@ -705,7 +690,7 @@ char *maxKey = NULL;
 char *dbName = NULL;
 char *cmds = NULL;
 int keyLen = 10;
-int idx, cnt, len;
+int idx, cnt;
 
 #ifndef _WIN32
 pthread_t *threads;
@@ -715,19 +700,21 @@ HANDLE *threads;
 #endif
 
 DbHandle database[1];
-
-char buf[512], msg[4096];
+uint64_t totKeys;
+char buf[512];
 ThreadArg *args;
 double elapsed;
 double start;
 int num = 0;
 
 	if( argc < 3 ) {
-		fprintf (stderr, "Usage: %s db_name -cmds=[rwsdf]... -idxType=[012] -bits=# -xtra=# -inMem -debug -uniqueKeys -noDocs -noIdx -keyLen=# -minKey=abcd -maxKey=abce -drop -idxBinary=. -pipeline src_file1 src_file2 ... ]\n", argv[0]);
-		fprintf (stderr, "  where db_name is the prefix name of the database file\n");
-		fprintf (stderr, "  cmds is a string of (c)ount/(r)ev scan/(w)rite/(s)can/(d)elete/(f)ind/(v)erify/(i)terate, with a one character command for each input src_file, or a no-input command.\n");
+		fprintf (stderr, "Usage: %s db_name -cmds=[wdf] -summary=[csrvi] -idxType=[012] -bits=# -xtra=# -inMem -debug -uniqueKeys -noDocs -noIdx -keyLen=# -minKey=abcd -maxKey=abce -drop -idxBinary=. -pipeline src_file1 src_file2 ... ]\n", argv[0]);
+		fprintf (stderr, "  where db_name is the prefix name of the database files\n");
+		fprintf (stderr, "  cmds is a string of (w)rite/(d)elete/(f)ind commands, to run sequentially on each input src_file.\n");
+		fprintf (stderr, "  summary scan is a string of (c)ount/(r)ev scan/(s)can/(v)erify/(i)terate flags for a final scan after all threads have quit\n");
 		fprintf (stderr, "  idxType is the type of index: 0 = ART, 1 = btree1, 2 = btree2\n");
-		fprintf (stderr, "  keyLen is key size, zero for whole line\n");
+		fprintf (stderr, "  keyLen is key size, zero for whole input file line\n");
+		fprintf (stderr, "  pennysort creates random input lines, taking a count from the file name\n");
 		fprintf (stderr, "  bits is the btree page size in bits\n");
 		fprintf (stderr, "  xtra is the btree leaf page extra bits\n");
 		fprintf (stderr, "  inMem specifies no disk files\n");
@@ -736,9 +723,9 @@ int num = 0;
 		fprintf (stderr, "  minKey specifies beginning cursor key\n");
 		fprintf (stderr, "  maxKey specifies ending cursor key\n");
 		fprintf (stderr, "  drop will initially drop database\n");
-		fprintf (stderr, "  idxBinary utilize length counted fields\n");
+		fprintf (stderr, "  idxBinary utilize length counted fields separated by  the given deliminator in keys\n");
 		fprintf (stderr, "  uniqueKeys ensure keys are unique\n");
-		fprintf (stderr, "  run cmds in a single threaded  pipeline\n");
+		fprintf (stderr, "  run cmds in a single threaded  pipeline using one input file at a time\n");
 		fprintf (stderr, "  src_file1 thru src_filen are files of keys/documents separated by newline\n");
 		exit(0);
 	}
@@ -755,21 +742,25 @@ int num = 0;
 	params[OnDisk].boolVal = true;
 	params[Btree2Bits].intVal = 14;
 
-// process configuration arguments
+	// process configuration arguments
 
 	while (--argc > 0 && (++argv)[0][0] == '-')
-  if (!strncasecmp(argv[0], "-xtra=", 6)) {
-  	params[Btree1Xtra].intVal = atoi(argv[0] + 6);
-  	params[Btree2Xtra].intVal = atoi(argv[0] + 6);
-  } else if (!strncasecmp(argv[0], "-keyLen=", 8))
-	keyLen = atoi(argv[0] + 8);
-  else if (!strncasecmp(argv[0], "-bits=", 6)) {
-	params[Btree1Bits].intVal = atoi(argv[0] + 6);
-	params[Btree2Bits].intVal = atoi(argv[0] + 6);
-  } else if (!strncasecmp(argv[0], "-cmds=", 6))
-	cmds = argv[0] + 6;
-  else if (!strncasecmp(argv[0], "-debug", 6))
-	debug = true;
+		if (!strncasecmp(argv[0], "-xtra=", 6)) {
+			params[Btree1Xtra].intVal = atoi(argv[0] + 6);
+			params[Btree2Xtra].intVal = atoi(argv[0] + 6);
+		}
+		else if (!strncasecmp(argv[0], "-keyLen=", 8))
+			keyLen = atoi(argv[0] + 8);
+		else if (!strncasecmp(argv[0], "-bits=", 6)) {
+			params[Btree1Bits].intVal = atoi(argv[0] + 6);
+			params[Btree2Bits].intVal = atoi(argv[0] + 6);
+		}
+		else if (!strncasecmp(argv[0], "-cmds=", 6))
+			cmds = argv[0] + 6;
+		else if (!strncasecmp(argv[0], "-debug", 6))
+			debug = true;
+		else if (!strncasecmp(argv[0], "-stats", 6))
+			stats = true;
   else if (!strncasecmp(argv[0], "-drop", 5))
 	dropDb = true;
   else if (!strncasecmp(argv[0], "-noIdx", 6))
@@ -805,8 +796,10 @@ int num = 0;
   else
 	fprintf(stderr, "Unknown option %s ignored\n", argv[0]);
   
-  cnt = numThreads > argc ? numThreads : argc;
-  
+   cnt = numThreads > argc ? numThreads : argc;
+   idxName = indexNames[params[IdxType].intVal];
+   binaryFlds = params[IdxKeyFlds].charVal;
+
   initialize();
   
   start = getCpuTime(0);
@@ -843,82 +836,82 @@ int num = 0;
 	args[idx].noExit = noExit;
 	args[idx].noIdx = noIdx;
 	args[idx].cmds = cmds;
-	args[idx].num = num;
 	args[idx].idx = idx;
 
-	if (cnt > 1) {
-#ifndef _WIN32
-		int err;
-
-		if ((err = pthread_create(threads + idx, NULL, pipego, args + idx)))
-			fprintf(stderr, "Error creating thread %d\n", err);
-#else
-		while (((int64_t)(threads[idx] = (HANDLE)_beginthreadex(NULL, 65536, pipego, args + idx, 0, NULL)) < 0LL))
-			fprintf(stderr, "Error creating thread errno = %d\n", errno);
-
-#endif
+	if ( pipeLine || cnt == 1) {
+		pipego(args);
 		continue;
-	} else
-		pipego (args);
+	}
 
-  } while (++idx < cnt);
+#ifndef _WIN32
+	if ((err = pthread_create(threads + idx, NULL, pipego, args + idx)))
+		fprintf(stderr, "Error creating thread %d\n", err);
+#else
+	while (((int64_t)(threads[idx] = (HANDLE)_beginthreadex(NULL, 65536, pipego, args + idx, 0, NULL)) < 0LL))
+		fprintf(stderr, "Error creating thread errno = %d\n", errno);
+#endif
+
+	fprintf(stderr, "thread %d launched for file %s\n", idx, args[idx].inFile);
+  } while (++idx < cnt );
 
 	// 	wait for termination
 
+  if( !pipeLine && cnt > 1 ) {
 #ifndef _WIN32
-	if (cnt > 1)
-	  for( idx = 0; idx < cnt; idx++ )
-		pthread_join (threads[idx], NULL);
+	for( idx = 0; idx < cnt; idx++ )
+	  pthread_join (threads[idx], NULL);
 #else
-	if (cnt > 1)
-	  WaitForMultipleObjects (cnt, threads, TRUE, INFINITE);
+	WaitForMultipleObjects (cnt, threads, TRUE, INFINITE);
 
-	if (cnt > 1)
-	  for( idx = 0; idx < cnt; idx++ )
-		CloseHandle(threads[idx]);
+	for( idx = 0; idx < cnt; idx++ )
+	  CloseHandle(threads[idx]);
 #endif
-
-	if( (args->scanCmd = summary) ) {
-		len = index_scan (args, msg, sizeof(msg) - 1);
-		fwrite(msg, 1, len, stderr);
-	}
+  }
+	if( (args->scanCmd = summary) )
+		totKeys = index_scan (args);
 
 	elapsed = getCpuTime(0) - start;
 
-#ifdef DEBUG
-	fputc(0x0a, stderr);
+	if (stats) {
+		fputc(0x0a, stderr);
 
-	fprintf(stderr, "Total memory allocated: %lld\n", *totalMemoryReq);
+		fprintf(stderr, "Total memory allocated: %.3f MB\n", (double)*totalMemoryReq/(1024. * 1024.));
+		fprintf(stderr, "Bytes per key: %lld\n", *totalMemoryReq / totKeys);
 
-	fputc(0x0a, stderr);
+		switch (params[IdxType].intVal) {
+		case 0:
+			fputc(0x0a, stderr);
 
-	for (idx = 0; idx < 64; idx++)
-	  if (nodeAlloc[idx])
-		fprintf(stderr, "Index type %d blks allocated: %.8lld\n", idx, nodeAlloc[idx]);
+			for (idx = 0; idx < 64; idx++)
+				if (nodeAlloc[idx])
+					fprintf(stderr, "%s Index type %d blks allocated: %.8lld\n", idxName, idx, nodeAlloc[idx]);
 
-	fputc(0x0a, stderr);
+			fputc(0x0a, stderr);
 
-	for (idx = 0; idx < 64; idx++)
-	  if (nodeFree[idx])
-		fprintf(stderr, "Index type %d blks freed    : %.8lld\n", idx, nodeFree[idx]);
+			for (idx = 0; idx < 64; idx++)
+				if (nodeFree[idx])
+					fprintf(stderr, "%s Index type %d blks freed    : %.8lld\n", idxName, idx, nodeFree[idx]);
 
-	fputc(0x0a, stderr);
+			fputc(0x0a, stderr);
 
-	for (idx = 0; idx < 64; idx++)
-	  if (nodeWait[idx])
-		fprintf(stderr, "Index type %d blks recycled : %.8lld\n", idx, nodeWait[idx]);
+			for (idx = 0; idx < 64; idx++)
+				if (nodeWait[idx])
+					fprintf(stderr, "%s Index type %d blks recycled : %.8lld\n", idxName, idx, nodeWait[idx]);
 
-	fputc(0x0a, stderr);
-#endif
-/*
-	if (!pipeLine ) {
-  	  fprintf(stderr, " real %dm%.3fs\n", (int)(elapsed/60), elapsed - (int)(elapsed/60)*60);
-	  elapsed = getCpuTime(1);
-	  fprintf(stderr, " user %dm%.3fs\n", (int)(elapsed/60), elapsed - (int)(elapsed/60)*60);
-	  elapsed = getCpuTime(2);
-	  fprintf(stderr, " sys  %dm%.3fs\n", (int)(elapsed/60), elapsed - (int)(elapsed/60)*60);
+			fputc(0x0a, stderr);
+
+			if (!pipeLine) {
+				fprintf(stderr, " real %dm%.3fs\n", (int)(elapsed / 60), elapsed - (int)(elapsed / 60) * 60);
+				elapsed = getCpuTime(1);
+				fprintf(stderr, " user %dm%.3fs\n", (int)(elapsed / 60), elapsed - (int)(elapsed / 60) * 60);
+				elapsed = getCpuTime(2);
+				fprintf(stderr, " sys  %dm%.3fs\n", (int)(elapsed / 60), elapsed - (int)(elapsed / 60) * 60);
+			}
+
+			break;
+		}
 	}
-*/
+
 	if(debug) {
 #ifdef _WIN32
 	  GetSystemInfo(info);

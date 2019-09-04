@@ -1,3 +1,0 @@
-./dbtest db -cmds=w -threads=4 -summary=vc -pipeline -idxType=0 -bits=16  -inMem -noDocs -pennysort 40000000
-./dbtest db -cmds=w -threads=4 -summary=vc -pipeline -idxType=1 -bits=16  -inMem -noDocs -pennysort 40000000
-./dbtest db -cmds=w -summary=vc -pipeline -idxType=2 -bits=16  -inMem -noDocs -pennysort 40000000

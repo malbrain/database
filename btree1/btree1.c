@@ -90,6 +90,9 @@ uint32_t amt;
 	buff = keyaddr(page, page->min);
 	*buff++ = Btree1_pagenobytes;
 
+	//  store page address at end of key
+	//	first byte (or two) contains key length
+
 	amt = store64(buff, 0, btree1->left.bits);
 
 	while( amt < Btree1_pagenobytes )

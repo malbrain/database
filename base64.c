@@ -6,6 +6,11 @@
 #include <time.h>
 #include <memory.h>
 
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
+
 //	return 64 bit suffix value from key
 
 uint64_t get64(uint8_t *key, uint32_t len) {
@@ -43,6 +48,16 @@ uint64_t result;
 	result <<= 4;
 	result |= key[len + xtraBytes + 1] >> 4;
 	return result;
+}
+
+//	calculate offset from right end of zone
+//	and return suffix value
+
+uint64_t zone64(uint8_t* key, uint32_t len, uint32_t zone) {
+uint32_t xtraBytes = (key[len - zone] & 0x70) >> 4;;
+
+	zone -= xtraBytes + 2;
+	return get64(key, len - zone);
 }
 
 // concatenate key with sortable 64 bit value
@@ -166,6 +181,14 @@ void mynrand48seed(uint16_t *nrandState) {
 time_t tod[1];
 
 	time(tod);
+#ifdef _WIN32
+	*tod ^= GetTickCount64();
+#else
+	{ struct timespec ts[1];
+	  clock_gettimme(CLOCK_REALTIME, ts);
+	  *tod ^= ts->tv_sec << 32 | ts->tv_nsec;
+	}
+#endif
 	nrandState[0] = RAND48_SEED_0 ^ (*tod & 0xffff);
 	*tod >>= 16;
 	nrandState[1] = RAND48_SEED_1 ^ (*tod & 0xffff);

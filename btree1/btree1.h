@@ -9,7 +9,7 @@
 #include "../db_frame.h"
 #include "../db_lock.h"
 
-#define Btree1_pagenobytes  (1 + 8 + 1)
+#define Btree1_pagenobytes  (1 + 7 + 1)
 #define Btree1_maxkey		4096
 #define Btree1_maxbits		29					// maximum page size in bits
 #define Btree1_minbits		9					// minimum page size in bits

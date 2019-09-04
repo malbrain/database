@@ -26,6 +26,7 @@ void mapZero(DbMap *map, uint64_t size);
 void mapAll (DbMap *map);
 
 uint64_t totalMemoryReq[1];
+extern int stats;
 
 extern DbMap memMap[1];
 
@@ -334,7 +335,7 @@ DbAddr slot;
 	lockLatch(free->latch);
 
 	while (!(slot.bits = getNodeFromFrame(map, free) & ADDR_BITS)) {
-	  if (!getNodeWait(map, free, wait))
+//	  if (!getNodeWait(map, free, wait))
 		if (!initObjFrame(map, free, type, size)) {
 			unlockLatch(free->latch);
 			return 0;
@@ -404,9 +405,8 @@ uint64_t max, addr, off;
 	size += 63;
 	size &= -64;
 
-#ifdef DEBUG
-	atomicAdd64 (totalMemoryReq, size);
-#endif
+	if( stats )
+		atomicAdd64 (totalMemoryReq, size);
 
 	// see if existing segment has space
 	// otherwise allocate a new segment.
@@ -465,7 +465,7 @@ ObjId objId;
 	// otherwise create a new frame of new objects
 
 	while (!(objId.bits = getNodeFromFrame(map, free) & ADDR_BITS)) {
-		if (!getNodeWait(map, free, wait))
+//		if (!getNodeWait(map, free, wait))
 			if (!initObjIdFrame(map, free)) {
 				unlockLatch(free->latch);
 				return 0;

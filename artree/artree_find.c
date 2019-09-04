@@ -6,7 +6,7 @@ uint32_t fldLen = 0, idx, offset = 0, spanMax;
 bool binaryFlds = map->arenaDef->params[IdxKeyFlds].charVal;
 CursorStack* stack = NULL;
 uint8_t *key = findKey;
-volatile DbAddr *slot;
+DbAddr *slot;
 ArtIndex *artIdx;
 uint16_t lastFld = 0;
 

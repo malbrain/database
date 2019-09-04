@@ -112,12 +112,12 @@ typedef struct {
 } ArtIndex;
 
 typedef struct {
-	volatile DbAddr *addr;		// tree addr of slot
-	volatile DbAddr slot[1];	// slot that points to node
+	DbAddr *addr;		// tree addr of slot
+	DbAddr slot[1];	// slot that points to node
 	uint16_t off:16;			// offset within key
 	uint16_t lastFld:16;        // offset of current field
 	int16_t ch:16;				// character of key
-	int16_t startFld:16;			// flag to start field
+	BOOL startFld:16;			// flag to start field
 } CursorStack;
 
 typedef struct {
@@ -131,8 +131,8 @@ typedef struct {
 } ArtCursor;
 
 typedef struct {
-	volatile DbAddr *slot;
-	volatile DbAddr *prev;
+	DbAddr *slot;
+	DbAddr *prev;
 	DbAddr oldSlot[1];
 	DbAddr newSlot[1];
 

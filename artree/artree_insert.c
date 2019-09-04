@@ -9,25 +9,24 @@ typedef enum {
 	ErrorSearch
 } ReturnState;
 
-ReturnState insertKeySpan(volatile ARTSpan*, InsertParam *);
-ReturnState insertKeyNode4(volatile ARTNode4*, InsertParam *);
-ReturnState insertKeyNode14(volatile ARTNode14*, InsertParam *);
-ReturnState insertKeyNode64(volatile ARTNode64*, InsertParam *);
-ReturnState insertKeyNode256(volatile ARTNode256*, InsertParam *);
+ReturnState insertKeySpan(ARTSpan*, InsertParam *);
+ReturnState insertKeyNode4(ARTNode4*, InsertParam *);
+ReturnState insertKeyNode14(ARTNode14*, InsertParam *);
+ReturnState insertKeyNode64(ARTNode64*, InsertParam *);
+ReturnState insertKeyNode256(ARTNode256*, InsertParam *);
 
-#ifdef DEBUG
+extern bool stats;
 uint64_t nodeAlloc[64];
 uint64_t nodeFree[64];
 uint64_t nodeWait[64];
-#endif
 
 uint64_t artAllocateNode(Handle *index, int type, uint32_t size) {
 DbAddr *free = listFree(index,type);
 DbAddr *wait = listWait(index,type);
 
-#ifdef DEBUG
-	atomicAdd64(&nodeAlloc[type], 1ULL);;
-#endif
+	if( stats )
+		atomicAdd64(&nodeAlloc[type], 1ULL);
+
 	return allocObj(index->map, free, wait, type, size, true);
 }
 
@@ -54,7 +53,7 @@ int segments;
 
 //	return false if out of memory
 
-bool fillKey(InsertParam *p, volatile DbAddr *first) {
+bool fillKey(InsertParam *p, DbAddr *first) {
 DbAddr fill[1], *slot;
 ARTSpan *spanNode;
 uint32_t len;
@@ -114,8 +113,9 @@ uint16_t totLen = keyLen + sfxLen;
 ARTKeyEnd *keyEndNode;
 ArtIndex *artIndex;
 bool pass = false;
-InsertParam p[1];
 DbAddr keyEndSlot;
+InsertParam p[1];
+DbAddr* install;
 
 	artIndex = artindex(index->map);
 
@@ -166,9 +166,7 @@ DbAddr keyEndSlot;
 	if (p->slot->type != KeyEnd)
 	  keyEndNode->next->bits = p->slot->bits & ~ADDR_MUTEX_SET;
 	
-	//	unlock/install keyend node
-
-	p->slot->bits = keyEndSlot.bits;
+	install = p->slot;
 
 	do {
 	    //	add suffix to keyEnd node
@@ -199,11 +197,14 @@ DbAddr keyEndSlot;
 
 	//	duplicate suffix?
 
-	if (p->slot->type )
+	if (p->slot->type == SuffixEnd )
 		return DB_ERROR_duplicate_suffix;
 
 	p->slot->type = SuffixEnd;
 
+	//	unlock/install keyend node
+
+	install->bits = keyEndSlot.bits;
 	atomicAdd64(artIndex->base->numKeys, 1);
 	return DB_OK;
 }
@@ -248,7 +249,6 @@ DbAddr slot;
 		}
 		case SpanNode: {
 			ARTSpan *spanNode = getObj(p->index->map, *p->oldSlot);
-			assert(spanNode->next->type);
 			rt = insertKeySpan(spanNode, p);
 			break;
 		}
@@ -314,7 +314,6 @@ DbAddr slot;
 		  break;
 
 		case EndSearch:			//  p->slot points to key continuation
-
 		  if (!p->newSlot->bits) {
 			unlockLatch(p->prev->latch);
 			return true;
@@ -331,9 +330,9 @@ DbAddr slot;
 		  if (slot.type && slot.addr) {
 			if((!addSlotToFrame(p->index->map, listHead(p->index,slot.type), listWait(p->index,slot.type), slot.bits)))
 			  return p->stat = DB_ERROR_outofmemory, false;
-			#ifdef DEBUG
-			atomicAdd64(&nodeFree[slot.type], 1ULL);;
-			#endif
+
+			if( stats )
+			  atomicAdd64(&nodeFree[slot.type], 1ULL);;
 		  }
 
 		  return true;
@@ -358,7 +357,7 @@ DbAddr slot;
 	return true;
 }
 
-ReturnState insertKeyNode4(volatile ARTNode4 *node, InsertParam *p) {
+ReturnState insertKeyNode4(ARTNode4 *node, InsertParam *p) {
 ARTNode14 *radix14Node;
 uint32_t idx, out;
 uint8_t bits;
@@ -432,7 +431,7 @@ uint8_t bits;
 	}
 
 	for (idx = 0; idx < 4; idx++) {
-		volatile DbAddr *slot = node->radix + idx;
+		DbAddr *slot = node->radix + idx;
 		lockLatch(slot->latch);
 
 		if (!slot->kill) {
@@ -472,7 +471,7 @@ uint8_t bits;
 	return EndSearch;
 }
 
-ReturnState insertKeyNode14(volatile ARTNode14 *node, InsertParam *p) {
+ReturnState insertKeyNode14(ARTNode14 *node, InsertParam *p) {
 ARTNode64 *radix64Node;
 uint32_t idx, out;
 uint16_t bits;
@@ -549,7 +548,7 @@ uint16_t bits;
 	memset((void*)radix64Node->keys, 0xff, sizeof(radix64Node->keys));
 
 	for (idx = 0; idx < 14; idx++) {
-		volatile DbAddr *slot = node->radix + idx;
+		DbAddr *slot = node->radix + idx;
 		lockLatch(slot->latch);
 
 		if (!slot->kill) {
@@ -588,7 +587,7 @@ uint16_t bits;
 	return EndSearch;
 }
 
-ReturnState insertKeyNode64(volatile ARTNode64 *node, InsertParam *p) {
+ReturnState insertKeyNode64(ARTNode64 *node, InsertParam *p) {
 ARTNode256 *radix256Node;
 uint32_t idx, out;
 
@@ -660,7 +659,7 @@ uint32_t idx, out;
 
 	for (idx = 0; idx < 256; idx++)
 	  if (node->keys[idx] < 0xff) {
-		volatile DbAddr *slot = node->radix + node->keys[idx];
+		DbAddr *slot = node->radix + node->keys[idx];
 		lockLatch(slot->latch);
 
 		if (!slot->kill) {
@@ -684,7 +683,7 @@ uint32_t idx, out;
 	return fillKey(p, radix256Node->radix + p->ch) ? EndSearch : ErrorSearch;
 }
 
-ReturnState insertKeyNode256(volatile ARTNode256 *node, InsertParam *p) {
+ReturnState insertKeyNode256(ARTNode256 *node, InsertParam *p) {
 
 	//  is radix slot occupied?
 
@@ -722,7 +721,7 @@ ReturnState insertKeyNode256(volatile ARTNode256 *node, InsertParam *p) {
 	return EndSearch;
 }
 
-ReturnState insertKeySpan(volatile ARTSpan *node, InsertParam *p) {
+ReturnState insertKeySpan(ARTSpan *node, InsertParam *p) {
 uint32_t len = p->oldSlot->nbyte + 1;
 ARTSpan *overflowSpanNode;
 uint32_t max = len, idx;
@@ -730,7 +729,7 @@ DbAddr *contSlot = NULL;
 DbAddr *nxtSlot = NULL;
 ARTNode4 *radix4Node;
 
-	if (len > p->keyLen - p->off)
+	if (len > (uint16_t)(p->keyLen - p->off) )
 		len = p->keyLen - p->off;
 
 	if (p->binaryFlds)

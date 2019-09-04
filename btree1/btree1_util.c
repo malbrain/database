@@ -587,7 +587,7 @@ uint64_t bits;
 
 	slot = slotptr(set->page, set->slotIdx);
 	ptr = keyaddr(set->page, slot->off);
-	bits = get64(keystr(ptr), keylen(ptr));
+	bits = zone64(keystr(ptr), keylen(ptr), Btree1_pagenobytes);
 
 	assert(drill > 0);
 	drill--;

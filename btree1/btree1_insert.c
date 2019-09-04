@@ -163,7 +163,7 @@ DbStatus stat;
 		if (btree1KeyCmp (ptr, key, keyLen))
 		  return DB_ERROR_invaliddeleterecord;
 
-	  oldSuffix = get64(dest, len);
+	  oldSuffix = zone64(dest, len, Btree1_pagenobytes);
 
 	  if( oldSuffix != prev )
 		return DB_ERROR_invaliddeleterecord;
