@@ -26,7 +26,6 @@ void mapZero(DbMap *map, uint64_t size);
 void mapAll (DbMap *map);
 
 uint64_t totalMemoryReq[1];
-extern int stats;
 
 extern DbMap memMap[1];
 

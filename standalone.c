@@ -39,6 +39,7 @@ bool dropDb = false;
 bool noExit = false;
 bool noDocs = false;
 bool noIdx = false;
+bool monitor = false;
 bool pipeLine = false;
 bool pennysort = false;
 bool numbers = false;
@@ -185,7 +186,7 @@ DbStatus stat;
 
 			  line++;
 
-			  if (debug && !(line % 100000))
+			  if (monitor && !(line % 100000))
 				fprintf(stderr, "line %" PRIu64 "\n", line);
 
 			  if ((stat = deleteKey(idxHndl, key, len)))
@@ -296,7 +297,7 @@ DbStatus stat;
 
 		  // add next record to collection and index
 
-          if (!(++line % 1000000) && debug)
+          if (!(++line % 1000000) && monitor)
 		    fprintf(stderr, "thrd:%d cmd:%c line: %" PRIu64 "\n", args->idx, cmd, line);
 
 		  if (binaryFlds && keyMax) {
@@ -366,7 +367,7 @@ DbStatus stat;
 
 			  line++;
 
-			  if (debug && !(line % 1000000))
+			  if (monitor && !(line % 1000000))
 				fprintf (stderr, "thrd:%d cmd:%c line: %"   PRIu64 "\n", args->idx, cmd, line);
 
 			  len = args->keyLen;
@@ -595,7 +596,7 @@ int stat;
 		}
 
 		if (cntOnly) {
-		  if (debug && !(cnt % 1000000))
+		  if (monitor && !(cnt % 1000000))
 			fprintf (stderr, " scan %s count: %" PRIu64 "\n", idxName, cnt);
 		  continue;
 		}
@@ -708,7 +709,7 @@ double start;
 int num = 0;
 
 	if( argc < 3 ) {
-		fprintf (stderr, "Usage: %s db_name -cmds=[wdf] -summary=[csrvi] -idxType=[012] -bits=# -xtra=# -inMem -debug -uniqueKeys -noDocs -noIdx -keyLen=# -minKey=abcd -maxKey=abce -drop -idxBinary=. -pipeline src_file1 src_file2 ... ]\n", argv[0]);
+		fprintf (stderr, "Usage: %s db_name -cmds=[wdf] -summary=[csrvi] -idxType=[012] -bits=# -xtra=# -inMem -debug -monitor -uniqueKeys -noDocs -noIdx -keyLen=# -minKey=abcd -maxKey=abce -drop -idxBinary=. -pipeline src_file1 src_file2 ... ]\n", argv[0]);
 		fprintf (stderr, "  where db_name is the prefix name of the database files\n");
 		fprintf (stderr, "  cmds is a string of (w)rite/(d)elete/(f)ind commands, to run sequentially on each input src_file.\n");
 		fprintf (stderr, "  summary scan is a string of (c)ount/(r)ev scan/(s)can/(v)erify/(i)terate flags for a final scan after all threads have quit\n");
@@ -759,6 +760,8 @@ int num = 0;
 			cmds = argv[0] + 6;
 		else if (!strncasecmp(argv[0], "-debug", 6))
 			debug = true;
+		else if (!strncasecmp(argv[0], "-monitor", 8))
+			monitor = true;
 		else if (!strncasecmp(argv[0], "-stats", 6))
 			stats = true;
   else if (!strncasecmp(argv[0], "-drop", 5))
@@ -899,15 +902,6 @@ int num = 0;
 					fprintf(stderr, "%s Index type %d blks recycled : %.8lld\n", idxName, idx, nodeWait[idx]);
 
 			fputc(0x0a, stderr);
-
-			if (!pipeLine) {
-				fprintf(stderr, " real %dm%.3fs\n", (int)(elapsed / 60), elapsed - (int)(elapsed / 60) * 60);
-				elapsed = getCpuTime(1);
-				fprintf(stderr, " user %dm%.3fs\n", (int)(elapsed / 60), elapsed - (int)(elapsed / 60) * 60);
-				elapsed = getCpuTime(2);
-				fprintf(stderr, " sys  %dm%.3fs\n", (int)(elapsed / 60), elapsed - (int)(elapsed / 60) * 60);
-			}
-
 			break;
 		}
 	}

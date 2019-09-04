@@ -139,9 +139,8 @@ DbAddr right, addr;
 bool stopper;
 DbStatus stat;
 
-#ifdef DEBUG
-	atomicAdd32(&Splits, 1);
-#endif
+	if( stats )
+		atomicAdd32(&Splits, 1);
 
 	librarian.bits = 0;
 	librarian.type = Btree1_librarian;

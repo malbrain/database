@@ -17,6 +17,8 @@
 #include "db_error.h"
 #include "db_malloc.h"
 
+extern bool stats, debug;
+
 #define MAX_key		4096	// maximum key size in bytes
 
 //	types of handles/arenas
