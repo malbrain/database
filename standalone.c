@@ -212,9 +212,9 @@ DbStatus stat;
 		}
 
 		msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1, "thrd:%d cmd:%c file:%s keys processed %" PRIu64 " \n", args->idx, cmd, args->inFile, line);
-
 		break;
 
+	case 'f':
 	case 'w':
 		if( pennysort ) {
 		  msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1, "thrd:%d cmd:%c random keys:%s\n", args->idx, cmd, args->inFile);
@@ -242,10 +242,10 @@ DbStatus stat;
 		if (args->noDocs && args->noIdx)
 		  fprintf(stderr, "Cannot specify both -noDocs and -noIdx\n"), exit(0);
 
+		createCursor(cursor, idxHndl, args->params);
+
 		//  read or generate next doc and key
 		
-		ch = 0;
-
 		while( line < count ) {
 		  docLen = 0;
 
@@ -282,11 +282,7 @@ DbStatus stat;
 					  keyMax = 0;
 					else
 					  keyLen += 2;
-/*					  newFld = true;
-				} else if(newFld) {
-				    keyLen += 2;
-					newFld = false;
-*/				} else
+				} else
 					key[keyLen++] = ch;
 			  }
 			}
@@ -295,7 +291,7 @@ DbStatus stat;
 			  break;
 		  }
 
-		  // add next record to collection and index
+		  // add or delete next record to collection and index
 
           if (!(++line % 1000000) && monitor)
 		    fprintf(stderr, "thrd:%d cmd:%c line: %" PRIu64 "\n", args->idx, cmd, line);
@@ -307,115 +303,65 @@ DbStatus stat;
 
 		  lastFld = 0;
 
-		  // store the entry in the docStore?
+		  if( (cmd | 0x20) == 'w') {
 
-		  if (docHndl->hndlBits) {
+			// store the entry in the docStore?
+
+		   if (docHndl->hndlBits) {
 			doc->size = docLen;
 			if ((stat = storeDoc (docHndl, doc, sizeof(Doc) + docLen, &docId)))
 			  fprintf(stderr, "Add Doc %s Error %d Line: %" PRIu64 "\n", args->inFile, stat, line), exit(0);
-		  } else
+		   } else
 			docId.bits = line;
 
-		  if (idxHndl->hndlBits) {
-			uint32_t sfxLen = store64 (key, keyLen, docId.bits);
+		   if (idxHndl->hndlBits) {
+			   uint32_t sfxLen = store64(key, keyLen, docId.bits);
 
-			switch((stat = insertKey (idxHndl, key, keyLen, sfxLen))) {
-			  case DB_ERROR_unique_key_constraint:
-				fprintf(stderr, "Duplicate key <%.*s> line: %" PRIu64 "\n", keyLen, key, line);
-				break;
-			  case DB_OK:
-				break;
-			  default:
-			    fprintf(stderr, "thrd:%d Insert Key %s Error %d Line: %" PRIu64 "\n", args->idx, args->inFile, stat, line);
-				myExit(args);
-			}
+			   switch ((stat = insertKey(idxHndl, key, keyLen, sfxLen))) {
+			   case DB_ERROR_unique_key_constraint:
+				   fprintf(stderr, "Duplicate key <%.*s> line: %" PRIu64 "\n", keyLen, key, line);
+				   break;
+			   case DB_OK:
+				   break;
+			   default:
+				   fprintf(stderr, "thrd:%d Insert Key %s Error %d Line: %" PRIu64 "\n", args->idx, args->inFile, stat, line);
+				   myExit(args);
+			   }
+		   }
+
+		   //	find record by key
+
+		  } else if( (cmd | 0x20) == 'f') {
+			  if ((stat = positionCursor(cursor, OpOne, key, keyLen)))
+				  fprintf(stderr, "findKey %s Error %d Syserr %d Line: %" PRIu64 "\n", args->inFile, stat, errno, line), myExit(args);
+
+			  if ((stat = keyAtCursor(cursor, &foundKey, &foundLen)))
+				  fprintf(stderr, "findKey %s Error %d Syserr %d Line: %" PRIu64 "\n", args->inFile, stat, errno, line), myExit(args);
+
+			  if (docHndl->hndlBits && idxHndl->hndlBits) {
+				  docId.bits = get64(foundKey, foundLen);
+				  foundLen -= size64(foundKey, foundLen);
+			  }
+
+			  if (!binaryFlds) {
+				  if (memcmp(foundKey, key, keyLen))
+					  fprintf(stderr, "findKey %s not Found: line: %" PRIu64 " expected: %.*s \n", args->inFile, line, keyLen, key), myExit(args);
+			  }
+
 		  }
 		}
 
 		msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1, "thrd:%d cmd:%c file:%s records processed: %" PRIu64 "\n", args->idx, cmd, args->inFile, line);
-
 		break;
 
-	case 'f':
-		if( pennysort )
-		  msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1, "thrd:%d cmd:%c file:%s find random keys\n", args->idx, cmd, args->inFile);
-		else
-		  msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1, "thrd:%d cmd:%c file:%s find given keys\n", args->idx, cmd, args->inFile);
-
-		if (args->noDocs)
-			parent = database;
-		else {
-			openDocStore(docHndl, database, "documents", (int)strlen("documents"), args->params);
-			parent = docHndl;
-		}
-
-		if ((stat = createIndex(idxHndl, parent, idxName, (int)strlen(idxName), args->params)))
-		  fprintf(stderr, "createIndex %s Error %d type: %s\n", args->inFile, stat, idxName), exit(0);
-
-		createCursor (cursor, idxHndl, args->params);
-
-		if (binaryFlds)
-			len = 2;
-
-		if((!fopen_s (&in, args->inFile, "r"))) {
-		  while( ch = getc_unlocked(in), ch != EOF )
-			if( ch == '\t' || ch == '\n' ) {
-			  if (binaryFlds) {
-				key[lastFld] = (len - lastFld - 2) >> 8;
-				key[lastFld + 1] = (len - lastFld - 2);
-			  }
-
-			  line++;
-
-			  if (monitor && !(line % 1000000))
-				fprintf (stderr, "thrd:%d cmd:%c line: %"   PRIu64 "\n", args->idx, cmd, line);
-
-			  len = args->keyLen;
-
-			  if ((stat = positionCursor (cursor, OpOne, key, len)))
-				fprintf(stderr, "findKey %s Error %d Syserr %d Line: %" PRIu64 "\n", args->inFile, stat, errno, line), myExit(args);
-
-			  if ((stat = keyAtCursor (cursor, &foundKey, &foundLen)))
-				fprintf(stderr, "findKey %s Error %d Syserr %d Line: %" PRIu64 "\n", args->inFile, stat, errno, line), myExit(args);
-
-			  if (docHndl->hndlBits && idxHndl->hndlBits) {
-                  docId.bits = get64(foundKey, foundLen);
-                  foundLen -= size64(foundKey, foundLen);
-			  }
-
-			  if (!binaryFlds) {
-			   if (foundLen != len)
-				fprintf(stderr, "findKey %s Error len mismatch: Line: %" PRIu64 " keyLen: %d, foundLen: %d\n", args->inFile, line, len, foundLen), myExit(args);
-
-			   if (memcmp(foundKey, key, foundLen))
-				fprintf(stderr, "findKey %s not Found: line: %" PRIu64 " expected: %.*s \n", args->inFile, line, len, key), myExit(args);
-			  }
-
-			  cnt++;
-			  len = binaryFlds ? 2 : 0;
-			  lastFld = 0;
-			} else if( len < 4096 ) {
-				if(binaryFlds)
-				if (ch == binaryFlds) {
-					key[lastFld] = (len - lastFld - 2) >> 8;
-					key[lastFld + 1] = (len - lastFld - 2);
-					lastFld = len;
-					len += 2;
-					continue;
-				}
-				key[len++] = ch;
-			}
-		}
-
-		msgLen += sprintf_s (msg + msgLen, msgMax - msgLen - 1, "thrd:%d cmd:%c file:	%s	keys processed: %" PRIu64 " keys found: %" PRIu64 "\n", args->idx, cmd, args->inFile, line, cnt);
-
-		break;
 	}
 
 	if(docHndl->hndlBits)
 		closeHandle (docHndl);
-	if(idxHndl->hndlBits)
+	if (idxHndl->hndlBits)
 		closeHandle(idxHndl);
+	if(cursor->hndlBits)
+		closeHandle(cursor);
 
 	closeHandle (database);
 	return msgLen;
@@ -878,8 +824,10 @@ int num = 0;
 	if (stats) {
 		fputc(0x0a, stderr);
 
-		fprintf(stderr, "Total memory allocated: %.3f MB\n", (double)*totalMemoryReq/(1024. * 1024.));
-		fprintf(stderr, "Bytes per key: %lld\n", *totalMemoryReq / totKeys);
+		if (totKeys) {
+			fprintf(stderr, "Total memory allocated: %.3f MB\n", (double)* totalMemoryReq / (1024. * 1024.));
+			fprintf(stderr, "Bytes per key: %lld\n", *totalMemoryReq / totKeys);
+		}
 
 		switch (params[IdxType].intVal) {
 		case 0:

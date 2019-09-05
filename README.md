@@ -177,125 +177,53 @@ Adaptive Radix Tree Index type 9 blks freed    : 00000065
 CWD: c:\Users\Owner\Source\Repos\malbrain\database PageSize: 4096, # Processors: 8, Allocation Granularity: 65536
 
 
-Sample four thread output from finding 40M pennysort keys:
+Sample output from writing then finding 10M 10 byte pennysort keys:
 
-    [karl@test7x64 xlink]# ./dbtest tstdb -cmds=f -keyLen=10 -idxType=0 -noDocs pennykey[0123]
-    started finding keys for pennykey2
-    started finding keys for pennykey0
-    started finding keys for pennykey3
-    started finding keys for pennykey1
-    finished pennykey0 for 10000000 keys, found 10000000
-    finished pennykey2 for 10000000 keys, found 10000000
-    finished pennykey1 for 10000000 keys, found 10000000
-    finished pennykey3 for 10000000 keys, found 10000000
-     real 0m9.049s
-     user 0m35.146s
-     sys  0m0.905s
+c:\Users\Owner\Source\Repos\malbrain\database>standalone db -debug -stats -cmds=wf -summary=vc -idxType=0 -bits=16  -inMem -noDocs -pennysort 10000000
 
-Sample single thread output from indexing 80M pennysort keys:
+thrd:0 cmd:w Adaptive Radix Tree: begin
+thrd:0 cmd:w random keys:10000000
+thrd:0 cmd:w file:10000000 records processed: 10000000
+thrd:0 cmd:w end
+ real 0m5.918s
+ user 0m5.765s
+ sys  0m0.140s
 
-    [karl@test7x64 xlink]# ./dbtest tstdb -cmds=w -noDocs -keyLen=10 pennykey0-7
-    started indexing for pennykey0-7
-     Total keys indexed 80000000
-     real 1m26.262s
-     user 1m15.104s
-     sys  0m10.763s
+thrd:0 cmd:f Adaptive Radix Tree: begin
+thrd:0 cmd:f random keys:10000000
+thrd:0 cmd:f file:10000000 records processed: 10000000
+thrd:0 cmd:f end
+ real 0m4.459s
+ user 0m4.469s
+ sys  0m0.000s
 
-Sample eight thread output from indexing 80M pennysort keys:
+Index Adaptive Radix Tree summary scan:
+ forward index cursor
+ key order verification
+ index key count
+ Index scan complete
+ Total keys 10000000
 
-    [karl@test7x64 xlink]# ./dbtest tstdb -cmds=w -noDocs -keyLen=10 pennykey[01234567]
-    started indexing for pennykey0
-    started indexing for pennykey1
-    started indexing for pennykey2
-    started indexing for pennykey3
-    started indexing for pennykey4
-    started indexing for pennykey5
-    started indexing for pennykey6
-    started indexing for pennykey7
-     Total keys indexed 10000000
-     Total keys indexed 10000000
-     Total keys indexed 10000000
-     Total keys indexed 10000000
-     Total keys indexed 10000000
-     Total keys indexed 10000000
-     Total keys indexed 10000000
-     Total keys indexed 10000000
-     real 0m21.129s
-     user 1m37.937s
-     sys  0m19.619s
+Total memory allocated: 868.279 MB
+Bytes per key: 91
 
-    -rw-rw-r-- 1 karl engr    1048576 Oct 18 06:22 tstdb
-    -rw-rw-r-- 1 karl engr 4294967296 Oct 18 06:22 tstdb.ARTreeIdx
+Adaptive Radix Tree Index type 1 blks allocated: 02309674
+Adaptive Radix Tree Index type 2 blks allocated: 00271812
+Adaptive Radix Tree Index type 3 blks allocated: 00266282
+Adaptive Radix Tree Index type 6 blks allocated: 10000000
+Adaptive Radix Tree Index type 8 blks allocated: 22336158
+Adaptive Radix Tree Index type 9 blks allocated: 00000065
 
-Sample output from finding 80M pennysort records:
+Adaptive Radix Tree Index type 1 blks freed    : 00271812
+Adaptive Radix Tree Index type 2 blks freed    : 00266282
+Adaptive Radix Tree Index type 8 blks freed    : 02309609
+Adaptive Radix Tree Index type 9 blks freed    : 00000065
 
-    [karl@test7x64 xlink]$ ./dbtest tstdb -cmds=f -keyLen=10 -noDocs pennykey[01234567]
-    started finding keys for pennykey1
-    started finding keys for pennykey2
-    started finding keys for pennykey0
-    started finding keys for pennykey4
-    started finding keys for pennykey3
-    started finding keys for pennykey5
-    started finding keys for pennykey6
-    started finding keys for pennykey7
-    finished pennykey5 for 10000000 keys, found 10000000
-    finished pennykey2 for 10000000 keys, found 10000000
-    finished pennykey4 for 10000000 keys, found 10000000
-    finished pennykey0 for 10000000 keys, found 10000000
-    finished pennykey3 for 10000000 keys, found 10000000
-    finished pennykey1 for 10000000 keys, found 10000000
-    finished pennykey6 for 10000000 keys, found 10000000
-    finished pennykey7 for 10000000 keys, found 10000000
-     real 0m12.355s
-     user 1m32.415s
-     sys  0m1.861s
 
-Sample output from storing/indexing/persisting 40M pennysort records (4GB):
+CWD: c:\Users\Owner\Source\Repos\malbrain\database PageSize: 4096, # Processors: 8, Allocation Granularity: 65536
 
-    [karl@test7x64 xlink]# ./dbtest tstdb -cmds=w -keyLen=10 penny0-3
-    started indexing for penny0-3
-     Total keys indexed 40000000
-     real 4m38.547s
-     user 1m6.353s
-     sys  0m19.409s
 
-    -rw-rw-r-- 1 karl karl     1048576 Oct 18 06:57 tstdb
-    -rw-rw-r-- 1 karl karl 17179869184 Oct 18 07:01 tstdb.documents
-    -rw-rw-r-- 1 karl karl  4294967296 Oct 18 07:01 tstdb.documents.ARTreeIdx
-
-Sample output with four concurrent threads each storing 10M pennysort records:
-
-    [karl@test7x64 xlink]# ./dbtest tstdb -cmds=w -keyLen=10 -idxType=1 penny[0123]
-    started pennysort insert for penny0
-    started pennysort insert for penny1
-    started pennysort insert for penny2
-    started pennysort insert for penny3
-     real 0m42.312s
-     user 2m20.475s
-     sys  0m12.352s
- 
-    -rw-r--r-- 1 karl engr    1048576 Sep 16 22:15 tstdb
-    -rw-r--r-- 1 karl engr 8589934592 Sep 16 22:16 tstdb.documents
-    -rw-r--r-- 1 karl engr 2147483648 Sep 16 22:16 tstdb.documents.Btree1Idx
-
-Sample cursor scan output and sort check of 40M pennysort records:
-
-    [karl@test7x64 xlink]# export LC_ALL=C
-    [karl@test7x64 xlink]# ./dbtest tstdb -cmds=s
-    started scanning
-     Total keys read 40000000
-     real 0m28.190s
-     user 0m22.578s
-     sys  0m4.005s
-
-Sample cursor scan count of 40M pennysort records:
-
-    [karl@test7x64 xlink]# ./dbtest tstdb -cmds=c
-    started counting
-     Total keys counted 40000000
-     real 0m20.568s
-     user 0m18.457s
-     sys  0m2.123s
+c:\Users\Owner\Source\Repos\malbrain\database>
 
 Sample cursor scan with min and max values:
 
