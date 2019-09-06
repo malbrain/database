@@ -1,5 +1,5 @@
 @ECHO on
-ECHO "40M random keys, single threaded insertions into each index type"
+ECHO "40M random 10 byte keys, single threaded insertions into each index type"
 
 @ECHO off
 del testdb*

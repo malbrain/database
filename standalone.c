@@ -42,8 +42,6 @@ bool noIdx = false;
 bool monitor = false;
 bool pipeLine = false;
 bool pennysort = false;
-bool numbers = false;
-bool keyList = false;
 
 char* idxName;
 int numThreads = 1;
@@ -84,9 +82,9 @@ typedef struct {
 } ThreadArg;
 
 char *indexNames[] = {
-	"Adaptive Radix Tree",
-	"Btree1 paged arrays of keys",
-	"Btree2 paged skiplists"
+	"ARTree",
+	"Btree1",
+	"Btree2"
 };
 
 HandleType indexType[] = {
@@ -386,9 +384,16 @@ int len = 0;
 char cmd;
 uint32_t foundLen = 0;
 uint32_t prevLen = 0;
+double startx1 = getCpuTime(0);
+double startx2 = getCpuTime(1);
+double startx3 = getCpuTime(2);
+double elapsed;
+bool numbers = false;
+bool keyList = false;
 bool reverse = false;
 bool cntOnly = false;
 bool verify = false;
+bool dump = false;
 int suffixLen = 0;
 int lastFld = 0;
 uint8_t *foundKey;
@@ -420,9 +425,11 @@ int stat;
 		  fprintf(stderr, "createIterator Error %d\n", stat), exit(0);
 
 		while ((moveIterator(iterator, IterNext, (void **)&doc, &docId) == DB_OK)) {
-            fwrite_unlocked (doc + 1, doc->size, 1, stdout);
-            fputc_unlocked ('\n', stdout);
-            cnt++;
+			if (dump) {
+				fwrite_unlocked(doc + 1, doc->size, 1, stdout);
+				fputc_unlocked('\n', stdout);
+			}
+			cnt++;
 		}
 
 		fprintf(stderr, " iterator scan total: %" PRIu64 "\n",cnt);
@@ -438,7 +445,19 @@ int stat;
 		
 		return cnt;
 
-	case 'v':
+	  case 'd':
+		dump = true;
+		continue;
+
+	  case 'n':
+		  numbers = true;
+		  continue;
+
+	  case 'k':
+		  keyList = true;
+		  continue;
+
+	  case 'v':
 		verify = true;
 		continue;
 
@@ -465,7 +484,8 @@ int stat;
 
 	if( cntOnly )
 	  fprintf(stderr, " index key count\n");
-	else
+
+	if(dump)
 	  fprintf_s(stderr, " doc/key dump\n");
 
 	if (args->minKey)
@@ -515,20 +535,6 @@ int stat;
 
 		cnt++;
 
-		if( numbers ) {
-			uint64_t lineNo = get64(foundKey, foundLen);
-			fprintf(stdout, "%.12" PRIu64 "\t", lineNo);
-		}
-
-		if( keyList )
-		  if( binaryFlds)
-			printBinary (binaryFlds, foundKey, keyLen, stdout);
-		  else
-		    fwrite_unlocked (foundKey, keyLen, 1, stdout);
-
-		if( numbers || keyList )
-			fputc_unlocked('\t', stdout);
-
 		if (verify) {
 		  if(prevLen == keyLen) {
 			 int comp = memcmp (foundKey, rec, prevLen);
@@ -547,26 +553,48 @@ int stat;
 		  continue;
 		}
 
-		if (args->noDocs)
-		 if (binaryFlds)
-		  printBinary(binaryFlds, foundKey, keyLen, stdout);
-		 else
-		  fwrite_unlocked (foundKey, keyLen, 1, stdout);
-		else {
+		if (numbers && noDocs) {
+			uint64_t lineNo = get64(foundKey, foundLen);
+			fprintf(stdout, "%.12" PRIu64 "\t", lineNo);
+		}
+
+		if (keyList)
+			if (binaryFlds)
+				printBinary(binaryFlds, foundKey, keyLen, stdout);
+			else
+				fwrite_unlocked(foundKey, keyLen, 1, stdout);
+
+		if (numbers || keyList)
+			fputc_unlocked('\t', stdout);
+
+		if( dump && !noDocs) {
 		  docId.bits = get64(foundKey, foundLen);
 		  fetchDoc(docHndl, (void **)&doc, docId);
 		  fwrite_unlocked (doc + 1, doc->size, 1, stdout);
 		}
 
-		fputc_unlocked ('\n', stdout);
+		if (numbers || keyList || dump)
+			fputc_unlocked('\n', stdout);
 	}
 
 	if (stat && stat != DB_CURSOR_eof)
 	  fprintf(stderr, " Index %s Scan: Error %d Syserr %d Line: %" PRIu64 "\n", idxName, stat, errno, cnt), exit(0);
 
 	fprintf(stderr, " Index scan complete \n Total keys %" PRIu64 "\n", cnt);
-	prevLen = 0;
  
+	elapsed = getCpuTime(0) - startx1;
+	fputc(0x0a, stderr);
+
+	fprintf(stderr, " real %dm%.3fs\n", (int)(elapsed / 60), elapsed - (int)(elapsed / 60) * 60);
+
+	elapsed = getCpuTime(1) - startx2;
+
+	fprintf(stderr, " user %dm%.3fs\n", (int)(elapsed / 60), elapsed - (int)(elapsed / 60) * 60);
+
+	elapsed = getCpuTime(2) - startx3;
+
+	fprintf(stderr, " sys  %dm%.3fs\n", (int)(elapsed / 60), elapsed - (int)(elapsed / 60) * 60);
+
 	if(cursor->hndlBits)
 	  closeCursor (cursor);
 
@@ -606,7 +634,7 @@ double elapsed;
 	  
 	  elapsed = getCpuTime(0) - startx1;
 
-	  len += sprintf_s(msg + len, sizeof(msg) - len - 1, "thrd:%d cmd:%c end\n", args->idx, cmd);
+	  len += sprintf_s(msg + len, sizeof(msg) - len - 1, "thrd:%d cmd:%c end\n\n", args->idx, cmd);
 
 	  len += sprintf_s(msg + len, sizeof(msg) - len - 1, " real %dm%.3fs\n", (int)(elapsed/60), elapsed - (int)(elapsed/60)*60);
 
@@ -722,10 +750,6 @@ int num = 0;
 	pipeLine = true;
   else if (!strncasecmp(argv[0], "-noExit", 7))
 	noExit = true;
-  else if (!strncasecmp(argv[0], "-numbers", 8))
-	numbers = true;
-  else if (!strncasecmp(argv[0], "-keyList", 8))
-	keyList = true;
   else if (!strncasecmp(argv[0], "-uniqueKeys", 11))
 	params[IdxKeyUnique].boolVal = true;
   else if (!strncasecmp(argv[0], "-idxType=", 9))
@@ -800,7 +824,7 @@ int num = 0;
 		fprintf(stderr, "Error creating thread errno = %d\n", errno);
 #endif
 
-	fprintf(stderr, "thread %d launched for file %s\n", idx, args[idx].inFile);
+	fprintf(stderr, "thread %d launched for file %s cmds %s\n", idx, args[idx].inFile, cmds);
   } while (++idx < cnt );
 
 	// 	wait for termination
