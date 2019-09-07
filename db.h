@@ -1,13 +1,16 @@
 #pragma once
 #define _GNU_SOURCE 1
 
-#include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <stdbool.h>
+#include <stdio.h>
+#include <inttypes.h>
+#include <time.h>
+#include <memory.h>
 #include <limits.h>
 #include <string.h>
 #include <assert.h>
-#include <stdlib.h>
 
 #ifndef _WIN32
 #include <unistd.h>
@@ -18,6 +21,12 @@
 #include "db_malloc.h"
 
 extern bool stats, debug;
+
+typedef enum {
+	prngRandom,		// pure randomness all streams unique
+	prngProcess,	// all streams are the same
+	prngThread		// each thread has own stream, repeats across processes
+} PRNG;
 
 #define MAX_key		4096	// maximum key size in bytes
 

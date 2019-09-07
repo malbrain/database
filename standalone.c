@@ -44,12 +44,13 @@ bool pipeLine = false;
 bool pennysort = false;
 
 char* idxName;
+int prng = 0;
 int numThreads = 1;
 char binaryFlds = 0;
 
 double getCpuTime(int type);
 
-void mynrand48seed(uint16_t *nrandState);
+void mynrand48seed(uint16_t *nrandState, int prng, uint16_t init);
 int createB64(char *key, int size, unsigned short next[3]);
 uint64_t get64(uint8_t *key, uint32_t len);
 
@@ -143,12 +144,7 @@ DbStatus stat;
 	if( pennysort )
 		docMax = 100;
 
-	if (debug)
-		memset(nrandState, 0, sizeof(nrandState));
-	else
-		mynrand48seed(nrandState);
-
-	nrandState[0] ^= args->idx;
+	mynrand48seed(nrandState, prng, args->idx);
 
 	cloneHandle(database, args->database);
 
@@ -683,13 +679,13 @@ double start;
 int num = 0;
 
 	if( argc < 3 ) {
-		fprintf (stderr, "Usage: %s db_name -cmds=[wdf] -summary=[csrvi] -idxType=[012] -bits=# -xtra=# -inMem -debug -monitor -uniqueKeys -noDocs -noIdx -keyLen=# -minKey=abcd -maxKey=abce -drop -idxBinary=. -pipeline src_file1 src_file2 ... ]\n", argv[0]);
-		fprintf (stderr, "  where db_name is the prefix name of the database files\n");
+		fprintf (stderr, "Usage: %s db_name -cmds=[wdf] -summary=[csrvikdn] -idxType=[012] -bits=# -xtra=# -inMem -stats -prng=# -debug -monitor -uniqueKeys -noDocs -noIdx -keyLen=# -minKey=abcd -maxKey=abce -drop -idxBinary=. -pipeline src_file1 src_file2 ... ]\n", argv[0]);
+		fprintf (stderr, "  where db_name is the prefix name of the database document and index files\n");
 		fprintf (stderr, "  cmds is a string of (w)rite/(d)elete/(f)ind commands, to run sequentially on each input src_file.\n");
-		fprintf (stderr, "  summary scan is a string of (c)ount/(r)ev scan/(s)can/(v)erify/(i)terate flags for a final scan after all threads have quit\n");
+		fprintf (stderr, "  summary scan is a string of (c)ount/(r)everse scan/(s)can/(v)erify/(i)terate/(k)ey list(d)ump doc(n)umber flags for a final scan after all threads have quit\n");
+		fprintf (stderr, "  pennysort creates random 100 byte B64 input lines, sets keyLen to 10, line count from the file name\n");
 		fprintf (stderr, "  idxType is the type of index: 0 = ART, 1 = btree1, 2 = btree2\n");
 		fprintf (stderr, "  keyLen is key size, zero for whole input file line\n");
-		fprintf (stderr, "  pennysort creates random input lines, taking a count from the file name\n");
 		fprintf (stderr, "  bits is the btree page size in bits\n");
 		fprintf (stderr, "  xtra is the btree leaf page extra bits\n");
 		fprintf (stderr, "  inMem specifies no disk files\n");
@@ -699,6 +695,8 @@ int num = 0;
 		fprintf (stderr, "  maxKey specifies ending cursor key\n");
 		fprintf (stderr, "  drop will initially drop database\n");
 		fprintf (stderr, "  idxBinary utilize length counted fields separated by  the given deliminator in keys\n");
+		fprintf (stderr, "  use prng number stream [012] for pennysort keys\n");
+		fprintf (stderr, "  stats keeps performance and debugging totals and prints them\n");
 		fprintf (stderr, "  uniqueKeys ensure keys are unique\n");
 		fprintf (stderr, "  run cmds in a single threaded  pipeline using one input file at a time\n");
 		fprintf (stderr, "  src_file1 thru src_filen are files of keys/documents separated by newline\n");
@@ -738,7 +736,9 @@ int num = 0;
 			monitor = true;
 		else if (!strncasecmp(argv[0], "-stats", 6))
 			stats = true;
-  else if (!strncasecmp(argv[0], "-drop", 5))
+		else if (!strncasecmp(argv[0], "-prng=", 6))
+			prng = atoi(argv[0] + 6);
+		else if (!strncasecmp(argv[0], "-drop", 5))
 	dropDb = true;
   else if (!strncasecmp(argv[0], "-noIdx", 6))
 	noIdx = true;
@@ -881,7 +881,7 @@ int num = 0;
 	if(debug) {
 #ifdef _WIN32
 	  GetSystemInfo(info);
-	  fprintf(stderr, "CWD: %s PageSize: %d, # Processors: %d, Allocation Granularity: %d\n\n", _getcwd(buf, 512), (int)info->dwPageSize, (int)info->dwNumberOfProcessors, (int)info->dwAllocationGranularity);
+	  fprintf(stderr, "\nCWD: %s PageSize: %d, # Processors: %d, Allocation Granularity: %d\n\n", _getcwd(buf, 512), (int)info->dwPageSize, (int)info->dwNumberOfProcessors, (int)info->dwAllocationGranularity);
 #endif
 	}
 }

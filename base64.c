@@ -1,10 +1,4 @@
-#include <stdint.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <stdio.h>
-#include <inttypes.h>
-#include <time.h>
-#include <memory.h>
+#include "db.h"
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -177,23 +171,38 @@ unsigned short _rand48_mult[3] = {
     RAND48_MULT_2
 };
 
-void mynrand48seed(uint16_t *nrandState) {
-time_t tod[1];
+void mynrand48seed(uint16_t* nrandState, int prng, uint16_t init) {
+	time_t tod[1];
 
 	time(tod);
 #ifdef _WIN32
-	*tod ^= GetTickCount64();
+	* tod ^= GetTickCount64();
 #else
 	{ struct timespec ts[1];
-	  clock_gettimme(CLOCK_REALTIME, ts);
-	  *tod ^= ts->tv_sec << 32 | ts->tv_nsec;
+	clock_gettimme(CLOCK_REALTIME, ts);
+	*tod ^= ts->tv_sec << 32 | ts->tv_nsec;
 	}
 #endif
-	nrandState[0] = RAND48_SEED_0 ^ (*tod & 0xffff);
-	*tod >>= 16;
-	nrandState[1] = RAND48_SEED_1 ^ (*tod & 0xffff);
-	*tod >>= 16;
-	nrandState[2] = RAND48_SEED_2 ^ (*tod & 0xffff);
+	nrandState[0] = RAND48_SEED_0;
+	nrandState[1] = RAND48_SEED_1;
+	nrandState[2] = RAND48_SEED_2;
+
+	switch (prng) {
+	case prngProcess:
+		break;
+
+	case prngThread:
+		nrandState[0] ^= init;
+		break;
+
+	case prngRandom:
+		nrandState[0] ^= (*tod & 0xffff);
+		*tod >>= 16;
+		nrandState[1] ^= (*tod & 0xffff);
+		*tod >>= 16;
+		nrandState[2] ^= (*tod & 0xffff);
+		break;
+	}
 }
 
 long mynrand48(unsigned short xseed[3]) 

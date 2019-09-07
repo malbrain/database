@@ -8,421 +8,608 @@ The standalone.c test program exercises the basic functionality of the database,
 Compile the database library and standalone test module with ./build or build.bat.
 
 ```
-Usage: dbtest db_name -cmds=[crwsdf]... -idxType=[012] -bits=# -xtra=# -inMem -noIdx -noDocs -maxKey=# -minKey=# -keyLen=# src_file1 src_file2 ... ]
-      where db_name is the prefix name of the database file
-      cmds is a string of (c)ount/(r)ev scan/(w)rite/(s)can/(d)elete/(f)ind, with a one character command for each input src_file, or a no-input command.
-      idxType is the type of index: 0 = ART, 1 = btree1, 2 = btree2
-      keyLen is key size, zero for whole line
-      bits is the btree page size in bits
-      xtra is the btree leaf page extra bits
-      inMem specifies no disk files
-      noDocs specifies keys only
-      src_file1 thru src_filen are files of keys/documents separated by newline.  Each is given to a new thread.
+Usage: standalone db_name -cmds=[wdf] -summary=[csrvikdn] -idxType=[012] -bits=# -xtra=# -inMem -stats -prng=# -debug -monitor -uniqueKeys -noDocs -noIdx -keyLen=# -minKey=abcd -maxKey=abce -drop -idxBinary=. -pipeline src_file1 src_file2 ... ]
+  where db_name is the prefix name of the database document and index files
+  cmds is a string of (w)rite/(d)elete/(f)ind commands, to run sequentially on each input src_file.
+  summary scan is a string of (c)ount/(r)everse scan/(s)can/(v)erify/(i)terate/(k)ey list(d)ump doc(n)umber flags for a final scan after all threads have quit
+  pennysort creates random 100 byte B64 input lines, sets keyLen to 10, line count from the file name
+  idxType is the type of index: 0 = ART, 1 = btree1, 2 = btree2
+  keyLen is key size, zero for whole input file line
+  bits is the btree page size in bits
+  xtra is the btree leaf page extra bits
+  inMem specifies no disk files
+  noDocs specifies keys only
+  noIdx specifies documents only
+  minKey specifies beginning cursor key
+  maxKey specifies ending cursor key
+  drop will initially drop database
+  idxBinary utilize length counted fields separated by  the given deliminator in keys
+  use prng number stream [012] for pennysort keys
+  stats keeps performance and debugging totals and prints them
+  uniqueKeys ensure keys are unique
+  run cmds in a single threaded  pipeline using one input file at a time
+  src_file1 thru src_filen are files of keys/documents separated by newline
+
 ```
 Linux compilation command:
 
-    [karl@test7x64 xlink]# cc -std=c11 -O2 -g -o dbtest standalone.c base64.c db*.c artree/*.c btree1/*.c btree2/*.c -lpthread
+    [karl@test7x64 xlink]# cc -std=c11 -O2 -g -o standalone standalone.c base64.c db*.c artree/*.c btree1/*.c btree2/*.c -lpthread
 
 ```
-Sample single thread output from indexing 40M 10 byte pennysort keys:
-
 **********************************************************************
 ** Visual Studio 2019 Developer Command Prompt v16.2.3
 ** Copyright (c) 2019 Microsoft Corporation
 **********************************************************************
 [vcvarsall.bat] Environment initialized for: 'x64'
 
+
+c:\Users\Owner\Source\Repos\malbrain\database>testfiles\test1
+Alpha testing of binary string fields
+expect 13 sorted keys
+
+standalone testdb -cmds=w -summary=skn -idxBinary=: testfiles/test1
+
+thrd:0 cmd:w ARTree: begin
+thrd:0 cmd:w file:testfiles/test1 load records
+thrd:0 cmd:w file:testfiles/test1 records processed: 13
+thrd:0 cmd:w end
+
+ real 0m0.002s
+ user 0m0.000s
+ sys  0m0.000s
+
+Index ARTree summary scan:
+ forward index cursor
+*}-Wz1;TD-
+0fssx}~[oB
+5HA\z%qt{%
+AsfAGHM5om
+Q)JN)R9z-L
+abc:def
+abcd:ef
+abcde:f
+my+=5r7(N|
+mz4VCN@a#"
+o4FoBkqERn
+uI^EYm8s=|
+~sHd0jDv6X
+ Index scan complete
+ Total keys 13
+
+ real 0m0.005s
+ user 0m0.000s
+ sys  0m0.015s
+
+Total memory allocated: 3.616 MB
+Bytes per key: 291692
+
+ARTree Index type 1 blks allocated: 00000002
+ARTree Index type 2 blks allocated: 00000001
+ARTree Index type 5 blks allocated: 00000016
+ARTree Index type 6 blks allocated: 00000013
+ARTree Index type 8 blks allocated: 00000022
+ARTree Index type 9 blks allocated: 00000010
+
+ARTree Index type 1 blks freed    : 00000001
+ARTree Index type 8 blks freed    : 00000001
+ARTree Index type 9 blks freed    : 00000002
+
+
+**********************************************************************
+
+
 c:\Users\Owner\Source\Repos\malbrain\database>testfiles\test2
+"40M random 10 byte keys, single threaded insertions into each index type"
 
-standalone.exe testdb -stats -cmds=w -summary=vc -pipeline -idxType=2 -bits=16  -inMem -noDocs -pennysort 40000000
+standalone.exe testdb -stats -cmds=w -summary=vc -idxType=2 -bits=16  -inMem -noDocs -pennysort 40000000
 
-thrd:0 cmd:w Btree2 paged skiplists: begin
+thrd:0 cmd:w Btree2: begin
 thrd:0 cmd:w random keys:40000000
 thrd:0 cmd:w file:40000000 records processed: 40000000
 thrd:0 cmd:w end
- real 1m12.629s
- user 1m12.468s
- sys  0m0.156s
 
-Index Btree2 paged skiplists summary scan:
+ real 1m14.259s
+ user 1m13.843s
+ sys  0m0.406s
+
+Index Btree2 summary scan:
  forward index cursor
  key order verification
  index key count
  Index scan complete
  Total keys 40000000
 
-Total memory allocated: 2125.543 MB
-Bytes per key: 55
+ real 0m2.508s
+ user 0m2.500s
+ sys  0m0.000s
 
-standalone.exe testdb -stats -cmds=w -summary=vc -pipeline -idxType=1 -bits=16  -inMem -noDocs -pennysort 40000000
+Total memory allocated: 2154.231 MB
+Bytes per key: 56
 
-thrd:0 cmd:w Btree1 paged arrays of keys: begin
+standalone.exe testdb -stats -cmds=w -summary=vc -idxType=1 -bits=16  -inMem -noDocs -pennysort 40000000
+
+thrd:0 cmd:w Btree1: begin
 thrd:0 cmd:w random keys:40000000
 thrd:0 cmd:w file:40000000 records processed: 40000000
 thrd:0 cmd:w end
- real 0m52.582s
- user 0m52.500s
- sys  0m0.078s
 
-Index Btree1 paged arrays of keys summary scan:
+ real 0m53.759s
+ user 0m53.531s
+ sys  0m0.218s
+
+Index Btree1 summary scan:
  forward index cursor
  key order verification
  index key count
  Index scan complete
  Total keys 40000000
+
+ real 0m2.383s
+ user 0m2.375s
+ sys  0m0.000s
 
 Total memory allocated: 1027.947 MB
 Bytes per key: 26
 
-standalone.exe testdb -stats -cmds=w -summary=vc -pipeline -idxType=0 -inMem -noDocs -pennysort 40000000
 
-thrd:0 cmd:w Adaptive Radix Tree: begin
-thrd:0 cmd:w random keys:40000000
-thrd:0 cmd:w file:40000000 records processed: 40000000
-thrd:0 cmd:w end
- real 0m27.674s
- user 0m27.313s
- sys  0m0.359s
+**********************************************************************
 
-Index Adaptive Radix Tree summary scan:
- forward index cursor
- key order verification
- index key count
- Index scan complete
- Total keys 40000000
 
-Total memory allocated: 3163.828 MB
-Bytes per key: 82
-
-Adaptive Radix Tree Index type 1 blks allocated: 12469156
-Adaptive Radix Tree Index type 2 blks allocated: 01688965
-Adaptive Radix Tree Index type 3 blks allocated: 00266305
-Adaptive Radix Tree Index type 6 blks allocated: 40000000
-Adaptive Radix Tree Index type 8 blks allocated: 92558902
-Adaptive Radix Tree Index type 9 blks allocated: 00000065
-
-Adaptive Radix Tree Index type 1 blks freed    : 01688965
-Adaptive Radix Tree Index type 2 blks freed    : 00266305
-Adaptive Radix Tree Index type 8 blks freed    : 12469091
-Adaptive Radix Tree Index type 9 blks freed    : 00000065
-
-c:\Users\Owner\Source\Repos\malbrain\database>
-```
-```
-Sample four thread output from indexing into Btree1 index 40M pennysort 10 byte keys:
 c:\Users\Owner\Source\Repos\malbrain\database>testfiles\test3
+"40M random 10 byte keys, multi-threaded insertions into Adaptive Radix Tree index""
 
-c:\Users\Owner\Source\Repos\malbrain\database>ECHO "40M random keys, multi-threaded insertions into btree1 index""
-"40M random keys, multi-threaded insertions into btree1 index""
-thread 0 launched for file 10000000
-thread 1 launched for file 10000000
-thread 2 launched for file 10000000
-thread 3 launched for file 10000000
+standalone testdb -prng=2 -stats -cmds=w -summary=vc -idxType=0 -bits=16  -inMem -noDocs -pennysort -threads=4 10000000
+thread 0 launched for file 10000000 cmds w
+thread 1 launched for file 10000000 cmds w
+thread 2 launched for file 10000000 cmds w
+thread 3 launched for file 10000000 cmds w
 
-thrd:2 cmd:w Adaptive Radix Tree: begin
-thrd:2 cmd:w random keys:10000000
-thrd:2 cmd:w file:10000000 records processed: 10000000
-thrd:2 cmd:w end
- real 0m8.635s
- user 0m33.875s
- sys  0m0.688s
-
-thrd:1 cmd:w Adaptive Radix Tree: begin
-thrd:1 cmd:w random keys:10000000
-thrd:1 cmd:w file:10000000 records processed: 10000000
-thrd:1 cmd:w end
- real 0m8.657s
- user 0m33.921s
- sys  0m0.688s
-
-thrd:0 cmd:w Adaptive Radix Tree: begin
-thrd:0 cmd:w random keys:10000000
-thrd:0 cmd:w file:10000000 records processed: 10000000
-thrd:0 cmd:w end
- real 0m8.710s
- user 0m34.015s
- sys  0m0.688s
-
-thrd:3 cmd:w Adaptive Radix Tree: begin
+thrd:3 cmd:w ARTree: begin
 thrd:3 cmd:w random keys:10000000
 thrd:3 cmd:w file:10000000 records processed: 10000000
 thrd:3 cmd:w end
- real 0m8.717s
- user 0m34.031s
- sys  0m0.688s
 
-Index Adaptive Radix Tree summary scan:
+ real 0m8.588s
+ user 0m33.812s
+ sys  0m0.546s
+
+thrd:1 cmd:w ARTree: begin
+thrd:1 cmd:w random keys:10000000
+thrd:1 cmd:w file:10000000 records processed: 10000000
+thrd:1 cmd:w end
+
+ real 0m8.592s
+ user 0m33.812s
+ sys  0m0.546s
+
+thrd:0 cmd:w ARTree: begin
+thrd:0 cmd:w random keys:10000000
+thrd:0 cmd:w file:10000000 records processed: 10000000
+thrd:0 cmd:w end
+
+ real 0m8.596s
+ user 0m33.812s
+ sys  0m0.546s
+
+thrd:2 cmd:w ARTree: begin
+thrd:2 cmd:w random keys:10000000
+thrd:2 cmd:w file:10000000 records processed: 10000000
+thrd:2 cmd:w end
+
+ real 0m8.615s
+ user 0m33.843s
+ sys  0m0.546s
+
+Index ARTree summary scan:
  forward index cursor
  key order verification
  index key count
  Index scan complete
  Total keys 40000000
 
-Total memory allocated: 3165.296 MB
+ real 0m18.537s
+ user 0m18.532s
+ sys  0m0.000s
+
+Total memory allocated: 3164.795 MB
 Bytes per key: 82
 
-Adaptive Radix Tree Index type 1 blks allocated: 12468041
-Adaptive Radix Tree Index type 2 blks allocated: 01688500
-Adaptive Radix Tree Index type 3 blks allocated: 00266306
-Adaptive Radix Tree Index type 6 blks allocated: 40000000
-Adaptive Radix Tree Index type 8 blks allocated: 92557948
-Adaptive Radix Tree Index type 9 blks allocated: 00000065
+ARTree Index type 1 blks allocated: 12468681
+ARTree Index type 2 blks allocated: 01688726
+ARTree Index type 3 blks allocated: 00266305
+ARTree Index type 6 blks allocated: 40000000
+ARTree Index type 8 blks allocated: 92558615
+ARTree Index type 9 blks allocated: 00000065
 
-Adaptive Radix Tree Index type 1 blks freed    : 01688500
-Adaptive Radix Tree Index type 2 blks freed    : 00266306
-Adaptive Radix Tree Index type 8 blks freed    : 12467976
-Adaptive Radix Tree Index type 9 blks freed    : 00000065
-
-
-CWD: c:\Users\Owner\Source\Repos\malbrain\database PageSize: 4096, # Processors: 8, Allocation Granularity: 65536
+ARTree Index type 1 blks freed    : 01688726
+ARTree Index type 2 blks freed    : 00266305
+ARTree Index type 8 blks freed    : 12468616
+ARTree Index type 9 blks freed    : 00000065
 
 
-Sample output from writing then finding 10M 10 byte pennysort keys:
+**********************************************************************
 
-c:\Users\Owner\Source\Repos\malbrain\database>standalone db -debug -stats -cmds=wf -summary=vc -idxType=0 -bits=16  -inMem -noDocs -pennysort 10000000
 
-thrd:0 cmd:w Adaptive Radix Tree: begin
+c:\Users\Owner\Source\Repos\malbrain\database>testfiles\test4
+"40M random 10 byte keys, multi-threaded insertions into btree1 index"
+
+standalone testdb -prng=2 -stats -cmds=w -summary=vc -idxType=1 -bits=16  -inMem -noDocs -pennysort -threads=4 10000000
+thread 0 launched for file 10000000 cmds w
+thread 1 launched for file 10000000 cmds w
+thread 2 launched for file 10000000 cmds w
+thread 3 launched for file 10000000 cmds w
+
+thrd:1 cmd:w Btree1: begin
+thrd:1 cmd:w random keys:10000000
+thrd:1 cmd:w file:10000000 records processed: 10000000
+thrd:1 cmd:w end
+
+ real 0m16.332s
+ user 1m5.046s
+ sys  0m0.250s
+
+thrd:0 cmd:w Btree1: begin
 thrd:0 cmd:w random keys:10000000
 thrd:0 cmd:w file:10000000 records processed: 10000000
 thrd:0 cmd:w end
- real 0m5.918s
- user 0m5.765s
- sys  0m0.140s
 
-thrd:0 cmd:f Adaptive Radix Tree: begin
+ real 0m16.359s
+ user 1m5.140s
+ sys  0m0.250s
+
+thrd:3 cmd:w Btree1: begin
+thrd:3 cmd:w random keys:10000000
+thrd:3 cmd:w file:10000000 records processed: 10000000
+thrd:3 cmd:w end
+
+ real 0m16.383s
+ user 1m5.171s
+ sys  0m0.250s
+
+thrd:2 cmd:w Btree1: begin
+thrd:2 cmd:w random keys:10000000
+thrd:2 cmd:w file:10000000 records processed: 10000000
+thrd:2 cmd:w end
+
+ real 0m16.460s
+ user 1m5.250s
+ sys  0m0.265s
+
+Index Btree1 summary scan:
+ forward index cursor
+ key order verification
+ index key count
+ Index scan complete
+ Total keys 40000000
+
+ real 0m2.383s
+ user 0m2.375s
+ sys  0m0.000s
+
+Total memory allocated: 1032.647 MB
+Bytes per key: 27
+
+
+**********************************************************************
+
+
+c:\Users\Owner\Source\Repos\malbrain\database>testfiles\test5
+"10M random 10 byte keys, insertions then searches in ARTree index"
+
+standalone testdb -prng=2 -stats -cmds=wf -summary=vc -idxType=0 -bits=16  -inMem -noDocs -pennysort 10000000
+
+thrd:0 cmd:w ARTree: begin
+thrd:0 cmd:w random keys:10000000
+thrd:0 cmd:w file:10000000 records processed: 10000000
+thrd:0 cmd:w end
+
+ real 0m5.872s
+ user 0m5.750s
+ sys  0m0.125s
+
+thrd:0 cmd:f ARTree: begin
 thrd:0 cmd:f random keys:10000000
 thrd:0 cmd:f file:10000000 records processed: 10000000
 thrd:0 cmd:f end
- real 0m4.459s
- user 0m4.469s
+
+ real 0m4.297s
+ user 0m4.297s
  sys  0m0.000s
 
-Index Adaptive Radix Tree summary scan:
+Index ARTree summary scan:
  forward index cursor
  key order verification
  index key count
  Index scan complete
  Total keys 10000000
 
-Total memory allocated: 868.279 MB
+ real 0m3.682s
+ user 0m3.672s
+ sys  0m0.000s
+
+Total memory allocated: 868.290 MB
 Bytes per key: 91
 
-Adaptive Radix Tree Index type 1 blks allocated: 02309674
-Adaptive Radix Tree Index type 2 blks allocated: 00271812
-Adaptive Radix Tree Index type 3 blks allocated: 00266282
-Adaptive Radix Tree Index type 6 blks allocated: 10000000
-Adaptive Radix Tree Index type 8 blks allocated: 22336158
-Adaptive Radix Tree Index type 9 blks allocated: 00000065
+ARTree Index type 1 blks allocated: 02309998
+ARTree Index type 2 blks allocated: 00271819
+ARTree Index type 3 blks allocated: 00266275
+ARTree Index type 6 blks allocated: 10000000
+ARTree Index type 8 blks allocated: 22336227
+ARTree Index type 9 blks allocated: 00000065
 
-Adaptive Radix Tree Index type 1 blks freed    : 00271812
-Adaptive Radix Tree Index type 2 blks freed    : 00266282
-Adaptive Radix Tree Index type 8 blks freed    : 02309609
-Adaptive Radix Tree Index type 9 blks freed    : 00000065
+ARTree Index type 1 blks freed    : 00271819
+ARTree Index type 2 blks freed    : 00266275
+ARTree Index type 8 blks freed    : 02309933
+ARTree Index type 9 blks freed    : 00000065
+
+
+**********************************************************************
+
+
+c:\Users\Owner\Source\Repos\malbrain\database>testfiles\test5
+"10M random 10 byte keys, insertions then searches in ARTree index"
+
+standalone testdb -prng=2 -stats -cmds=wf -summary=vc -idxType=0 -bits=16  -inMem -noDocs -pennysort 10000000
+
+thrd:0 cmd:w ARTree: begin
+thrd:0 cmd:w random keys:10000000
+thrd:0 cmd:w file:10000000 records processed: 10000000
+thrd:0 cmd:w end
+
+ real 0m5.901s
+ user 0m5.703s
+ sys  0m0.203s
+
+thrd:0 cmd:f ARTree: begin
+thrd:0 cmd:f random keys:10000000
+thrd:0 cmd:f file:10000000 records processed: 10000000
+thrd:0 cmd:f end
+
+ real 0m4.336s
+ user 0m4.343s
+ sys  0m0.000s
+
+Index ARTree summary scan:
+ forward index cursor
+ key order verification
+ index key count
+ Index scan complete
+ Total keys 10000000
+
+ real 0m4.278s
+ user 0m4.266s
+ sys  0m0.000s
+
+Total memory allocated: 868.853 MB
+Bytes per key: 91
+
+ARTree Index type 1 blks allocated: 02309998
+ARTree Index type 2 blks allocated: 00271819
+ARTree Index type 3 blks allocated: 00266275
+ARTree Index type 6 blks allocated: 10000000
+ARTree Index type 8 blks allocated: 22336227
+ARTree Index type 9 blks allocated: 00000065
+
+ARTree Index type 1 blks freed    : 00271819
+ARTree Index type 2 blks freed    : 00266275
+ARTree Index type 8 blks freed    : 02309933
+ARTree Index type 9 blks freed    : 00000065
+
+
+**********************************************************************
 
 
 c:\Users\Owner\Source\Repos\malbrain\database>testfiles\test6
-"40M random 10 byte keys, multi-threaded insertions then searches in Adaptive Radix Tree index"
+"40M random 10 byte keys, multi-threaded insertions then searches in btree1 index"
 
-standalone testdb -debug -stats -cmds=w -summary=vc -idxType=0 -bits=16 -noDocs -pennysort -threads=4 10000000
+standalone testdb -prng=2 -stats -cmds=w -summary=vc -idxType=0 -bits=16 -noDocs -pennysort -threads=4 10000000
 thread 0 launched for file 10000000 cmds w
 thread 1 launched for file 10000000 cmds w
 thread 2 launched for file 10000000 cmds w
 thread 3 launched for file 10000000 cmds w
 
-thrd:1 cmd:w Adaptive Radix Tree: begin
+thrd:1 cmd:w ARTree: begin
 thrd:1 cmd:w random keys:10000000
 thrd:1 cmd:w file:10000000 records processed: 10000000
 thrd:1 cmd:w end
- real 0m9.595s
- user 0m35.000s
- sys  0m2.625s
 
-thrd:2 cmd:w Adaptive Radix Tree: begin
-thrd:2 cmd:w random keys:10000000
-thrd:2 cmd:w file:10000000 records processed: 10000000
-thrd:2 cmd:w end
- real 0m9.613s
- user 0m35.046s
- sys  0m2.625s
+ real 0m9.490s
+ user 0m34.671s
+ sys  0m2.562s
 
-thrd:3 cmd:w Adaptive Radix Tree: begin
-thrd:3 cmd:w random keys:10000000
-thrd:3 cmd:w file:10000000 records processed: 10000000
-thrd:3 cmd:w end
- real 0m9.630s
- user 0m35.078s
- sys  0m2.625s
-
-thrd:0 cmd:w Adaptive Radix Tree: begin
+thrd:0 cmd:w ARTree: begin
 thrd:0 cmd:w random keys:10000000
 thrd:0 cmd:w file:10000000 records processed: 10000000
 thrd:0 cmd:w end
- real 0m9.676s
- user 0m35.125s
- sys  0m2.625s
 
-Index Adaptive Radix Tree summary scan:
+ real 0m9.514s
+ user 0m34.718s
+ sys  0m2.562s
+
+thrd:2 cmd:w ARTree: begin
+thrd:2 cmd:w random keys:10000000
+thrd:2 cmd:w file:10000000 records processed: 10000000
+thrd:2 cmd:w end
+
+ real 0m9.522s
+ user 0m34.750s
+ sys  0m2.562s
+
+thrd:3 cmd:w ARTree: begin
+thrd:3 cmd:w random keys:10000000
+thrd:3 cmd:w file:10000000 records processed: 10000000
+thrd:3 cmd:w end
+
+ real 0m9.578s
+ user 0m34.781s
+ sys  0m2.578s
+
+Index ARTree summary scan:
  forward index cursor
  key order verification
  index key count
  Index scan complete
  Total keys 40000000
 
-Total memory allocated: 3165.304 MB
+ real 0m18.846s
+ user 0m18.828s
+ sys  0m0.015s
+
+Total memory allocated: 3165.380 MB
 Bytes per key: 82
 
-Adaptive Radix Tree Index type 1 blks allocated: 12468041
-Adaptive Radix Tree Index type 2 blks allocated: 01688500
-Adaptive Radix Tree Index type 3 blks allocated: 00266306
-Adaptive Radix Tree Index type 6 blks allocated: 40000000
-Adaptive Radix Tree Index type 8 blks allocated: 92557948
-Adaptive Radix Tree Index type 9 blks allocated: 00000065
+ARTree Index type 1 blks allocated: 12468681
+ARTree Index type 2 blks allocated: 01688726
+ARTree Index type 3 blks allocated: 00266305
+ARTree Index type 6 blks allocated: 40000000
+ARTree Index type 8 blks allocated: 92558615
+ARTree Index type 9 blks allocated: 00000065
 
-Adaptive Radix Tree Index type 1 blks freed    : 01688500
-Adaptive Radix Tree Index type 2 blks freed    : 00266306
-Adaptive Radix Tree Index type 8 blks freed    : 12467976
-Adaptive Radix Tree Index type 9 blks freed    : 00000065
+ARTree Index type 1 blks freed    : 01688726
+ARTree Index type 2 blks freed    : 00266305
+ARTree Index type 8 blks freed    : 12468616
+ARTree Index type 9 blks freed    : 00000065
 
-now find those 40M keys with 4 threads
 
-standalone testdb -debug -stats -cmds=f -summary=vc -idxType=0 -bits=16 -noDocs -pennysort -threads=4 10000000
+standalone testdb -prng=2 -stats -cmds=f -summary=vc -idxType=0 -bits=16 -noDocs -pennysort -threads=4 10000000
 thread 0 launched for file 10000000 cmds f
 thread 1 launched for file 10000000 cmds f
 thread 2 launched for file 10000000 cmds f
 thread 3 launched for file 10000000 cmds f
 
-thrd:1 cmd:f Adaptive Radix Tree: begin
+thrd:1 cmd:f ARTree: begin
 thrd:1 cmd:f random keys:10000000
 thrd:1 cmd:f file:10000000 records processed: 10000000
 thrd:1 cmd:f end
- real 0m6.157s
- user 0m23.359s
- sys  0m1.203s
 
-thrd:0 cmd:f Adaptive Radix Tree: begin
-thrd:0 cmd:f random keys:10000000
-thrd:0 cmd:f file:10000000 records processed: 10000000
-thrd:0 cmd:f end
- real 0m6.212s
- user 0m23.500s
+ real 0m6.206s
+ user 0m23.578s
  sys  0m1.234s
 
-thrd:3 cmd:f Adaptive Radix Tree: begin
-thrd:3 cmd:f random keys:10000000
-thrd:3 cmd:f file:10000000 records processed: 10000000
-thrd:3 cmd:f end
- real 0m6.230s
- user 0m23.531s
- sys  0m1.203s
-
-thrd:2 cmd:f Adaptive Radix Tree: begin
+thrd:2 cmd:f ARTree: begin
 thrd:2 cmd:f random keys:10000000
 thrd:2 cmd:f file:10000000 records processed: 10000000
 thrd:2 cmd:f end
- real 0m6.274s
- user 0m23.578s
- sys  0m1.203s
 
-Index Adaptive Radix Tree summary scan:
+ real 0m6.289s
+ user 0m23.812s
+ sys  0m1.234s
+
+thrd:0 cmd:f ARTree: begin
+thrd:0 cmd:f random keys:10000000
+thrd:0 cmd:f file:10000000 records processed: 10000000
+thrd:0 cmd:f end
+
+ real 0m6.357s
+ user 0m23.937s
+ sys  0m1.234s
+
+thrd:3 cmd:f ARTree: begin
+thrd:3 cmd:f random keys:10000000
+thrd:3 cmd:f file:10000000 records processed: 10000000
+thrd:3 cmd:f end
+
+ real 0m6.393s
+ user 0m23.984s
+ sys  0m1.234s
+
+Index ARTree summary scan:
  forward index cursor
  key order verification
  index key count
  Index scan complete
  Total keys 40000000
 
+ real 0m18.281s
+ user 0m18.281s
+ sys  0m0.000s
+
 Total memory allocated: 0.443 MB
 Bytes per key: 0
 
-Sample cursor scan with min and max values:
+
+**********************************************************************
+
 
 c:\Users\Owner\Source\Repos\malbrain\database>testfiles\test7
-
 "40M random 10 byte keys, multi-threaded insertions then subset cursor over btree1 index"
 
-c:\Users\Owner\Source\Repos\malbrain\database>standalone testdb -debug -stats -cmds=w -summary=k -idxType=1 -bits=16 -minKey=aaaA -maxKey=aaaK -noDocs -pennysort -threads=4 10000000
+standalone testdb -prng=2 -stats -cmds=w -summary=k -idxType=1 -bits=16 -minKey=aaaA -maxKey=aaaK -noDocs -pennysort -threads=4 10000000
 thread 0 launched for file 10000000 cmds w
 thread 1 launched for file 10000000 cmds w
 thread 2 launched for file 10000000 cmds w
 thread 3 launched for file 10000000 cmds w
 
-thrd:0 cmd:w Btree1 paged arrays of keys: begin
-thrd:0 cmd:w random keys:10000000
-thrd:0 cmd:w file:10000000 records processed: 10000000
-thrd:0 cmd:w end
-
- real 0m16.306s
- user 1m4.500s
- sys  0m0.750s
-
-thrd:1 cmd:w Btree1 paged arrays of keys: begin
-thrd:1 cmd:w random keys:10000000
-thrd:1 cmd:w file:10000000 records processed: 10000000
-thrd:1 cmd:w end
-
- real 0m16.314s
- user 1m4.500s
- sys  0m0.750s
-
-thrd:3 cmd:w Btree1 paged arrays of keys: begin
+thrd:3 cmd:w Btree1: begin
 thrd:3 cmd:w random keys:10000000
 thrd:3 cmd:w file:10000000 records processed: 10000000
 thrd:3 cmd:w end
 
- real 0m16.380s
- user 1m4.625s
- sys  0m0.750s
+ real 0m16.527s
+ user 1m5.546s
+ sys  0m0.562s
 
-thrd:2 cmd:w Btree1 paged arrays of keys: begin
+thrd:0 cmd:w Btree1: begin
+thrd:0 cmd:w random keys:10000000
+thrd:0 cmd:w file:10000000 records processed: 10000000
+thrd:0 cmd:w end
+
+ real 0m16.563s
+ user 1m5.640s
+ sys  0m0.562s
+
+thrd:1 cmd:w Btree1: begin
+thrd:1 cmd:w random keys:10000000
+thrd:1 cmd:w file:10000000 records processed: 10000000
+thrd:1 cmd:w end
+
+ real 0m16.583s
+ user 1m5.703s
+ sys  0m0.562s
+
+thrd:2 cmd:w Btree1: begin
 thrd:2 cmd:w random keys:10000000
 thrd:2 cmd:w file:10000000 records processed: 10000000
 thrd:2 cmd:w end
 
- real 0m16.464s
- user 1m4.719s
- sys  0m0.750s
+ real 0m16.675s
+ user 1m5.796s
+ sys  0m0.562s
 
-Index Btree1 paged arrays of keys summary scan:
+Index Btree1 summary scan:
  forward index cursor
  min key: <aaaA>
  max key: <aaaK>
-aaaA`5Jc0s
-aaaBEN26y@
-aaaBTpPoRX
-aaaBZ9vZ2y
-aaaB`loMtO
-aaaBmxfvnU
-aaaCT`xBrD
-aaaCTk7MB0
-aaaC`03VXi
-aaaCscM`2F
-aaaDBNWovP
-aaaEWtt9xl
-aaaEfZaWm9
-aaaGEopxiW
-aaaGFG75Tl
-aaaGWJNVn8
-aaaGsBXyDw
-aaaHIkrQtV
-aaaHJWG6gO
-aaaHQwZJ@N
-aaaHbJmmbz
-aaaI7BS6cG
-aaaIqwxAAp
-aaaJ4hyIxf
-aaaJ9407ya
-aaaJoVKLk9
-aaaKroIRhc
+aaaBCw`d42
+aaaBONxqOK
+aaaBm90ePd
+aaaCctIYQw
+aaaCgdnoHA
+aaaCpkDRZ6
+aaaD@tGrtK
+aaaDL4uFgu
+aaaDihSWuY
+aaaDyhKhZg
+aaaE0tam4P
+aaaFiGHVmr
+aaaG5S2Vod
+aaaHQtKXpk
+aaaHyG0MNI
+aaaI4R9OlN
+aaaIJp7aPf
+aaaJBwd`ex
+aaaJjg1Fhs
+aaaKQGRIk0
+aaaKcxeoHS
+aaaKfOd4i3
+aaaKshGObR
  Index scan complete
- Total keys 27
+ Total keys 23
 
- real 0m0.017s
+ real 0m0.019s
  user 0m0.000s
  sys  0m0.000s
 
-Total memory allocated: 1034.197 MB
-Bytes per key: 40164238
+Total memory allocated: 1031.715 MB
+Bytes per key: 47036151
 
-CWD: c:\Users\Owner\Source\Repos\malbrain\database PageSize: 4096, # Processors: 8, Allocation Granularity: 65536
-
-
-c:\Users\Owner\Source\Repos\malbrain\database>

@@ -1,10 +1,9 @@
-@ECHO on
-ECHO Alpha testing of binary string fields
-
 @ECHO off
+@ECHO Alpha testing of binary string fields
+
 del testdb*
 
+@ECHO expect 13 sorted keys
 @ECHO on
-ECHO expect 13 sorted keys
 
-standalone testdb -cmds=w -keyList -summary=s -idxBinary=: testfiles/test1
+standalone testdb -cmds=w -summary=skn -idxBinary=: testfiles/test1
