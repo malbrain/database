@@ -1,0 +1,7 @@
+echo "10M random 10 byte keys, insertions then searches in ARTree index"
+
+rm testdb* 2>/dev/null
+set -v
+
+./standalone testdb -prng=2 -stats -cmds=wf -summary=vc -idxType=0 -bits=16  -inMem -noDocs -pennysort 10000000
+

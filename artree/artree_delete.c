@@ -8,7 +8,7 @@ typedef enum {
 	ErrorSearch
 } ReturnState;
 
-DbStatus artDeleteKey(Handle *index, void *key, uint16_t keyLen, uint16_t suffixLen) {
+DbStatus artDeleteKey(Handle *index, uint8_t *key, uint16_t keyLen, uint16_t suffixLen) {
 uint8_t tmpCursor[sizeof(DbCursor) + sizeof(ArtCursor)];
 ReturnState rt = ErrorSearch;
 DbCursor *dbCursor;

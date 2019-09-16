@@ -57,7 +57,7 @@ typedef struct {
 	uint32_t objSize;				// size of ObjectId array slot
 	uint16_t currSeg;				// index of highest segment
 	uint16_t objSeg;				// current segment index for ObjIds
-	uint8_t mutex[1];					// arena allocation lock/drop flag
+	volatile uint8_t mutex[1];					// arena allocation lock/drop flag
 	uint8_t type[1];					// arena type
 	uint8_t filler[128];
 } DbArena;

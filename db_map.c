@@ -237,7 +237,12 @@ void lockAddr(volatile uint64_t* bits) {
 }
 
 void unlockAddr(volatile uint64_t* bits) {
-	*bits = *bits & ~ADDR_MUTEX_SET;
+#ifdef _WIN32
+	MemoryBarrier();
+#else
+	__sync_synchronize();
+#endif
+	*bits &= ~ADDR_MUTEX_SET;
 }
 
 uint8_t atomicAnd8(volatile uint8_t *value, uint8_t mask) {

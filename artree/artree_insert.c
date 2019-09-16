@@ -115,7 +115,7 @@ ArtIndex *artIndex;
 bool pass = false;
 DbAddr keyEndSlot;
 InsertParam p[1];
-DbAddr* install;
+volatile DbAddr* install;
 
 	artIndex = artindex(index->map);
 
@@ -210,7 +210,6 @@ DbAddr* install;
 }
 
 bool artInsertParam(InsertParam *p) {
-ARTFldEnd *fldEndNode;
 DbAddr slot;
 
 	//	loop invariant: p->slot points
@@ -344,7 +343,7 @@ DbAddr slot;
 		  continue;
 
 	  if ((slot.bits = artAllocateNode(p->index, FldEnd, sizeof(ARTFldEnd)))) {
-		fldEndNode = getObj(p->index->map, slot);
+		ARTFldEnd *fldEndNode = getObj(p->index->map, slot);
 		fldEndNode->sameFld->bits = p->slot->bits & ~ADDR_MUTEX_SET;
 
 	  	p->slot->bits = slot.bits;

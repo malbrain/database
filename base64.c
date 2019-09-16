@@ -130,7 +130,7 @@ const char* base64 = "0123456789@ABCDEFGHIJKLMNOPQRSTUVWXYZ`abcdefghijklmnopqrst
 
 long mynrand48(unsigned short xseed[3]);
  
-int createB64(char *key, int size, unsigned short next[3])
+int createB64(uint8_t *key, int size, unsigned short next[3])
 {
 uint64_t byte8 = 0;
 int base;
@@ -171,7 +171,7 @@ unsigned short _rand48_mult[3] = {
     RAND48_MULT_2
 };
 
-void mynrand48seed(uint16_t* nrandState, int prng, uint16_t init) {
+void mynrand48seed(uint16_t* nrandState, PRNG prng, int init) {
 	time_t tod[1];
 
 	time(tod);
@@ -179,7 +179,7 @@ void mynrand48seed(uint16_t* nrandState, int prng, uint16_t init) {
 	* tod ^= GetTickCount64();
 #else
 	{ struct timespec ts[1];
-	clock_gettimme(CLOCK_REALTIME, ts);
+	clock_gettime(CLOCK_REALTIME, ts);
 	*tod ^= ts->tv_sec << 32 | ts->tv_nsec;
 	}
 #endif

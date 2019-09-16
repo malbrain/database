@@ -1,0 +1,6 @@
+echo "40M random 10 byte keys, multi-threaded insertions into Adaptive Radix Tree index"
+
+rm testdb* 2>/dev/null
+set -v
+
+./standalone testdb -prng=2 -stats -cmds=w -summary=vc -idxType=0 -bits=16  -inMem -noDocs -pennysort -threads=4 10000000

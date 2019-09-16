@@ -36,15 +36,6 @@ typedef struct {
 } ARTFldEnd;
 	
 /**
- * node ends the uniqueness part of the key
- */
- /*
-typedef struct {
-	DbAddr dups[1];		// sub-tree of duplicate keys
-	DbAddr next[1];		// keys that haven't ended yet
-} ARTKeyUniq;
-*/
-/**
  * key is a prefix of another longer key
  */
 
@@ -112,12 +103,12 @@ typedef struct {
 } ArtIndex;
 
 typedef struct {
-	DbAddr *addr;		// tree addr of slot
-	DbAddr slot[1];	// slot that points to node
-	uint16_t off:16;			// offset within key
-	uint16_t lastFld:16;        // offset of current field
-	int16_t ch:16;				// character of key
-	BOOL startFld:16;			// flag to start field
+	volatile DbAddr *addr;	// tree addr of slot
+	DbAddr slot[1];			// slot that points to node
+	uint16_t off;			// offset within key
+	uint16_t lastFld;		// offset of current field
+	int16_t ch;				// character of key
+	uint16_t startFld;		// flag to start field
 } CursorStack;
 
 typedef struct {
@@ -131,8 +122,8 @@ typedef struct {
 } ArtCursor;
 
 typedef struct {
-	DbAddr *slot;
-	DbAddr *prev;
+	volatile DbAddr *slot;
+	volatile DbAddr *prev;
 	DbAddr oldSlot[1];
 	DbAddr newSlot[1];
 
@@ -157,15 +148,15 @@ DbStatus artReturnCursor(DbCursor *dbCursor, DbMap *map);
 DbStatus artLeftKey(DbCursor *cursor, DbMap *map);
 DbStatus artRightKey(DbCursor *cursor, DbMap *map);
 
-DbStatus artFindKey( DbCursor *dbCursor, DbMap *map, void *key, uint16_t keyLen, uint16_t suffixLen);
+DbStatus artFindKey( DbCursor *dbCursor, DbMap *map, uint8_t *key, uint16_t keyLen, uint16_t suffixLen);
 DbStatus artNextKey(DbCursor *dbCursor, DbMap *map);
 DbStatus artPrevKey(DbCursor *dbCursor, DbMap *map);
 
 DbStatus artInit(Handle *hndl, Params *params);
-DbStatus artDeleteKey (Handle *hndl, void *key, uint16_t keyLen, uint16_t suffixLen);
-DbStatus artInsertKey (Handle *hndl, void *key, uint16_t keyLen, uint16_t suffixLen);
-DbStatus artInsertUniq (Handle *hndl, void *key, uint16_t keyLen, uint16_t suffixLen, UniqCbFcn *fcn, bool *defer);
-DbStatus artEvalUniq( DbMap *map, void *key, uint16_t keyLen, uint16_t suffixLen, UniqCbFcn *evalFcn);
+DbStatus artDeleteKey (Handle *hndl, uint8_t *key, uint16_t keyLen, uint16_t suffixLen);
+DbStatus artInsertKey (Handle *hndl, uint8_t *key, uint16_t keyLen, uint16_t suffixLen);
+DbStatus artInsertUniq (Handle *hndl, uint8_t *key, uint16_t keyLen, uint16_t suffixLen, UniqCbFcn *fcn, bool *defer);
+DbStatus artEvalUniq( DbMap *map, uint8_t *key, uint16_t keyLen, uint16_t suffixLen, UniqCbFcn *evalFcn);
 
 uint64_t artAllocateNode(Handle *index, int type, uint32_t size);
 

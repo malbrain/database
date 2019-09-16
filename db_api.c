@@ -492,6 +492,9 @@ DbStatus cloneHandle(DbHandle newHndl[1], DbHandle oldHndl[1]) {
 DbStatus stat = DB_OK;
 Handle *hndl, *hndl2;
 
+	if (oldHndl->hndlBits == 0)
+		return newHndl->hndlBits = 0, DB_OK;
+
 	if (!(hndl = bindHandle(oldHndl)))
 		return DB_ERROR_handleclosed;
 

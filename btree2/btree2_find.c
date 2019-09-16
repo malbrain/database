@@ -9,7 +9,6 @@ uint32_t pageSize;
 uint8_t *foundKey;
 uint16_t next;
 Btree2Set set[1];
-DbStatus stat;
 Btree2Slot *slot;
 
 	// find the level 0 page containing the key

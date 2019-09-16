@@ -12,8 +12,6 @@ DbAddr hndlInit[1];
 DbMap *hndlMap;
 char *hndlPath;
 
-void mynrand48seed(uint16_t *nrandState);
-
 DbAddr *slotHandle(ObjId hndlId) {
 	return fetchIdSlot (hndlMap, hndlId);
 }
@@ -101,7 +99,7 @@ DbAddr addr;
 	handle->bindCnt[0] = 1;
 	handle->map = map;
 
-	mynrand48seed(handle->nrandState);
+	mynrand48seed(handle->nrandState, prngProcess, 0);
 
 	//  allocate recycled frame queues
 	//	three times the number of node types

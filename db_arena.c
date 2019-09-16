@@ -180,7 +180,7 @@ uint32_t bits;
 
 #ifdef DEBUG
 	if (map->arenaPath)
-		fprintf(stderr, "InitMap %s at %llu bytes\n", map->arenaPath, initSize);
+		fprintf(stderr, "InitMap %s at %" PRIu64 " bytes\n", map->arenaPath, initSize);
 #endif
 #ifdef _WIN32
 	_BitScanReverse((unsigned long *)&bits, (unsigned long)initSize - 1);

@@ -9,7 +9,6 @@ DbStatus btree2DeleteKey(Handle *index, uint8_t *key, uint32_t keyLen) {
 Btree2Index *btree2 = btree2index(index->map);
 Btree2Slot *slot;
 Btree2Set set[1];
-DbStatus stat;
 uint16_t next;
 
 	memset(set, 0, sizeof(set));

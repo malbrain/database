@@ -1,0 +1,9 @@
+echo "40M random 10 byte keys, multi-threaded insertions then searches in btree1 index"
+
+rm testdb* 2>/dev/null
+set -v
+
+./standalone testdb -prng=2 -stats -cmds=w -summary=vc -idxType=1 -bits=16 -noDocs -pennysort -threads=4 10000000
+
+./standalone testdb -prng=2 -stats -cmds=f -summary=vc -idxType=1 -bits=16 -noDocs -pennysort -threads=4 10000000
+

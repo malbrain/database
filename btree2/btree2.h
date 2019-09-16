@@ -7,7 +7,7 @@
 #include "../db_api.h"
 #include "../db_cursor.h"
 #include "../db_frame.h"
-#include "../db_lock.h"
+#include "../rwlock/readerwriter.h"
 
 #define Btree2_pagenobytes  (1 + 7 + 1)
 #define Btree2_maxkey		4096	// max key size
