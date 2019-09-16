@@ -116,6 +116,8 @@ DbAddr addr;
 	hndlAddr = arrayEntry(hndlMap, map->arenaDef->hndlArray, handle->arrayIdx);
 	hndlAddr->bits = addr.bits;
 
+	if (debug)
+		printf("listIdx = %.6d  maxType = %.3d arrayIdx = %.6d\n", handle->listIdx, *handle->maxType, handle->arrayIdx);
 	//  install ObjId slot in local memory
 
 	slot->bits = addr.bits;

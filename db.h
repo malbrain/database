@@ -170,5 +170,3 @@ uint64_t get64(uint8_t *key, uint32_t len);
 uint32_t size64(uint8_t *key, uint32_t len);
 uint64_t zone64(uint8_t* key, uint32_t len, uint32_t zone);
 uint32_t calc64(int64_t value);
-
-#define db_abort(expr, msg, val) (fprintf(stderr, "db_abort: line:%d file:%s\nexpr:(%s) is false: %s\n", __LINE__, __FILE__, #expr, msg), abort(), val)

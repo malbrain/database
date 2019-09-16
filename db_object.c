@@ -117,7 +117,8 @@ ArrayHdr *hdr;
 
 	lockLatch(array->latch);
 
-	//  must at least have room for bit map
+	//  element payload size must at least hold bit map
+	//	of assigned elements in array's idx zero
 
 	if (size < ARRAY_size / 8)
 		size = ARRAY_size / 8;
@@ -130,7 +131,15 @@ ArrayHdr *hdr;
 	//	get the array header
 
 	hdr = getObj(map, *array);
-	hdr->objSize = size;
+
+	//	set the array element payload object size
+	//	or check if it matches this array's payload size
+
+	if( hdr->objSize == 0 )
+		hdr->objSize = size;
+
+	if (hdr->objSize != size)
+		db_abort(hdr, "array element payload size must remain constant", 0);
 
 	//	find a level 0 block that's not full
 	//	and scan it for an empty element
@@ -168,7 +177,7 @@ ArrayHdr *hdr;
 #		ifdef _WIN32
  		  _BitScanForward64(bits, ~inUse[seg]);
 #		else
-		  *bits = (__builtin_ffs (~inUse[seg])) - 1;
+		  *bits = (__builtin_ffsll (~inUse[seg])) - 1;
 #		endif
   
 		  //  set our bit

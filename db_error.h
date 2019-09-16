@@ -1,5 +1,7 @@
 #pragma once
 
+#define db_abort(expr, msg, val) (fprintf(stderr, "db_abort: line:%d file:%s\nexpr:(%s) is false: %s\n", __LINE__, __FILE__, #expr, msg), abort(), val)
+
 typedef enum {
 	DB_OK = 0,
 	DB_START = 1000,
