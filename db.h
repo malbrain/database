@@ -97,6 +97,13 @@ typedef union {
 	uint64_t bits;
 } ObjId;
 
+// string content
+
+typedef struct {
+	uint16_t len;
+	uint8_t str[];
+} DbString;
+
 typedef struct SkipHead_ SkipHead;
 typedef struct RedBlack_ RedBlack;
 typedef union Handle_ Handle;
@@ -164,6 +171,16 @@ typedef enum {
 typedef struct {
 	uint64_t hndlBits;
 } DbHandle;
+
+// DbVector definition
+
+typedef struct {
+	volatile uint8_t latch[1];
+	uint8_t type;
+	uint16_t vecLen;
+	uint16_t vecMax;
+	DbAddr next, vector[];
+} DbVector;
 
 uint32_t store64(uint8_t *key, uint32_t keylen, int64_t what);
 uint64_t get64(uint8_t *key, uint32_t len);

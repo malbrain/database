@@ -3,8 +3,12 @@ malbrain/database
 
 A working project for High-concurrency B-tree/ARTree Database source code in C.  This project was created as a sub-module for the /www.github.com/malbrain/javascript-database project, but it can also be used by itself as a database/indexing library. The API is documented on the Wiki pages.
 
-The standalone.c test program exercises the basic functionality of the database, and can be used as a sample database application.  For a more complete example of how MVCC and transactions can be implemented on the database core functionality, please see the javascript-database project, partcularly the js_db*.c files.
+The testfiles directory exercises the basic functionality of the database, and can be used as a sample database application.  For a more complete example of how MVCC and transactions can be implemented on the database core functionality, please see the javascript-database project, partcularly the js_db*.c files.
 
+Clone the database project:
+```
+git clone --recursive https://github.com/malbrain/database.git
+```
 Compile the database library and standalone test module with ./build or build.bat.
 
 ```
@@ -33,7 +37,7 @@ Usage: standalone db_name -cmds=[wdf] -summary=[csrvikdn] -idxType=[012] -bits=#
 ```
 Linux compilation command:
 
-    [karl@test7x64 xlink]# cc -std=c11 -O2 -g -o standalone standalone.c base64.c db*.c artree/*.c btree1/*.c btree2/*.c -lpthread
+    [karl@test7x64 xlink]# cc -std=c11 -O2 -g -o standalone standalone.c base64.c db*.c artree/*.c btree1/*.c btree2/*.c mutex/mutex.c rwlock/readerwriter.c -lpthread
 
 ```
 **********************************************************************

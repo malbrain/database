@@ -29,7 +29,7 @@ uint8_t *base;
 		return NULL;
 
 	base = getObj(map, hdr->addr[idx / ARRAY_size]);
-	base += hdr->objSize * (idx % ARRAY_size);
+	base += (uint64_t)hdr->objSize * (idx % ARRAY_size);
 	return base;
 }
 
@@ -101,7 +101,7 @@ ArrayHdr *hdr;
 	inUse += idx % ARRAY_size / 64;
 	*inUse |= 1ULL << (idx % 64);
 
-	base += size * (idx % ARRAY_size);
+	base += (uint64_t)size * (idx % ARRAY_size);
 	unlockLatch(array->latch);
 
 	return base;
@@ -157,7 +157,7 @@ ArrayHdr *hdr;
 
 		hdr->level0 = slot;
 		unlockLatch(array->latch);
-		return (uint16_t)(ARRAY_first(size) + slot * ARRAY_size);
+		return (uint16_t)(ARRAY_first(size) + (uint64_t)slot * ARRAY_size);
 	  }
 
 	  seg = hdr->addr[slot].firstx;
@@ -308,7 +308,7 @@ DbMmbr *mmbr;
 	if (first->sizeIdx < sizeof(mmbrSizes) / sizeof(uint16_t))
 	  redo = ++first->sizeIdx;
 
-	if (!(addr->bits = allocBlk(map, mmbrSizes[first->sizeIdx] * sizeof(uint64_t) + sizeof(DbMmbr), true))) {
+	if (!(addr->bits = allocBlk(map, (uint32_t)mmbrSizes[first->sizeIdx] * sizeof(uint64_t) + sizeof(DbMmbr), true))) {
 		fprintf(stderr, "xtnMmbr: out of memory");
 		exit(0);
 	}

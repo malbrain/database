@@ -311,7 +311,7 @@ DbAddr slot;
 		_BitScanReverse((unsigned long *)&bits, size - 1);
 		bits++;
 #else
-		bits = 32 - (__builtin_clz (size - 1));
+		bits = 32 - (---__builtin_clz (size - 1));
 #endif
 		amt = size;
 		type = bits * 2;
@@ -397,7 +397,7 @@ uint64_t max, addr, off;
 	lockLatch(map->arena->mutex);
 
 	max = map->arena->segs[map->arena->currSeg].size
-		  - map->arena->segs[map->arena->objSeg].nextId.idx * map->objSize;
+		  - map->arena->segs[map->arena->objSeg].nextId.idx * (uint64_t)map->objSize;
 
 	// round request up to cache line size
 
@@ -448,7 +448,7 @@ void *fetchIdSlot (DbMap *map, ObjId objId) {
 	if (objId.seg >= map->numSeg)
 		mapAll(map);
 
-	return map->base[objId.seg] + map->arena->segs[objId.seg].size - objId.idx * map->objSize;
+	return map->base[objId.seg] + map->arena->segs[objId.seg].size - objId.idx * (uint64_t)map->objSize;
 }
 
 //

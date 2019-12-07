@@ -43,5 +43,9 @@ typedef enum {
 	DB_ARTREE_error,
 	DB_ITER_eof,
 	DB_ERROR_pageisgarbage,
+	DB_ERROR_txn_being_committed,
+	DB_ERROR_txn_not_serializable,
+	DB_ERROR_key_constraint_violation,
+	DB_ERROR_no_visible_version,
 } DbStatus;
 
