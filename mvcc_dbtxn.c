@@ -24,41 +24,17 @@ uint8_t txnInit[1];
 #include <sys/time.h>
 #endif
 
-//	GlobalTxn structure
+//	GlobalTxn structure, follows ArenaDef in Txn file
 
 typedef struct {
 	DbAddr txnFree[1];		// frames of available txnId
 	DbAddr txnWait[1];		// frames of waiting txnId
-    uint32_t maxClients;
-    Timestamp baseTs[0];	// master timestamp issuer slots
+    uint16_t maxClients;	// number of timestamp slots
+    Timestamp baseTs[1];	// ATOMIC-ALIGN master timestamp slot,
+							// followed by timestamp client slots
 } GlobalTxn;
 
 GlobalTxn* globalTxn;
-
-//	install new timestamp if > or < existing value
-
-void compareSwapTs(Timestamp* dest, Timestamp* src, int chk) {
-	Timestamp cmp[1];
-
-	do {
-		cmp->tsBits = dest->tsBits;
-
-		if (chk > 0 && cmp->tsBits <= src->tsBits)
-			return;
-
-		if (chk < 0 && cmp->tsBits >= src->tsBits)
-			return;
-
-#ifdef _WIN32
-	} while (!_InterlockedCompareExchange64(&dest->tsBits, src->tsBits, cmp->tsBits));
-#else
-} while (!__atomic_compare_exchange(&dest->tsBits, cmp->tsBits, src->tsBits, false, __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE));
-#endif
-}
-
-//	install a timestamp value
-
-void installTs(Timestamp* dest, Timestamp* src) { dest->tsBits = src->tsBits; }
 
 //	initialize transaction database
 
@@ -84,7 +60,11 @@ void initTxn(int maxClients) {
 	txnMap->db = txnMap;
 
 	globalTxn = (GlobalTxn*)(txnMap->arena + 1);
-    timestampInit(globalTxn->baseTs, maxClients + 1);
+
+	if (globalTxn->maxClients == 0) {
+          timestampInit(globalTxn->baseTs, maxClients + 1);
+          globalTxn->maxClients = maxClients + 1;
+	}
 
 	*txnMap->arena->type = Hndl_txns;
 	*txnInit = Hndl_txns;
@@ -134,10 +114,10 @@ DbStatus addDocRdToTxn(ObjId txnId, ObjId docId, Ver* ver, uint64_t hndlBits) {
 
 	if ((*txn->state & TYPE_BITS) != TxnGrow)
 		stat = DB_ERROR_txn_being_committed;
-	else if (ver->sstamp->tsBits < ~0ULL)
+	else if (ver->sstamp->tsBits[1] < ~0ULL)
 		addValuesToFrame(txnMap, txn->rdrFrame, txn->rdrFirst, values, cnt);
 	else
-		compareSwapTs(txn->sstamp, ver->sstamp, -1);
+		timestampCAS(txn->sstamp, ver->sstamp, -1);
 
 	if (stat == DB_OK)
 		if (txn->sstamp->tsBits <= txn->pstamp->tsBits)
@@ -186,7 +166,7 @@ DbStatus addDocWrToTxn(ObjId txnId, ObjId docId, Ver* ver, Ver* prevVer, uint64_
 
 	if (txn->isolation == Serializable) {
 		if (prevVer)
-			compareSwapTs(txn->pstamp, prevVer->pstamp, -1);
+			timestampCAS(txn->pstamp, prevVer->pstamp, -1);
 
 		if (txn->sstamp->tsBits <= txn->pstamp->tsBits)
 			stat = DB_ERROR_txn_not_serializable;
@@ -203,7 +183,7 @@ DbStatus addDocWrToTxn(ObjId txnId, ObjId docId, Ver* ver, Ver* prevVer, uint64_
 
 // 	begin a new Txn
 
-uint64_t beginTxn(Params* params, uint64_t* txnBits, Timestamp* tsGen) {
+uint64_t beginTxn(Params* params, uint64_t* txnBits) {
   ObjId txnId;
   Txn* txn;
 
@@ -218,11 +198,16 @@ uint64_t beginTxn(Params* params, uint64_t* txnBits, Timestamp* tsGen) {
   else
     txn->isolation = SnapShot;
 
-  txn->reader->tsBits = timestampNext(tsGen);
+  if ((txn->tsClnt = timestampClnt(globalTxn->baseTs, globalTxn->maxClients))) {
+    timestampNext(globalTxn->baseTs, txn->tsClnt);
+    installTs(txn->reader, globalTxn->baseTs + txn->tsClnt);
+  } else
+    ////////////return NULL;
+
   txn->nextTxn = *txnBits;
   *txn->state = TxnGrow;
 
-  txn->sstamp->tsBits = ~0ULL;
+  txn->sstamp->tsBits[1] = ~0ULL;
   return *txnBits = txnId.bits;
 }
 
@@ -393,7 +378,7 @@ bool SSNCommit(Txn *txn) {
 
         //	keep larger pstamp
 
-        compareSwapTs(txn->pstamp, prevVer->pstamp, -1);
+        timestampCAS(txn->pstamp, prevVer->pstamp, -1);
 
         unlockLatch(docSlot->latch);
         frameSet = 0;
@@ -465,7 +450,7 @@ bool SSNCommit(Txn *txn) {
 
         //	keep smaller sstamp
 
-        compareSwapTs(txn->sstamp, prevVer->sstamp, 1);
+        timestampCAS(txn->sstamp, prevVer->sstamp, 1);
         continue;
       }
 
@@ -489,7 +474,8 @@ bool SSNCommit(Txn *txn) {
     next.bits = frame->prev.bits;
   }
 
-  if (txn->sstamp->tsBits <= txn->pstamp->tsBits) result = false;
+  if (timestampCmp(txn->sstamp, txn->pstamp) <= 0) 
+	  result = false;
 
   if (result)
     *txn->state = TxnCommit | MUTEX_BIT;
@@ -536,7 +522,7 @@ bool SSNCommit(Txn *txn) {
 
         //	keep larger ver pstamp
 
-        compareSwapTs(ver->pstamp, txn->commit, -1);
+        timestampCAS(ver->pstamp, txn->commit, -1);
         continue;
       }
 
@@ -621,11 +607,12 @@ bool SSNCommit(Txn *txn) {
           prevVer = NULL;
       }
 
-      if (prevVer) installTs(prevVer->sstamp, txn->commit);
+      if (prevVer)
+		  installTs(prevVer->sstamp, txn->commit);
 
       installTs(ver->commit, txn->commit);
       installTs(ver->pstamp, txn->commit);
-      ver->sstamp->tsBits = ~0ULL;
+      ver->sstamp->tsBits[1] = ~0ULL;
 
       doc->txnId.bits = 0;
       doc->op = Done;
@@ -660,42 +647,7 @@ bool snapshotCommit(Txn *txn) {
   while ((addr.bits = next.bits)) {
     Frame *frame = getObj(txnMap, addr);
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    // when we get to the last frame,
+	// when we get to the last frame,
     //	pull the count from free head
 
     if (!frame->prev.bits)
@@ -745,7 +697,7 @@ bool snapshotCommit(Txn *txn) {
   return true;
 }
 
-DbStatus commitTxn(Params *params, uint64_t *txnBits, Timestamp *tsGen) {
+DbStatus commitTxn(Params *params, uint64_t *txnBits) {
   ObjId txnId;
   Txn *txn;
 
@@ -761,7 +713,8 @@ DbStatus commitTxn(Params *params, uint64_t *txnBits, Timestamp *tsGen) {
 
   //	commit the transaction
 
-  txn->commit->tsBits = timestampNext(tsGen);
+  timestampNext(globalTxn->baseTs, txn->tsClnt);
+  installTs(txn->commit, globalTxn->baseTs + txn->tsClnt);
 
   switch (txn->isolation) {
     case Serializable:

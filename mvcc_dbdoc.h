@@ -86,15 +86,6 @@ typedef struct {
 	TxnCC isolation;		// txn isolation mode
 } DbMvcc;
 
-//	Document version retrieved/updated from a docStore
-
-struct Document {
-	DbHandle hndl[1];		// docStore handle
-//	value_t value;		// version value
-	uint8_t *base;			// pointer to doc base
-	Ver *ver;				// pointer to version
-};
-	
 //	catalog concurrency parameters
 
 typedef struct {
@@ -126,8 +117,9 @@ typedef struct {
 		struct {
 			uint8_t isolation;
 			volatile uint8_t state[1];
-		};
-		TxnCC disp : 8;			// display isolation mode
+            uint16_t tsClnt;  // timestamp generator slot
+        };
+		TxnCC disp : 8;		  // display isolation mode in debugger
 	};
 } Txn;
 
@@ -140,14 +132,11 @@ DbStatus addDocRdToTxn(ObjId txnId, ObjId docId, Ver* ver, uint64_t hndlBits);
 DbStatus addDocWrToTxn(ObjId txnId, ObjId docId, Ver* ver, Ver* prevVer, uint64_t hndlBits);
 Txn* fetchTxn(ObjId txnId);
 
-uint64_t beginTxn(Params* params, uint64_t* txnBits, Timestamp* tsGen);
+uint64_t beginTxn(Params* params, uint64_t* txnBits);
 DbStatus rollbackTxn(Params* params, uint64_t* txnBits);
-DbStatus commitTxn(Params* params, uint64_t* txnBits, Timestamp* tsGen);
+DbStatus commitTxn(Params* params, uint64_t* txnBits);
 
 DbStatus findDocVer(DbMap* docStore, Doc* doc, DbMvcc* dbMvcc, Ver *ver[1]);
-DbStatus updateDoc(Handle* idxHndls[], Doc *doc, ObjId txnId, Timestamp* tsGen);
+DbStatus updateDoc(Handle* idxHndls[], Doc *doc, ObjId txnId);
 DbStatus insertDoc(Handle* idxHndls[], uint8_t* val, uint32_t docSize,
-                   uint64_t docBits, DbAddr* keys, ObjId txnId, Ver* ver[2],
-                   Timestamp* tsGen);
-
-
+                   uint64_t docBits, DbAddr* keys, ObjId txnId, Ver* ver[2]);
