@@ -83,9 +83,9 @@ Txn* fetchTxn(ObjId txnId) {
 //	do not call for "read my writes"
 
 DbStatus addDocRdToTxn(ObjId txnId, ObjId docId, Ver* ver, uint64_t hndlBits) {
-	DbStatus stat = DB_OK;
 	Txn* txn = fetchTxn(txnId);
-	uint64_t values[3];
+    DbStatus stat = DB_OK;
+    uint64_t values[3];
 	Handle* docHndl;
 	DbAddr* slot;
 	int cnt = 0;
@@ -120,8 +120,8 @@ DbStatus addDocRdToTxn(ObjId txnId, ObjId docId, Ver* ver, uint64_t hndlBits) {
 		timestampCAS(txn->sstamp, ver->sstamp, -1);
 
 	if (stat == DB_OK)
-		if (txn->sstamp->tsBits <= txn->pstamp->tsBits)
-			stat = DB_ERROR_txn_not_serializable;
+      if (timestampCmp(txn->sstamp, txn->pstamp) <= 0)
+		stat = DB_ERROR_txn_not_serializable;
 
 	unlockLatch(txn->state);
 	return stat;
@@ -130,13 +130,10 @@ DbStatus addDocRdToTxn(ObjId txnId, ObjId docId, Ver* ver, uint64_t hndlBits) {
 //	add version creation to txn write-set
 //  do not call for "update my writes"
 
-//	add docId and verNo to txn read-set
-//	do not call for "read my writes"
-
 DbStatus addDocWrToTxn(ObjId txnId, ObjId docId, Ver* ver, Ver* prevVer, uint64_t hndlBits) {
-	DbStatus stat = DB_OK;
 	Txn* txn = fetchTxn(txnId);
-	uint64_t values[2];
+    DbStatus stat = DB_OK;
+    uint64_t values[2];
 	Handle* docHndl;
 	DbAddr* slot;
 	int cnt = 0;
@@ -168,7 +165,7 @@ DbStatus addDocWrToTxn(ObjId txnId, ObjId docId, Ver* ver, Ver* prevVer, uint64_
 		if (prevVer)
 			timestampCAS(txn->pstamp, prevVer->pstamp, -1);
 
-		if (txn->sstamp->tsBits <= txn->pstamp->tsBits)
+		if (timestampCmp(txn->sstamp, txn->pstamp) <= 0)
 			stat = DB_ERROR_txn_not_serializable;
 	}
 
@@ -183,32 +180,39 @@ DbStatus addDocWrToTxn(ObjId txnId, ObjId docId, Ver* ver, Ver* prevVer, uint64_
 
 // 	begin a new Txn
 
-uint64_t beginTxn(Params* params, uint64_t* txnBits) {
+uint64_t beginTxn(Params* params, uint64_t* nestedTxnBits) {
+  uint16_t tsClnt;
   ObjId txnId;
   Txn* txn;
 
   if (!*txnInit) initTxn(1024);
 
-  txnId.bits = allocObjId(txnMap, globalTxn->txnFree, globalTxn->txnWait);
-  txn = fetchIdSlot(txnMap, txnId);
+  if ((tsClnt = timestampClnt(globalTxn->baseTs, globalTxn->maxClients)))
+    timestampNext(globalTxn->baseTs, tsClnt);
+  else
+    return 0;
+
+  if ((txnId.bits = allocObjId(txnMap, globalTxn->txnFree, globalTxn->txnWait)))
+    txn = fetchIdSlot(txnMap, txnId);
+  else {
+    timestampQuit(globalTxn->baseTs, tsClnt);
+    return 0;
+  }
+
   memset(txn, 0, sizeof(Txn));
+  timestampInstall(txn->reader, globalTxn->baseTs + tsClnt);
 
   if (params[Concurrency].intVal)
     txn->isolation = params[Concurrency].charVal;
   else
     txn->isolation = SnapShot;
 
-  if ((txn->tsClnt = timestampClnt(globalTxn->baseTs, globalTxn->maxClients))) {
-    timestampNext(globalTxn->baseTs, txn->tsClnt);
-    installTs(txn->reader, globalTxn->baseTs + txn->tsClnt);
-  } else
-    ////////////return NULL;
-
-  txn->nextTxn = *txnBits;
+  txn->tsClnt = tsClnt;
+  txn->nextTxn = *nestedTxnBits;
   *txn->state = TxnGrow;
 
   txn->sstamp->tsBits[1] = ~0ULL;
-  return *txnBits = txnId.bits;
+  return *nestedTxnBits = txnId.bits;
 }
 
 DbStatus rollbackTxn(Params *params, uint64_t *txnBits) { return DB_OK; }
@@ -607,11 +611,10 @@ bool SSNCommit(Txn *txn) {
           prevVer = NULL;
       }
 
-      if (prevVer)
-		  installTs(prevVer->sstamp, txn->commit);
+      if (prevVer) timestampInstall(prevVer->sstamp, txn->commit);
 
-      installTs(ver->commit, txn->commit);
-      installTs(ver->pstamp, txn->commit);
+      timestampInstall(ver->commit, txn->commit);
+      timestampInstall(ver->pstamp, txn->commit);
       ver->sstamp->tsBits[1] = ~0ULL;
 
       doc->txnId.bits = 0;
@@ -678,7 +681,7 @@ bool snapshotCommit(Txn *txn) {
       doc = getObj(docHndl->map, *slot);
       ver = (Ver *)((uint8_t *)doc + doc->lastVer);
 
-      installTs(ver->commit, txn->commit);
+      timestampInstall(ver->commit, txn->commit);
       doc->txnId.bits = 0;
       doc->op = Done;
 
@@ -714,7 +717,7 @@ DbStatus commitTxn(Params *params, uint64_t *txnBits) {
   //	commit the transaction
 
   timestampNext(globalTxn->baseTs, txn->tsClnt);
-  installTs(txn->commit, globalTxn->baseTs + txn->tsClnt);
+  timestampInstall(txn->commit, globalTxn->baseTs + txn->tsClnt);
 
   switch (txn->isolation) {
     case Serializable:
@@ -733,6 +736,7 @@ DbStatus commitTxn(Params *params, uint64_t *txnBits) {
   //	remove nested txn
   //	and unlock
 
+  timestampQuit(globalTxn->baseTs, txn->tsClnt);
   *txnBits = txn->nextTxn;
   *txn->state = Done;
   return DB_OK;
