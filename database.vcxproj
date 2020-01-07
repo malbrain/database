@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>15.0</VCProjectVersion>
+    <ProjectGuid>{37384FBC-66EE-4A45-9ECD-4CD26FE27A17}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+    <CharacterSet>NotSet</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <LinkIncremental>true</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <LinkIncremental>true</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <Optimization>Disabled</Optimization>
+    </ClCompile>
+    <Link>
+      <TargetMachine>MachineX86</TargetMachine>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <SubSystem>Console</SubSystem>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+    </ClCompile>
+    <Link>
+      <TargetMachine>MachineX86</TargetMachine>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <SubSystem>Console</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <TreatWChar_tAsBuiltInType>false</TreatWChar_tAsBuiltInType>
+      <SupportJustMyCode>false</SupportJustMyCode>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <PreprocessorDefinitions>
+      </PreprocessorDefinitions>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+    </ClCompile>
+    <Link>
+      <GenerateMapFile>true</GenerateMapFile>
+    </Link>
+    <Link>
+      <MapFileName>database.map</MapFileName>
+      <RandomizedBaseAddress>false</RandomizedBaseAddress>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="artree\artree.c" />
+    <ClCompile Include="artree\artree_cursor.c" />
+    <ClCompile Include="artree\artree_delete.c" />
+    <ClCompile Include="artree\artree_find.c" />
+    <ClCompile Include="artree\artree_insert.c" />
+    <ClCompile Include="artree\artree_uniq.c" />
+    <ClCompile Include="base64.c" />
+    <ClCompile Include="btree1\btree1.c" />
+    <ClCompile Include="btree1\btree1_cursor.c" />
+    <ClCompile Include="btree1\btree1_delete.c" />
+    <ClCompile Include="btree1\btree1_find.c" />
+    <ClCompile Include="btree1\btree1_insert.c" />
+    <ClCompile Include="btree1\btree1_util.c" />
+    <ClCompile Include="btree2\btree2.c" />
+    <ClCompile Include="btree2\btree2_cursor.c" />
+    <ClCompile Include="btree2\btree2_delete.c" />
+    <ClCompile Include="btree2\btree2_find.c" />
+    <ClCompile Include="btree2\btree2_insert.c" />
+    <ClCompile Include="btree2\btree2_skip.c" />
+    <ClCompile Include="btree2\btree2_util.c" />
+    <ClCompile Include="db_api.c" />
+    <ClCompile Include="db_arena.c" />
+    <ClCompile Include="db_cputime.c" />
+    <ClCompile Include="db_cursor.c" />
+    <ClCompile Include="db_drop.c" />
+    <ClCompile Include="db_frame.c" />
+    <ClCompile Include="db_handle.c" />
+    <ClCompile Include="db_iterator.c" />
+    <ClCompile Include="db_malloc.c" />
+    <ClCompile Include="db_map.c" />
+    <ClCompile Include="db_object.c" />
+    <ClCompile Include="db_params.c" />
+    <ClCompile Include="db_redblack.c" />
+    <ClCompile Include="db_skiplist.c" />
+    <ClCompile Include="Hi-Performance-Timestamps\timestamps.c" />
+    <ClCompile Include="mutex\mutex.c" />
+    <ClCompile Include="mvcc_dbapi.c" />
+    <ClCompile Include="mvcc_dbdoc.c" />
+    <ClCompile Include="mvcc_dbidx.c" />
+    <ClCompile Include="mvcc_dbtxn.c" />
+    <ClCompile Include="rwlock\readerwriter.c" />
+    <ClCompile Include="standalone.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="artree\artree.h" />
+    <ClInclude Include="btree1\btree1.h" />
+    <ClInclude Include="btree2\btree2.h" />
+    <ClInclude Include="btree2\btree2_slot.h" />
+    <ClInclude Include="db.h" />
+    <ClInclude Include="db_api.h" />
+    <ClInclude Include="db_arena.h" />
+    <ClInclude Include="db_cursor.h" />
+    <ClInclude Include="db_error.h" />
+    <ClInclude Include="db_frame.h" />
+    <ClInclude Include="db_handle.h" />
+    <ClInclude Include="db_iterator.h" />
+    <ClInclude Include="db_malloc.h" />
+    <ClInclude Include="db_map.h" />
+    <ClInclude Include="db_object.h" />
+    <ClInclude Include="db_redblack.h" />
+    <ClInclude Include="db_skiplist.h" />
+    <ClInclude Include="Hi-Performance-Timestamps\timestamps.h" />
+    <ClInclude Include="mutex\mutex.h" />
+    <ClInclude Include="mvcc_dbapi.h" />
+    <ClInclude Include="mvcc_dbdoc.h" />
+    <ClInclude Include="mvcc_dbidx.h" />
+    <ClInclude Include="rwlock\readerwriter.h" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>
