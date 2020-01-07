@@ -1,6 +1,7 @@
 #pragma once
 
 //	iterator object
+//	created in handle client area
 
 typedef struct {
 	ObjId docId;		// current ObjID

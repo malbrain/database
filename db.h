@@ -18,7 +18,6 @@
 #endif
 
 #include "db_error.h"
-#include "db_malloc.h"
 
 extern bool stats, debug;
 
@@ -47,7 +46,8 @@ typedef enum {
 	Hndl_colIndex,
 	Hndl_iterator,
 	Hndl_cursor,
-	Hndl_txns
+	Hndl_txns,
+	Hndl_max
 } HandleType;
 
 //	general object pointer
@@ -70,7 +70,8 @@ typedef union {
 			uint8_t maxidx;		// maximum slot index in use
 			uint8_t firstx;		// first array inUse to chk
 			uint8_t ttype;		// index transaction type
-			int8_t rbcmp;		// red/black comparison
+            uint8_t docIdx;     // document key index no
+            int8_t rbcmp;       // red/black comparison
 		};
 	};
 	uint64_t addr:48;			// segment/offset
@@ -106,7 +107,6 @@ typedef struct {
 
 typedef struct SkipHead_ SkipHead;
 typedef struct RedBlack_ RedBlack;
-typedef union Handle_ Handle;
 typedef struct DbMap_ DbMap;
 
 //	param slots
@@ -165,11 +165,10 @@ typedef enum {
 	OpAfter		= 'a'
 } CursorOp;
 
-// user's DbHandle
-//	contains the Handle ObjId bits
+// DbHandle
 
 typedef struct {
-	uint64_t hndlBits;
+  ObjId hndlId;
 } DbHandle;
 
 // DbVector definition
@@ -187,3 +186,5 @@ uint64_t get64(uint8_t *key, uint32_t len);
 uint32_t size64(uint8_t *key, uint32_t len);
 uint64_t zone64(uint8_t* key, uint32_t len, uint32_t zone);
 uint32_t calc64(int64_t value);
+
+#include "db_malloc.h"

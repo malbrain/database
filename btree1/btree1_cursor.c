@@ -1,26 +1,15 @@
 #include "btree1.h"
 
-DbStatus btree1NewCursor(DbCursor *dbCursor, DbMap *map) {
+DbStatus btree1NewCursor(DbCursor *dbCursor, DbMap *idxMap) {
 Btree1Cursor *cursor = (Btree1Cursor *)dbCursor;
-Btree1Index *btree1 = btree1index(map);
-uint32_t size;
+Btree1Index *btree1 = btree1index(idxMap);
 
-	//	allocate cursor page buffer
-
-	size = btree1->pageSize << btree1->leafXtra;
-
-	cursor->pageAddr.bits = db_rawAlloc(size, false);
-	cursor->page = db_memObj(cursor->pageAddr.bits);
+	cursor->leafSize = btree1->pageSize << btree1->leafXtra;
 	cursor->slotIdx = 1;
 	return DB_OK;
 }
 
 DbStatus btree1ReturnCursor(DbCursor *dbCursor, DbMap *map) {
-Btree1Cursor *cursor = (Btree1Cursor *)dbCursor;
-
-	// return cursor page buffer
-
-	db_memFree(cursor->pageAddr.bits);
 	return DB_OK;
 }
 
@@ -87,7 +76,7 @@ uint8_t *key;
 	  }
 
 	  if (cursor->page->right.bits)
-		cursor->page = getObj(map, cursor->page->right);
+		memcpy(cursor->page, getObj(map, cursor->page->right), cursor->leafSize);
 	  else
 		break;
 
@@ -128,8 +117,8 @@ uint8_t *key;
 		return DB_OK;
 	  }
 
-	  if( (cursor->addr.bits = cursor->page->left.bits) )
-		cursor->page = getObj(map, cursor->page->left);
+	  if( cursor->page->left.bits )
+		memcpy(cursor->page, getObj(map, cursor->page->left), cursor->leafSize);
 	  else
 		break;
 

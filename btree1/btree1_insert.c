@@ -10,14 +10,16 @@ uint32_t sfxLen;
 
     memcpy(keyBuff, key, keyLen);
 	sfxLen = store64(keyBuff, keyLen, suffix);
+    keyBuff[keyLen + Btree1_pagenobytes - 1] = Btree1_pagenobytes - sfxLen;
 
-	while( sfxLen < Btree1_pagenobytes )
+	while( sfxLen < Btree1_pagenobytes - 1 )
 		keyBuff[keyLen + sfxLen++] = 0;
 
-	return btree1InsertKey(index, keyBuff, keyLen, sfxLen, lvl, type);
+	return btree1InsertKey(index, keyBuff, keyLen, sfxLen + 1, lvl, type);
 }
 
 DbStatus btree1InsertKey(Handle *index, uint8_t *key, uint32_t keyLen, uint32_t sfxLen, uint8_t lvl, Btree1SlotType type) {
+DbMap *idxMap = MapAddr(index);
 uint32_t totLen = keyLen + sfxLen;
 uint32_t idx, pfxLen;
 Btree1Slot *slot;
@@ -34,7 +36,7 @@ uint32_t fence;
 	while (true) {
 	  memset(set, 0, sizeof(set));
 
-	  if ((stat = btree1LoadPage(index->map, set, key, totLen, lvl, false, false, Btree1_lockWrite)))
+	  if ((stat = btree1LoadPage(idxMap, set, key, totLen, lvl, false, false, Btree1_lockWrite)))
 		return stat;
 
 	  if ((stat = btree1CleanPage(index, set, totLen + pfxLen))) {
@@ -133,6 +135,7 @@ fillSlot:
 //	update page's fence key in its parent
 
 DbStatus btree1FixKey (Handle *index, uint8_t *fenceKey, uint64_t prev, uint64_t suffix, uint8_t lvl, bool stopper) {
+DbMap *idxMap = MapAddr(index);
 uint32_t keyLen, sfxLen, len;
 uint8_t *ptr, *key, *dest;
 uint64_t oldSuffix;
@@ -150,7 +153,7 @@ DbStatus stat;
 
 	memset(set, 0, sizeof(set));
 
-	if ((stat = btree1LoadPage(index->map, set, key, keyLen,  lvl, true, stopper, Btree1_lockWrite)))
+	if ((stat = btree1LoadPage(idxMap, set, key, keyLen,  lvl, true, stopper, Btree1_lockWrite)))
 		return stat;
 
 	slot = slotptr(set->page, set->slotIdx);
@@ -173,8 +176,9 @@ DbStatus stat;
 
 	len -= Btree1_pagenobytes;
 	sfxLen = store64(dest, len, suffix);
+    dest[len + Btree1_pagenobytes - 1] = Btree1_pagenobytes - sfxLen;
 
-	while( sfxLen < Btree1_pagenobytes )
+	while( sfxLen < Btree1_pagenobytes - 1)
 		dest[len + sfxLen++] = 0;
 
 	// release write lock

@@ -9,7 +9,7 @@
 #include "../db_frame.h"
 #include "../rwlock/readerwriter.h"
 
-#define Btree2_pagenobytes  (1 + 7 + 1)
+#define Btree2_pagenobytes  (2 + 7 + 1)
 #define Btree2_maxkey		4096	// max key size
 #define Btree2_maxtower		16		// max height of skip tower
 #define Btree2_maxslots		65536	// max skip entries
@@ -34,6 +34,8 @@ typedef enum {
 	Btree2_interior = 3,
 	MAXBtree2Type,
 } Btree2PageType;
+
+
 
 //	page Attributes
 

@@ -30,8 +30,8 @@ typedef struct {
 	uint64_t nxtVer;			// next arena version when creating
 	uint64_t childId;			// highest child Id we've issued
 	uint64_t creation;			// milliseconds since 1/1/70
-	uint32_t mapXtra;			// extra space after DbMap
-	uint32_t baseSize;			// extra space after DbArena
+	uint32_t mapXtra;			// extra local space after DbMap
+	uint32_t baseSize;			// shared space after DbArena (DocStore, DbIndex)
 	uint32_t objSize;			// size of ObjectId array slot
 	uint8_t arenaType;			// type of the arena
 	uint8_t numTypes;			// number of node types
@@ -53,7 +53,7 @@ typedef struct {
 	DbAddr rbAddr[1];				// address of r/b entry
 	uint64_t objCount;				// overall number of objects
 	uint64_t objSpace;				// overall size of objects
-	uint32_t baseSize;				// extra space after DbArena
+	uint32_t baseSize;				// client space after DbArena (DbIndex, DocStore)
 	uint32_t objSize;				// size of ObjectId array slot
 	uint16_t currSeg;				// index of highest segment
 	uint16_t objSeg;				// current segment index for ObjIds
@@ -62,7 +62,8 @@ typedef struct {
 	uint8_t filler[128];
 } DbArena;
 
-//	per instance arena structure
+//	per instance arena map structure
+//	created when map is opened
 
 struct DbMap_ {
 	char *base[MAX_segs];	// pointers to mapped segment memory
@@ -75,9 +76,10 @@ struct DbMap_ {
 	DbArena *arena;			// ptr to mapped seg zero
 	char *arenaPath;		// file database path
 	DbMap *parent, *db;		// ptr to parent and database
-	ArenaDef *arenaDef;		// pointer to database object
+	ArenaDef *arenaDef;		// database configuration
 	DbAddr childMaps[1];	// skipList of child DbMaps
 	RedBlack *rbEntry;		// redblack entry address
+    char *name;				// inMem map name
 	uint32_t openCnt[1];	// count of open children
 	uint32_t objSize;		// size of ObjectId array slot
 	uint16_t pathLen;		// length of arena path

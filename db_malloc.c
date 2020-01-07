@@ -6,105 +6,110 @@
 
 #include "db.h"
 #include "db_arena.h"
-#include "db_map.h"
 #include "db_malloc.h"
+#include "db_map.h"
 
 //
 // Raw object wrapper
 //
 
 typedef struct {
-	DbAddr addr;
+  DbAddr addr;
+  uint32_t size;
 } dbobj_t;
 
 DbArena memArena[1];
 DbMap memMap[1];
 
 void memInit(void) {
-ArenaDef arenaDef[1];
+  ArenaDef arenaDef[1];
 
-	memMap->arena = memArena;
-	memMap->db = memMap;
+  memMap->arena = memArena;
+  memMap->db = memMap;
 
 #ifdef _WIN32
-	memMap->hndl = INVALID_HANDLE_VALUE;
+  memMap->hndl = INVALID_HANDLE_VALUE;
 #else
-	memMap->hndl = -1;
+  memMap->hndl = -1;
 #endif
 
-	//	set up memory arena and handle addr ObjId
+  //	set up memory arena and handle addr ObjId
 
-	memset (arenaDef, 0, sizeof(arenaDef));
-	arenaDef->objSize = sizeof(DbAddr);
+  memset(arenaDef, 0, sizeof(arenaDef));
+  arenaDef->objSize = sizeof(DbAddr);
 
-	initArena(memMap, arenaDef, "malloc", 6, NULL);
+  initArena(memMap, arenaDef, "malloc", 6, NULL);
 }
 
-uint32_t db_rawSize (uint64_t address) {
-uint32_t size;
-DbAddr addr;
-int bits;
+uint32_t db_rawSize(DbAddr addr) {
+int bits = addr.type / 2;
+uint32_t  size = 1 << bits;
 
-	addr.bits = address;
-	bits = addr.type / 2;
+  // implement half-bit sizing
+  //	if type is even.
 
-	size = 1 << bits;
+  if (~addr.type & 1) size -= size / 4;
 
-	// implement half-bit sizing
-	//	if type is even.
-
-	if (~addr.type & 1)
-		size -= size / 4;
-
-	return size;
+  return size;
 }
 
-void *db_memObj(uint64_t bits) {
-DbAddr addr;
-
-	addr.bits = bits;
-	return getObj (memMap, addr);
+uint32_t db_memSize(void *mem) { 
+  return ((dbobj_t *)mem)[-1].size;
 }
 
-void db_memFree (uint64_t bits) {
-DbAddr addr;
+DbAddr db_memAddr(void *mem) {
+  return ((dbobj_t *)mem)[-1].addr; }
 
-	addr.bits = bits;
-	freeBlk(memMap, addr);
+void *db_memObj(DbAddr addr) {
+  return (uint8_t *)getObj(memMap, addr) + sizeof(dbobj_t);
 }
 
-void db_free (void *obj) {
-dbobj_t *raw = obj;
+void *db_rawObj(DbAddr addr) {
+  return getObj(memMap, addr);
+}
 
-	if (raw[-1].addr.kill) {
-		fprintf(stderr, "Duplicate db_free\n");
-		exit (1);
-	}
+void db_memFree(DbAddr addr) {
+  freeBlk(memMap, addr);
+}
 
-	raw[-1].addr.kill = 1;
-	freeBlk(memMap, raw[-1].addr);
+void db_free(void *obj) {
+  dbobj_t *raw = obj;
+
+  if (raw[-1].addr.kill) {
+    fprintf(stderr, "Duplicate db_free\n");
+    exit(1);
+  }
+
+  raw[-1].addr.kill = 1;
+  freeBlk(memMap, raw[-1].addr);
+}
+
+uint32_t db_size(void *obj) {
+  dbobj_t *raw = obj;
+
+  return raw[-1].size;
 }
 
 //	raw memory allocator
 
 uint64_t db_rawAlloc(uint32_t amt, bool zeroit) {
-uint64_t bits;
+  uint64_t bits;
 
-	if ((bits = allocBlk(memMap, amt, zeroit)))
-		return bits;
+  if ((bits = allocBlk(memMap, amt, zeroit))) return bits;
 
-	fprintf (stderr, "db_rawAlloc: out of memory!\n");
-	exit(1);
+  fprintf(stderr, "db_rawAlloc: out of memory!\n");
+  exit(1);
 }
 
 //	allocate object
 
 void *db_malloc(uint32_t len, bool zeroit) {
-dbobj_t *mem;
-DbAddr addr;
+  dbobj_t *mem;
+  DbAddr addr;
 
-	addr.bits = db_rawAlloc(len + sizeof(dbobj_t), zeroit);
-	mem = getObj(memMap, addr);
-	mem->addr.bits = addr.bits;
-	return mem + 1;
+  addr.bits = db_rawAlloc(len + sizeof(dbobj_t), zeroit);
+  mem = getObj(memMap, addr);
+  mem->addr.bits = addr.bits;
+  mem->size = len;
+  return mem + 1;
 }

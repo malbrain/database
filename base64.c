@@ -8,17 +8,16 @@
 //	return 64 bit suffix value from key
 
 uint64_t get64(uint8_t *key, uint32_t len) {
-int idx = 0, xtraBytes;
+int idx = 0, xtraBytes, off;
 uint64_t result;
 
 	xtraBytes = key[len - 1] & 7;
+	off = len - xtraBytes - 2;
 
-	//  get sign of the result
+    //  get sign of the result
 	// 	positive has bit set
 
-	len -= xtraBytes + 2;
-
-	if (key[len] & 0x80)
+	if (key[off] & 0x80)
 		result = 0;
 	else
 		result = -1;
@@ -27,20 +26,20 @@ uint64_t result;
 	//	from first byte
 
 	result <<= 4;
-	result |= key[len] & 0x0f;
+	result |= key[off] & 0x0f;
 
 	//	assemble complete bytes
 	//	up to 56 bits
 
 	while (idx++ < xtraBytes) {
 	  result <<= 8;
-	  result |= key[len + idx];
+	  result |= key[off + idx];
 	}
 
 	//	add in low order 4 bits
 
 	result <<= 4;
-	result |= key[len + xtraBytes + 1] >> 4;
+	result |= key[len - 1] >> 4;
 	return result;
 }
 
@@ -48,10 +47,9 @@ uint64_t result;
 //	and return suffix value
 
 uint64_t zone64(uint8_t* key, uint32_t len, uint32_t zone) {
-uint32_t xtraBytes = (key[len - zone] & 0x70) >> 4;;
+uint32_t amt = key[len - 1];
 
-	zone -= xtraBytes + 2;
-	return get64(key, len - zone);
+	return get64(key + len - zone, zone - amt);
 }
 
 // concatenate key with sortable 64 bit value

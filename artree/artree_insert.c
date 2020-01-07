@@ -21,13 +21,14 @@ uint64_t nodeFree[64];
 uint64_t nodeWait[64];
 
 uint64_t artAllocateNode(Handle *index, int type, uint32_t size) {
+DbMap *idxMap = MapAddr(index);
 DbAddr *free = listFree(index,type);
 DbAddr *wait = listWait(index,type);
 
 	if( stats )
 		atomicAdd64(&nodeAlloc[type], 1ULL);
 
-	return allocObj(index->map, free, wait, type, size, true);
+	return allocObj(idxMap, free, wait, type, size, true);
 }
 
 uint64_t allocSpanNode(InsertParam *p, uint32_t len) {
@@ -80,7 +81,7 @@ uint32_t len;
 	  len = 256;
 
 	if ((slot->bits = allocSpanNode(p, len)))
-	  spanNode = getObj(p->index->map, *slot);
+	  spanNode = getObj(p->idxMap, *slot);
 	else
 	  return false;
 
@@ -95,7 +96,7 @@ uint32_t len;
 
 	if (p->binaryFlds && !p->fldLen)
 	  if ((slot->bits = artAllocateNode(p->index, FldEnd, sizeof(ARTFldEnd)))) {
-		ARTFldEnd *fldEndNode = getObj(p->index->map, *slot);
+		ARTFldEnd *fldEndNode = getObj(p->idxMap, *slot);
 		slot = fldEndNode->nextFld;
 	  } else
 		return false;
@@ -109,6 +110,7 @@ uint32_t len;
 }
 
 DbStatus artInsertKey( Handle *index, uint8_t *key, uint16_t keyLen, uint16_t sfxLen) {
+DbMap *idxMap = MapAddr(index);
 uint16_t totLen = keyLen + sfxLen;
 ARTKeyEnd *keyEndNode;
 ArtIndex *artIndex;
@@ -117,7 +119,7 @@ DbAddr keyEndSlot;
 InsertParam p[1];
 volatile DbAddr* install;
 
-	artIndex = artindex(index->map);
+	artIndex = artindex(idxMap);
 
 	if (totLen > MAX_key)
 		return DB_ERROR_keylength;
@@ -129,6 +131,7 @@ volatile DbAddr* install;
         p->slot = artIndex->root;
         p->keyLen = keyLen;
         p->restart = false;
+        p->idxMap = idxMap;
         p->key = key;
         p->index = index;
 		p->fldLen = 0;
@@ -161,7 +164,7 @@ volatile DbAddr* install;
 	  return DB_ERROR_outofmemory;
 	}
 
-	keyEndNode = getObj(p->index->map, keyEndSlot);
+	keyEndNode = getObj(p->idxMap, keyEndSlot);
 
 	if (p->slot->type != KeyEnd)
 	  keyEndNode->next->bits = p->slot->bits & ~ADDR_MUTEX_SET;
@@ -235,39 +238,39 @@ DbAddr slot;
 
 	  switch (p->oldSlot->type < SpanNode ? p->oldSlot->type : SpanNode) {
 		case FldEnd: {
-			ARTFldEnd *fldEndNode = getObj(p->index->map, *p->oldSlot);
+			ARTFldEnd *fldEndNode = getObj(p->idxMap, *p->oldSlot);
 			p->slot = fldEndNode->sameFld;
 			rt = RawContinue;
 			break;
 		}
 		case KeyEnd: {
-			ARTKeyEnd *keyEndNode = getObj(p->index->map, *p->oldSlot);
+			ARTKeyEnd *keyEndNode = getObj(p->idxMap, *p->oldSlot);
 			p->slot = keyEndNode->next;
 			rt = RawContinue;
 			break;
 		}
 		case SpanNode: {
-			ARTSpan *spanNode = getObj(p->index->map, *p->oldSlot);
+			ARTSpan *spanNode = getObj(p->idxMap, *p->oldSlot);
 			rt = insertKeySpan(spanNode, p);
 			break;
 		}
 		case Array4: {
-			ARTNode4 *radix4Node = getObj(p->index->map, *p->oldSlot);
+			ARTNode4 *radix4Node = getObj(p->idxMap, *p->oldSlot);
 			rt = insertKeyNode4(radix4Node, p);
 			break;
 		}
 		case Array14: {
-			ARTNode14 *radix14Node = getObj(p->index->map, *p->oldSlot);
+			ARTNode14 *radix14Node = getObj(p->idxMap, *p->oldSlot);
 			rt = insertKeyNode14(radix14Node, p);
 			break;
 		}
 		case Array64: {
-			ARTNode64 *radix64Node = getObj(p->index->map, *p->oldSlot);
+			ARTNode64 *radix64Node = getObj(p->idxMap, *p->oldSlot);
 			rt = insertKeyNode64(radix64Node, p);
 			break;
 		}
 		case Array256: {
-			ARTNode256 *radix256Node = getObj(p->index->map, *p->oldSlot);
+                  ARTNode256 *radix256Node = getObj(p->idxMap, *p->oldSlot);
 			rt = insertKeyNode256(radix256Node, p);
 			break;
 		}
@@ -327,7 +330,9 @@ DbAddr slot;
 		  // add old node to free/wait list
 
 		  if (slot.type && slot.addr) {
-			if((!addSlotToFrame(p->index->map, listHead(p->index,slot.type), listWait(p->index,slot.type), slot.bits)))
+                    if ((!addSlotToFrame(
+                            p->idxMap, listHead(p->index, slot.type),
+                            listWait(p->index, slot.type), slot.bits)))
 			  return p->stat = DB_ERROR_outofmemory, false;
 
 			if( stats )
@@ -343,7 +348,7 @@ DbAddr slot;
 		  continue;
 
 	  if ((slot.bits = artAllocateNode(p->index, FldEnd, sizeof(ARTFldEnd)))) {
-		ARTFldEnd *fldEndNode = getObj(p->index->map, slot);
+            ARTFldEnd *fldEndNode = getObj(p->idxMap, slot);
 		fldEndNode->sameFld->bits = p->slot->bits & ~ADDR_MUTEX_SET;
 
 	  	p->slot->bits = slot.bits;
@@ -423,7 +428,7 @@ uint8_t bits;
 	// the radix node is full, promote to the next larger size.
 
 	if ( (p->newSlot->bits = artAllocateNode(p->index, Array14, sizeof(ARTNode14))) )
-		radix14Node = getObj(p->index->map, *p->newSlot);
+          radix14Node = getObj(p->idxMap, *p->newSlot);
 	else {
 		unlockLatch(p->slot->latch);
 		return ErrorSearch;
@@ -538,7 +543,7 @@ uint16_t bits;
 	// the radix node is full, promote to the next larger size.
 
 	if ( (p->newSlot->bits = artAllocateNode(p->index, Array64, sizeof(ARTNode64))) )
-		radix64Node = getObj(p->index->map,*p->newSlot);
+          radix64Node = getObj(p->idxMap, *p->newSlot);
 	else
 		return ErrorSearch;
 
@@ -652,7 +657,7 @@ uint32_t idx, out;
 	// the radix node is full, promote to the next larger size.
 
 	if ( (p->newSlot->bits = artAllocateNode(p->index, Array256, sizeof(ARTNode256))) )
-		radix256Node = getObj(p->index->map,*p->newSlot);
+          radix256Node = getObj(p->idxMap, *p->newSlot);
 	else
 		return ErrorSearch;
 
@@ -787,7 +792,7 @@ ARTNode4 *radix4Node;
 		len -= idx;
 
 		if ((p->newSlot->bits = allocSpanNode(p, idx)))
-			spanNode2 = getObj(p->index->map,*p->newSlot);
+                  spanNode2 = getObj(p->idxMap, *p->newSlot);
 		else
 			return ErrorSearch;
 
@@ -807,7 +812,7 @@ ARTNode4 *radix4Node;
 
 	if (len) {
 		if ( (nxtSlot->bits = artAllocateNode(p->index, Array4, sizeof(ARTNode4))) )
-			radix4Node = getObj(p->index->map,*nxtSlot);
+            radix4Node = getObj(p->idxMap, *nxtSlot);
 		else
 			return ErrorSearch;
 
@@ -828,7 +833,7 @@ ARTNode4 *radix4Node;
 	} else {
 	 if (p->off < p->keyLen) { 	//	we have a field end before KeyEnd
 	  if ((nxtSlot->bits = artAllocateNode(p->index, FldEnd, sizeof(ARTFldEnd)))) {
-		ARTFldEnd *fldEndNode = getObj(p->index->map, *nxtSlot);
+             ARTFldEnd *fldEndNode = getObj(p->idxMap, *nxtSlot);
 		contSlot = fldEndNode->nextFld;
 		nxtSlot = fldEndNode->sameFld;
 		p->fldLen = p->key[p->off] << 8 | p->key[p->off + 1];
@@ -848,7 +853,7 @@ ARTNode4 *radix4Node;
 		else
 			return ErrorSearch;
 
-		overflowSpanNode = getObj(p->index->map, *nxtSlot);
+		overflowSpanNode = getObj(p->idxMap, *nxtSlot);
 		memcpy(overflowSpanNode->bytes, (uint8_t *)node->bytes + idx, max - idx);
 		overflowSpanNode->next->bits = node->next->bits & ~ADDR_MUTEX_SET;
 	} else {

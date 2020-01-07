@@ -1,268 +1,234 @@
 #include "db.h"
-#include "db_redblack.h"
-#include "db_object.h"
 #include "db_handle.h"
+#include "db_api.h"
 #include "db_arena.h"
 #include "db_cursor.h"
 #include "db_map.h"
+#include "db_object.h"
+#include "db_redblack.h"
 
-//	Catalog/Handle arena
+DbAddr *listQueue(Handle *handle, int nodeType, FrameList listType) {
+  DbMap *map = MapAddr(handle);
+  int listBase = listType * handle->maxType[0] + nodeType;
+  return (DbAddr *)(uint8_t *)arrayEntry(map, map->arena->listArray,
+                                         handle->listIdx) +
+         listBase;
+}
 
-DbAddr hndlInit[1];
-DbMap *hndlMap;
-char *hndlPath;
-
-DbAddr *slotHandle(ObjId hndlId) {
-	return fetchIdSlot (hndlMap, hndlId);
+void *hndlClientXtra(Handle *handle) {
+  return (uint8_t *)getObj(hndlMap, handle->clientArea) + handle->baseSize;
 }
 
 //	open the catalog
-//	return pointer to the arenaXtra area
+//	return pointer to the arenaXtra area after the Catalog
 
-void *initHndlMap(char *path, int pathLen, char *name, int nameLen, bool onDisk, uint32_t arenaXtra) {
-ArenaDef arenaDef[1];
+void *initHndlMap(char *path, int pathLen, char *name, bool onDisk) {
+  int nameLen = (int)strlen(name);
+  ArenaDef arenaDef[1];
 
-	lockLatch(hndlInit->latch);
+  lockLatch(hndlInit->latch);
 
-	if (hndlInit->type) {
-		unlockLatch(hndlInit->latch);
-		return (uint8_t *)hndlMap->arena + sizeof(Catalog);
-	}
+  if (hndlInit->type) {
+    unlockLatch(hndlInit->latch);
+    return (uint8_t *)(hndlMap->arena + 1) + sizeof(Catalog);
+  }
 
-	if (pathLen) {
-		hndlPath = db_malloc(pathLen + 1, false);
-		memcpy(hndlPath, path, pathLen);
-		hndlPath[pathLen] = 0;
-	}
+  if (pathLen) {
+    hndlPath = db_malloc(pathLen + 1, false);
+    memcpy(hndlPath, path, pathLen);
+    hndlPath[pathLen] = 0;
+  }
 
-	if (!name) {
-		name = "Catalog";
-		nameLen = (int)strlen(name);
-	}
+  if (!name)
+    name = "Catalog";
 
-	// configure Catalog
-	//	which contains all the Handles
-	//	and has databases for children
+  nameLen = (int)strlen(name);
+  
+  //    configure local process Catalog
+  //	which contains all the Handles
+  //	and has databases for children
 
-	memset(arenaDef, 0, sizeof(arenaDef));
-	arenaDef->baseSize = sizeof(Catalog) + arenaXtra;
-	arenaDef->params[OnDisk].boolVal = onDisk;
-	arenaDef->arenaType = Hndl_catalog;
-	arenaDef->objSize = sizeof(ObjId);
+  memset(arenaDef, 0, sizeof(arenaDef));
+  arenaDef->baseSize = sizeof(Catalog);
+  arenaDef->params[OnDisk].boolVal = onDisk;
+  arenaDef->arenaType = Hndl_catalog;
+  arenaDef->objSize = sizeof(Handle);
 
-	hndlMap = openMap(NULL, name, nameLen, arenaDef, NULL);
-	hndlMap->db = hndlMap;
+  hndlMap = openMap(NULL, name, nameLen, arenaDef, NULL);
+  hndlMap->db = hndlMap;
 
-	*hndlMap->arena->type = Hndl_catalog;
-	hndlInit->type = Hndl_catalog;
+  *hndlMap->arena->type = Hndl_catalog;
+  hndlInit->type = Hndl_catalog;
 
-	return (uint8_t *)hndlMap->arena + sizeof(Catalog);
+  return (uint8_t *)(hndlMap->arena + 1) + sizeof(Catalog);
 }
 
 //	make handle from map pointer
 //	leave it bound
 
-Handle *makeHandle(DbMap *map, uint32_t baseSize,  uint32_t xtraSize, HandleType type) {
-DbAddr *hndlAddr, *slot;
-Handle *handle;
-ObjId hndlId;
-uint32_t amt;
-DbAddr addr;
+Handle *makeHandle(DbMap *dbMap, uint32_t baseSize, uint32_t clntXtra,
+                   HandleType type) {
+  Handle *handle;
+  ObjId hndlId, *mapHndls;
 
-	// first call?
+  //	get a new or recycled ObjId slot where the handle will live
 
-	if (!hndlInit->type)
-		initHndlMap(NULL, 0, NULL, 0, true, 0);
+  if (!(hndlId.bits =
+            allocObjId(hndlMap, hndlMap->arena->freeBlk + ObjIdType, NULL)))
+    return NULL;
 
-	// total size of the Handle structure
+  handle = fetchIdSlot(hndlMap, hndlId);
 
-	amt = sizeof(Handle) + baseSize + xtraSize;
+  //  initialize the new Handle
+  //	allocate in HndlMap
 
-	//	get a new or recycled ObjId
+  // size of handle client area (e.g. Cursor/Iterator)
 
-	if (!(hndlId.bits = allocObjId(hndlMap, hndlMap->arena->freeBlk + ObjIdType, NULL)))
-		return 0;
+  baseSize += 15;
+  baseSize &= -16;
 
-	slot = fetchIdSlot (hndlMap, hndlId);
+  clntXtra += 15;
+  clntXtra &= -16;
 
-	addr.bits = allocBlk(hndlMap, amt, true);
-	handle = getObj(hndlMap, addr);
+  handle->clntXtra = clntXtra;
 
-	//  initialize the new Handle
+  if ((handle->baseSize = baseSize))
+    handle->clientArea.bits = allocBlk(dbMap, baseSize + clntXtra, true);
 
-	handle->entryTs = atomicAdd64(&map->arena->nxtTs, 1);
-	handle->hndlId.bits = hndlId.bits;
-	handle->addr.bits = addr.bits;
-    handle->baseSize = baseSize;  // size of following database cursor, etc
-    handle->xtraSize = xtraSize;  // size of following user area
-    handle->hndlType = type;
-	handle->bindCnt[0] = 1;
-	handle->map = map;
+  handle->entryTs = atomicAdd64(&dbMap->arena->nxtTs, 1);
+  handle->hndlId.bits = hndlId.bits;
+  handle->hndlType = type;
+  handle->bindCnt[0] = 1;
 
-	mynrand48seed(handle->nrandState, prngProcess, 0);
+  mynrand48seed(handle->nrandState, prngProcess, 0);
 
-	//  allocate recycled frame queues
-	//	three times the number of node types
-	//	for the handle type
+  //  allocate recycled frame queues
+  //	three times the number of node types
+  //	for the handle type
 
-	if ((*handle->maxType = map->arenaDef->numTypes)) {
-		handle->listIdx = arrayAlloc(map, map->arena->listArray, sizeof(DbAddr) * *handle->maxType * 3);
-		handle->frames = arrayEntry(map, map->arena->listArray, handle->listIdx);
-	}
+  if ((*handle->maxType = dbMap->arenaDef->numTypes))
+    handle->listIdx = arrayAlloc(dbMap, dbMap->arena->listArray,
+                                 sizeof(DbAddr) * *handle->maxType * 3);
 
-	//	allocate hndlId array in the database
+  //	allocate entry slot in the open hndlId array for this arena
+  //	and fill in the id for the handle's map
 
-	handle->arrayIdx = arrayAlloc(hndlMap, map->arenaDef->hndlArray, sizeof(ObjId));
-	hndlAddr = arrayEntry(hndlMap, map->arenaDef->hndlArray, handle->arrayIdx);
-	hndlAddr->bits = addr.bits;
+  handle->arrayIdx =
+      arrayAlloc(dbMap, dbMap->arenaDef->hndlArray, sizeof(ObjId));
+  
+  mapHndls = arrayEntry(dbMap, dbMap->arenaDef->hndlArray, handle->arrayIdx);
+  mapHndls->bits = hndlId.bits;
 
-	if (debug)
-		printf("listIdx = %.6d  maxType = %.3d arrayIdx = %.6d\n", handle->listIdx, *handle->maxType, handle->arrayIdx);
-	//  install ObjId slot in local memory
+  if (debug)
+    printf("listIdx = %.6d  maxType = %.3d arrayIdx = %.6d\n", handle->listIdx,
+           *handle->maxType, handle->arrayIdx);
 
-	slot->bits = addr.bits;
-	return handle;
+  handle->mapAddr = db_memAddr(dbMap);
+  return handle;
 }
 
-//	disable handle resources
+//	delete handle resources
 
 //	called by setter of the status KILL_BIT
 //	after bindcnt goes to zero
 
-void disableHndl(Handle *handle) {
-	char maxType = atomicExchange8((uint8_t *)handle->maxType, 0);
+void destroyHandle(Handle *handle) {
+  char maxType = atomicExchange8((uint8_t *)handle->maxType, 0);
+  DbMap *dbMap = MapAddr(handle);
+  ArenaDef *arenaDef = dbMap->arenaDef;
+  uint32_t count;
 
-	if (maxType)
-		arrayRelease(handle->map, handle->map->arena->listArray, handle->listIdx);
+  if (!maxType) return;
+  if (handle->baseSize) freeBlk(dbMap, handle->clientArea);
+
+  arrayRelease(dbMap, dbMap->arena->listArray, handle->listIdx);
+  arrayRelease(dbMap, dbMap->arenaDef->hndlArray, handle->arrayIdx);
+
+  //  specific handle cleanup
+
+  switch (handle->hndlType) {
+    case Hndl_cursor:
+      dbCloseCursor(hndlClientXtra(handle), dbMap);
+      break;
+  }
+
+  // release the hndlId reservation in the arena
+
+  arrayRelease(dbMap, dbMap->arenaDef->hndlArray, handle->arrayIdx);
+
+  //	never return the handle Id slot
+  //	but return the memory
+
+  freeBlk(dbMap, handle->clientArea);
+
+  // zero the handle Id status
+
+  if (~dbMap->drop[0] & KILL_BIT) return;
+
+  lockLatch(arenaDef->hndlArray->latch);
+  count = disableHndls(arenaDef->hndlArray);
+  unlockLatch(arenaDef->hndlArray->latch);
+
+  if (!count)
+    if (!*dbMap->openCnt) closeMap(dbMap);
 }
 
-//	destroy handle
+//	enter api with a handle
 
-void destroyHandle(Handle *handle, DbAddr *slot) {
-ArenaDef *arenaDef = handle->map->arenaDef;
-uint32_t count;
-DbAddr addr;
+bool enterHandle(Handle *handle, DbMap *map) {
+  int cnt = atomicAdd32(handle->bindCnt, 1);
 
-	if (!slot)
-		slot = fetchIdSlot (hndlMap, handle->hndlId);
+  //  are we the first call after an idle period?
+  //	set the entryTs if so.
 
-	lockLatch(slot->latch);
+  if (cnt == 1) handle->entryTs = atomicAdd64(&map->arena->nxtTs, 1);
 
-	//	already destroyed?
+  //	exit if the handle is being closed
 
-	if (!slot->addr) {
-		slot->bits = 0;
-		return;
-	}
+  if ((*handle->status & KILL_BIT)) {
+    if (!atomicAdd32(handle->bindCnt, -1)) destroyHandle(handle);
 
-	disableHndl(handle);
+    return false;
+  }
 
-	//  specific handle cleanup
+  //	is there a DROP request for this arena?
 
-	switch (handle->hndlType) {
-	case Hndl_cursor:
-		dbCloseCursor((void *)(handle + 1), handle->map);
-		break;
-	}
+  if (map->drop[0] & KILL_BIT) {
+    atomicOr8((volatile uint8_t *)handle->status, KILL_BIT);
 
-	// release the hndlAddr reservation in the arena
+    if (!atomicAdd32(handle->bindCnt, -1)) destroyHandle(handle);
 
-	arrayRelease(hndlMap, handle->map->arenaDef->hndlArray, handle->arrayIdx);
+    return false;
+  }
 
-	// zero the handle Id slot
-
-	addr.bits = slot->bits;
-	slot->bits = 0;
-
-	//	never return the handle Id slot
-	//	but return the memory
-
-	freeBlk (hndlMap, addr);
-
-	if (~handle->map->drop[0] & KILL_BIT)
-		return;
-
-	lockLatch(arenaDef->hndlArray->latch);
-	count = disableHndls(arenaDef->hndlArray);
-	unlockLatch(arenaDef->hndlArray->latch);
-
-	if (!count)
-		if (!*handle->map->openCnt)
-			closeMap(handle->map);
-}
-
-//	enter a handle
-
-bool enterHandle(Handle *handle, DbAddr *slot) {
-	int cnt = atomicAdd32(handle->bindCnt, 1);
-
-	//  are we the first call after an idle period?
-	//	set the entryTs if so.
-
-	if (cnt == 1)
-		handle->entryTs = atomicAdd64(&handle->map->arena->nxtTs, 1);
-
-	//	exit if the handle is being closed
-
-	if ((*handle->status & KILL_BIT)) {
-		if (!atomicAdd32(handle->bindCnt, -1))
-			destroyHandle (handle, slot);
-
-		return false;
-	}
-
-	//	is there a DROP request for this arena?
-
-	if (handle->map->drop[0] & KILL_BIT) {
-		atomicOr8((volatile uint8_t *)handle->status, KILL_BIT);
-
-		if (!atomicAdd32(handle->bindCnt, -1))
-			destroyHandle (handle, slot);
-
-		return false;
-	}
-
-	return true;
+  return true;
 }
 
 //	bind handle for use in API call
 //	return NULL if handle closed
 
 Handle *bindHandle(DbHandle *dbHndl) {
-Handle *handle;
-DbAddr *slot;
-ObjId hndlId;
+  Handle *handle = HandleAddr(dbHndl);
 
-	if ((hndlId.bits = dbHndl->hndlBits))
-		slot = fetchIdSlot (hndlMap, hndlId);
-	else
-		return NULL;
+  //	increment count of active binds
+  //	and capture timestamp if we are the
+  //	first handle bind
 
-	//	increment count of active binds
-	//	and capture timestamp if we are the
-	//	first handle bind
+  if (enterHandle(handle, MapAddr(handle))) return handle;
 
-	handle = getObj(hndlMap, *slot);
-
-	if (enterHandle(handle, slot))
-		return handle;
-		
-	dbHndl->hndlBits = 0;
-	return NULL;
+  return NULL;
 }
 
 //	release handle binding
 
-void releaseHandle(Handle *handle, DbHandle dbHndl[1]) {
+void releaseHandle(Handle *handle, DbHandle *dbHndl) {
+  if (!atomicAdd32(handle->bindCnt, -1)) {
+    if ((*handle->status & KILL_BIT)) {
+      destroyHandle(handle);
 
-	if (!atomicAdd32(handle->bindCnt, -1)) {
-	  if ((*handle->status & KILL_BIT)) {
-		destroyHandle (handle, NULL);
-
-	    if (dbHndl)
-		  dbHndl->hndlBits = 0;
-	  }
-	}
+      if (dbHndl) dbHndl->hndlId.bits = 0;
+    }
+  }
 }
 
 //	disable all arena handles
@@ -273,41 +239,43 @@ void releaseHandle(Handle *handle, DbHandle dbHndl[1]) {
 //	return count of bound handles
 
 uint32_t disableHndls(DbAddr *array) {
-uint32_t count = 0;
-Handle *handle;
-ArrayHdr *hdr;
-int slot, seg;
-DbAddr addr;
+  uint32_t count = 0;
+  Handle *handle;
+  ArrayHdr *hdr;
+  int slot, seg;
+  ObjId objId;
 
   if (array->addr) {
-	hdr = getObj(hndlMap, *array);
+    hdr = getObj(hndlMap, *array);
 
-	//	process the level zero blocks in the array
+    //	process the level zero blocks in the array
 
-	for (slot = 0; slot < hdr->maxLvl0; slot++) {
-	  uint64_t *inUse = getObj(hndlMap, hdr->addr[slot]);
-	  DbAddr *hndlAddr = (DbAddr *)inUse;
+    for (slot = 0; slot < hdr->maxLvl0; slot++) {
+      uint64_t *inUse = getObj(hndlMap, hdr->addr[slot]);
+      DbAddr *hndlAddr = (DbAddr *)inUse;
 
-	  for (seg = 0; seg < ARRAY_inuse; seg++) {
-		uint64_t bits = inUse[seg];
-		int slotIdx = 0;
+      for (seg = 0; seg < ARRAY_inuse; seg++) {
+        uint64_t bits = inUse[seg];
+        int slotIdx = 0;
 
-		//	sluff unused slots in level zero block
+        //	sluff unused slots in level zero block
 
-		if (seg == 0) {
-			slotIdx = ARRAY_first(sizeof(DbAddr));
-			bits >>= slotIdx;
-		}
+        if (seg == 0) {
+          slotIdx = ARRAY_first(sizeof(DbAddr));
+          bits >>= slotIdx;
+        }
 
-		do if (bits & 1) {
-		  addr.bits = hndlAddr[seg * 64 + slotIdx].bits;
-		  handle = getObj(hndlMap, addr);
+        do
+          if (bits & 1) {
+            objId.bits = hndlAddr[seg * 64 + slotIdx].bits;
+            handle = fetchIdSlot(hndlMap, objId);
 
-		  atomicOr8((volatile uint8_t *)handle->status, KILL_BIT);
-		  count += *handle->bindCnt;
-		} while (slotIdx++, bits /= 2);
-	  }
-	}
+            atomicOr8((volatile uint8_t *)handle->status, KILL_BIT);
+            count += *handle->bindCnt;
+          }
+        while (slotIdx++, bits /= 2);
+      }
+    }
   }
 
   return count;
@@ -317,42 +285,42 @@ DbAddr addr;
 //	by scanning HndlId array
 
 uint64_t scanHandleTs(DbMap *map) {
-DbAddr *array = map->arenaDef->hndlArray;
-uint64_t lowTs = map->arena->nxtTs + 1;
-Handle *handle;
-ArrayHdr *hdr;
-int slot, seg;
-DbAddr addr;
+  DbAddr *array = map->arenaDef->hndlArray;
+  uint64_t lowTs = map->arena->nxtTs + 1;
+  Handle *handle;
+  ArrayHdr *hdr;
+  int slot, seg;
+  DbAddr addr;
 
   if (array->addr) {
-	hdr = getObj(hndlMap, *array);
+    hdr = getObj(hndlMap, *array);
 
-	//	process all the level zero blocks in the array
+    //	process all the level zero blocks in the array
 
-	for (slot = 0; slot < hdr->maxLvl0; slot++) {
-	  uint64_t *inUse = getObj(hndlMap, hdr->addr[slot]);
-	  DbAddr *hndlAddr = (DbAddr *)inUse;
+    for (slot = 0; slot < hdr->maxLvl0; slot++) {
+      uint64_t *inUse = getObj(hndlMap, hdr->addr[slot]);
+      DbAddr *hndlAddr = (DbAddr *)inUse;
 
-	  for (seg = 0; seg < ARRAY_inuse; seg++) {
-		uint64_t bits = inUse[seg];
-		int slotIdx = 0;
+      for (seg = 0; seg < ARRAY_inuse; seg++) {
+        uint64_t bits = inUse[seg];
+        int slotIdx = 0;
 
-		if (seg == 0) {
-			slotIdx = ARRAY_first(sizeof(DbAddr));
-			bits >>= slotIdx;
-		}
+        if (seg == 0) {
+          slotIdx = ARRAY_first(sizeof(DbAddr));
+          bits >>= slotIdx;
+        }
 
-		do if (bits & 1) {
-		  addr.bits = hndlAddr[seg * 64 + slotIdx].bits;
-		  handle = getObj(hndlMap, addr);
+        do
+          if (bits & 1) {
+            addr.bits = hndlAddr[seg * 64 + slotIdx].bits;
+            handle = getObj(hndlMap, addr);
 
-		  if (!(*handle->status & KILL_BIT))
-		  	  if (handle->bindCnt[0])
-			    lowTs = handle->entryTs;
-
-		} while (slotIdx++, bits /= 2);
-	  }
-	}
+            if (!(*handle->status & KILL_BIT))
+              if (handle->bindCnt[0]) lowTs = handle->entryTs;
+          }
+        while (slotIdx++, bits /= 2);
+      }
+    }
   }
 
   return lowTs;

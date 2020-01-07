@@ -40,7 +40,7 @@ uint32_t size;
 	cursor->pageSize = size;
 
 	cursor->pageAddr.bits = db_rawAlloc(size, false);
-	cursor->page = db_memObj(cursor->pageAddr.bits);
+	cursor->page = db_rawObj(cursor->pageAddr);
 	cursor->listIdx = 0;
 	return DB_OK;
 }
@@ -50,7 +50,7 @@ Btree2Cursor *cursor = (Btree2Cursor *)dbCursor;
 
 	// return cursor page buffer
 
-	db_memFree(cursor->pageAddr.bits);
+	db_memFree(cursor->pageAddr);
 	return DB_OK;
 }
 

@@ -310,7 +310,7 @@ PathStk path[1];
 
 //	make new red/black entry
 
-RedBlack *rbNew (DbMap *map, void *key, uint32_t keyLen, uint32_t payLoad) {
+RedBlack *rbNew (DbMap *map, char *key, uint32_t keyLen, uint32_t payLoad) {
 RedBlack *entry = NULL;
 DbAddr child;
 

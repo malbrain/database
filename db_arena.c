@@ -52,6 +52,9 @@ int amt;
 
 	//	see if we've opened this
 	//	map in this process already
+	//	by seeing if our memMap skip
+	//	list of children has the map
+	//	already opened
 
 	if (parent) {
 	  lockLatch(parent->childMaps->latch);
@@ -225,6 +228,7 @@ uint32_t bits;
 
 	map->objSize = map->arena->objSize;
 	map->rbEntry = rbEntry;
+        map->name = rbkey(rbEntry);
 
 	map->type[0] = arenaDef->arenaType;
 	return map;
@@ -311,7 +315,7 @@ DbAddr slot;
 		_BitScanReverse((unsigned long *)&bits, size - 1);
 		bits++;
 #else
-		bits = 32 - (---__builtin_clz (size - 1));
+		bits = 32 - (__builtin_clz (size - 1));
 #endif
 		amt = size;
 		type = bits * 2;
@@ -468,7 +472,7 @@ ObjId objId;
 			if (!initObjIdFrame(map, free)) {
 				unlockLatch(free->latch);
 				return 0;
-			}
+			}	
 	}
 
 	unlockLatch(free->latch);

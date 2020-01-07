@@ -3,12 +3,12 @@
 //	initialize ARTree
 
 DbStatus artInit(Handle *hndl, Params *params) {
-ArtIndex *artIndex = artindex(hndl->map);
+  DbMap *artMap = MapAddr(hndl);
+  ArtIndex *artIndex = artindex(artMap);
 
-	artIndex->base->binaryFlds = hndl->map->arenaDef->params[IdxKeyFlds].charVal;
-	artIndex->base->uniqueKeys = hndl->map->arenaDef->params[IdxKeyUnique].boolVal;
+	artIndex->base->binaryFlds = artMap->arenaDef->params[IdxKeyFlds].charVal;
+	artIndex->base->uniqueKeys = artMap->arenaDef->params[IdxKeyUnique].boolVal;
 
-	hndl->map->arena->type[0] = Hndl_artIndex;
+	artMap->arena->type[0] = Hndl_artIndex;
 	return DB_OK;
 }
-

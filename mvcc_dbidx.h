@@ -1,8 +1,6 @@
-//  index key/version mgmt
+//  index key mgmt
 
 #pragma once
-#include "mvcc_dbdoc.h"
-#include "../db_handle.h"
 
 //	maximum number of nested array fields in an index key
 
@@ -61,12 +59,13 @@ typedef struct {
 	DbAddr addr[1];			// addr in docStore
 } IndexKeySpec;
 
-//  version Key stored in docStore
+//  version Keys stored in docStore
 //	and inserted into the index
 
 typedef struct {
 	uint64_t refCnt[1];
-	uint16_t keyLen;	// len of base key
+	uint32_t keyHash;
+	uint16_t keyLen;    // len of base key
 	uint16_t keyIdx;	// idxHndls vector idx
 	uint8_t suffixLen;	// size of key suffix extension
 	uint8_t unique;		// index is unique
@@ -86,7 +85,6 @@ DbStatus addKeyField(DbHandle* idxHndl, IndexKeySpec* spec, struct Field* field)
 void buildKeys(Handle* idxHndls[1], uint16_t keyIdx, DbAddr* keys, ObjId docId, Ver* prevVer, uint32_t idxCnt, void *cbEnv);
 uint16_t appendKeyField(Handle* idxHndls, IndexKeySpec* spec, struct Field* field, uint8_t* keyDest, uint16_t keyRoom, void *cbEnv);
 
-DbStatus findCursorVer(DbCursor* dbCursor, DbMap* map, DbMvcc*dbMvcc);
 uint64_t allocDocStore(Handle* docHndl, uint32_t size, bool zeroit);
 extern Handle** bindDocIndexes(Handle* docHndl);
 DbStatus installKeys(Handle* idxHndls[1], Ver* ver);

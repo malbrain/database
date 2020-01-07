@@ -19,7 +19,7 @@ struct RedBlack_ {
 #define rbkey(entry) ((char *)(entry + 1) + entry->payLoad)
 
 RedBlack *rbFind(DbMap *parent, DbAddr *childNames, char *name, uint32_t nameLen, PathStk *path);
-RedBlack *rbNew (DbMap *map, void *key, uint32_t keyLen, uint32_t payload);
+RedBlack *rbNew (DbMap *map, char *key, uint32_t keyLen, uint32_t payload);
 RedBlack *rbStart(DbMap *map, PathStk *path, DbAddr *root); 
 RedBlack *rbNext(DbMap *map, PathStk *path); 
 

@@ -2,7 +2,10 @@
 
 #include "btree1.h"
 
-void btree1InitPage (Btree1Page *page) {
+uint32_t cursorSize[];
+uint32_t clntXtra[];
+
+void btree1InitPage(Btree1Page *page) {
 	initLock(page->latch->readwr);
 	initLock(page->latch->parent);
 	initLock(page->latch->link);
@@ -11,7 +14,8 @@ void btree1InitPage (Btree1Page *page) {
 //	create an empty page
 
 uint64_t btree1NewPage (Handle *hndl, uint8_t lvl) {
-Btree1Index *btree1 = btree1index(hndl->map);
+  DbMap *idxMap = MapAddr(hndl);
+	Btree1Index *btree1 = btree1index(idxMap);
 Btree1PageType type;
 Btree1Page *page;
 uint32_t size;
@@ -26,8 +30,8 @@ DbAddr addr;
 		size <<= btree1->leafXtra;
 	}
 
-	if ((addr.bits = allocObj(hndl->map, listFree(hndl,type), NULL, type, size, true)))
-		page = getObj(hndl->map, addr);
+	if ((addr.bits = allocObj(idxMap, listFree(hndl,type), NULL, type, size, true)))
+		page = getObj(idxMap, addr);
 	else
 		return 0;
 
@@ -40,7 +44,8 @@ DbAddr addr;
 //	initialize btree1 root page
 
 DbStatus btree1Init(Handle *hndl, Params *params) {
-Btree1Index *btree1 = btree1index(hndl->map);
+DbMap *idxMap = MapAddr(hndl);
+Btree1Index *btree1 = btree1index(idxMap);
 Btree1Page *page;
 Btree1Slot *slot;
 uint8_t *buff;
@@ -60,10 +65,12 @@ uint32_t amt;
 	btree1->pageBits = (uint32_t)params[Btree1Bits].intVal;
 	btree1->leafXtra = (uint32_t)params[Btree1Xtra].intVal;
 
+	clntXtra[Hndl_btree1Index] += 1 << btree1->pageBits << btree1->leafXtra;
+
 	//	initial btree1 root & leaf pages
 
 	if ((btree1->left.bits = btree1NewPage(hndl, 0)))
-		page = getObj(hndl->map, btree1->left);
+		page = getObj(idxMap, btree1->left);
 	else
 		return DB_ERROR_outofmemory;
 
@@ -75,7 +82,7 @@ uint32_t amt;
 	//	set  up the tree root page with stopper key
 
 	if ((btree1->root.bits = btree1NewPage(hndl, 1)))
-		page = getObj(hndl->map, btree1->root);
+		page = getObj(idxMap, btree1->root);
 	else
 		return DB_ERROR_outofmemory;
 
@@ -94,8 +101,9 @@ uint32_t amt;
 	//	first byte (or two) contains key length
 
 	amt = store64(buff, 0, btree1->left.bits);
+    buff[Btree1_pagenobytes - 1] = Btree1_pagenobytes - amt;
 
-	while( amt < Btree1_pagenobytes )
+	while( amt < Btree1_pagenobytes - 1 )
 		buff[amt++] = 0;
 
 	//  set up slot
@@ -104,7 +112,7 @@ uint32_t amt;
 	slot->type = Btree1_stopper;
 	slot->off = page->min;
 
-	hndl->map->arena->type[0] = Hndl_btree1Index;
+	idxMap->arena->type[0] = Hndl_btree1Index;
 	return DB_OK;
 }
 

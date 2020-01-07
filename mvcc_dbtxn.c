@@ -1,9 +1,7 @@
 //  implement transactions
 
+#include "mvcc_dbapi.h"
 #include "mvcc_dbdoc.h"
-
-extern DbMap memMap[1];
-extern DbMap* hndlMap;
 
 Catalog* catalog;
 // CcMethod* cc;
@@ -91,7 +89,7 @@ DbStatus addDocRdToTxn(ObjId txnId, ObjId docId, Ver* ver, uint64_t hndlBits) {
 	int cnt = 0;
 	ObjId objId;
 
-	if (txn->isolation != Serializable) {
+	if (txn->isolation != TxnSerializable) {
 		unlockLatch(txn->state);
 		return stat;
 	}
@@ -99,7 +97,7 @@ DbStatus addDocRdToTxn(ObjId txnId, ObjId docId, Ver* ver, uint64_t hndlBits) {
 	objId.bits = hndlBits;
 	objId.xtra = TxnHndl;
 
-	slot = slotHandle(objId);
+	slot = fetchIdSlot(hndlMap, objId);
 	docHndl = getObj(hndlMap, *slot);
 
 	if (txn->hndlId->bits != docHndl->hndlId.bits) {
@@ -135,11 +133,11 @@ DbStatus addDocWrToTxn(ObjId txnId, ObjId docId, Ver* ver, Ver* prevVer, uint64_
     DbStatus stat = DB_OK;
     uint64_t values[2];
 	Handle* docHndl;
-	DbAddr* slot;
-	int cnt = 0;
+    DbMap *docMap;
+    int cnt = 0;
 	ObjId objId;
 
-	if (txn->isolation == NotSpecified) {
+	if (txn->isolation == TxnNotSpecified) {
 		unlockLatch(txn->state);
 		return stat;
 	}
@@ -147,8 +145,8 @@ DbStatus addDocWrToTxn(ObjId txnId, ObjId docId, Ver* ver, Ver* prevVer, uint64_
 	objId.bits = hndlBits;
 	objId.xtra = TxnHndl;
 
-	slot = slotHandle(objId);
-	docHndl = getObj(hndlMap, *slot);
+	docHndl = fetchIdSlot(hndlMap, objId);
+    docMap = MapAddr(docHndl);
 
 	if (txn->hndlId->bits != hndlBits) {
 		txn->hndlId->bits = docHndl->hndlId.bits;
@@ -161,7 +159,7 @@ DbStatus addDocWrToTxn(ObjId txnId, ObjId docId, Ver* ver, Ver* prevVer, uint64_
 	docId.xtra = TxnDoc;
 	values[cnt++] = docId.bits;
 
-	if (txn->isolation == Serializable) {
+	if (txn->isolation == TxnSerializable) {
 		if (prevVer)
 			timestampCAS(txn->pstamp, prevVer->pstamp, -1);
 
@@ -180,7 +178,8 @@ DbStatus addDocWrToTxn(ObjId txnId, ObjId docId, Ver* ver, Ver* prevVer, uint64_
 
 // 	begin a new Txn
 
-uint64_t beginTxn(Params* params, uint64_t* nestedTxnBits) {
+MVCCResult mvcc_BeginTxn(Params* params, uint64_t* nestedTxnBits) {
+  MVCCResult result = {.value = 0, .count = 0, .objType = objTxn, .status = DB_OK};
   uint16_t tsClnt;
   ObjId txnId;
   Txn* txn;
@@ -190,13 +189,13 @@ uint64_t beginTxn(Params* params, uint64_t* nestedTxnBits) {
   if ((tsClnt = timestampClnt(globalTxn->baseTs, globalTxn->maxClients)))
     timestampNext(globalTxn->baseTs, tsClnt);
   else
-    return 0;
+    return result.status = MVCC_NoTimestampSlots, result;
 
   if ((txnId.bits = allocObjId(txnMap, globalTxn->txnFree, globalTxn->txnWait)))
     txn = fetchIdSlot(txnMap, txnId);
   else {
     timestampQuit(globalTxn->baseTs, tsClnt);
-    return 0;
+    return result.status = MVCC_outofmemory, result;
   }
 
   memset(txn, 0, sizeof(Txn));
@@ -205,17 +204,23 @@ uint64_t beginTxn(Params* params, uint64_t* nestedTxnBits) {
   if (params[Concurrency].intVal)
     txn->isolation = params[Concurrency].charVal;
   else
-    txn->isolation = SnapShot;
+    txn->isolation = TxnSnapShot;
 
   txn->tsClnt = tsClnt;
   txn->nextTxn = *nestedTxnBits;
   *txn->state = TxnGrow;
 
   txn->sstamp->tsBits[1] = ~0ULL;
-  return *nestedTxnBits = txnId.bits;
+  result.value = *nestedTxnBits = txnId.bits;
+  return result;
 }
 
-DbStatus rollbackTxn(Params *params, uint64_t *txnBits) { return DB_OK; }
+MVCCResult mvcc_RollbackTxn(Params *params, uint64_t *txnBits) {
+MVCCResult result = {
+    .value = 0, .count = 0, .objType = objTxn, .status = DB_OK};
+
+return result;
+}
 
 //	retrieve version by verNo
 
@@ -287,7 +292,7 @@ DbStatus findDocVer(DbMap *map, Doc *doc, DbMvcc *dbMvcc, Ver *ver[1]) {
         return DB_ERROR_no_visible_version;
     }
 
-    if (dbMvcc->isolation == Serializable) break;
+    if (dbMvcc->isolation == TxnSerializable) break;
 
     if (ver[0]->commit->tsBits < dbMvcc->reader->tsBits) break;
 
@@ -297,7 +302,7 @@ DbStatus findDocVer(DbMap *map, Doc *doc, DbMvcc *dbMvcc, Ver *ver[1]) {
 
   if (dbMvcc->txnId.bits)
     if ((stat = addDocRdToTxn(dbMvcc->txnId, doc->docId, ver[0],
-                              dbMvcc->docHndl->hndlBits)))
+                              dbMvcc->docHndl->hndlId.bits)))
       return stat;
 
   return DB_OK;
@@ -330,9 +335,10 @@ bool SSNCommit(Txn *txn) {
   Ver *ver, *prevVer;
   bool result = true;
   uint64_t *wrtMmbr;
+  uint32_t offset;
   DbAddr wrtSet[1];
   Handle *docHndl;
-  uint32_t offset;
+  DbMap *docMap;
   int frameSet;
   ObjId docId;
   ObjId objId;
@@ -370,15 +376,15 @@ bool SSNCommit(Txn *txn) {
       //  finalize TxnDoc
 
       if (frameSet) {
-        DbAddr *docSlot = fetchIdSlot(docHndl->map, docId);
+        DbAddr *docSlot = fetchIdSlot(docMap, docId);
         uint64_t verNo = frame->slots[idx];
 
         lockLatch(docSlot->latch);
 
-        doc = getObj(docHndl->map, *docSlot);
-        doc->op |= Committing;
+        doc = getObj(docMap, *docSlot);
+        doc->op |= TxnCommit;
 
-        prevVer = getVersion(docHndl->map, doc, verNo - 1);
+        prevVer = getVersion(docMap, doc, verNo - 1);
 
         //	keep larger pstamp
 
@@ -395,8 +401,8 @@ bool SSNCommit(Txn *txn) {
         case TxnHndl:
           if (docHndl) releaseHandle(docHndl, NULL);
 
-          slot = fetchIdSlot(hndlMap, objId);
-          docHndl = getObj(hndlMap, *slot);
+          docHndl = fetchIdSlot(hndlMap, objId);
+          docMap = MapAddr(docHndl);
           continue;
 
         case TxnDoc:
@@ -440,7 +446,7 @@ bool SSNCommit(Txn *txn) {
       // finish TxnDoc steps
 
       if (frameSet) {
-        DbAddr *docSlot = fetchIdSlot(docHndl->map, docId);
+        DbAddr *docSlot = fetchIdSlot(docMap, docId);
         uint64_t verNo = frame->slots[idx];
 
         frameSet = 0;
@@ -449,8 +455,8 @@ bool SSNCommit(Txn *txn) {
 
         if (*setMmbr(memMap, wrtSet, docId.bits, false)) continue;
 
-        doc = getObj(docHndl->map, *docSlot);
-        prevVer = getVersion(docHndl->map, doc, verNo);
+        doc = getObj(docMap, *docSlot);
+        prevVer = getVersion(docMap, doc, verNo);
 
         //	keep smaller sstamp
 
@@ -464,8 +470,7 @@ bool SSNCommit(Txn *txn) {
         case TxnHndl:
           if (docHndl) releaseHandle(docHndl, NULL);
 
-          slot = fetchIdSlot(hndlMap, objId);
-          docHndl = getObj(hndlMap, *slot);
+          docHndl = fetchIdSlot(hndlMap, objId);
           continue;
 
         case TxnDoc:
@@ -512,7 +517,7 @@ bool SSNCommit(Txn *txn) {
       // finish TxnDoc steps
 
       if (frameSet) {
-        DbAddr *docSlot = fetchIdSlot(docHndl->map, docId);
+        DbAddr *docSlot = fetchIdSlot(docMap, docId);
         uint64_t verNo = frame->slots[idx];
 
         frameSet = 0;
@@ -521,8 +526,8 @@ bool SSNCommit(Txn *txn) {
 
         if (*setMmbr(memMap, wrtSet, docId.bits, false)) continue;
 
-        doc = getObj(docHndl->map, *docSlot);
-        ver = getVersion(docHndl->map, doc, verNo);
+        doc = getObj(docMap, *docSlot);
+        ver = getVersion(docMap, doc, verNo);
 
         //	keep larger ver pstamp
 
@@ -539,8 +544,7 @@ bool SSNCommit(Txn *txn) {
         case TxnHndl:
           if (docHndl) releaseHandle(docHndl, NULL);
 
-          slot = fetchIdSlot(hndlMap, objId);
-          docHndl = getObj(hndlMap, *slot);
+          docHndl = fetchIdSlot(hndlMap, objId);
           continue;
 
         case TxnDoc:
@@ -583,19 +587,18 @@ bool SSNCommit(Txn *txn) {
         case TxnHndl:
           if (docHndl) releaseHandle(docHndl, NULL);
 
-          slot = fetchIdSlot(hndlMap, objId);
-          docHndl = getObj(hndlMap, *slot);
+          docHndl = fetchIdSlot(hndlMap, objId);
           continue;
 
         case TxnDoc:
-          slot = fetchIdSlot(docHndl->map, objId);
+          slot = fetchIdSlot(docMap, objId);
           lockLatch(slot->latch);
           break;
       }
 
       // find previous version
 
-      doc = getObj(docHndl->map, *slot);
+      doc = getObj(docMap, *slot);
       ver = (Ver *)((uint8_t *)doc + doc->lastVer);
 
       offset = doc->lastVer + ver->verSize;
@@ -605,7 +608,7 @@ bool SSNCommit(Txn *txn) {
 
       if (!prevVer->verSize) {
         if (doc->prevAddr.bits) {
-          Doc *prevDoc = getObj(docHndl->map, doc->prevAddr);
+          Doc *prevDoc = getObj(docMap, doc->prevAddr);
           prevVer = (Ver *)((uint8_t *)prevDoc + prevDoc->lastVer);
         } else
           prevVer = NULL;
@@ -618,7 +621,7 @@ bool SSNCommit(Txn *txn) {
       ver->sstamp->tsBits[1] = ~0ULL;
 
       doc->txnId.bits = 0;
-      doc->op = Done;
+      doc->op = TxnDone;
 
       unlockLatch(slot->latch);
       continue;
@@ -639,6 +642,7 @@ bool SSNCommit(Txn *txn) {
 bool snapshotCommit(Txn *txn) {
   DbAddr *slot, addr, next;
   Handle *docHndl;
+  DbMap *docMap;
   int nSlot, idx;
   ObjId objId;
   Doc *doc;
@@ -668,22 +672,22 @@ bool snapshotCommit(Txn *txn) {
         case TxnHndl:
           if (docHndl) releaseHandle(docHndl, NULL);
 
-          slot = fetchIdSlot(hndlMap, objId);
-          docHndl = getObj(hndlMap, *slot);
+          docHndl = fetchIdSlot(hndlMap, objId);
+          docMap = MapAddr(docHndl);
           continue;
 
         case TxnDoc:
-          slot = fetchIdSlot(docHndl->map, objId);
+          slot = fetchIdSlot(docMap, objId);
           lockLatch(slot->latch);
           break;
       }
 
-      doc = getObj(docHndl->map, *slot);
+      doc = getObj(docMap, *slot);
       ver = (Ver *)((uint8_t *)doc + doc->lastVer);
 
       timestampInstall(ver->commit, txn->commit);
       doc->txnId.bits = 0;
-      doc->op = Done;
+      doc->op = TxnDone;
 
       unlockLatch(slot->latch);
 
@@ -701,6 +705,8 @@ bool snapshotCommit(Txn *txn) {
 }
 
 DbStatus commitTxn(Params *params, uint64_t *txnBits) {
+  MVCCResult result = {
+      .value = 0, .count = 0, .objType = objTxn, .status = DB_OK};
   ObjId txnId;
   Txn *txn;
 
@@ -720,10 +726,10 @@ DbStatus commitTxn(Params *params, uint64_t *txnBits) {
   timestampInstall(txn->commit, globalTxn->baseTs + txn->tsClnt);
 
   switch (txn->isolation) {
-    case Serializable:
+    case TxnSerializable:
       if (SSNCommit(txn)) break;
 
-    case SnapShot:
+    case TxnSnapShot:
       snapshotCommit(txn);
       break;
 
@@ -738,6 +744,6 @@ DbStatus commitTxn(Params *params, uint64_t *txnBits) {
 
   timestampQuit(globalTxn->baseTs, txn->tsClnt);
   *txnBits = txn->nextTxn;
-  *txn->state = Done;
+  *txn->state = TxnDone;
   return DB_OK;
 }

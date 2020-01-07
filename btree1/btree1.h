@@ -9,7 +9,7 @@
 #include "../db_frame.h"
 #include "../rwlock/readerwriter.h"
 
-#define Btree1_pagenobytes  (1 + 7 + 1)
+#define Btree1_pagenobytes  (2 + 7 + 1)
 #define Btree1_maxkey		4096
 #define Btree1_maxbits		29					// maximum page size in bits
 #define Btree1_minbits		9					// minimum page size in bits
@@ -110,10 +110,10 @@ typedef union {
 } Btree1Slot;
 
 typedef struct {
-	DbCursor base[1];	// base object
-	Btree1Page *page;	// cursor position page buffer
-	DbAddr addr, pageAddr;	// cursor page buffer address
-	uint32_t slotIdx;	// cursor position index
+  DbCursor base[1];	  // base object
+  uint32_t leafSize;
+  uint32_t slotIdx;   // cursor position index
+  Btree1Page page[];  // cursor position page buffer
 } Btree1Cursor;
 
 #define btree1index(map) ((Btree1Index *)(map->arena + 1))

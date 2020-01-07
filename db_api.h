@@ -7,11 +7,25 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
+#include "db.h"
 #include "db_error.h"
 #include "db_redblack.h"
 #include "db_cursor.h"
 
-//	Index data structure after DbArena object
+DbAddr hndlInit[1];
+DbMap *hndlMap, *memMap;
+char *hndlPath;
+
+#define HandleAddr(dbHndl) fetchIdSlot(hndlMap, dbHndl->hndlId)
+#define MapAddr(handle) db_memObj(handle->mapAddr)
+
+// database docStore Arena extension
+
+typedef struct {
+  uint64_t docCount[1];  // count of active documents
+} DocStore;
+
+//	Global Index data structure after DbArena object
 
 typedef struct {
 	uint64_t numKeys[1];	// number of keys in index

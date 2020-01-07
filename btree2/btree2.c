@@ -6,7 +6,8 @@
 //	create an empty page
 
 uint64_t btree2NewPage (Handle *index, uint8_t lvl) {
-Btree2Index *btree2 = btree2index(index->map);
+DbMap *idxMap = MapAddr(index);
+Btree2Index *btree2 = btree2index(idxMap);
 Btree2PageType type;
 Btree2Page *page;
 uint32_t size;
@@ -22,8 +23,8 @@ DbAddr addr;
   
 	//  allocate page
   
-	if ((addr.bits = allocObj(index->map, listFree(index,type), NULL, type, size, true)))
-		page = getObj(index->map, addr);
+	if ((addr.bits = allocObj(idxMap, listFree(index,type), NULL, type, size, true)))
+		page = getObj(idxMap, addr);
 	else
 		return 0;
   
@@ -41,8 +42,11 @@ DbAddr addr;
 
 //	initialize btree2 root page
 
+uint32_t clntXtra[];
+
 DbStatus btree2Init(Handle *index, Params *params) {
-Btree2Index *btree2 = btree2index(index->map);
+DbMap *idxMap = MapAddr(index);
+Btree2Index *btree2 = btree2index(idxMap);
 ObjId pageNo, *pageSlot;
 Btree2Page *page;
 DbAddr addr;
@@ -61,15 +65,17 @@ DbAddr addr;
 	btree2->pageBits = (uint32_t)params[Btree2Bits].intVal;
 	btree2->leafXtra = (uint32_t)params[Btree2Xtra].intVal;
 
-	//	initial btree2 root/leaf page
+	clntXtra[Hndl_btree2Index] = 1 << btree2->pageBits
+                                          << btree2->leafXtra;
+        //	initial btree2 root/leaf page
 
 	if ((addr.bits = btree2NewPage(index, 0)))
-		page = getObj(index->map, addr);
+		page = getObj(idxMap, addr);
 	else
 		return DB_ERROR_outofmemory;
 
 	if ((pageNo.bits = btree2AllocPageNo(index)))
-		pageSlot = fetchIdSlot(index->map, pageNo);
+		pageSlot = fetchIdSlot(idxMap, pageNo);
 	else
 		return DB_ERROR_outofmemory;
 
@@ -83,21 +89,20 @@ DbAddr addr;
 
 	// release arena
 
-	index->map->arena->type[0] = Hndl_btree2Index;
+	idxMap->arena->type[0] = Hndl_btree2Index;
 	return DB_OK;
 }
 
 //	allocate btree2 pageNo
 
 uint64_t btree2AllocPageNo(Handle *index) {
-	return allocObjId(index->map, listFree(index, ObjIdType), listWait(index, ObjIdType));
+	return allocObjId(MapAddr(index), listFree(index, ObjIdType), listWait(index, ObjIdType));
 }
 
 bool btree2RecyclePageNo(Handle *index, ObjId pageNo) {
-	return addSlotToFrame(index->map, listHead(index, ObjIdType), listWait(index, ObjIdType), pageNo.bits);
+	return addSlotToFrame(MapAddr(index), listHead(index, ObjIdType), listWait(index, ObjIdType), pageNo.bits);
 }
 
 bool btree2RecyclePage(Handle *index, int type, DbAddr addr) {
-	return addSlotToFrame(index->map, listHead(index, type), listWait(index, type), addr.bits);
+	return addSlotToFrame(MapAddr(index), listHead(index, type), listWait(index, type), addr.bits);
 }
-

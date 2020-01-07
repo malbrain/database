@@ -8,6 +8,7 @@ void btree2FillTower(Btree2Page *page, uint16_t off, uint16_t *fwd, uint8_t heig
 DbStatus btree2InsertKey(Handle *index, uint8_t *key, uint32_t keyLen, uint32_t sfxLen, uint8_t lvl, Btree2SlotState type) {
 uint32_t slotSize, totLen = keyLen + sfxLen;
 uint8_t height = btree2GenHeight(index);
+DbMap *idxMap = MapAddr(index);
 Btree2Set set[1];
 DbStatus stat;
 uint16_t next;
@@ -21,7 +22,7 @@ uint16_t next;
 
 	do {
 	  memset(set, 0, sizeof(set));
-	  next = btree2LoadPage(index->map, set, key, totLen, lvl);
+	  next = btree2LoadPage(idxMap, set, key, totLen, lvl);
 
 	  if( (set->off = btree2AllocSlot (set->page, slotSize) ))
 		 return btree2InstallKey (set, key, totLen, height);
@@ -37,7 +38,8 @@ uint16_t next;
 //	clean or split if necessary
 
 DbStatus btree2CleanPage(Handle *index, Btree2Set *set) {
-Btree2Index *btree2 = btree2index(index->map);
+DbMap *idxMap = MapAddr(index);
+Btree2Index *btree2 = btree2index(idxMap);
 volatile uint16_t *tower;
 uint16_t fwd[Btree2_maxtower], off;
 uint32_t size = btree2->pageSize;
@@ -54,7 +56,7 @@ ObjId *pageNoPtr;
 		return btree2SplitPage(index, set);
 
 	if( (addr.bits = btree2NewPage(index, set->page->lvl)) )
-		newPage = getObj(index->map, addr);
+		newPage = getObj(idxMap, addr);
 	else
 		return DB_ERROR_outofmemory;
 
@@ -79,7 +81,7 @@ ObjId *pageNoPtr;
 
 	//	install new page addr into original pageNo slot
 
-	pageNoPtr = fetchIdSlot(index->map, set->pageNo);
+	pageNoPtr = fetchIdSlot(idxMap, set->pageNo);
 	pageNoPtr->bits = addr.bits;
 	return DB_OK;
 }
@@ -93,9 +95,10 @@ ObjId *pageNoPtr;
 //	Note:  this function has been optimized and is not thread safe. (the fwd array in specific)
 
 DbStatus btree2SplitPage (Handle *index, Btree2Set *set) {
-uint8_t *key, lvl = set->page->lvl, keyBuff[MAX_key];
+  DbMap *idxMap = MapAddr(index);
+  uint8_t *key, lvl = set->page->lvl, keyBuff[MAX_key];
 Btree2Page *leftPage, *rightPage, *rootPage = NULL, *tmpPage;
-Btree2Index *btree2 = btree2index(index->map);
+Btree2Index *btree2 = btree2index(idxMap);
 Btree2Slot *rSlot, *lSlot, *slot;
 uint16_t keyLen, min, next, off;
 uint16_t fwd[Btree2_maxtower];
@@ -109,12 +112,12 @@ uint32_t sfxLen;
 DbStatus stat;
 
 	if( (left.bits = btree2NewPage(index, lvl)) )
-		leftPage = getObj(index->map, left);
+		leftPage = getObj(idxMap, left);
 	else
 		return DB_ERROR_outofmemory;
 
 	if( (right.bits = btree2NewPage(index, lvl)) )
-		rightPage = getObj(index->map, right);
+		rightPage = getObj(idxMap, right);
 	else
 		return DB_ERROR_outofmemory;
 
@@ -163,10 +166,10 @@ DbStatus stat;
 	//	allocate new pageNo and insert new key for left page
 
 	rightPage->pageNo.bits = set->page->pageNo.bits;
-    rPageNoPtr = fetchIdSlot(index->map, rightPage->pageNo);
+    rPageNoPtr = fetchIdSlot(idxMap, rightPage->pageNo);
 
 	if ((leftPage->pageNo.bits = btree2AllocPageNo(index)))
-		lPageNoPtr = fetchIdSlot(index->map, leftPage->pageNo);
+		lPageNoPtr = fetchIdSlot(idxMap, leftPage->pageNo);
 	else
 		return DB_ERROR_outofmemory;
 
@@ -191,14 +194,14 @@ DbStatus stat;
     rPageNoPtr->bits = right.bits;
 
 	if(set->page->left.bits) {
-		tmpPageNoPtrL = fetchIdSlot (index->map, set->page->left);
-		tmpPage = getObj (index->map, *tmpPageNoPtrL);
+		tmpPageNoPtrL = fetchIdSlot (idxMap, set->page->left);
+		tmpPage = getObj (idxMap, *tmpPageNoPtrL);
 		tmpPage->right.bits = leftPage->pageNo.bits;
 	}
 
 	if(set->page->right.bits) {
-		tmpPageNoPtrR = fetchIdSlot (index->map, set->page->right);
-		tmpPage = getObj (index->map, *tmpPageNoPtrR);
+		tmpPageNoPtrR = fetchIdSlot (idxMap, set->page->right);
+		tmpPage = getObj (idxMap, *tmpPageNoPtrR);
 		tmpPage->left.bits = rightPage->pageNo.bits;
 	} else
 		rightPage->stopper.bits = set->page->stopper.bits;
@@ -207,12 +210,12 @@ DbStatus stat;
 
 	if( lvl + 1 > set->rootLvl ) {
 	  if( (root.bits = btree2NewPage (index, lvl + 1)) )
-		rootPage = getObj (index->map, root);
+		rootPage = getObj (idxMap, root);
 	  else
 		return DB_ERROR_outofmemory;
 
 	  if ((rootPage->pageNo.bits = btree2AllocPageNo(index)))
-		rootObjId = fetchIdSlot(index->map, rootPage->pageNo);
+		rootObjId = fetchIdSlot(idxMap, rootPage->pageNo);
 	  else
 		return DB_ERROR_outofmemory;
 
@@ -300,6 +303,7 @@ void btree2FillTower(Btree2Page *page, uint16_t off, uint16_t *fwd, uint8_t heig
 int idx;
 
 	if( height > page->height )
+
 	  page->height = height;
 
 	for( idx = 0; idx < height; idx++ ) {

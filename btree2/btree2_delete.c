@@ -6,7 +6,8 @@ bool btree2DeadTower(Btree2Set *set) {
 }
 
 DbStatus btree2DeleteKey(Handle *index, uint8_t *key, uint32_t keyLen) {
-Btree2Index *btree2 = btree2index(index->map);
+DbMap *idxMap = MapAddr(index);
+Btree2Index *btree2 = btree2index(idxMap);
 Btree2Slot *slot;
 Btree2Set set[1];
 uint16_t next;
@@ -15,7 +16,7 @@ uint16_t next;
 
 	// find the level 0 page containing the key
 
-	if ((next = btree2LoadPage(index->map, set, key, keyLen, 0)))
+	if ((next = btree2LoadPage(idxMap, set, key, keyLen, 0)))
 		slot = slotptr (set->page, next);
 	else
 		return DB_ERROR_deletekey;

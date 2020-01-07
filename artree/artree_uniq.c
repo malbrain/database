@@ -7,16 +7,17 @@ bool evalUniq(DbMap *map, ARTKeyUniq *keyUniqNode, UniqCbFcn *evalFcn);
 //	clear defer if unique
 
 DbStatus artInsertUniq( Handle *index, void *key, uint32_t uniqueLen, uint32_t suffixLen, UniqCbFcn *evalFcn, bool *defer) {
+DbMap idxMap = MapAddr(index);
 volatile DbAddr *uniq, slot;
 ARTKeyUniq *keyUniqNode;
 bool pass = false;
 InsertParam p[1];
 ArtIndex *artIdx;
 
-	artIdx = artindex(index->map);
+	artIdx = artindex(idxMap);
 
 	memset(p, 0, sizeof(p));
-	p->binaryFlds = index->map->arenaDef->params[IdxKeyFlds].boolVal;
+	p->binaryFlds = idxMap->arenaDef->params[IdxKeyFlds].boolVal;
 
 	do {
 		p->slot = artIdx->root;
@@ -44,13 +45,13 @@ ArtIndex *artIdx;
 		//	end the uniq portion of the path with a KeyUniq
 
 		if (p->slot->type == KeyUniq) {
-			keyUniqNode = getObj(index->map, *p->slot);
+			keyUniqNode = getObj(idxMap, *p->slot);
 			slot.bits = p->slot->bits;
 			break;
 		}
 
 		if ((slot.bits = artAllocateNode(index, KeyUniq, sizeof(ARTKeyUniq)))) {
-			keyUniqNode = getObj(index->map, slot);
+			keyUniqNode = getObj(idxMap, slot);
 			keyUniqNode->next->bits = p->slot->bits & ~ADDR_MUTEX_SET;
 			p->slot->bits = slot.bits | ADDR_MUTEX_SET;
 			break;
@@ -71,7 +72,7 @@ ArtIndex *artIdx;
 
 	if (!keyUniqNode->dups->bits)
 	  *defer = false;				// no other keys
-	else if (evalUniq(index->map, keyUniqNode, evalFcn))
+	else if (evalUniq(idxMap, keyUniqNode, evalFcn))
 	  *defer = false;				// no conflicting keys
 	else if (!*defer)
 	  return DB_ERROR_unique_key_constraint;
@@ -119,7 +120,7 @@ ArtIndex *artIdx;
 		//	splice in a new KeyEnd node
 
 		if ((slot.bits = artAllocateNode(index, KeyEnd, sizeof(ARTKeyEnd)))) {
-		  ARTKeyEnd *keyEndNode = getObj(index->map, slot);
+		  ARTKeyEnd *keyEndNode = getObj(idxMap, slot);
 		  keyEndNode->next->bits = p->slot->bits & ~ADDR_MUTEX_SET;
 
 		  p->slot->bits = slot.bits;

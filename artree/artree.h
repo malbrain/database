@@ -127,6 +127,7 @@ typedef struct {
 	DbAddr oldSlot[1];
 	DbAddr newSlot[1];
 
+	DbMap *idxMap;
 	DbStatus stat;
 	Handle *index;
 	uint8_t *key;

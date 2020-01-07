@@ -54,12 +54,13 @@ ObjId start = it->docId;
 //
 
 DbAddr *iteratorNext(Handle *itHndl) {
-Iterator *it;
+  DbMap *docMap = MapAddr(itHndl);
+  Iterator *it;
 
-	it = (Iterator *)(itHndl + 1);
+	it = getObj(hndlMap, itHndl->clientArea);
 
-	while (incrObjId(it, itHndl->map)) {
-	  DbAddr *slot = fetchIdSlot(itHndl->map, it->docId);
+	while (incrObjId(it, docMap)) {
+	  DbAddr *slot = fetchIdSlot(docMap, it->docId);
 	  if (slot->bits) {
 		it->state = IterPosAt;
 		return slot;
@@ -75,12 +76,13 @@ Iterator *it;
 //
 
 DbAddr *iteratorPrev(Handle *itHndl) {
-Iterator *it;
+  DbMap *docMap = MapAddr(itHndl);
+  Iterator *it;
 
-	it = (Iterator *)(itHndl + 1);
+	it = getObj(hndlMap, itHndl->clientArea);
 
-	while (decrObjId(it, itHndl->map)) {
-	  DbAddr *slot = fetchIdSlot(itHndl->map, it->docId);
+	while (decrObjId(it, docMap)) {
+	  DbAddr *slot = fetchIdSlot(docMap, it->docId);
 	  if (slot->bits) {
 		it->state = IterPosAt;
 		return slot;
@@ -96,9 +98,10 @@ Iterator *it;
 //
 
 DbAddr *iteratorSeek(Handle *itHndl, IteratorOp op, ObjId docId) {
+DbMap *docMap = MapAddr(itHndl);
 Iterator *it;
 
-	it = (Iterator *)(itHndl + 1);
+	it = getObj(hndlMap, itHndl->clientArea);
 
 	switch (op) {
 	  case IterNext:
@@ -113,12 +116,12 @@ Iterator *it;
 		break;
 
 	  case IterEnd:
-		it->docId.bits = itHndl->map->arena->segs[itHndl->map->arena->currSeg].nextId.bits;
+		it->docId.bits = docMap->arena->segs[docMap->arena->currSeg].nextId.bits;
 		it->state = IterRightEof;
 		break;
 
 	  case IterSeek: {
-		DbAddr *slot = fetchIdSlot(itHndl->map, docId);
+		DbAddr *slot = fetchIdSlot(docMap, docId);
 
 		it->docId.bits = docId.bits;
 
