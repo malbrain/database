@@ -69,7 +69,7 @@ int amt;
 	  }
 	}
 
-	map = db_malloc(sizeof(DbMap) + arenaDef->mapXtra, true);
+	map = db_malloc(sizeof(DbMap), true);
 
 	if ((map->parent = parent)) {
 		*childMap = map;
@@ -168,7 +168,7 @@ uint32_t bits;
 
 	//	compute seg zero size multiple of cache line size
 
-	segOffset = sizeof(DbArena) + arenaDef->baseSize;
+	segOffset = sizeof(DbArena) + arenaDef->arenaXtra;
 	segOffset += 63;
 	segOffset &= -64;
 
@@ -211,7 +211,7 @@ uint32_t bits;
 
 	mapZero(map, initSize);
 	map->arena->segs->nextObject.offset = segOffset >> 4;
-	map->arena->baseSize = arenaDef->baseSize;
+	map->arena->baseSize = arenaDef->arenaXtra;
 	map->arena->objSize = arenaDef->objSize;
 	map->arena->segs->size = initSize;
 	map->arena->delTs = 1;

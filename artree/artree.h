@@ -98,7 +98,7 @@ typedef struct {
  */
 
 typedef struct {
-  DbIndex base[1];
+  DbIndex dbIndex[1];
   DbAddr root[1];  // root of the arttree
 } ArtIndex;
 

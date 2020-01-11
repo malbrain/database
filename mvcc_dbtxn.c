@@ -50,7 +50,7 @@ void initTxn(int maxClients) {
 
 	memset(arenaDef, 0, sizeof(arenaDef));
 	arenaDef->params[OnDisk].boolVal = hndlMap->arenaDef->params[OnDisk].boolVal;
-	arenaDef->baseSize = sizeof(GlobalTxn) + sizeof(Timestamp) * maxClients;
+	arenaDef->arenaXtra = sizeof(GlobalTxn) + sizeof(Timestamp) * maxClients;
 	arenaDef->arenaType = Hndl_txns;
 	arenaDef->objSize = sizeof(Txn);
 

@@ -16,7 +16,7 @@ DbAddr *listQueue(Handle *handle, int nodeType, FrameList listType) {
 }
 
 void *hndlClientXtra(Handle *handle) {
-  return (uint8_t *)getObj(hndlMap, handle->clientArea) + handle->baseSize;
+  return (uint8_t *)getObj(hndlMap, handle->clientAddr) + handle->clntSize;
 }
 
 //	open the catalog
@@ -49,7 +49,7 @@ void *initHndlMap(char *path, int pathLen, char *name, bool onDisk) {
   //	and has databases for children
 
   memset(arenaDef, 0, sizeof(arenaDef));
-  arenaDef->baseSize = sizeof(Catalog);
+  arenaDef->arenaXtra = sizeof(Catalog);
   arenaDef->params[OnDisk].boolVal = onDisk;
   arenaDef->arenaType = Hndl_catalog;
   arenaDef->objSize = sizeof(Handle);
@@ -66,7 +66,7 @@ void *initHndlMap(char *path, int pathLen, char *name, bool onDisk) {
 //	make handle from map pointer
 //	leave it bound
 
-Handle *makeHandle(DbMap *dbMap, uint32_t baseSize, uint32_t clntXtra,
+Handle *makeHandle(DbMap *dbMap, uint32_t  clntSize, uint32_t clntXtra,
                    HandleType type) {
   Handle *handle;
   ObjId hndlId, *mapHndls;
@@ -84,16 +84,16 @@ Handle *makeHandle(DbMap *dbMap, uint32_t baseSize, uint32_t clntXtra,
 
   // size of handle client area (e.g. Cursor/Iterator)
 
-  baseSize += 15;
-  baseSize &= -16;
+  clntSize += 15;
+  clntSize &= -16;
 
   clntXtra += 15;
   clntXtra &= -16;
 
   handle->clntXtra = clntXtra;
 
-  if ((handle->baseSize = baseSize))
-    handle->clientArea.bits = allocBlk(dbMap, baseSize + clntXtra, true);
+  if ((handle->clntSize = clntSize))
+    handle->clientAddr.bits = allocBlk(dbMap, clntSize + clntXtra, true);
 
   handle->entryTs = atomicAdd64(&dbMap->arena->nxtTs, 1);
   handle->hndlId.bits = hndlId.bits;
@@ -139,7 +139,7 @@ void destroyHandle(Handle *handle) {
   uint32_t count;
 
   if (!maxType) return;
-  if (handle->baseSize) freeBlk(dbMap, handle->clientArea);
+  if (handle->clntSize) freeBlk(dbMap, handle->clientAddr);
 
   arrayRelease(dbMap, dbMap->arena->listArray, handle->listIdx);
   arrayRelease(dbMap, dbMap->arenaDef->hndlArray, handle->arrayIdx);
@@ -148,7 +148,7 @@ void destroyHandle(Handle *handle) {
 
   switch (handle->hndlType) {
     case Hndl_cursor:
-      dbCloseCursor(hndlClientXtra(handle), dbMap);
+      dbCloseCursor(getObj(dbMap, handle->clientAddr), dbMap);
       break;
   }
 
@@ -159,7 +159,7 @@ void destroyHandle(Handle *handle) {
   //	never return the handle Id slot
   //	but return the memory
 
-  freeBlk(dbMap, handle->clientArea);
+  freeBlk(dbMap, handle->clientAddr);
 
   // zero the handle Id status
 

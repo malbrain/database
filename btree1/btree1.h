@@ -38,10 +38,10 @@ typedef enum{
 	MAXBtree1Type
 } Btree1PageType;
 
-//	Btree1Index global data on disk
+//	Btree1Index global data on disk after Arena
 
 typedef struct {
-	DbIndex base[1];
+	DbIndex dbIndex[1];
 	uint32_t pageSize;
 	uint32_t pageBits;
 	uint32_t leafXtra;

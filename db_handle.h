@@ -11,10 +11,10 @@
 typedef union {
   struct {
     ObjId hndlId;            // Handle Id in HndlMap (Catalog)
-    DbAddr mapAddr;          // addr for this map handle in memMaps
-    DbAddr clientArea;
+    DbAddr mapAddr;          // addr for this map in memMaps
+    DbAddr clientAddr;       // addr for client area
     uint64_t entryTs;        // time stamp of first api call
-    uint32_t baseSize;       // size of base area in client area
+    uint32_t clntSize;       // size of base area in client area
     uint32_t clntXtra;       // size of client area after base area
     uint32_t bindCnt[1];     // count of open api calls (handle binds)
     uint32_t lcgState[1];    // Lehmer's RNG state
@@ -51,7 +51,7 @@ typedef enum {
 uint32_t disableHndls(DbAddr *hndlCalls);
 uint64_t scanHandleTs(DbMap *map);
 
-Handle *makeHandle(DbMap *map, uint32_t baseSize, uint32_t clmtXtra, 
+Handle *makeHandle(DbMap *map, uint32_t clntSize, uint32_t clntXtra, 
                    HandleType type);
 void releaseHandle(Handle *handle, DbHandle *hndl);
 bool enterHandle(Handle *handle, DbMap *map);

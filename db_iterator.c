@@ -57,7 +57,7 @@ DbAddr *iteratorNext(Handle *itHndl) {
   DbMap *docMap = MapAddr(itHndl);
   Iterator *it;
 
-	it = getObj(hndlMap, itHndl->clientArea);
+	it = getObj(docMap, itHndl->clientAddr);
 
 	while (incrObjId(it, docMap)) {
 	  DbAddr *slot = fetchIdSlot(docMap, it->docId);
@@ -79,7 +79,7 @@ DbAddr *iteratorPrev(Handle *itHndl) {
   DbMap *docMap = MapAddr(itHndl);
   Iterator *it;
 
-	it = getObj(hndlMap, itHndl->clientArea);
+	it = getObj(docMap, itHndl->clientAddr);
 
 	while (decrObjId(it, docMap)) {
 	  DbAddr *slot = fetchIdSlot(docMap, it->docId);
@@ -101,7 +101,7 @@ DbAddr *iteratorSeek(Handle *itHndl, IteratorOp op, ObjId docId) {
 DbMap *docMap = MapAddr(itHndl);
 Iterator *it;
 
-	it = getObj(hndlMap, itHndl->clientArea);
+	it = getObj(docMap, itHndl->clientAddr);
 
 	switch (op) {
 	  case IterNext:

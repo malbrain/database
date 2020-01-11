@@ -13,7 +13,6 @@ typedef enum {
 //	DbCursor handle extension
 
 typedef struct {
-  DbAddr clntAddr;		// client area addr
 	uint8_t *key;		// cursor key bytes
 	uint32_t size;		// size of user data
 	uint32_t keyLen;	// cursor key length

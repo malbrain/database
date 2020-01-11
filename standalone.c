@@ -764,11 +764,14 @@ int main(int argc, char **argv) {
     memset(args + idx, 0, sizeof(*args));
 
     args[idx].inFile = idx < argc ? argv[idx] : argv[argc - 1];
-    cloneHandle(args[idx].dbHndl, dbHndl);
+    args[idx].dbHndl->hndlId.bits = dbHndl->hndlId.bits;
+
+    cloneHandle(args[idx].docHndl, docHndl);
     cloneHandle(args[idx].iterator, iterator);
     cloneHandle(args[idx].docHndl, docHndl);
     cloneHandle(args[idx].cursor, cursor);
     cloneHandle(args[idx].idxHndl, idxHndl);
+
     args[idx].params = params;
     args[idx].keyLen = keyLen;
     args[idx].noDocs = noDocs;

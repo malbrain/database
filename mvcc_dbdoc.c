@@ -187,7 +187,7 @@ DbStatus processKeys(Handle* docHndl, Ver* prevVer, Ver* ver, ObjId docId, uint1
   DbAddr insKey;
   int idx;
 
-  docIdx = getObj(docMap, docHndl->clientArea);
+  docIdx = getObj(docMap, docHndl->clientAddr);
 
   for (idx = 0; idx < keyCount; idx++) {
     uint32_t size = sizeof(IndexKeyValue);

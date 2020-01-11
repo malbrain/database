@@ -30,12 +30,13 @@ typedef struct {
 	uint64_t nxtVer;			// next arena version when creating
 	uint64_t childId;			// highest child Id we've issued
 	uint64_t creation;			// milliseconds since 1/1/70
-	uint32_t mapXtra;			// extra local space after DbMap
-	uint32_t baseSize;			// shared space after DbArena (DocStore, DbIndex)
+	uint32_t clntSize;			// extra handle space after clntSize
+    uint32_t clntXtra;		    // extra handle space after clntSize
+    uint32_t arenaXtra;			// shared space after DbArena (DocStore, DbIndex)
 	uint32_t objSize;			// size of ObjectId array slot
 	uint8_t arenaType;			// type of the arena
 	uint8_t numTypes;			// number of node types
-	uint8_t dead[1];				// arena file killed/deleted
+	uint8_t dead[1];			// arena file killed/deleted
 	DbAddr nameTree[1];			// child arena name red/black tree
 	DbAddr childList[1];		// array of childId to arenaDef RbAddr
 	DbAddr hndlArray[1];		// array of handle ids for this arena

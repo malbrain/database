@@ -115,10 +115,10 @@ typedef enum {
 	Size = 0,		// total Params structure size	(int)
 	OnDisk,			// Arena resides on disk	(bool)
 	InitSize,		// initial arena size	(int)
-	HndlXtra,		// extra bytes in handle struct	(int)
 	ObjIdSize,		// size of arena ObjId array element	(int)
-	MapXtra,		// local process extra map storage	(int)
-	ArenaXtra,		// extra bytes in arena	(int)
+	ClntSize,		// Handle client area size (DbCursor, Iterator)  (int)
+	ClntXtra,		// Handle client extra storage (leaf page buffer) (int)
+	ArenaXtra,		// extra bytes in arena	(DbIndex, DocStore) (int)
 	ResetVersion,	// reset arena version
 
 	IdxKeyUnique = 10,	// index keys uniqueness constraint	(bool)

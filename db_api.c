@@ -73,7 +73,8 @@ DbStatus openDatabase(DbHandle *hndl, char *name, uint32_t nameLen,
   rbEntry = procParam(hndlMap, name, nameLen, params);
   arenaDef = (ArenaDef *)(rbEntry + 1);
 
-  arenaDef->mapXtra = (uint32_t)params[MapXtra].intVal;
+  arenaDef->clntSize = (uint32_t)params[ClntSize].intVal;
+  arenaDef->clntXtra = (uint32_t)params[ClntXtra].intVal;
   arenaDef->objSize = (uint32_t)params[ObjIdSize].intVal;
   arenaDef->arenaType = Hndl_database;
   arenaDef->numTypes = ObjIdType + 1;
@@ -109,11 +110,12 @@ DbStatus openDocStore(DbHandle hndl[1], DbHandle dbHndl[1], char *name,
   rbEntry = procParam(parent, name, nameLen, params);
 
   arenaDef = (ArenaDef *)(rbEntry + 1);
-  arenaDef->mapXtra = (uint32_t)params[MapXtra].intVal;
+  arenaDef->clntSize = (uint32_t)params[ClntSize].intVal;
+  arenaDef->clntXtra = (uint32_t)params[ClntXtra].intVal;
   arenaDef->arenaType = Hndl_docStore;
   arenaDef->objSize = sizeof(ObjId);
   arenaDef->numTypes = MAX_blk + 1;
-  arenaDef->baseSize = sizeof(DocStore);
+  arenaDef->arenaXtra = sizeof(DocStore);
 
   if ((map = arenaRbMap(parent, rbEntry))) {
     if (!*map->arena->type) {
@@ -124,8 +126,7 @@ DbStatus openDocStore(DbHandle hndl[1], DbHandle dbHndl[1], char *name,
 
   releaseHandle(database, dbHndl);
 
-  if ((docHndl = makeHandle(map, 0, (uint32_t)params[HndlXtra].intVal,
-                            Hndl_docStore)))
+  if ((docHndl = makeHandle(map, 0, 0, Hndl_docStore)))
     hndl->hndlId.bits = docHndl->hndlId.bits;
   else
     return DB_ERROR_outofmemory;
@@ -137,7 +138,6 @@ DbStatus openDocStore(DbHandle hndl[1], DbHandle dbHndl[1], char *name,
 DbStatus createIndex(DbHandle dbIdxHndl[1], DbHandle dbParentHndl[1], char *name,
                      uint32_t nameLen, Params *params) {
   uint32_t type = (uint32_t)(params[IdxType].intVal + Hndl_artIndex);
-  uint32_t mapXtra = (uint32_t)params[MapXtra].intVal;
   Handle *parentHndl, *idxHndl;
   DbMap *idxMap, *parentMap;
   ArenaDef *arenaDef;
@@ -155,20 +155,22 @@ DbStatus createIndex(DbHandle dbIdxHndl[1], DbHandle dbParentHndl[1], char *name
 
   arenaDef = (ArenaDef *)(rbEntry + 1);
   arenaDef->objSize = sizeof(ObjId);
+  arenaDef->clntSize = cursorSize[type];
+  arenaDef->clntXtra = clntXtra[type];
   arenaDef->arenaType = type;
 
   switch (type) {
     case Hndl_artIndex:
       arenaDef->numTypes = MaxARTType;
-      arenaDef->baseSize = sizeof(ArtIndex);
+      arenaDef->arenaXtra = sizeof(ArtIndex);
       break;
     case Hndl_btree1Index:
       arenaDef->numTypes = MAXBtree1Type;
-      arenaDef->baseSize = sizeof(Btree1Index);
+      arenaDef->arenaXtra = sizeof(Btree1Index);
       break;
     case Hndl_btree2Index:
       arenaDef->numTypes = MAXBtree2Type;
-      arenaDef->baseSize = sizeof(Btree2Index);
+      arenaDef->arenaXtra = sizeof(Btree2Index);
       break;
     default:
       releaseHandle(parentHndl, dbParentHndl);
@@ -180,7 +182,7 @@ DbStatus createIndex(DbHandle dbIdxHndl[1], DbHandle dbParentHndl[1], char *name
     return DB_ERROR_createindex;
   }
 
-  if ((idxHndl = makeHandle(idxMap, 0, mapXtra, type)))
+  if ((idxHndl = makeHandle(idxMap, arenaDef->clntSize, arenaDef->clntXtra, type)))
     dbIdxHndl->hndlId.bits = idxHndl->hndlId.bits;
   else {
     releaseHandle(parentHndl, dbParentHndl);
@@ -220,7 +222,6 @@ createXit:
 //
 
 DbStatus createIterator(DbHandle hndl[1], DbHandle docHndl[1], Params *params) {
-  uint32_t hndlXtra = (uint32_t)params[HndlXtra].intVal;
   Handle *parentHndl, *iterHndl;
   Iterator *it;
   DbMap *docMap;
@@ -231,9 +232,8 @@ DbStatus createIterator(DbHandle hndl[1], DbHandle docHndl[1], Params *params) {
 
   docMap = MapAddr(parentHndl);
 
-  if ((iterHndl = makeHandle(docMap, sizeof(Iterator), hndlXtra,
-                             Hndl_iterator)))
-    it = getObj(docMap, iterHndl->clientArea);
+  if ((iterHndl = makeHandle(docMap, sizeof(Iterator), 0, Hndl_iterator)))
+    it = getObj(docMap, iterHndl->clientAddr);
   else {
     releaseHandle(parentHndl, docHndl);
     return DB_ERROR_outofmemory;
@@ -241,7 +241,6 @@ DbStatus createIterator(DbHandle hndl[1], DbHandle docHndl[1], Params *params) {
 
   it->state = IterLeftEof;
   it->docId.bits = 0;
-  it->xtra = hndlXtra;
 
   //	return handle for iterator
 
@@ -267,7 +266,7 @@ DbStatus moveIterator(DbHandle hndl[1], IteratorOp op, void **doc,
   else
     return DB_ERROR_handleclosed;
 
-  it = getObj(docMap, docHndl->clientArea);
+  it = getObj(docMap, docHndl->clientAddr);
 
   switch (op) {
     case IterNext:
@@ -318,7 +317,7 @@ DbStatus createCursor(DbHandle hndl[1], DbHandle dbIdxHndl[1], Params *params) {
 
   if ((cursorHndl = makeHandle(idxMap, cursorSize[*idxMap->arena->type],
                                clntXtra[*idxMap->arena->type], Hndl_cursor)))
-    dbCursor = getObj(idxMap, cursorHndl->clientArea);
+    dbCursor = getObj(idxMap, cursorHndl->clientAddr);
   else {
     releaseHandle(idxHndl, dbIdxHndl);
     return DB_ERROR_outofmemory;
@@ -326,7 +325,6 @@ DbStatus createCursor(DbHandle hndl[1], DbHandle dbIdxHndl[1], Params *params) {
 
   dbCursor->binaryFlds = params[IdxKeyFlds].charVal;
   dbCursor->deDup = params[CursorDeDup].boolVal;
-  dbCursor->clntAddr = cursorHndl->clientArea;
 
   switch (*idxMap->arena->type) {
     case Hndl_artIndex:
@@ -361,7 +359,7 @@ DbStatus closeCursor(DbHandle hndl[1]) {
   else
     return DB_ERROR_handleclosed;
 
-  dbCursor = getObj(idxMap, idxHndl->clientArea);
+  dbCursor = getObj(idxMap, idxHndl->clientAddr);
 
   switch (*idxMap->arena->type) {
     case Hndl_artIndex:
@@ -395,7 +393,7 @@ DbStatus positionCursor(DbHandle hndl[1], CursorOp op, void *key,
   else
       return DB_ERROR_handleclosed;
 
-  dbCursor = getObj(idxMap, idxHndl->clientArea);
+  dbCursor = getObj(idxMap, idxHndl->clientAddr);
 
   stat = dbFindKey(dbCursor, idxMap, key, keyLen, op);
   releaseHandle(idxHndl, hndl);
@@ -415,7 +413,7 @@ DbStatus moveCursor(DbHandle hndl[1], CursorOp op) {
   else
       return DB_ERROR_handleclosed;
 
-  dbCursor = getObj(idxMap, cursorHndl->clientArea);
+  dbCursor = getObj(idxMap, cursorHndl->clientAddr);
 
   switch (op) {
     case OpLeft:
@@ -451,7 +449,7 @@ DbStatus keyAtCursor(DbHandle *hndl, uint8_t **key, uint32_t *keyLen) {
   else
     return DB_ERROR_handleclosed;
 
-  dbCursor = getObj(idxMap, cursorHndl->clientArea);
+  dbCursor = getObj(idxMap, cursorHndl->clientAddr);
 
   switch (dbCursor->state) {
     case CursorPosAt:
@@ -500,12 +498,32 @@ DbStatus cloneHandle(DbHandle newHndl[1], DbHandle oldHndl[1]) {
   else
     return DB_ERROR_handleclosed;
 
-  if ((hndl2 = makeHandle(map, hndl->baseSize, hndl->clntXtra,
+  if ((hndl2 = makeHandle(map, hndl->clntSize, hndl->clntXtra,
                           hndl->hndlType)))
     newHndl->hndlId.bits = hndl2->hndlId.bits;
   else
     stat = DB_ERROR_outofmemory;
 
+  if( !stat ) switch (hndl2->hndlType) {
+      case Hndl_artIndex:
+        stat = artNewCursor(getObj(map, hndl2->clientAddr), map);
+        break;
+
+      case Hndl_btree1Index:
+        stat = btree1NewCursor(getObj(map, hndl2->clientAddr), map);
+        break;
+
+      case Hndl_btree2Index:
+        stat = btree2NewCursor(getObj(map, hndl2->clientAddr), map);
+        break;
+
+      case Hndl_iterator: {
+        Iterator *it = getObj(map, hndl2->clientAddr);
+        it->state = IterLeftEof;
+        it->docId.bits = 0;
+        break;
+      }
+    }
   releaseHandle(hndl2, newHndl);
   releaseHandle(hndl, oldHndl);
   return stat;

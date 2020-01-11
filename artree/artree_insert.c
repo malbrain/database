@@ -127,7 +127,7 @@ volatile DbAddr* install;
 	do {
 		memset (p, 0, sizeof (p));
 
-		p->binaryFlds = artIndex->base->binaryFlds;
+		p->binaryFlds = artIndex->dbIndex->binaryFlds;
         p->slot = artIndex->root;
         p->keyLen = keyLen;
         p->restart = false;
@@ -208,7 +208,7 @@ volatile DbAddr* install;
 	//	unlock/install keyend node
 
 	install->bits = keyEndSlot.bits;
-	atomicAdd64(artIndex->base->numKeys, 1);
+    atomicAdd64(artIndex->dbIndex->numKeys, 1);
 	return DB_OK;
 }
 

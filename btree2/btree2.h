@@ -43,10 +43,10 @@ typedef enum {
 	Btree2_rootPage = 0x10,
 } Btree2PageAttribute;
 
-//	Btree2Index global data on disk
+//	Btree2Index global data on disk after Arena
 
 typedef struct {
-	DbIndex base[1];
+	DbIndex dbIndex[1];
 	uint32_t pageSize;
 	uint8_t pageBits;
 	uint8_t leafXtra;
@@ -138,7 +138,7 @@ typedef struct {
 	uint16_t listFwd[Btree2_maxslots];
 } Btree2Cursor;
 
-#define btree2index(map) ((Btree2Index *)(map + 1))
+#define btree2index(map) ((Btree2Index *)(map->arena + 1))
 
 DbStatus btree2NewCursor(DbCursor *cursor, DbMap *map);
 DbStatus btree2ReturnCursor(DbCursor *dbCursor, DbMap *map);

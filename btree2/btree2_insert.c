@@ -95,8 +95,8 @@ ObjId *pageNoPtr;
 //	Note:  this function has been optimized and is not thread safe. (the fwd array in specific)
 
 DbStatus btree2SplitPage (Handle *index, Btree2Set *set) {
-  DbMap *idxMap = MapAddr(index);
-  uint8_t *key, lvl = set->page->lvl, keyBuff[MAX_key];
+DbMap *idxMap = MapAddr(index);
+uint8_t *key, lvl = set->page->lvl, keyBuff[MAX_key];
 Btree2Page *leftPage, *rightPage, *rootPage = NULL, *tmpPage;
 Btree2Index *btree2 = btree2index(idxMap);
 Btree2Slot *rSlot, *lSlot, *slot;
