@@ -9,8 +9,7 @@
 #include "db_redblack.h"
 #include "db_arena.h"
 #include "db_map.h"
-
-extern DbMap *hndlMap;
+#include "db_api.h"
 
 //	if this is a new map file, copy param
 //	structure to a new ArenaDef in parent

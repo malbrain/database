@@ -19,50 +19,6 @@ void *hndlClientXtra(Handle *handle) {
   return (uint8_t *)getObj(hndlMap, handle->clientAddr) + handle->clntSize;
 }
 
-//	open the catalog
-//	return pointer to the arenaXtra area after the Catalog
-
-void *initHndlMap(char *path, int pathLen, char *name, bool onDisk) {
-  int nameLen = (int)strlen(name);
-  ArenaDef arenaDef[1];
-
-  lockLatch(hndlInit->latch);
-
-  if (hndlInit->type) {
-    unlockLatch(hndlInit->latch);
-    return (uint8_t *)(hndlMap->arena + 1) + sizeof(Catalog);
-  }
-
-  if (pathLen) {
-    hndlPath = db_malloc(pathLen + 1, false);
-    memcpy(hndlPath, path, pathLen);
-    hndlPath[pathLen] = 0;
-  }
-
-  if (!name)
-    name = "Catalog";
-
-  nameLen = (int)strlen(name);
-  
-  //    configure local process Catalog
-  //	which contains all the Handles
-  //	and has databases for children
-
-  memset(arenaDef, 0, sizeof(arenaDef));
-  arenaDef->arenaXtra = sizeof(Catalog);
-  arenaDef->params[OnDisk].boolVal = onDisk;
-  arenaDef->arenaType = Hndl_catalog;
-  arenaDef->objSize = sizeof(Handle);
-
-  hndlMap = openMap(NULL, name, nameLen, arenaDef, NULL);
-  hndlMap->db = hndlMap;
-
-  *hndlMap->arena->type = Hndl_catalog;
-  hndlInit->type = Hndl_catalog;
-
-  return (uint8_t *)(hndlMap->arena + 1) + sizeof(Catalog);
-}
-
 //	make handle from map pointer
 //	leave it bound
 
@@ -207,8 +163,21 @@ bool enterHandle(Handle *handle, DbMap *map) {
 //	bind handle for use in API call
 //	return NULL if handle closed
 
-Handle *bindHandle(DbHandle *dbHndl) {
+Handle *bindHandle(DbHandle *dbHndl, HandleType hndlType) {
   Handle *handle = HandleAddr(dbHndl);
+  HandleType type = handle->hndlType;
+
+  switch (hndlType) {
+    case Hndl_anyIdx:
+      if (type != Hndl_artIndex && type != Hndl_btree1Index &&
+          type != Hndl_btree2Index)
+        return NULL;
+
+      break;
+
+    case Hndl_any:
+      break;
+  }
 
   //	increment count of active binds
   //	and capture timestamp if we are the

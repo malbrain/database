@@ -1,13 +1,11 @@
 #include "db.h"
 #include "db_arena.h"
 #include "db_map.h"
+#include "db_api.h"
 #include "db_object.h"
 #include "db_handle.h"
 #include "db_redblack.h"
 #include "db_skiplist.h"
-
-extern DbMap memMap[1];
-extern DbMap *hndlMap;
 
 // drop an arena given its r/b entry
 //	and recursively its children

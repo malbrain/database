@@ -48,6 +48,24 @@ typedef enum {
     HndlKill = 1,
 } HndlCodes;
 
+//	types of handles/arenas
+
+typedef enum {
+  Hndl_any = 0,
+  Hndl_anyIdx,
+  Hndl_catalog,
+  Hndl_database,
+  Hndl_docStore,
+  Hndl_artIndex,
+  Hndl_btree1Index,
+  Hndl_btree2Index,
+  Hndl_colIndex,
+  Hndl_iterator,
+  Hndl_cursor,
+  Hndl_txns,
+  Hndl_max
+} HandleType;
+
 uint32_t disableHndls(DbAddr *hndlCalls);
 uint64_t scanHandleTs(DbMap *map);
 
@@ -55,6 +73,6 @@ Handle *makeHandle(DbMap *map, uint32_t clntSize, uint32_t clntXtra,
                    HandleType type);
 void releaseHandle(Handle *handle, DbHandle *hndl);
 bool enterHandle(Handle *handle, DbMap *map);
-Handle *bindHandle(DbHandle *dbHndl);
+Handle *bindHandle(DbHandle *dbHndl, HandleType type);
 
 void destroyHandle(Handle *handle);

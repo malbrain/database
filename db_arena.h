@@ -103,6 +103,8 @@ typedef union {
   char filler[256];
 } Catalog;
 
+Catalog *catalog;
+
 /**
  * open/create arenas
  */

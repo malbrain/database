@@ -17,19 +17,57 @@ uint32_t indexSize[Hndl_max] = {sizeof(ArtIndex), sizeof(Btree1Index), sizeof(Bt
 uint32_t clntXtra[Hndl_max];
 
 extern void memInit(void);
-extern DbAddr hndlInit[1];
+DbAddr hndlInit[1];
 extern DbMap *hndlMap;
-extern char *hndlPath;
-void *initHndlMap(char *path, int pathLen, char *name, bool onDisk);
+char *hndlPath;
 
+//	open the catalog
+//	return pointer to the Handle map
+
+Catalog *initHndlMap(char *path, int pathLen, char *name, bool onDisk) {
+  int nameLen = (int)strlen(name);
+  ArenaDef arenaDef[1];
+
+  lockLatch(hndlInit->latch);
+
+  if (hndlInit->type) {
+    unlockLatch(hndlInit->latch);
+    return (Catalog *)(hndlMap->arena + 1);
+  }
+
+  if (pathLen) {
+    hndlPath = db_malloc(pathLen + 1, false);
+    memcpy(hndlPath, path, pathLen);
+    hndlPath[pathLen] = 0;
+  }
+
+  //    configure local process Catalog
+  //	which contains all the Handles
+  //	and has databases for children
+
+  memset(arenaDef, 0, sizeof(arenaDef));
+  arenaDef->arenaXtra = sizeof(Catalog);
+  arenaDef->params[OnDisk].boolVal = onDisk;
+  arenaDef->arenaType = Hndl_catalog;
+  arenaDef->objSize = sizeof(Handle);
+
+  hndlMap = openMap(NULL, name, nameLen, arenaDef, NULL);
+  hndlMap->db = hndlMap;
+
+  *hndlMap->arena->type = Hndl_catalog;
+  hndlInit->type = Hndl_catalog;
+
+  return (Catalog *)(hndlMap->arena + 1);
+}
 
 void initialize(void) {
   memInit(); 
   
-  //    "Handles" contans all open maps in the current process
-  //    indexed by objId
+  //    "Catalog" contans all open maps in the current process
+  //    indexed in an array, and all Handles indexed by ObjId
 
-  if (!hndlInit->type) initHndlMap(NULL, 0, "Handles", true);
+  if (!hndlInit->type) 
+      catalog = initHndlMap(NULL, 0, "Catalog", true);
 }
 
 uint64_t arenaAlloc(DbHandle arenaHndl[1], uint32_t size, bool zeroit,
@@ -46,7 +84,7 @@ uint64_t arenaAlloc(DbHandle arenaHndl[1], uint32_t size, bool zeroit,
 }
 
 DbStatus dropArena(DbHandle hndl[1], bool dropDefs) {
-  Handle *arena = bindHandle(hndl);
+  Handle *arena = bindHandle(hndl, Hndl_any);
   DbMap *map = MapAddr(arena);
 
   releaseHandle(arena, hndl);
@@ -101,7 +139,7 @@ DbStatus openDocStore(DbHandle hndl[1], DbHandle dbHndl[1], char *name,
 
   hndl->hndlId.bits = 0;
 
-  if (!(database = bindHandle(dbHndl))) return DB_ERROR_handleclosed;
+  if (!(database = bindHandle(dbHndl, Hndl_database))) return DB_ERROR_handleclosed;
 
   parent = MapAddr(database);
 
@@ -145,7 +183,7 @@ DbStatus createIndex(DbHandle dbIdxHndl[1], DbHandle dbParentHndl[1], char *name
 
   dbIdxHndl->hndlId.bits = 0;
 
-  if (!(parentHndl = bindHandle(dbParentHndl))) return DB_ERROR_handleclosed;
+  if (!(parentHndl = bindHandle(dbParentHndl, Hndl_any))) return DB_ERROR_handleclosed;
 
   parentMap = MapAddr(parentHndl);
 
@@ -228,7 +266,7 @@ DbStatus createIterator(DbHandle hndl[1], DbHandle docHndl[1], Params *params) {
 
   hndl->hndlId.bits = 0;
 
-  if (!(parentHndl = bindHandle(docHndl))) return DB_ERROR_handleclosed;
+  if (!(parentHndl = bindHandle(docHndl, Hndl_docStore))) return DB_ERROR_handleclosed;
 
   docMap = MapAddr(parentHndl);
 
@@ -261,7 +299,7 @@ DbStatus moveIterator(DbHandle hndl[1], IteratorOp op, void **doc,
   DbAddr *slot;
   DbMap *docMap;
 
-  if ((docHndl = bindHandle(hndl)))
+  if ((docHndl = bindHandle(hndl, Hndl_docStore)))
     docMap = MapAddr(docHndl);
   else
     return DB_ERROR_handleclosed;
@@ -310,7 +348,7 @@ DbStatus createCursor(DbHandle hndl[1], DbHandle dbIdxHndl[1], Params *params) {
   DbCursor *dbCursor;
   DbMap *idxMap;
 
-  if ((idxHndl = bindHandle(dbIdxHndl)))
+  if ((idxHndl = bindHandle(dbIdxHndl, Hndl_anyIdx)))
       idxMap = MapAddr(idxHndl);
   else
       return DB_ERROR_handleclosed;
@@ -354,7 +392,7 @@ DbStatus closeCursor(DbHandle hndl[1]) {
   Handle *idxHndl;
   DbMap *idxMap;
 
-  if ((idxHndl = bindHandle(hndl)))
+  if ((idxHndl = bindHandle(hndl, Hndl_cursor)))
     idxMap = MapAddr(idxHndl);
   else
     return DB_ERROR_handleclosed;
@@ -388,7 +426,7 @@ DbStatus positionCursor(DbHandle hndl[1], CursorOp op, void *key,
   DbStatus stat;
   DbMap *idxMap;
 
-  if ((idxHndl = bindHandle(hndl)))
+  if ((idxHndl = bindHandle(hndl, Hndl_cursor)))
       idxMap = MapAddr(idxHndl);
   else
       return DB_ERROR_handleclosed;
@@ -408,7 +446,7 @@ DbStatus moveCursor(DbHandle hndl[1], CursorOp op) {
   DbStatus stat;
   DbMap *idxMap;
 
-  if ((cursorHndl = bindHandle(hndl)))
+  if ((cursorHndl = bindHandle(hndl, Hndl_cursor)))
       idxMap = MapAddr(cursorHndl);
   else
       return DB_ERROR_handleclosed;
@@ -444,7 +482,7 @@ DbStatus keyAtCursor(DbHandle *hndl, uint8_t **key, uint32_t *keyLen) {
   Handle *cursorHndl;
   DbMap *idxMap;
 
-  if ((cursorHndl = bindHandle(hndl)))
+  if ((cursorHndl = bindHandle(hndl, Hndl_cursor)))
     idxMap = MapAddr(cursorHndl);
   else
     return DB_ERROR_handleclosed;
@@ -493,7 +531,7 @@ DbStatus cloneHandle(DbHandle newHndl[1], DbHandle oldHndl[1]) {
 
   if (oldHndl->hndlId.bits == 0) return newHndl->hndlId.bits = 0, DB_OK;
 
-  if ((hndl = bindHandle(oldHndl)))
+  if ((hndl = bindHandle(oldHndl, Hndl_any)))
     map = MapAddr(hndl);
   else
     return DB_ERROR_handleclosed;
@@ -536,7 +574,7 @@ DbStatus fetchDoc(DbHandle hndl[1], void **doc, ObjId docId) {
   DbAddr *slot;
   DbMap *docMap;
 
-  if ((docHndl = bindHandle(hndl)))
+  if ((docHndl = bindHandle(hndl, Hndl_docStore)))
       docMap = MapAddr(docHndl);
   else
       return DB_ERROR_handleclosed;
@@ -554,7 +592,7 @@ DbStatus deleteDoc(DbHandle hndl[1], ObjId docId) {
   DbAddr *slot;
   DbMap *docMap;
 
-  if ((docHndl = bindHandle(hndl))) 
+  if ((docHndl = bindHandle(hndl, Hndl_docStore))) 
       docMap = MapAddr(docHndl);
   else
       return DB_ERROR_handleclosed;
@@ -579,7 +617,7 @@ DbStatus storeDoc(DbHandle hndl[1], void *obj, uint32_t objSize, ObjId *docId) {
   DbMap *docMap;
   void *doc;
 
-  if ((docHndl = bindHandle(hndl)))
+  if ((docHndl = bindHandle(hndl, Hndl_docStore)))
       docMap = MapAddr(docHndl);
   else
       return DB_ERROR_handleclosed;
@@ -613,7 +651,7 @@ DbStatus deleteKey(DbHandle hndl[1], uint8_t *key, uint32_t len) {
   DbIndex *index;
   DbMap *idxMap;
 
-  if ((idxHndl = bindHandle(hndl))) 
+  if ((idxHndl = bindHandle(hndl, Hndl_anyIdx))) 
       idxMap = MapAddr(idxHndl);
   else
       return DB_ERROR_handleclosed;
@@ -655,7 +693,7 @@ DbStatus insertKey(DbHandle hndl[1], uint8_t *key, uint32_t len,
   DbIndex *index;
   DbMap *idxMap;
 
-  if ((idxHndl = bindHandle(hndl))) 
+  if ((idxHndl = bindHandle(hndl, Hndl_anyIdx))) 
       idxMap = MapAddr(idxHndl);
   else
       return DB_ERROR_handleclosed;

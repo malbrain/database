@@ -3,9 +3,6 @@
 #include "mvcc_dbapi.h"
 #include "mvcc_dbdoc.h"
 
-Catalog* catalog;
-// CcMethod* cc;
-
 //  Txn arena free txn frames
 
 void initTxn(int maxclients);

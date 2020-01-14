@@ -8,6 +8,7 @@
 #include <string.h>
 
 #include "db.h"
+#include "db_handle.h"
 #include "db_api.h"
 
 #ifdef _WIN32

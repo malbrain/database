@@ -33,23 +33,6 @@ uint64_t get64(uint8_t* key, uint32_t len);
 
 #define MAX_key		4096	// maximum key size in bytes
 
-//	types of handles/arenas
-
-typedef enum {
-	Hndl_newarena = 0,
-	Hndl_catalog,
-	Hndl_database,
-	Hndl_docStore,
-	Hndl_artIndex,
-	Hndl_btree1Index,
-	Hndl_btree2Index,
-	Hndl_colIndex,
-	Hndl_iterator,
-	Hndl_cursor,
-	Hndl_txns,
-	Hndl_max
-} HandleType;
-
 //	general object pointer
 
 typedef union {
