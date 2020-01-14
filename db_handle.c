@@ -15,10 +15,6 @@ DbAddr *listQueue(Handle *handle, int nodeType, FrameList listType) {
          listBase;
 }
 
-void *hndlClientXtra(Handle *handle) {
-  return (uint8_t *)getObj(hndlMap, handle->clientAddr) + handle->clntSize;
-}
-
 //	make handle from map pointer
 //	leave it bound
 

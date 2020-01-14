@@ -12,7 +12,7 @@
 #include "db_redblack.h"
 #include "db_cursor.h"
 
-DbMap *hndlMap, *memMap;
+DbMap *hndlMap;
 
 #define HandleAddr(dbHndl) fetchIdSlot(hndlMap, dbHndl->hndlId)
 #define MapAddr(handle) db_memObj(handle->mapAddr)

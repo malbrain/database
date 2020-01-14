@@ -7,6 +7,8 @@
 #include "db_redblack.h"
 #include "db_skiplist.h"
 
+DbMap memMap[1];
+
 // drop an arena given its r/b entry
 //	and recursively its children
 

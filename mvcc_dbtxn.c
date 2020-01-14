@@ -6,7 +6,7 @@
 //  Txn arena free txn frames
 
 void initTxn(int maxclients);
-DbMap* txnMap;
+DbMap* txnMap, memMap[1];
 uint8_t txnInit[1];
 
  #ifdef __MACH__
