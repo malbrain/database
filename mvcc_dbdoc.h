@@ -96,12 +96,12 @@ typedef struct {
 	TxnCC isolation;
 } CcMethod;
 
-// database docStore index map extension
+// database docStore indexing extension
 
 typedef struct {
-	uint16_t idxMax;
+	uint32_t idxMax;
 	DbHandle idxHndls[];		// array of index handles
-} DocIndexes;
+} DocIdx;
 
 //	Database transactions: DbAddr housed in database ObjId slots
 

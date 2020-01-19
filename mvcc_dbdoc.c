@@ -175,7 +175,7 @@ uint64_t allocDocStore(Handle* docHndl, uint32_t size, bool zeroit) {
 	return allocObj(MapAddr(docHndl), free, wait, -1, size, zeroit);
 }
 
-//  process keyList
+//  process document keyList
 
 DbStatus processKeys(Handle* docHndl, Ver* prevVer, Ver* ver, ObjId docId, uint16_t keyCount,
                      uint8_t* keyList) {
