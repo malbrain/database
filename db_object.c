@@ -4,6 +4,72 @@
 #include "db_frame.h"
 #include "db_map.h"
 
+DbVector *vectorNew(DbMap *map, DbVector *prv) {
+DbVector *vec;
+DbAddr addr; 
+
+	addr.bits = allocBlk(map, sizeof(DbVector) + prv->vecMax * sizeof(DbAddr), true);
+	vec = getObj(map, addr);
+	vec->vecMax = prv->vecMax;
+	prv->next.bits = addr.bits;
+	return vec;
+}
+
+uint32_t vectorPush(DbMap *map, DbVector *nxt, DbAddr value) {
+uint32_t slot = 0;
+DbVector *vec;
+
+	while(( vec = nxt )) {
+	  lockLatch(vec->latch);
+
+	  if( vec->vecLen < vec->vecMax )
+		break;
+
+	  if( vec->next.bits )
+		nxt = getObj(map, vec->next);
+	  else
+		nxt = vectorNew(map, vec);
+
+	  slot += vec->vecMax;
+	  unlockLatch(vec->latch);
+	}
+
+	slot += vec->vecMax;
+	vec->vector[vec->vecLen++] = value;
+	unlockLatch(vec->latch);
+	return slot;
+}
+
+DbAddr *vectorFind(DbMap *map, DbVector *prv, uint32_t slot) {
+uint32_t base = 0;
+DbVector *vec;
+
+	while(( vec = prv )) {
+	  lockLatch(vec->latch);
+
+	  if( base + vec->vecMax < slot )
+	    if( vec->next.bits )
+	  	   prv = getObj(map, vec->next);
+	    else
+		   prv = NULL;
+	  else
+		break;
+
+	  base += vec->vecMax;
+	  unlockLatch(vec->latch);
+	}
+
+	slot -= base;
+	unlockLatch(vec->latch);
+
+	assert(slot < vec->vecMax);
+
+	if( !prv )
+		return NULL;
+
+	return vec->vector + slot;
+}
+
 uint16_t arrayFirst(uint32_t objSize) {
 
 	//  must at least have room for bit map

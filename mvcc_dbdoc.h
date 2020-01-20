@@ -60,9 +60,8 @@ typedef struct {
   Timestamp commit[1];	// commit timestamp
   Timestamp pstamp[1];	// highest access timestamp
   Timestamp sstamp[1];	// successor's commit timestamp, or infinity
-  uint16_t keyCount;	// count of keys in vector after this hdr
   uint8_t deferred;		// some keys have deferred constraints
-  DbAddr keys[0];       // vector of keys for this version
+  DbVector keys[1];     // vector of keys for this version
 } Ver;
 
 

@@ -161,8 +161,11 @@ typedef struct {
 	uint8_t type;
 	uint16_t vecLen;
 	uint16_t vecMax;
-	DbAddr next, vector[];
+	DbAddr next, vector[1];
 } DbVector;
+  
+uint32_t vectorPush(DbMap*, DbVector *, DbAddr);
+DbAddr *vectorFind(DbMap*, DbVector *, uint32_t);
 
 uint32_t store64(uint8_t *key, uint32_t keylen, int64_t what);
 uint64_t get64(uint8_t *key, uint32_t len);

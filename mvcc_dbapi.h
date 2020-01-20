@@ -3,6 +3,7 @@
 #include "db.h"
 #include "db_api.h"
 #include "mvcc_dbdoc.h"
+#include "mvcc_dbidx.h"
 
 typedef enum {      
   objNone,
@@ -29,9 +30,11 @@ MVCCResult mvcc_BeginTxn(Params* params, uint64_t* nestedTxnBits);
 MVCCResult mvcc_RollbackTxn(Params* params, uint64_t* txnBits);
 MVCCResult mvcc_CommitTxn(Params* params, uint64_t* txnBits);
 
-MVCCResult mvcc_UpdateDoc(Handle* docHndl, uint8_t* val, uint32_t valSize,
-                          uint64_t docBits, ObjId txnId, uint16_t keyCount,
-                          uint8_t* keyList);
-MVCCResult mvcc_InsertDoc(Handle* docHndl, uint8_t* val, uint32_t valSize,
-                          ObjId txnId, uint16_t keyCount, uint8_t *keyList);
+MVCCResult mvcc_UpdateDoc(DbHandle hndl[1], uint8_t* val, uint32_t valSize,
+                          uint64_t docBits, ObjId txnId, uint32_t keyCount);
+
+MVCCResult mvcc_InsertDoc(DbHandle hndl[1], uint8_t* val, uint32_t valSize,
+                          ObjId txnId, uint32_t keyCount);
+
+MVCCResult processKey(DbHandle hndl[1], DbHandle hndlIdx[1], Ver* prevVer, Ver* ver, ObjId docId, VerKey *srcKey);
 

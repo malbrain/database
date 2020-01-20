@@ -4,10 +4,6 @@
 #include "mvcc_dbdoc.h"
 #include "mvcc_dbidx.h"
 
-DbStatus processKeys(Handle* docHndl, Ver* prevVer, Ver* ver, ObjId docId, uint16_t keyCount,
-                     uint8_t *keyList);
-uint64_t allocDocStore(Handle* docHndl, uint32_t size, bool zeroit);
-
 //  install next head of doc chain
 
 Doc* chainNextDoc(Handle* docHndl, DbAddr *docSlot, uint32_t valSize, uint16_t keyCount) {
@@ -54,6 +50,9 @@ Doc* chainNextDoc(Handle* docHndl, DbAddr *docSlot, uint32_t valSize, uint16_t k
   ver->verSize = 0;
 
   doc->lastVer = ver->offset;
+  ver = (Ver*)((uint8_t*)doc + doc->lastVer);
+  ver->keys->vecMax = keyCount;
+  ver->keys->vecLen = 0;
 
   //  install locked new head of version chain
 
@@ -63,20 +62,24 @@ Doc* chainNextDoc(Handle* docHndl, DbAddr *docSlot, uint32_t valSize, uint16_t k
 
 //	insert an uncommitted new document into a docStore
     
-MVCCResult mvcc_InsertDoc(Handle* docHndl, uint8_t* val, uint32_t valSize,
-                    ObjId txnId, uint16_t keyCount, uint8_t *keyList) {
-  DbMap* docMap = MapAddr(docHndl);
-  
+MVCCResult mvcc_InsertDoc(DbHandle hndl[], uint8_t* val, uint32_t valSize,
+                    ObjId txnId, uint32_t keyCnt) {
+  Handle *docHndl = bindHandle(hndl, Hndl_docStore);
   MVCCResult result = {
       .value = 0, .count = 0, .objType = objVer, .status = DB_OK};
   uint32_t verSize;
   DbAddr *docSlot;
+  DbMap* docMap;
   ObjId docId;
   Doc* doc;
   Ver* ver;
 
+  if( !docHndl )
+	return result.objType = objErr, result.status = DB_ERROR_handleclosed, result;
+
   //	assign a new docId slot
 
+  docMap = MapAddr(docHndl);
   docId.bits = allocObjId(docMap, listFree(docHndl, 0), listWait(docHndl, 0));
 
   if (docId.bits)
@@ -84,13 +87,13 @@ MVCCResult mvcc_InsertDoc(Handle* docHndl, uint8_t* val, uint32_t valSize,
   else
     return result.status = DB_ERROR_outofmemory, result.objType = objErr, result;
 
-  verSize = sizeof(Ver) + keyCount * sizeof(DbAddr) + valSize;
+  verSize = sizeof(Ver) + keyCnt * sizeof(DbAddr) + valSize;
   verSize += 15;
   verSize &= -16;
 
   //	start first version set
 
-  if ((doc = chainNextDoc(docHndl, docSlot, valSize, keyCount)))
+  if ((doc = chainNextDoc(docHndl, docSlot, valSize, keyCnt)))
     ver = (Ver*)((uint8_t*)doc + doc->lastVer);
   else
     return result.status = DB_ERROR_outofmemory, result.objType = objErr, result;
@@ -103,43 +106,46 @@ MVCCResult mvcc_InsertDoc(Handle* docHndl, uint8_t* val, uint32_t valSize,
 
   //	fill-in new version
 
-  memset(ver, 0, sizeof(Ver) + keyCount * sizeof(DbAddr));
+  memset(ver, 0, sizeof(Ver) + keyCnt * sizeof(DbAddr));
   ver->offset = doc->lastVer;
   ver->verSize = verSize;
 
-  memcpy((uint8_t*)(ver + 1) + keyCount * sizeof(DbAddr), val, valSize);
-
-  result.status = processKeys(docHndl, NULL, ver, docId, keyCount, keyList);  
+  memcpy((uint8_t*)(ver + 1) + keyCnt * sizeof(DbAddr), val, valSize);
   return result.object = ver, result;
 }
 
 //  update existing Docment
 
-MVCCResult mvcc_UpdateDoc(Handle* docHndl, uint8_t* val, uint32_t valSize,
-                        uint64_t docBits, ObjId txnId, uint16_t keyCount, uint8_t *keyList) {
+MVCCResult mvcc_UpdateDoc(DbHandle* hndl, uint8_t* val, uint32_t valSize,
+                        uint64_t docBits, ObjId txnId, uint32_t keyCnt) {
   MVCCResult result = {
-      .value = 0, .count = 0, .objType = objTxn, .status = DB_OK};
-  DbMap* docMap = MapAddr(docHndl);
+      .value = 0, .count = 0, .objType = 0, .status = DB_OK};
+  Handle *docHndl = bindHandle(hndl, Hndl_docStore);
   Ver *ver, *prevVer;
   uint32_t verSize;
   DbAddr* docSlot;
+  DbMap* docMap;
   ObjId docId;
   Doc* doc;
 
+  if( !docHndl )
+	return result.objType = objErr, result.status = DB_ERROR_handleclosed, result;
+
+  docMap = MapAddr(docHndl);
   docId.bits = docBits;
   docSlot = fetchIdSlot(docMap, docId);
   doc = getObj(docMap, *docSlot);
 
   prevVer = (Ver*)((uint8_t*)doc + doc->lastVer);
 
-  verSize = sizeof(Ver) + keyCount * sizeof(DbAddr) + valSize;
+  verSize = sizeof(Ver) + keyCnt * sizeof(DbAddr) + valSize;
   verSize += 15;
   verSize &= -16;
 
   //	start a new version set?
 
   if (verSize + sizeof(Doc) > doc->lastVer) {
-    if ((doc = chainNextDoc(docHndl, docSlot, valSize, keyCount)))
+    if ((doc = chainNextDoc(docHndl, docSlot, valSize, keyCnt)))
       doc->op = TxnUpdate;
     else
       return result.objType = objErr, result.status = DB_ERROR_outofmemory, result;
@@ -149,7 +155,7 @@ MVCCResult mvcc_UpdateDoc(Handle* docHndl, uint8_t* val, uint32_t valSize,
   doc->txnId.bits = txnId.bits;
 
   ver = (Ver*)((uint8_t*)doc + doc->lastVer);
-  memset(ver, 0, sizeof(Ver) + keyCount * sizeof(DbAddr));
+  memset(ver, 0, sizeof(Ver) + keyCnt * sizeof(DbAddr));
 
   ver->verNo = prevVer->verNo + 1;
   ver->offset = doc->lastVer;
@@ -157,12 +163,10 @@ MVCCResult mvcc_UpdateDoc(Handle* docHndl, uint8_t* val, uint32_t valSize,
 
   if (prevVer->commit) ver->verNo++;
 
-  memcpy((uint8_t*)(ver + 1) + keyCount * sizeof(DbAddr), val, valSize);
+  memcpy((uint8_t*)(ver + 1) + keyCnt * sizeof(DbAddr), val, valSize);
 
   doc->lastVer -= verSize;
   assert(doc->lastVer >= sizeof(Doc));
- 
-  result.status = processKeys(docHndl, prevVer, ver, docId, keyCount, keyList);
   return result.object = ver, result.objType = objVer, result;
 }
 
@@ -175,38 +179,35 @@ uint64_t allocDocStore(Handle* docHndl, uint32_t size, bool zeroit) {
 	return allocObj(MapAddr(docHndl), free, wait, -1, size, zeroit);
 }
 
-//  process document keyList
+//  process new version document key
 
-DbStatus processKeys(Handle* docHndl, Ver* prevVer, Ver* ver, ObjId docId, uint16_t keyCount,
-                     uint8_t* keyList) {
-  IndexKeyValue* srcKey, *destKey;
+MVCCResult processKey(DbHandle hndl[1], DbHandle hndlIdx[1], Ver* prevVer, Ver* ver, ObjId docId, VerKey *srcKey) {
+  Handle *docHndl = bindHandle(hndl, Hndl_docStore);
+  MVCCResult result = {
+      .value = 0, .count = 0, .objType = 0, .status = DB_OK};
+  uint32_t size = sizeof(VerKey);
   DbMap* docMap = MapAddr(docHndl);
-  DbStatus status;
+  DbAddr insKey, addr;
+  VerKey *destKey;
   uint32_t hashKey;
-  DocIndexes* docIdx;
-  DbAddr insKey;
-  int idx;
+  int slot;
 
-  docIdx = getObj(docMap, docHndl->clientAddr);
+	if( !docHndl )
+		return result.objType = objErr, result.status = DB_ERROR_handleclosed, result;
 
-  for (idx = 0; idx < keyCount; idx++) {
-    uint32_t size = sizeof(IndexKeyValue);
-    srcKey = (IndexKeyValue*)keyList;
+	docMap = MapAddr(docHndl);
     size += srcKey->keyLen + srcKey->suffixLen;
     hashKey =
           hashVal(srcKey->bytes, srcKey->keyLen + srcKey->suffixLen);
 
-    //  advance to next key
-
-    keyList += size;
-
     //  see if this key already indexed
+	//  in previous version
 
     if (prevVer) {
 
     }
 
-    //  otherwise save key for delete/update
+    //  otherwise install key for delete/update
     //  and insert key into its index
 
     insKey.bits = allocDocStore(docHndl, size + calc64(docId.bits), true);
@@ -215,11 +216,13 @@ DbStatus processKeys(Handle* docHndl, Ver* prevVer, Ver* ver, ObjId docId, uint1
     destKey->keyHash = hashKey;
 
     size += store64((uint8_t *)destKey, size, docId.bits);
-    ((DbAddr*)(ver + 1))[idx] = insKey;
+	addr.bits = insKey.bits;
 
-    if ((status = insertKey(&docIdx->idxHndls[destKey->keyIdx], destKey->bytes, destKey->keyLen, destKey->suffixLen))) 
-        return status;
-  }
+	if(( slot = vectorPush(docMap, ver->keys, addr)))
+		destKey->vecIdx = slot;
+	else
+    	return result.status = DB_ERROR_outofmemory, result.objType = objErr, result;
 
-  return DB_OK;
+    result.status = insertKey(hndlIdx, destKey->bytes, destKey->keyLen, destKey->suffixLen);
+    return result;
 }
