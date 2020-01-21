@@ -22,3 +22,15 @@ uint32_t hashVal(uint8_t *src, uint32_t len) {
 
   return val;
 }
+
+typedef struct {
+  DbHandle dbHndl[1];
+  DbHandle docHndl[1];
+} MVCC_Interface;
+
+MVCCResult mvcc_OpenDocumentInterface(DbHandle hndl[1], char *name, uint32_t len, Params *params) {
+  Handle *dbHndl = bindHandle(hndl, Hndl_database);
+  MVCCResult result = {.value = 0, .count = 0, .objType = objHndl, .status = DB_OK};
+
+
+  }

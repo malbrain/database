@@ -4,6 +4,15 @@
 #include "mvcc_dbdoc.h"
 #include "mvcc_dbidx.h"
 
+//	allocate docStore power-of-two memory
+
+uint64_t allocDocStore(Handle* docHndl, uint32_t size, bool zeroit) {
+  DbAddr* free = listFree(docHndl, 0);
+  DbAddr* wait = listWait(docHndl, 0);
+
+  return allocObj(MapAddr(docHndl), free, wait, -1, size, zeroit);
+}
+
 //  install next head of doc chain
 
 Doc* chainNextDoc(Handle* docHndl, DbAddr *docSlot, uint32_t valSize, uint16_t keyCount) {
@@ -62,7 +71,7 @@ Doc* chainNextDoc(Handle* docHndl, DbAddr *docSlot, uint32_t valSize, uint16_t k
 
 //	insert an uncommitted new document into a docStore
     
-MVCCResult mvcc_InsertDoc(DbHandle hndl[], uint8_t* val, uint32_t valSize,
+MVCCResult mvcc_InsertDoc(DbHandle hndl[1], uint8_t* val, uint32_t valSize,
                     ObjId txnId, uint32_t keyCnt) {
   Handle *docHndl = bindHandle(hndl, Hndl_docStore);
   MVCCResult result = {
@@ -116,7 +125,7 @@ MVCCResult mvcc_InsertDoc(DbHandle hndl[], uint8_t* val, uint32_t valSize,
 
 //  update existing Docment
 
-MVCCResult mvcc_UpdateDoc(DbHandle* hndl, uint8_t* val, uint32_t valSize,
+MVCCResult mvcc_UpdateDoc(DbHandle hndl[1], uint8_t* val, uint32_t valSize,
                         uint64_t docBits, ObjId txnId, uint32_t keyCnt) {
   MVCCResult result = {
       .value = 0, .count = 0, .objType = 0, .status = DB_OK};
@@ -170,18 +179,10 @@ MVCCResult mvcc_UpdateDoc(DbHandle* hndl, uint8_t* val, uint32_t valSize,
   return result.object = ver, result.objType = objVer, result;
 }
 
-//	allocate docStore power-of-two memory
-
-uint64_t allocDocStore(Handle* docHndl, uint32_t size, bool zeroit) {
-	DbAddr* free = listFree(docHndl, 0);
-	DbAddr* wait = listWait(docHndl, 0);
-
-	return allocObj(MapAddr(docHndl), free, wait, -1, size, zeroit);
-}
-
 //  process new version document key
 
-MVCCResult processKey(DbHandle hndl[1], DbHandle hndlIdx[1], Ver* prevVer, Ver* ver, ObjId docId, VerKey *srcKey) {
+MVCCResult mvcc_ProcessKey(DbHandle hndl[1], DbHandle hndlIdx[1], Ver* prevVer,
+                           Ver* ver, ObjId docId, VerKey* srcKey) {
   Handle *docHndl = bindHandle(hndl, Hndl_docStore);
   MVCCResult result = {
       .value = 0, .count = 0, .objType = 0, .status = DB_OK};

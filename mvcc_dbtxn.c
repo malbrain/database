@@ -701,7 +701,7 @@ bool snapshotCommit(Txn *txn) {
   return true;
 }
 
-DbStatus commitTxn(Params *params, uint64_t *txnBits) {
+MVCCResult mvcc_CommitTxn(Params *params, uint64_t *txnBits) {
   MVCCResult result = {
       .value = 0, .count = 0, .objType = objTxn, .status = DB_OK};
   ObjId txnId;
@@ -714,7 +714,7 @@ DbStatus commitTxn(Params *params, uint64_t *txnBits) {
     *txn->state = TxnShrink | MUTEX_BIT;
   else {
     unlockLatch(txn->state);
-    return DB_ERROR_txn_being_committed;
+    return result.status = DB_ERROR_txn_being_committed, result;
   }
 
   //	commit the transaction
@@ -731,7 +731,7 @@ DbStatus commitTxn(Params *params, uint64_t *txnBits) {
       break;
 
     default:
-      return DB_OK;
+      return result;
   }
 
   //	TODO: recycle the txnId
@@ -742,5 +742,5 @@ DbStatus commitTxn(Params *params, uint64_t *txnBits) {
   timestampQuit(globalTxn->baseTs, txn->tsClnt);
   *txnBits = txn->nextTxn;
   *txn->state = TxnDone;
-  return DB_OK;
+  return result;
 }
