@@ -148,7 +148,7 @@ DbStatus openDocStore(DbHandle hndl[1], DbHandle dbHndl[1], char *name,
   rbEntry = procParam(parent, name, nameLen, params);
 
   arenaDef = (ArenaDef *)(rbEntry + 1);
-  arenaDef->clntSize = (uint32_t)params[ClntSize].intVal;
+  arenaDef->clntSize = sizeof(Iterator);
   arenaDef->clntXtra = (uint32_t)params[ClntXtra].intVal;
   arenaDef->arenaType = Hndl_docStore;
   arenaDef->objSize = sizeof(ObjId);
@@ -164,7 +164,7 @@ DbStatus openDocStore(DbHandle hndl[1], DbHandle dbHndl[1], char *name,
 
   releaseHandle(database, dbHndl);
 
-  if ((docHndl = makeHandle(map, 0, 0, Hndl_docStore)))
+  if ((docHndl = makeHandle(map, arenaDef->clntSize, arenaDef->clntXtra, Hndl_docStore)))
     hndl->hndlId.bits = docHndl->hndlId.bits;
   else
     return DB_ERROR_outofmemory;

@@ -18,6 +18,7 @@ typedef struct {
 	uint32_t keyLen;	// cursor key length
 	uint32_t baseLen;   // cursor base length
 	uint32_t suffixLen; // cursor suffix length
+    DbAddr deDupHash;	// dedup hash table
 	PosState state;		// cursor position state enum
 	uint8_t foundKey;	// cursor position found the key
 	char binaryFlds;	// index keys have fields
@@ -30,3 +31,5 @@ DbStatus dbNextKey(DbCursor *cursor, DbMap *map);
 DbStatus dbPrevKey(DbCursor *cursor, DbMap *map);
 DbStatus dbRightKey(DbCursor *cursor, DbMap *map);
 DbStatus dbLeftKey(DbCursor *cursor, DbMap *map);
+
+ObjId *dbGetDocId(DbCursor *cursor, DbMap *map);

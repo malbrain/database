@@ -15,7 +15,7 @@ typedef struct {
 	uint8_t binaryKeys:1;	// uniqueness deferred
 	uint8_t suffixLen;		// size of docId suffix
 	uint8_t bytes[];		// bytes of the key
-} VerKey;
+} KeyValue;
 
 uint64_t allocDocStore(Handle* docHndl, uint32_t size, bool zeroit);
 extern Handle** bindDocIndexes(Handle* docHndl);

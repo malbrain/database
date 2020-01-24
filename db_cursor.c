@@ -192,3 +192,11 @@ DbStatus stat;
 
 	return stat;
 }
+
+ObjId *dbGetDocId(DbCursor *cursor, DbMap *map) {
+  ObjId objId;
+
+	objId.bits = get64(cursor->key + cursor->baseLen, cursor->suffixLen);
+ ;
+    return fetchIdSlot(map, objId);
+}

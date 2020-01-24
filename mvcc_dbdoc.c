@@ -182,14 +182,14 @@ MVCCResult mvcc_UpdateDoc(DbHandle hndl[1], uint8_t* val, uint32_t valSize,
 //  process new version document key
 
 MVCCResult mvcc_ProcessKey(DbHandle hndl[1], DbHandle hndlIdx[1], Ver* prevVer,
-                           Ver* ver, ObjId docId, VerKey* srcKey) {
+                           Ver* ver, ObjId docId, KeyValue* srcKey) {
   Handle *docHndl = bindHandle(hndl, Hndl_docStore);
   MVCCResult result = {
       .value = 0, .count = 0, .objType = 0, .status = DB_OK};
-  uint32_t size = sizeof(VerKey);
+  uint32_t size = sizeof(KeyValue);
   DbMap* docMap = MapAddr(docHndl);
   DbAddr insKey, addr;
-  VerKey *destKey;
+  KeyValue *destKey;
   uint32_t hashKey;
   int slot;
 
