@@ -245,7 +245,7 @@ int index_file(ThreadArgs *args, char cmd, char *msg, int msgMax) {
         if (args->docHndl->hndlId.bits) {
           doc->size = docLen;
           if ((stat =
-                   storeDoc(args->docHndl, doc, sizeof(Doc) + docLen, &docId)))
+                   appendDoc(args->docHndl, doc, sizeof(Doc) + docLen, &docId)))
             fprintf(stderr, "Add Doc %s Error %d Line: %" PRIu64 " *********\n",
                     args->inFile, stat, args->line),
                 exit(0);

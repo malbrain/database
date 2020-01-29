@@ -643,7 +643,7 @@ DbStatus storeDoc(DbHandle hndl[1], void *obj, uint32_t objSize, ObjId *docId) {
   releaseHandle(docHndl, hndl);
   return DB_OK;
 }
-
+*/
 DbStatus deleteKey(DbHandle hndl[1], uint8_t *key, uint32_t len) {
   DbStatus stat = DB_OK;
   Handle *idxHndl;
@@ -677,7 +677,7 @@ DbStatus deleteKey(DbHandle hndl[1], uint8_t *key, uint32_t len) {
   releaseHandle(idxHndl, hndl);
   return stat;
 }
-*/
+
 //	call back fcn to determine if key is unique
 //	since we are not MVCC, all calls are from duplicates
 
