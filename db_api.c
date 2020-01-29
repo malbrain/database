@@ -608,7 +608,7 @@ DbStatus deleteDoc(DbHandle hndl[1], ObjId docId) {
   return DB_OK;
 }
 
-/*
+
 DbStatus storeDoc(DbHandle hndl[1], void *obj, uint32_t objSize, ObjId *docId) {
   DocStore *docStore;
   DbAddr *slot, addr;
@@ -643,7 +643,7 @@ DbStatus storeDoc(DbHandle hndl[1], void *obj, uint32_t objSize, ObjId *docId) {
   releaseHandle(docHndl, hndl);
   return DB_OK;
 }
-*/
+
 DbStatus deleteKey(DbHandle hndl[1], uint8_t *key, uint32_t len) {
   DbStatus stat = DB_OK;
   Handle *idxHndl;
