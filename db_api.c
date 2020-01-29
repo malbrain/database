@@ -608,8 +608,7 @@ DbStatus deleteDoc(DbHandle hndl[1], ObjId docId) {
   return DB_OK;
 }
 
-//	Entry point to store a new document
-
+/*
 DbStatus storeDoc(DbHandle hndl[1], void *obj, uint32_t objSize, ObjId *docId) {
   DocStore *docStore;
   DbAddr *slot, addr;
@@ -678,7 +677,7 @@ DbStatus deleteKey(DbHandle hndl[1], uint8_t *key, uint32_t len) {
   releaseHandle(idxHndl, hndl);
   return stat;
 }
-
+*/
 //	call back fcn to determine if key is unique
 //	since we are not MVCC, all calls are from duplicates
 

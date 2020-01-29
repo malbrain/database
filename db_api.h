@@ -15,7 +15,7 @@
 DbMap *hndlMap;
 
 #define HandleAddr(dbHndl) fetchIdSlot(hndlMap, dbHndl->hndlId)
-#define MapAddr(handle) db_memObj(handle->mapAddr)
+#define MapAddr(handle) (DbMap *)(db_memObj(handle->mapAddr))
 #define ClntAddr(handle) getObj(MapAddr(handle), handle->clientAddr)
 
 // database docStore Arena extension
