@@ -725,3 +725,4 @@ DbStatus insertKey(DbHandle hndl[1], uint8_t *key, uint32_t len,
   releaseHandle(idxHndl, hndl);
   return stat;
 }
+

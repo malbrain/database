@@ -28,7 +28,8 @@ typedef struct {
 
 typedef struct {
 	uint64_t numKeys[1];	// number of keys in index
-    char binaryFlds;		// keys made with field values
+	DbAddr keySpec;
+	char binaryFlds;		// keys made with field values
     bool uniqueKeys;		// keys made with field values
 } DbIndex;
 
