@@ -32,4 +32,4 @@ DbStatus dbPrevKey(DbCursor *cursor, DbMap *map);
 DbStatus dbRightKey(DbCursor *cursor, DbMap *map);
 DbStatus dbLeftKey(DbCursor *cursor, DbMap *map);
 
-ObjId dbGetDocId(DbCursor *cursor, DbMap *map);
+ObjId dbGetDocId(DbCursor *cursor);

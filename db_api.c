@@ -477,17 +477,7 @@ DbStatus moveCursor(DbHandle hndl[1], CursorOp op) {
 
 //	return cursor key
 
-DbStatus keyAtCursor(DbHandle *hndl, uint8_t **key, uint32_t *keyLen) {
-  DbCursor *dbCursor;
-  Handle *cursorHndl;
-  DbMap *idxMap;
-
-  if ((cursorHndl = bindHandle(hndl, Hndl_cursor)))
-    idxMap = MapAddr(cursorHndl);
-  else
-    return DB_ERROR_handleclosed;
-
-  dbCursor = getObj(idxMap, cursorHndl->clientAddr);
+DbStatus keyAtCursor(DbCursor *dbCursor, uint8_t **key, uint32_t *keyLen) {
 
   switch (dbCursor->state) {
     case CursorPosAt:
@@ -495,14 +485,12 @@ DbStatus keyAtCursor(DbHandle *hndl, uint8_t **key, uint32_t *keyLen) {
 
       if (keyLen) *keyLen = dbCursor->keyLen;
 
-      releaseHandle(cursorHndl, hndl);
       return DB_OK;
 
     default:
       break;
   }
 
-  releaseHandle(cursorHndl, hndl);
   return DB_CURSOR_notpositioned;
 }
 

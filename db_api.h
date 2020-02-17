@@ -66,7 +66,7 @@ DbStatus closeHandle(DbHandle dbHndl[1]);
 DbStatus createCursor(DbHandle hndl[1], DbHandle idxHndl[1], Params *params);
 DbStatus closeCursor(DbHandle dbHndl[1]);
 DbStatus positionCursor(DbHandle hndl[1], CursorOp op, void *key, uint32_t keyLen);
-DbStatus keyAtCursor(DbHandle cursor[1], uint8_t **key, uint32_t *keyLen);
+DbStatus keyAtCursor(DbCursor *cursor, uint8_t **key, uint32_t *keyLen);
 DbStatus moveCursor(DbHandle hndl[1], CursorOp op);
 
 DbStatus insertKey(DbHandle hndl[1], uint8_t *key, uint32_t len, uint32_t sfxLen);
