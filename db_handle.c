@@ -7,6 +7,8 @@
 #include "db_object.h"
 #include "db_redblack.h"
 
+extern char *hndlNames[]; 
+
 DbAddr *listQueue(Handle *handle, int nodeType, FrameList listType) {
   DbMap *map = MapAddr(handle);
   int listBase = listType * handle->maxType[0] + nodeType;
@@ -18,7 +20,7 @@ DbAddr *listQueue(Handle *handle, int nodeType, FrameList listType) {
 //	make handle from map pointer
 //	leave it bound
 
-Handle *makeHandle(DbMap *dbMap, uint32_t  clntSize, uint32_t clntXtra,
+Handle *makeHandle(DbMap *dbMap, uint32_t  clntSize, uint32_t xtraSize,
                    HandleType type) {
   Handle *handle;
   ObjId hndlId, *mapHndls;
@@ -39,13 +41,14 @@ Handle *makeHandle(DbMap *dbMap, uint32_t  clntSize, uint32_t clntXtra,
   clntSize += 15;
   clntSize &= -16;
 
-  clntXtra += 15;
-  clntXtra &= -16;
+  xtraSize += 15;
+  xtraSize &= -16;
 
-  handle->clntXtra = clntXtra;
-
+  if(( handle->xtraSize = xtraSize))
+    handle->xtraAddr.bits = allocBlk(dbMap, xtraSize, true);
+  
   if ((handle->clntSize = clntSize))
-    handle->clientAddr.bits = allocBlk(dbMap, clntSize + clntXtra, true);
+    handle->clientAddr.bits = allocBlk(dbMap, clntSize, true);
 
   handle->entryTs = atomicAdd64(&dbMap->arena->nxtTs, 1);
   handle->hndlId.bits = hndlId.bits;
@@ -72,8 +75,8 @@ Handle *makeHandle(DbMap *dbMap, uint32_t  clntSize, uint32_t clntXtra,
   mapHndls->bits = hndlId.bits;
 
   if (debug)
-    printf("listIdx = %.6d  maxType = %.3d arrayIdx = %.6d\n", handle->listIdx,
-           *handle->maxType, handle->arrayIdx);
+    printf("listIdx = %.6d  maxType = %.3d arrayIdx = %.6d  hndl:%s\n", handle->listIdx, *handle->maxType, handle->arrayIdx,
+           hndlNames[handle->hndlType]);
 
   handle->mapAddr = db_memAddr(dbMap);
   return handle;

@@ -42,7 +42,7 @@ DbAddr addr;
 
 //	initialize btree2 root page
 
-uint32_t clntXtra[];
+extern uint32_t cursorSize[];
 
 DbStatus btree2Init(Handle *index, Params *params) {
 DbMap *idxMap = MapAddr(index);
@@ -65,7 +65,7 @@ DbAddr addr;
 	btree2->pageBits = (uint32_t)params[Btree2Bits].intVal;
 	btree2->leafXtra = (uint32_t)params[Btree2Xtra].intVal;
 
-	clntXtra[Hndl_btree2Index] = 1 << btree2->pageBits
+	cursorSize[Hndl_btree2Index] = 1 << btree2->pageBits
                                           << btree2->leafXtra;
         //	initial btree2 root/leaf page
 

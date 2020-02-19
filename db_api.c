@@ -14,7 +14,7 @@ char *hndlNames[] = {"newarena", "catalog",     "database",    "docStore",
 uint32_t cursorSize[Hndl_max] = {
     0, 0, 0, 0, sizeof(ArtCursor), sizeof(Btree1Cursor), sizeof(Btree2Cursor)};
 uint32_t indexSize[Hndl_max] = {sizeof(ArtIndex), sizeof(Btree1Index), sizeof(Btree2Index)};
-uint32_t clntXtra[Hndl_max];
+uint32_t cursorXtra[Hndl_max];
 
 extern void memInit(void);
 DbAddr hndlInit[1];
@@ -194,7 +194,6 @@ DbStatus createIndex(DbHandle dbIdxHndl[1], DbHandle dbParentHndl[1], char *name
   arenaDef = (ArenaDef *)(rbEntry + 1);
   arenaDef->objSize = sizeof(ObjId);
   arenaDef->clntSize = cursorSize[type];
-  arenaDef->clntXtra = clntXtra[type];
   arenaDef->arenaType = type;
 
   switch (type) {
@@ -354,7 +353,7 @@ DbStatus createCursor(DbHandle hndl[1], DbHandle dbIdxHndl[1], Params *params) {
       return DB_ERROR_handleclosed;
 
   if ((cursorHndl = makeHandle(idxMap, cursorSize[*idxMap->arena->type],
-                               clntXtra[*idxMap->arena->type], Hndl_cursor)))
+                               0, Hndl_cursor)))
     dbCursor = getObj(idxMap, cursorHndl->clientAddr);
   else {
     releaseHandle(idxHndl, dbIdxHndl);
@@ -524,7 +523,7 @@ DbStatus cloneHandle(DbHandle newHndl[1], DbHandle oldHndl[1]) {
   else
     return DB_ERROR_handleclosed;
 
-  if ((hndl2 = makeHandle(map, hndl->clntSize, hndl->clntXtra,
+  if ((hndl2 = makeHandle(map, hndl->clntSize, hndl->xtraSize,
                           hndl->hndlType)))
     newHndl->hndlId.bits = hndl2->hndlId.bits;
   else

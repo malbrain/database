@@ -2,8 +2,7 @@
 
 #include "btree1.h"
 
-uint32_t cursorSize[];
-uint32_t clntXtra[];
+extern uint32_t cursorSize[];
 
 void btree1InitPage(Btree1Page *page) {
 	initLock(page->latch->readwr);
@@ -56,7 +55,14 @@ uint32_t amt;
 		exit(1);
 	}
 
-	if (params[Btree1Bits].intVal + params[Btree1Xtra].intVal > Btree1_maxbits) {
+	if (params[Btree1Bits].intVal < Btree1_minbits) {
+          fprintf(stderr, "createIndex: bits = %" PRIu64 " < min = %d\n",
+                  params[Btree1Bits].intVal, Btree1_minbits);
+          exit(1);
+        }
+
+        if (params[Btree1Bits].intVal + params[Btree1Xtra].intVal >
+            Btree1_maxbits) {
 		fprintf(stderr, "createIndex: bits = %" PRIu64 " + xtra = %" PRIu64 " > max = %d\n", params[Btree1Bits].intVal, params[Btree1Xtra].intVal, Btree1_maxbits);
 		exit(1);
 	}
@@ -65,7 +71,7 @@ uint32_t amt;
 	btree1->pageBits = (uint32_t)params[Btree1Bits].intVal;
 	btree1->leafXtra = (uint32_t)params[Btree1Xtra].intVal;
 
-	clntXtra[Hndl_btree1Index] += 1 << btree1->pageBits << btree1->leafXtra;
+	cursorSize[Hndl_btree1Index] += 1 << btree1->pageBits << btree1->leafXtra;
 
 	//	initial btree1 root & leaf pages
 
