@@ -7,14 +7,12 @@
 #include "db_malloc.h"
 #include "db_object.h"
 
-char *hndlNames[] = {"newarena", "catalog",     "database",    "docStore",
+char *hndlNames[] = {"newarena", "non-specific", "catalog",     "database",    "docStore",
                      "artIndex", "btree1Index", "btree2Index", "colIndex",
                      "iterator", "cursor",      "docVersion"};
 
 uint32_t cursorSize[Hndl_max] = {
-    0, 0, 0, 0, sizeof(ArtCursor), sizeof(Btree1Cursor), sizeof(Btree2Cursor)};
-uint32_t indexSize[Hndl_max] = {sizeof(ArtIndex), sizeof(Btree1Index), sizeof(Btree2Index)};
-uint32_t cursorXtra[Hndl_max];
+    0, 0, 0, 0, 0, sizeof(ArtCursor), sizeof(Btree1Cursor), sizeof(Btree2Cursor)};
 
 extern void memInit(void);
 DbAddr hndlInit[1];
@@ -148,7 +146,7 @@ DbStatus openDocStore(DbHandle hndl[1], DbHandle dbHndl[1], char *name,
   rbEntry = procParam(parent, name, nameLen, params);
 
   arenaDef = (ArenaDef *)(rbEntry + 1);
-  arenaDef->clntSize = sizeof(Iterator);
+  arenaDef->clntSize = (uint32_t)params[ClntSize].intVal;
   arenaDef->clntXtra = (uint32_t)params[ClntXtra].intVal;
   arenaDef->arenaType = Hndl_docStore;
   arenaDef->objSize = sizeof(ObjId);
@@ -193,8 +191,9 @@ DbStatus createIndex(DbHandle dbIdxHndl[1], DbHandle dbParentHndl[1], char *name
 
   arenaDef = (ArenaDef *)(rbEntry + 1);
   arenaDef->objSize = sizeof(ObjId);
-  arenaDef->clntSize = cursorSize[type];
   arenaDef->arenaType = type;
+  arenaDef->clntSize = (uint32_t)params[ClntSize].intVal;
+  arenaDef->clntXtra = (uint32_t)params[ClntXtra].intVal;
 
   switch (type) {
     case Hndl_artIndex:
@@ -219,7 +218,8 @@ DbStatus createIndex(DbHandle dbIdxHndl[1], DbHandle dbParentHndl[1], char *name
     return DB_ERROR_createindex;
   }
 
-  if ((idxHndl = makeHandle(idxMap, arenaDef->clntSize, arenaDef->clntXtra, type)))
+  if ((idxHndl =
+           makeHandle(idxMap, arenaDef->clntSize, arenaDef->clntXtra, type)))
     dbIdxHndl->hndlId.bits = idxHndl->hndlId.bits;
   else {
     releaseHandle(parentHndl, dbParentHndl);
@@ -228,7 +228,7 @@ DbStatus createIndex(DbHandle dbIdxHndl[1], DbHandle dbParentHndl[1], char *name
 
   if (*idxMap->arena->type) goto createXit;
 
-  // each arena map is followed by a DbIndex base instance
+  // each arena index map is followed by a DbIndex base instance
 
   switch (type) {
     case Hndl_artIndex:
@@ -252,7 +252,6 @@ createXit:
   releaseHandle(idxHndl, dbIdxHndl);
   return DB_OK;
 }
-
 
 //
 // create and position the start of an iterator
@@ -476,21 +475,35 @@ DbStatus moveCursor(DbHandle hndl[1], CursorOp op) {
 
 //	return cursor key
 
-DbStatus keyAtCursor(DbCursor *dbCursor, uint8_t **key, uint32_t *keyLen) {
+DbStatus keyAtCursor(DbHandle *hndl, uint8_t **key, uint32_t *keyLen) {
+  DbCursor *dbCursor;
+  Handle *cursorHndl;
+  DbStatus stat = DB_OK;
+  DbMap *idxMap;
+
+  if ((cursorHndl = bindHandle(hndl, Hndl_cursor)))
+    idxMap = MapAddr(cursorHndl);
+  else
+    return DB_ERROR_handleclosed;
+
+  dbCursor = getObj(idxMap, cursorHndl->clientAddr);
 
   switch (dbCursor->state) {
     case CursorPosAt:
       if (key) *key = dbCursor->key;
 
-      if (keyLen) *keyLen = dbCursor->keyLen;
+      if (keyLen)
+          *keyLen = dbCursor->keyLen;
 
-      return DB_OK;
+      break;
 
     default:
+      stat = DB_CURSOR_notpositioned;
       break;
   }
 
-  return DB_CURSOR_notpositioned;
+  releaseHandle(cursorHndl, hndl);
+  return stat;
 }
 
 DbStatus closeHandle(DbHandle hndl[1]) {
@@ -527,9 +540,9 @@ DbStatus cloneHandle(DbHandle newHndl[1], DbHandle oldHndl[1]) {
                           hndl->hndlType)))
     newHndl->hndlId.bits = hndl2->hndlId.bits;
   else
-    stat = DB_ERROR_outofmemory;
+    return DB_ERROR_outofmemory;
 
-  if( !stat ) switch (hndl2->hndlType) {
+  if( hndl->hndlType == Hndl_cursor ) switch (*map->arena->type) {
       case Hndl_artIndex:
         stat = artNewCursor(getObj(map, hndl2->clientAddr), map);
         break;
