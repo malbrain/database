@@ -3,6 +3,7 @@
 #include "mvcc_dbapi.h"
 #include "mvcc_dbdoc.h"
 #include "mvcc_dbidx.h"
+#include "mvcc_dbtxn.h"
 
 //	allocate docStore power-of-two memory
 
@@ -44,7 +45,7 @@ Doc* chainNextDoc(Handle* docHndl, DbAddr *docSlot, uint32_t valSize, uint16_t k
   memset(doc, 0, sizeof(Doc));
 
   doc->prevAddr.bits = docSlot->addr;
-  doc->ourAddr.bits = docAddr.bits;
+  doc->doc->ourAddr.bits = docAddr.bits;
 
   //	fill-in stopper (verSize == 0) at end of version chain
 
@@ -110,7 +111,7 @@ MVCCResult mvcc_InsertDoc(DbHandle hndl[1], uint8_t* val, uint32_t valSize,
   //    finish Doc
 
   doc->txnId.bits = txnId.bits;
-  doc->docId.bits = docId.bits;
+  doc->doc->docId.bits = docId.bits;
   doc->op = TxnInsert;
 
   //	fill-in new version
@@ -160,7 +161,7 @@ MVCCResult mvcc_UpdateDoc(DbHandle hndl[1], uint8_t* val, uint32_t valSize,
       return result.objType = objErr, result.status = DB_ERROR_outofmemory, result;
   }
 
-  doc->docId.bits = docId.bits;
+  doc->doc->docId.bits = docId.bits;
   doc->txnId.bits = txnId.bits;
 
   ver = (Ver*)((uint8_t*)doc + doc->lastVer);

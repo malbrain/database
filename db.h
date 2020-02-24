@@ -120,6 +120,7 @@ typedef enum {
 	Btree2Xtra,			// leaf page extra bits	(int)
 
 	CursorDeDup = 25,	// de-duplicate cursor results	(bool)
+	Concurrency,
 
 	UserParams = 30,
 	MaxParam = 64		// count of param slots defined

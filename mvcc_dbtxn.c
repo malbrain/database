@@ -2,6 +2,7 @@
 
 #include "mvcc_dbapi.h"
 #include "mvcc_dbdoc.h"
+#include "mvcc_dbtxn.h"
 
 //  Txn arena free txn frames
 
@@ -298,7 +299,7 @@ DbStatus findDocVer(DbMap *map, Doc *doc, DbMvcc *dbMvcc, Ver *ver[1]) {
   //	add this document to the txn read-set
 
   if (dbMvcc->txnId.bits)
-    if ((stat = addDocRdToTxn(dbMvcc->txnId, doc->docId, ver[0],
+    if ((stat = addDocRdToTxn(dbMvcc->txnId, doc->doc->docId, ver[0],
                               dbMvcc->docHndl->hndlId.bits)))
       return stat;
 
@@ -680,7 +681,7 @@ bool snapshotCommit(Txn *txn) {
       }
 
       doc = getObj(docMap, *slot);
-      ver = (Ver *)((uint8_t *)doc + doc->lastVer);
+      ver = (Ver *)(doc->doc->base + doc->lastVer);
 
       timestampInstall(ver->commit, txn->commit);
       doc->txnId.bits = 0;
