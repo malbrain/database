@@ -1,4 +1,5 @@
 //  mvcc api
+#pragma once
 
 #include "db.h"
 #include "db_api.h"
@@ -19,6 +20,7 @@ uint32_t hashVal(uint8_t* src, uint32_t len);
 typedef struct {
   union {
     void *object;
+    uint64_t bits;
     uint64_t value;
   };    
   uint32_t count;
@@ -26,9 +28,9 @@ typedef struct {
   DbStatus status : 8;
 } MVCCResult;
 
-MVCCResult mvcc_BeginTxn(Params* params, uint64_t* nestedTxnBits);
-MVCCResult mvcc_RollbackTxn(Params* params, uint64_t* txnBits);
-MVCCResult mvcc_CommitTxn(Params* params, uint64_t* txnBits);
+MVCCResult mvcc_BeginTxn(Params* params, ObjId nestedTxn);
+MVCCResult mvcc_RollbackTxn(Params* params, uint64_t txnBits);
+MVCCResult mvcc_CommitTxn(Params* params, uint64_t txnBits);
 
 MVCCResult mvcc_UpdateDoc(DbHandle hndl[1], uint8_t* val, uint32_t valSize,
                           uint64_t docBits, ObjId txnId, uint32_t keyCount);

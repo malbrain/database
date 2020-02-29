@@ -13,19 +13,22 @@
 #include <stdint.h>
 #include <stddef.h>
 
-// document version header
+// document mvcc version header
 
 typedef struct {
-  struct Stopper_ {
-    uint32_t verSize;  // total version size
-    uint32_t offset;   // offset from beginning of doc header
+  union {
+    uint8_t verBase[8];
+    struct Stopper_ {
+      uint32_t verSize;  // total version size
+      uint32_t offset;   // offset from beginning of doc header
+    };
   };
-  uint64_t verNo;		// version number
   Timestamp commit[1];	// commit timestamp
   Timestamp pstamp[1];	// highest access timestamp
   Timestamp sstamp[1];	// successor's commit timestamp, or infinity
   DbVector keys[1];     // vector of keys for this version
   uint8_t deferred;     // some keys have deferred constraints
+  uint8_t overWritten;  // newer version committed
 } Ver;
 
 //	Document header for mvcc set reached by docId
@@ -38,6 +41,7 @@ typedef struct {
   enum TxnAction op;	// pending document action/committing bit
   uint32_t lastVer;		// offset of most recent version
   uint32_t setSize;		// offset of end of last/stopper version
+  uint64_t verNo;       // next version number, increment on commit
 } Doc;
 
 //  cursor/iterator handle extension

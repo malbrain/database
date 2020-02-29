@@ -608,7 +608,6 @@ DbStatus deleteDoc(DbHandle hndl[1], ObjId docId) {
   return DB_OK;
 }
 
-
 DbStatus storeDoc(DbHandle hndl[1], void *obj, uint32_t objSize, ObjId *docId) {
   DocStore *docStore;
   DbAddr *slot, addr;

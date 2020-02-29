@@ -25,7 +25,7 @@ typedef enum {
 typedef enum {
 	TxnKill = 0,		// txn step removed
 	TxnHndl,			// txn step is a docStore handle
-	TxnDoc				// txn step is a docId
+	TxnDoc				// txn step is a docId & version
 } TxnType;
 
 typedef enum {
@@ -60,7 +60,8 @@ typedef struct {
 Txn* fetchTxn(ObjId txnId);
 DbStatus findCursorVer(DbCursor* dbCursor, DbMap* map, DbMvcc* dbMvcc,
                        Ver* ver[1]);
-DbStatus addDocRdToTxn(ObjId txnId, ObjId docId, Ver* ver, uint64_t hndlBits);
-DbStatus addDocWrToTxn(ObjId txnId, ObjId docId, Ver* ver, Ver* prevVer,
-                       uint64_t hndlBits);
-DbStatus findDocVer(DbMap* docStore, Doc* doc, DbMvcc* dbMvcc, Ver* ver[1]);
+MVCCResult addDocRdToTxn(ObjId txnId, ObjId docId, Ver* ver, uint64_t hndlBits);
+
+MVCCResult addDocWrToTxn(ObjId txnId, DbHandle hndl[1], ObjId* docId, int tot);
+
+MVCCResult findDocVer(DbMap * docStore, Doc * doc, DbMvcc * dbMvcc);

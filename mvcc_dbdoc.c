@@ -55,12 +55,12 @@ Doc* chainNextDoc(Handle* docHndl, DbAddr *docSlot, uint32_t valSize, uint16_t k
 
   //  fill in stopper version
 
-  ver = (Ver*)((uint8_t*)doc + rawSize - verSize);
+  ver = (Ver*)(doc->doc->base + rawSize - verSize);
   ver->offset = rawSize - verSize;
   ver->verSize = 0;
 
   doc->lastVer = ver->offset;
-  ver = (Ver*)((uint8_t*)doc + doc->lastVer);
+  ver = (Ver*)(doc->doc->base + doc->lastVer);
   ver->keys->vecMax = keyCount;
   ver->keys->vecLen = 0;
 
@@ -104,7 +104,7 @@ MVCCResult mvcc_InsertDoc(DbHandle hndl[1], uint8_t* val, uint32_t valSize,
   //	start first version set
 
   if ((doc = chainNextDoc(docHndl, docSlot, valSize, keyCnt)))
-    ver = (Ver*)((uint8_t*)doc + doc->lastVer);
+    ver = (Ver*)(doc->doc->base + doc->lastVer);
   else
     return result.status = DB_ERROR_outofmemory, result.objType = objErr, result;
 
@@ -146,7 +146,7 @@ MVCCResult mvcc_UpdateDoc(DbHandle hndl[1], uint8_t* val, uint32_t valSize,
   docSlot = fetchIdSlot(docMap, docId);
   doc = getObj(docMap, *docSlot);
 
-  prevVer = (Ver*)((uint8_t*)doc + doc->lastVer);
+  prevVer = (Ver*)(doc->doc->base + doc->lastVer);
 
   verSize = sizeof(Ver) + keyCnt * sizeof(DbAddr) + valSize;
   verSize += 15;
@@ -164,14 +164,13 @@ MVCCResult mvcc_UpdateDoc(DbHandle hndl[1], uint8_t* val, uint32_t valSize,
   doc->doc->docId.bits = docId.bits;
   doc->txnId.bits = txnId.bits;
 
-  ver = (Ver*)((uint8_t*)doc + doc->lastVer);
+  ver = (Ver*)(doc->doc->base + doc->lastVer);
   memset(ver, 0, sizeof(Ver) + keyCnt * sizeof(DbAddr));
 
-  ver->verNo = prevVer->verNo + 1;
   ver->offset = doc->lastVer;
   ver->verSize = verSize;
 
-  if (prevVer->commit) ver->verNo++;
+  if (prevVer->commit) doc->verNo++;
 
   memcpy((uint8_t*)(ver + 1) + keyCnt * sizeof(DbAddr), val, valSize);
 
