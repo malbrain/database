@@ -59,8 +59,8 @@ Doc* chainNextDoc(Handle* docHndl, DbAddr *docSlot, uint32_t valSize, uint16_t k
   ver->offset = rawSize - verSize;
   ver->verSize = 0;
 
-  doc->lastVer = ver->offset;
-  ver = (Ver*)(doc->doc->base + doc->lastVer);
+  doc->newestVer = ver->offset;
+  ver = (Ver*)(doc->doc->base + doc->newestVer);
   ver->keys->vecMax = keyCount;
   ver->keys->vecLen = 0;
 
@@ -104,7 +104,7 @@ MVCCResult mvcc_InsertDoc(DbHandle hndl[1], uint8_t* val, uint32_t valSize,
   //	start first version set
 
   if ((doc = chainNextDoc(docHndl, docSlot, valSize, keyCnt)))
-    ver = (Ver*)(doc->doc->base + doc->lastVer);
+    ver = (Ver*)(doc->doc->base + doc->newestVer);
   else
     return result.status = DB_ERROR_outofmemory, result.objType = objErr, result;
 
@@ -117,7 +117,7 @@ MVCCResult mvcc_InsertDoc(DbHandle hndl[1], uint8_t* val, uint32_t valSize,
   //	fill-in new version
 
   memset(ver, 0, sizeof(Ver) + keyCnt * sizeof(DbAddr));
-  ver->offset = doc->lastVer;
+  ver->offset = doc->newestVer;
   ver->verSize = verSize;
 
   memcpy((uint8_t*)(ver + 1) + keyCnt * sizeof(DbAddr), val, valSize);
@@ -146,7 +146,7 @@ MVCCResult mvcc_UpdateDoc(DbHandle hndl[1], uint8_t* val, uint32_t valSize,
   docSlot = fetchIdSlot(docMap, docId);
   doc = getObj(docMap, *docSlot);
 
-  prevVer = (Ver*)(doc->doc->base + doc->lastVer);
+  prevVer = (Ver*)(doc->doc->base + doc->newestVer);
 
   verSize = sizeof(Ver) + keyCnt * sizeof(DbAddr) + valSize;
   verSize += 15;
@@ -154,7 +154,7 @@ MVCCResult mvcc_UpdateDoc(DbHandle hndl[1], uint8_t* val, uint32_t valSize,
 
   //	start a new version set?
 
-  if (verSize + sizeof(Doc) > doc->lastVer) {
+  if (verSize + sizeof(Doc) > doc->newestVer) {
     if ((doc = chainNextDoc(docHndl, docSlot, valSize, keyCnt)))
       doc->op = TxnUpdate;
     else
@@ -164,18 +164,18 @@ MVCCResult mvcc_UpdateDoc(DbHandle hndl[1], uint8_t* val, uint32_t valSize,
   doc->doc->docId.bits = docId.bits;
   doc->txnId.bits = txnId.bits;
 
-  ver = (Ver*)(doc->doc->base + doc->lastVer);
+  ver = (Ver*)(doc->doc->base + doc->newestVer);
   memset(ver, 0, sizeof(Ver) + keyCnt * sizeof(DbAddr));
 
-  ver->offset = doc->lastVer;
+  ver->offset = doc->newestVer;
   ver->verSize = verSize;
 
   if (prevVer->commit) doc->verNo++;
 
   memcpy((uint8_t*)(ver + 1) + keyCnt * sizeof(DbAddr), val, valSize);
 
-  doc->lastVer -= verSize;
-  assert(doc->lastVer >= sizeof(Doc));
+  doc->newestVer -= verSize;
+  assert(doc->newestVer >= sizeof(Doc));
   return result.object = ver, result.objType = objVer, result;
 }
 

@@ -27,21 +27,21 @@ typedef struct {
   Timestamp pstamp[1];	// highest access timestamp
   Timestamp sstamp[1];	// successor's commit timestamp, or infinity
   DbVector keys[1];     // vector of keys for this version
+  ObjId txnId;
   uint8_t deferred;     // some keys have deferred constraints
-  uint8_t overWritten;  // newer version committed
 } Ver;
 
 //	Document header for mvcc set reached by docId
 
 typedef struct {
   struct Document doc[1];
-  ObjId txnId;			// pending uncommitted txn ID
   DbAddr prevAddr;		// previous doc-version set
   DbAddr nextAddr;		// next doc-version set
-  enum TxnAction op;	// pending document action/committing bit
-  uint32_t lastVer;		// offset of most recent version
-  uint32_t setSize;		// offset of end of last/stopper version
+  uint32_t newestVer;	// offset of most recent committed version
+  uint32_t setSize;		// offset of end of first/stopper version
   uint64_t verNo;       // next version number, increment on commit
+  enum TxnAction op;    // pending document action/committing bit
+  ObjId txnId;          // pending uncommitted txn ID
 } Doc;
 
 //  cursor/iterator handle extension
@@ -49,7 +49,7 @@ typedef struct {
 typedef struct {
 	ObjId txnId;
 	DbAddr deDup[1];		// de-duplication set membership
-	DbHandle docHndl[1];	// docStore DbHandle
+	DbHandle hndl[1];	// docStore DbHandle
 	Timestamp reader[1];	// read timestamp
 	enum TxnCC isolation;		// txn isolation mode
 } DbMvcc;
@@ -60,7 +60,8 @@ typedef struct {
 	enum TxnCC isolation;
 } CcMethod;
 
-uint64_t allocDocStore(Handle* docHndl, uint32_t size, bool zeroit);
-DbStatus installKeys(Handle* idxHndls[1], Ver* ver);
-DbStatus removeKeys(Handle* idxHndls[1], Ver* ver, DbMmbr* mmbr, DbAddr* slot);
+uint64_t mvcc_allocDocStore(Handle* docHndl, uint32_t size, bool zeroit);
+DbStatus mvcc_installKeys(Handle* idxHndls[1], Ver* ver);
+DbStatus mvcc_removeKeys(Handle* idxHndls[1], Ver* ver, DbMmbr* mmbr,
+                         DbAddr* slot);
 

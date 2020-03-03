@@ -7,6 +7,7 @@
 //  Pending TXN action
 
 #include "Hi-Performance-Timestamps/timestamps.h"
+
 typedef enum {
 	TxnNone = 0,		// not in a txn
 	TxnInsert,			// insert new doc
@@ -25,7 +26,8 @@ typedef enum {
 typedef enum {
 	TxnKill = 0,		// txn step removed
 	TxnHndl,			// txn step is a docStore handle
-	TxnDoc				// txn step is a docId & version
+	TxnRdr,				// txn step is a docId & version
+	TxnWrt				// txn step is write
 } TxnType;
 
 typedef enum {
@@ -57,11 +59,13 @@ typedef struct {
 	};
 } Txn;
 
-Txn* fetchTxn(ObjId txnId);
-DbStatus findCursorVer(DbCursor* dbCursor, DbMap* map, DbMvcc* dbMvcc,
-                       Ver* ver[1]);
-MVCCResult addDocRdToTxn(ObjId txnId, ObjId docId, Ver* ver, uint64_t hndlBits);
+Txn* mvcc_fetchTxn(ObjId txnId);
 
-MVCCResult addDocWrToTxn(ObjId txnId, DbHandle hndl[1], ObjId* docId, int tot);
+MVCCResult mvcc_findCursorVer(DbCursor* dbCursor, DbMap* map, DbMvcc* dbMvcc,
+                       Ver* ver);
+MVCCResult mvcc_addDocRdToTxn(ObjId txnId, DbMap*map, ObjId docId, Ver* ver, DbHandle hndl[1]);
 
-MVCCResult findDocVer(DbMap * docStore, Doc * doc, DbMvcc * dbMvcc);
+MVCCResult mvcc_addDocWrToTxn(ObjId txnId, DbMap *docMap, ObjId* docId, int tot,
+                              DbHandle hndl[1]);
+
+MVCCResult mvcc_findDocVer(DbMap* docStore, Doc* doc, DbMvcc* dbMvcc);
