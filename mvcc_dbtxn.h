@@ -45,8 +45,8 @@ typedef struct {
     ObjId hndlId[1];        // current DocStore handle
     DbAddr rdrFrame[1];     // head read set DocIds
     DbAddr rdrFirst[1];     // first read set DocIds
-    DbAddr docFrame[1];     // head write set DocIds
-    DbAddr docFirst[1];     // first write set DocIds
+    DbAddr wrtFrame[1];     // head write set DocIds
+    DbAddr wrtFirst[1];     // first write set DocIds
     uint64_t nextTxn;       // nested txn next
 	uint32_t wrtCount;		// size of write set
 	union {
