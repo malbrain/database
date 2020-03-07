@@ -18,8 +18,9 @@ typedef enum {
 
 typedef enum {
 	TxnDone,			// fully committed
-	TxnGrow,			// reading and upserting
-	TxnShrink,			// committing
+	TxnGrowing,			// reading and upserting
+	TxnCommitting,		// committing
+	TxnCommitted,		// committed
 	TxnRollback			// roll back
 } TxnState;
 

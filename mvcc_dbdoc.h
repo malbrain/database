@@ -23,9 +23,11 @@ typedef struct {
       uint32_t offset;   // offset from beginning of doc header
     };
   };
+  uint64_t verNo;       // version number
   Timestamp commit[1];	// commit timestamp
   Timestamp pstamp[1];	// highest access timestamp
   Timestamp sstamp[1];	// successor's commit timestamp, or infinity
+  DbVector readers[1];  // readers of version before update
   DbVector keys[1];     // vector of keys for this version
   ObjId txnId;
   uint8_t deferred;     // some keys have deferred constraints
