@@ -27,9 +27,9 @@ typedef struct {
   Timestamp commit[1];	// commit timestamp
   Timestamp pstamp[1];	// highest access timestamp
   Timestamp sstamp[1];	// successor's commit timestamp, or infinity
-  DbVector readers[1];  // readers of version before update
   DbVector keys[1];     // vector of keys for this version
   ObjId txnId;
+  uint32_t keyCnt;
   uint8_t deferred;     // some keys have deferred constraints
 } Ver;
 
@@ -56,7 +56,7 @@ typedef struct {
 	enum TxnCC isolation;		// txn isolation mode
 } DbMvcc;
 
-//	catalog concurrency parameters
+// catalog concurrency parameters
 
 typedef struct {
 	enum TxnCC isolation;

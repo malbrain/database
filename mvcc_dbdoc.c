@@ -119,15 +119,18 @@ MVCCResult mvcc_InsertDoc(DbHandle hndl[1], uint8_t* val, uint32_t valSize,
   memset(ver, 0, sizeof(Ver) + keyCnt * sizeof(DbAddr));
   ver->offset = doc->newestVer;
   ver->verSize = verSize;
+  ver->verNo = ++doc->verNo;
+  ver->keyCnt = keyCnt;
 
   memcpy((uint8_t*)(ver + 1) + keyCnt * sizeof(DbAddr), val, valSize);
+  mvcc_addDocWrToTxn(txnId, docMap, &docId, 1, hndl);
   return result.object = ver, result;
 }
 
 //  update existing Docment
 
 MVCCResult mvcc_UpdateDoc(DbHandle hndl[1], uint8_t* val, uint32_t valSize,
-                        uint64_t docBits, ObjId txnId, uint32_t keyCnt) {
+                        ObjId docId, ObjId txnId, uint32_t keyCnt) {
   MVCCResult result = {
       .value = 0, .count = 0, .objType = 0, .status = DB_OK};
   Handle *docHndl = bindHandle(hndl, Hndl_docStore);
@@ -135,22 +138,22 @@ MVCCResult mvcc_UpdateDoc(DbHandle hndl[1], uint8_t* val, uint32_t valSize,
   uint32_t verSize;
   DbAddr* docSlot;
   DbMap* docMap;
-  ObjId docId;
   Doc* doc;
 
   if( !docHndl )
 	return result.objType = objErr, result.status = DB_ERROR_handleclosed, result;
 
   docMap = MapAddr(docHndl);
-  docId.bits = docBits;
   docSlot = fetchIdSlot(docMap, docId);
   doc = getObj(docMap, *docSlot);
-
-  prevVer = (Ver*)(doc->doc->base + doc->newestVer);
 
   verSize = sizeof(Ver) + keyCnt * sizeof(DbAddr) + valSize;
   verSize += 15;
   verSize &= -16;
+
+  doc->pendingVer = doc->newestVer - verSize;
+  prevVer = (Ver*)(doc->doc->base + doc->newestVer);
+  ver = (Ver*)(doc->doc->base + doc->pendingVer);
 
   //	start a new version set?
 
@@ -161,21 +164,20 @@ MVCCResult mvcc_UpdateDoc(DbHandle hndl[1], uint8_t* val, uint32_t valSize,
       return result.objType = objErr, result.status = DB_ERROR_outofmemory, result;
   }
 
-  doc->doc->docId.bits = docId.bits;
-  doc->txnId.bits = txnId.bits;
+  doc->doc->docId = docId;
+  doc->txnId = txnId;
 
-  ver = (Ver*)(doc->doc->base + doc->newestVer);
   memset(ver, 0, sizeof(Ver) + keyCnt * sizeof(DbAddr));
 
+  ver->txnId = txnId;
   ver->offset = doc->newestVer;
   ver->verSize = verSize;
-
-  if (prevVer->commit) doc->verNo++;
-
+  ver->verNo = doc->verNo;
   memcpy((uint8_t*)(ver + 1) + keyCnt * sizeof(DbAddr), val, valSize);
 
-  doc->newestVer -= verSize;
-  assert(doc->newestVer >= sizeof(Doc));
+  result = mvcc_addDocWrToTxn(txnId, docMap, &docId, 1, hndl);
+ 
+
   return result.object = ver, result.objType = objVer, result;
 }
 

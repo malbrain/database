@@ -33,7 +33,7 @@ MVCCResult mvcc_RollbackTxn(Params* params, uint64_t txnBits);
 MVCCResult mvcc_CommitTxn(Params* params, uint64_t txnBits);
 
 MVCCResult mvcc_UpdateDoc(DbHandle hndl[1], uint8_t* val, uint32_t valSize,
-                          uint64_t docBits, ObjId txnId, uint32_t keyCount);
+                          ObjId docId, ObjId txnId, uint32_t keyCount);
 
 MVCCResult mvcc_InsertDoc(DbHandle hndl[1], uint8_t* val, uint32_t valSize,
                           ObjId txnId, uint32_t keyCount);
