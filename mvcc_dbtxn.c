@@ -126,11 +126,11 @@ MVCCResult mvcc_addDocWrToTxn(ObjId txnId, DbMap *docMap, ObjId *docId, int tot,
     
     if (txn->isolation == TxnSerializable) {
       if (doc->newestVer)
-          timestampCAS(txn->pstamp, prevVer->pstamp, -1);
+          timestampCAS(txn->pstamp, prevVer->pstamp, -1, 'r', 'r');
 
       //    exclusion test
 
-      if (timestampCmp(txn->sstamp, txn->pstamp) <= 0) {
+      if (timestampCmp(txn->sstamp, txn->pstamp, 0, 0) <= 0) {
         result.status = DB_ERROR_txn_not_serializable;
         goto wrXit;
       }
@@ -189,7 +189,7 @@ MVCCResult mvcc_addDocRdToTxn(ObjId txnId, DbMap *docMap, ObjId docId, Ver* ver,
     // capture the largest commit stamp read
     // by the transaction in txn->pstamp
 
-    timestampCAS(txn->pstamp, ver->commit, -1);
+    timestampCAS(txn->pstamp, ver->commit, -1, 'r', 'r');
 
     // if no successor to ver yet, add to txn read set
     //  to check later for a new version created during
@@ -200,14 +200,14 @@ MVCCResult mvcc_addDocRdToTxn(ObjId txnId, DbMap *docMap, ObjId docId, Ver* ver,
         values[cnt++] = docId.bits;
         values[cnt++] = doc->verNo;
     } else
-        timestampCAS(txn->sstamp, ver->sstamp, 1);
+        timestampCAS(txn->sstamp, ver->sstamp, 1, 'r', 'r');
 
     if (cnt)
 		addValuesToFrame(txnMap, txn->rdrFrame, txn->rdrFirst, values, cnt);
 
     // verify exclusion window validity
 
-    if (timestampCmp(txn->sstamp, txn->pstamp) <= 0)
+    if (timestampCmp(txn->sstamp, txn->pstamp, 0, 0) <= 0)
 		result.status = DB_ERROR_txn_not_serializable;
 
 rdXit:
@@ -238,7 +238,7 @@ MVCCResult mvcc_BeginTxn(Params* params, ObjId nestedTxn) {
   }
 
   memset(txn, 0, sizeof(Txn));
-  timestampInstall(txn->reader, globalTxn->baseTs + tsClnt);
+  timestampInstall(txn->reader, globalTxn->baseTs + tsClnt, 0, 0);
 
   if (params[Concurrency].intVal)
     txn->isolation = params[Concurrency].charVal;
@@ -336,7 +336,7 @@ MVCCResult mvcc_findDocVer(DbMap *map, Doc *doc, DbMvcc *dbMvcc) {
         return result.status = DB_ERROR_no_visible_version, result;
     }
 
-      if (timestampCmp(ver->commit, dbMvcc->reader) <= 0)
+      if (timestampCmp(ver->commit, dbMvcc->reader, 'l', 'l') <= 0)
         break;
 
   } while ((offset += ver->verSize));
@@ -394,7 +394,7 @@ bool SSNCommit(Txn *txn, ObjId txnId) {
     finalAddr.bits = 0;
   }
 
-  timestampCAS(txn->sstamp, txn->commit, 1);
+  timestampCAS(txn->sstamp, txn->commit, 1, 0, 0);
   docHndl = NULL;
   frameSet = false;
 
@@ -434,9 +434,9 @@ bool SSNCommit(Txn *txn, ObjId txnId) {
 
         waitNonZero64(ver->commit->tsBits + 1);
 
-        if (timestampCmp(txn->commit, ver->commit) < 0) continue;
+        if (timestampCmp(txn->commit, ver->commit, 0, 0) < 0) continue;
 
-        timestampCAS(txn->sstamp, ver->sstamp, -1);
+        timestampCAS(txn->sstamp, ver->sstamp, 1, 'r', 'r');
         continue;
       }
 
@@ -505,8 +505,8 @@ bool SSNCommit(Txn *txn, ObjId txnId) {
 
           waitNonZero64(ver->commit->tsBits + 1);
 
-          if (timestampCmp(txn->commit, ver->commit) > 0)
-            timestampCAS(txn->sstamp, ver->sstamp, -1);
+          if (timestampCmp(txn->commit, ver->commit, 0, 0) > 0)
+            timestampCAS(txn->sstamp, ver->sstamp, 1, 'r', 'r');
 
           continue;
         }
@@ -537,7 +537,7 @@ bool SSNCommit(Txn *txn, ObjId txnId) {
     // final pre-commit step
     //    exclusion test
 
-    result = timestampCmp(txn->sstamp, txn->pstamp) <= 0 ? false : true;
+    result = timestampCmp(txn->sstamp, txn->pstamp, 0, 0) <= 0 ? false : true;
 
     if (result)
       *txn->state = TxnCommit | MUTEX_BIT;
@@ -582,7 +582,7 @@ bool SSNCommit(Txn *txn, ObjId txnId) {
 
           //	keep larger ver pstamp
 
-          timestampCAS(ver->pstamp, txn->commit, -1);
+          timestampCAS(ver->pstamp, txn->commit, -1, 'l', 'l');
           continue;
         }
 
@@ -665,10 +665,10 @@ bool SSNCommit(Txn *txn, ObjId txnId) {
         prevVer = (Ver *)(doc->doc->base + doc->newestVer);
         ver = (Ver *)(doc->doc->base + doc->pendingVer);
 
-        if (doc->newestVer) timestampInstall(prevVer->sstamp, txn->commit);
+        if (doc->newestVer) timestampInstall(prevVer->sstamp, txn->commit, 'd', 'd');
 
-        timestampInstall(ver->commit, txn->commit);
-        timestampInstall(ver->pstamp, txn->commit);
+        timestampInstall(ver->commit, txn->commit, 'd', 'd');
+        timestampInstall(ver->pstamp, txn->commit, 'd', 'd');
         ver->sstamp->tsBits[0] = 0;
         ver->sstamp->tsBits[1] = ~0ULL;
         doc->txnId.bits = 0;
@@ -743,7 +743,7 @@ bool snapshotCommit(Txn *txn) {
       doc = getObj(docMap, *slot);
       ver = (Ver *)(doc->doc->base + doc->pendingVer);
 
-      timestampInstall(ver->commit, txn->commit);
+      timestampInstall(ver->commit, txn->commit, 0, 0);
       doc->txnId.bits = 0;
       doc->op = TxnDone;
 
@@ -781,7 +781,7 @@ MVCCResult mvcc_CommitTxn(Params *params, uint64_t txnBits) {
   //	commit the transaction
 
   timestampNext(globalTxn->baseTs, txn->tsClnt);
-  timestampInstall(txn->commit, globalTxn->baseTs + txn->tsClnt);
+  timestampInstall(txn->commit, globalTxn->baseTs + txn->tsClnt, 0, 0);
 
   switch (txn->isolation) {
     case TxnSerializable:
