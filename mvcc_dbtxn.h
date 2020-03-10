@@ -1,12 +1,12 @@
 // mvcc transactions
 
+#pragma once
+
 //	Database transactions: DbAddr housed in database ObjId slots
 
 // MVCC and TXN definitions for DATABASE project
 
 //  Pending TXN action
-
-#include "Hi-Performance-Timestamps/timestamps.h"
 
 typedef enum {
 	TxnNone = 0,		// not in a txn
@@ -16,29 +16,29 @@ typedef enum {
 	TxnCommit = 128		// version being committed
 } TxnAction;
 
-typedef enum {
+enum TxnState {
 	TxnDone,			// fully committed
 	TxnGrowing,			// reading and upserting
 	TxnCommitting,		// committing
 	TxnCommitted,		// committed
 	TxnRollback			// roll back
-} TxnState;
+};
 
-typedef enum {
+enum TxnType {
 	TxnKill = 0,		// txn step removed
 	TxnHndl,			// txn step is a docStore handle
 	TxnRdr,				// txn step is a docId & version
 	TxnWrt				// txn step is write
-} TxnType;
+};
 
-typedef enum {
+enum TxnCC {
 	TxnNotSpecified,
 	TxnSnapShot,
 	TxnReadCommitted,
 	TxnSerializable
-} TxnCC;
+};
 
-typedef struct {
+struct Transaction {
 	Timestamp reader[1];	// txn begin timestamp
 	Timestamp commit[1];	// txn commit timestamp
 	Timestamp pstamp[1];	// predecessor high water
@@ -56,9 +56,9 @@ typedef struct {
 			volatile uint8_t state[1];
             uint16_t tsClnt;  // timestamp generator slot
         };
-		TxnCC disp : 8;		  // display isolation mode in debugger
+		enum TxnCC disp : 8;		  // display isolation mode in debugger
 	};
-} Txn;
+};
 
 Txn* mvcc_fetchTxn(ObjId txnId);
 

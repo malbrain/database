@@ -2,7 +2,6 @@
 // implemented for the database project.
 
 #include "mvcc_dbapi.h"
-#include "mvcc_dbdoc.h"
 
 uint32_t hashVal(uint8_t *src, uint32_t len) {
   uint32_t val = 0;

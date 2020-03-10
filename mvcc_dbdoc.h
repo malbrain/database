@@ -1,27 +1,15 @@
 #pragma once
 #define _GNU_SOURCE 1
 
-#include "db.h"
-#include "db_arena.h"
-#include "db_map.h"
-#include "db_object.h"
-#include "db_cursor.h"
-#include "db_handle.h"
-#include "db_frame.h"
-#include "Hi-Performance-Timestamps/timestamps.h"
-
-#include <stdint.h>
-#include <stddef.h>
-
 // document mvcc version header
 
-typedef struct {
+struct Version {
   union {
     uint8_t verBase[8];
     struct Stopper_ {
       uint32_t verSize;  // total version size
       uint32_t offset;   // offset from beginning of doc header
-    };
+    } stop[1];
   };
   uint64_t verNo;       // version number
   Timestamp commit[1];	// commit timestamp
@@ -31,30 +19,30 @@ typedef struct {
   ObjId txnId;
   uint32_t keyCnt;
   uint8_t deferred;     // some keys have deferred constraints
-} Ver;
+};
 
 //	Document header for mvcc set reached by docId
 
-typedef struct {
+struct MVCCDoc {
   struct Document doc[1];
   DbAddr prevAddr;		// previous doc-version set
   DbAddr nextAddr;		// next doc-version set
   uint32_t newestVer;	// offset of most recent committed version
   uint32_t pendingVer;	// offset of pending uncommitted version
-  uint64_t verNo;       // next version number, increment on commit
-  enum TxnAction op;    // pending document action/committing bit
+  uint64_t verNo;       // next version number, increment on assignment
+  TxnAction op;    // pending document action/committing bit
   ObjId txnId;          // pending uncommitted txn ID
-} Doc;
+};
 
 //  cursor/iterator handle extension
 
-typedef struct {
+struct DbMvcc {
 	ObjId txnId;
 	DbAddr deDup[1];		// de-duplication set membership
 	DbHandle hndl[1];	// docStore DbHandle
 	Timestamp reader[1];	// read timestamp
 	enum TxnCC isolation;		// txn isolation mode
-} DbMvcc;
+};
 
 // catalog concurrency parameters
 

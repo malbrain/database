@@ -1,8 +1,6 @@
 //  implement transactions
 
 #include "mvcc_dbapi.h"
-#include "mvcc_dbdoc.h"
-#include "mvcc_dbtxn.h"
 
 //  Txn arena free txn frames
 
@@ -126,7 +124,7 @@ MVCCResult mvcc_addDocWrToTxn(ObjId txnId, DbMap *docMap, ObjId *docId, int tot,
     
     if (txn->isolation == TxnSerializable) {
       if (doc->newestVer)
-          timestampCAS(txn->pstamp, prevVer->pstamp, -1, 'r', 'r');
+          timestampCAX(txn->pstamp, prevVer->pstamp, -1, 'r', 'b');
 
       //    exclusion test
 
@@ -153,7 +151,7 @@ wrXit:
 MVCCResult mvcc_addDocRdToTxn(ObjId txnId, DbMap *docMap, ObjId docId, Ver* ver, DbHandle hndl[1]) {
   MVCCResult result = {
       .value = 0, .count = 0, .objType = objTxn, .status = DB_OK};
-  Doc *doc = (Doc *)(ver->verBase - ver->offset);
+  Doc *doc = (Doc *)(ver->verBase - ver->stop->offset);
   Txn *txn = mvcc_fetchTxn(txnId);
     uint64_t values[3];
 	DbAddr* slot;
@@ -189,7 +187,7 @@ MVCCResult mvcc_addDocRdToTxn(ObjId txnId, DbMap *docMap, ObjId docId, Ver* ver,
     // capture the largest commit stamp read
     // by the transaction in txn->pstamp
 
-    timestampCAS(txn->pstamp, ver->commit, -1, 'r', 'r');
+    timestampCAX(txn->pstamp, ver->commit, -1, 'r', 'b');
 
     // if no successor to ver yet, add to txn read set
     //  to check later for a new version created during
@@ -200,7 +198,7 @@ MVCCResult mvcc_addDocRdToTxn(ObjId txnId, DbMap *docMap, ObjId docId, Ver* ver,
         values[cnt++] = docId.bits;
         values[cnt++] = doc->verNo;
     } else
-        timestampCAS(txn->sstamp, ver->sstamp, 1, 'r', 'r');
+        timestampCAX(txn->sstamp, ver->sstamp, 1, 'r', 'b');
 
     if (cnt)
 		addValuesToFrame(txnMap, txn->rdrFrame, txn->rdrFirst, values, cnt);
@@ -276,7 +274,7 @@ Ver *mvcc_getVersion(DbMap *map, Doc *doc, uint64_t verNo) {
 
     //  continue to next version chain on stopper version
 
-    if (!(size = ver->verSize)) {
+    if (!(size = ver->stop->verSize)) {
       if (doc->prevAddr.bits) {
         doc = getObj(map, doc->prevAddr);
         offset = doc->newestVer;
@@ -297,7 +295,7 @@ Ver *mvcc_getVersion(DbMap *map, Doc *doc, uint64_t verNo) {
 MVCCResult mvcc_findDocVer(DbMap *map, Doc *doc, DbMvcc *dbMvcc) {
   MVCCResult result = {
       .value = 0, .count = 0, .objType = objVer, .status = DB_OK};
-  uint32_t offset, size;
+  uint32_t offset;
   DbStatus stat;
   ObjId txnId;
   Ver *ver;
@@ -317,7 +315,7 @@ MVCCResult mvcc_findDocVer(DbMap *map, Doc *doc, DbMvcc *dbMvcc) {
 
     // otherwise find a previously committed version
 
-    offset += ver->verSize;
+    offset += ver->stop->verSize;
   }
 
   //	examine previously committed document versions
@@ -327,7 +325,7 @@ MVCCResult mvcc_findDocVer(DbMap *map, Doc *doc, DbMvcc *dbMvcc) {
 
     //  continue to next version chain on stopper version
 
-    if (!ver->verSize) {
+    if (!ver->stop->verSize) {
       if (doc->prevAddr.bits) {
         doc = getObj(map, doc->prevAddr);
         offset = doc->newestVer;
@@ -339,7 +337,7 @@ MVCCResult mvcc_findDocVer(DbMap *map, Doc *doc, DbMvcc *dbMvcc) {
       if (timestampCmp(ver->commit, dbMvcc->reader, 'l', 'l') <= 0)
         break;
 
-  } while ((offset += ver->verSize));
+  } while ((offset += ver->stop->verSize));
 
   //	add this document to the txn read-set
 
@@ -359,7 +357,7 @@ Ver *mvcc_firstCommittedVersion(DbMap *map, Doc *doc, ObjId docId) {
 
   ver = (Ver *)(doc->doc->base + offset);
 
-  if (!(size = ver->verSize)) {
+  if (!(size = ver->stop->verSize)) {
     if (doc->prevAddr.bits)
       doc = getObj(map, doc->prevAddr);
     else
@@ -368,7 +366,7 @@ Ver *mvcc_firstCommittedVersion(DbMap *map, Doc *doc, ObjId docId) {
     offset = doc->newestVer;
   }
 
-  return (Ver *)(doc->doc->base + offset + ver->verSize);
+  return (Ver *)(doc->doc->base + offset + ver->stop->verSize);
 }
 
 //	verify and commit txn under
@@ -376,12 +374,12 @@ Ver *mvcc_firstCommittedVersion(DbMap *map, Doc *doc, ObjId docId) {
 
 bool SSNCommit(Txn *txn, ObjId txnId) {
   DbAddr next, *slot, addr, finalAddr;
+  Timestamp pstamp[1];
   Ver *ver, *prevVer;
   bool result = true;
   DbMap *docMap;
   Handle *docHndl;
   uint64_t verNo;
-  uint32_t offset;
   bool frameSet;
   ObjId docId;
   ObjId objId;
@@ -394,7 +392,7 @@ bool SSNCommit(Txn *txn, ObjId txnId) {
     finalAddr.bits = 0;
   }
 
-  timestampCAS(txn->sstamp, txn->commit, 1, 0, 0);
+  timestampCAX(txn->sstamp, txn->commit, 1, 0, 0);
   docHndl = NULL;
   frameSet = false;
 
@@ -436,7 +434,7 @@ bool SSNCommit(Txn *txn, ObjId txnId) {
 
         if (timestampCmp(txn->commit, ver->commit, 0, 0) < 0) continue;
 
-        timestampCAS(txn->sstamp, ver->sstamp, 1, 'r', 'r');
+        timestampCAX(txn->sstamp, ver->sstamp, 1, 'r', 'b');
         continue;
       }
 
@@ -506,7 +504,7 @@ bool SSNCommit(Txn *txn, ObjId txnId) {
           waitNonZero64(ver->commit->tsBits + 1);
 
           if (timestampCmp(txn->commit, ver->commit, 0, 0) > 0)
-            timestampCAS(txn->sstamp, ver->sstamp, 1, 'r', 'r');
+            timestampCAX(txn->sstamp, ver->sstamp, 1, 'r', 'b');
 
           continue;
         }
@@ -580,10 +578,15 @@ bool SSNCommit(Txn *txn, ObjId txnId) {
 
           ver = mvcc_getVersion(docMap, doc, verNo);
 
-          //	keep larger ver pstamp
+          //	keep largest ver pstamp
 
-          timestampCAS(ver->pstamp, txn->commit, -1, 'l', 'l');
-          continue;
+          timestampInstall(pstamp, ver->pstamp, 's', 'b');
+
+          while (timestampCmp(pstamp, txn->commit, 0, 0) > 0)
+            if (atomicCAS128(ver->pstamp->tsBits, pstamp->tsBits, txn->commit->tsBits)) 
+              break;
+            else
+              timestampInstall(pstamp, ver->pstamp, 's', 'b');
         }
 
         objId.bits = frame->slots[idx];
@@ -743,7 +746,7 @@ bool snapshotCommit(Txn *txn) {
       doc = getObj(docMap, *slot);
       ver = (Ver *)(doc->doc->base + doc->pendingVer);
 
-      timestampInstall(ver->commit, txn->commit, 0, 0);
+      timestampInstall(ver->commit, txn->commit, 'd', 0);
       doc->txnId.bits = 0;
       doc->op = TxnDone;
 

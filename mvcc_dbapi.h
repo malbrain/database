@@ -1,10 +1,20 @@
 //  mvcc api
+
 #pragma once
 
 #include "db.h"
 #include "db_api.h"
-#include "mvcc_dbdoc.h"
-#include "mvcc_dbidx.h"
+#include "db_arena.h"
+#include "db_map.h"
+#include "db_object.h"
+#include "db_cursor.h"
+#include "db_handle.h"
+#include "db_frame.h"
+
+typedef struct DbMvcc DbMvcc;
+typedef struct Version Ver;
+typedef struct MVCCDoc Doc;
+typedef struct Transaction Txn;
 
 typedef enum {      
   objNone,
@@ -25,9 +35,14 @@ typedef struct {
   };    
   uint32_t count;
   MVCCType objType : 8;
-  DbStatus status : 8;
+  DbStatus status : 16;
 } MVCCResult;
 
+#include "Hi-Performance-Timestamps/timestamps.h"
+#include "mvcc_dbtxn.h"
+#include "mvcc_dbdoc.h"
+#include "mvcc_dbidx.h"
+ 
 MVCCResult mvcc_BeginTxn(Params* params, ObjId nestedTxn);
 MVCCResult mvcc_RollbackTxn(Params* params, uint64_t txnBits);
 MVCCResult mvcc_CommitTxn(Params* params, uint64_t txnBits);

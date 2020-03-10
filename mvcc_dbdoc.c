@@ -1,10 +1,10 @@
 // mvcc document implementation for database project
 
 #include "mvcc_dbapi.h"
-#include "mvcc_dbdoc.h"
+/*#include "mvcc_dbdoc.h"
 #include "mvcc_dbidx.h"
 #include "mvcc_dbtxn.h"
-
+*/
 //	allocate docStore power-of-two memory
 
 uint64_t allocDocStore(Handle* docHndl, uint32_t size, bool zeroit) {
@@ -56,10 +56,10 @@ Doc* chainNextDoc(Handle* docHndl, DbAddr *docSlot, uint32_t valSize, uint16_t k
   //  fill in stopper version
 
   ver = (Ver*)(doc->doc->base + rawSize - verSize);
-  ver->offset = rawSize - verSize;
-  ver->verSize = 0;
+  ver->stop->offset = rawSize - verSize;
+  ver->stop->verSize = 0;
 
-  doc->newestVer = ver->offset;
+  doc->newestVer = ver->stop->offset;
   ver = (Ver*)(doc->doc->base + doc->newestVer);
   ver->keys->vecMax = keyCount;
   ver->keys->vecLen = 0;
@@ -117,8 +117,8 @@ MVCCResult mvcc_InsertDoc(DbHandle hndl[1], uint8_t* val, uint32_t valSize,
   //	fill-in new version
 
   memset(ver, 0, sizeof(Ver) + keyCnt * sizeof(DbAddr));
-  ver->offset = doc->newestVer;
-  ver->verSize = verSize;
+  ver->stop->offset = doc->newestVer;
+  ver->stop->verSize = verSize;
   ver->verNo = ++doc->verNo;
   ver->keyCnt = keyCnt;
 
@@ -170,8 +170,8 @@ MVCCResult mvcc_UpdateDoc(DbHandle hndl[1], uint8_t* val, uint32_t valSize,
   memset(ver, 0, sizeof(Ver) + keyCnt * sizeof(DbAddr));
 
   ver->txnId = txnId;
-  ver->offset = doc->newestVer;
-  ver->verSize = verSize;
+  ver->stop->offset = doc->newestVer;
+  ver->stop->verSize = verSize;
   ver->verNo = doc->verNo;
   memcpy((uint8_t*)(ver + 1) + keyCnt * sizeof(DbAddr), val, valSize);
 
