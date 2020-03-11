@@ -30,7 +30,7 @@ struct MVCCDoc {
   uint32_t newestVer;	// offset of most recent committed version
   uint32_t pendingVer;	// offset of pending uncommitted version
   uint64_t verNo;       // next version number, increment on assignment
-  TxnAction op;    // pending document action/committing bit
+  TxnAction op;         // pending document action/committing bit
   ObjId txnId;          // pending uncommitted txn ID
 };
 
@@ -39,9 +39,9 @@ struct MVCCDoc {
 struct DbMvcc {
 	ObjId txnId;
 	DbAddr deDup[1];		// de-duplication set membership
-	DbHandle hndl[1];	// docStore DbHandle
+	DbHandle hndl[1];	    // docStore DbHandle
 	Timestamp reader[1];	// read timestamp
-	enum TxnCC isolation;		// txn isolation mode
+	enum TxnCC isolation;	// txn isolation mode
 };
 
 // catalog concurrency parameters

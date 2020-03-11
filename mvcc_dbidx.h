@@ -7,10 +7,10 @@
 
 typedef struct {
 	uint32_t refCnt[1];
-	uint32_t keyHash;
 	uint16_t keyLen; 	    // len of base key
 	uint16_t vecIdx;		// index in key vector
-	uint8_t unique:1;		// index is unique
+    uint64_t keyHash;
+    uint8_t unique : 1;     // index is unique
 	uint8_t deferred:1;		// uniqueness deferred
 	uint8_t binaryKeys:1;	// uniqueness deferred
 	uint8_t suffixLen;		// size of docId suffix

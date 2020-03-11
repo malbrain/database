@@ -85,7 +85,7 @@ MVCCResult mvcc_addDocWrToTxn(ObjId txnId, DbMap *docMap, ObjId *docId, int tot,
       .value = 0, .count = 0, .objType = objTxn, .status = DB_OK};
   Txn *txn = mvcc_fetchTxn(txnId);
   uint64_t values[1024 + 16];
-  Ver *ver, *prevVer;
+  Ver *prevVer;
   DbAddr *slot;
   ObjId objId;
   int cnt = 0;
@@ -296,7 +296,6 @@ MVCCResult mvcc_findDocVer(DbMap *map, Doc *doc, DbMvcc *dbMvcc) {
   MVCCResult result = {
       .value = 0, .count = 0, .objType = objVer, .status = DB_OK};
   uint32_t offset;
-  DbStatus stat;
   ObjId txnId;
   Ver *ver;
 
@@ -383,7 +382,9 @@ bool SSNCommit(Txn *txn, ObjId txnId) {
   bool frameSet;
   ObjId docId;
   ObjId objId;
+  Frame *frame;
   Doc *doc;
+  int idx;
 
   if ((next.bits = txn->rdrFirst->bits))
     finalAddr.bits = txn->rdrFrame->bits;
@@ -403,9 +404,9 @@ bool SSNCommit(Txn *txn, ObjId txnId) {
   //  precommit
 
   while (next.addr) {
-    Frame *frame = getObj(txnMap, next);
+    frame = getObj(txnMap, next);
 
-    for (int idx = 0; idx < next.nslot; idx++) {
+    for (idx = 0; idx < next.nslot; idx++) {
       if (frameSet) {
         DbAddr *docSlot = fetchIdSlot(docMap, docId);
         verNo = frame->slots[idx];
@@ -430,7 +431,7 @@ bool SSNCommit(Txn *txn, ObjId txnId) {
         //  is our read version overwritten yet?  check
         //  if it was committed with higher timestamp
 
-        waitNonZero64(ver->commit->tsBits + 1);
+        waitNonZero64(ver->commit->lowHi + 1);
 
         if (timestampCmp(txn->commit, ver->commit, 0, 0) < 0) continue;
 
@@ -476,9 +477,9 @@ bool SSNCommit(Txn *txn, ObjId txnId) {
   }
 
   while ((addr.bits = next.bits)) {
-    Frame *frame = getObj(txnMap, addr);
+    frame = getObj(txnMap, addr);
 
-    for (int idx = 0; idx < addr.nslot; idx++) {
+    for (idx = 0; idx < addr.nslot; idx++) {
       if (frameSet) {
         DbAddr *docSlot = fetchIdSlot(docMap, docId);
         verNo = frame->slots[idx];
@@ -501,7 +502,7 @@ bool SSNCommit(Txn *txn, ObjId txnId) {
           //  is our read version overwritten yet?  check
           //  if it was committed with higher timestamp
 
-          waitNonZero64(ver->commit->tsBits + 1);
+          waitNonZero64(ver->commit->lowHi + 1);
 
           if (timestampCmp(txn->commit, ver->commit, 0, 0) > 0)
             timestampCAX(txn->sstamp, ver->sstamp, 1, 'r', 'b');
@@ -562,9 +563,9 @@ bool SSNCommit(Txn *txn, ObjId txnId) {
     }
 
     while ((addr.bits = next.bits)) {
-      Frame *frame = getObj(txnMap, addr);
+      frame = getObj(txnMap, addr);
 
-      for (int idx = 0; idx < addr.nslot; idx++) {
+      for (idx = 0; idx < addr.nslot; idx++) {
         if (frameSet) {
           DbAddr *docSlot = fetchIdSlot(docMap, docId);
           verNo = frame->slots[idx];
@@ -632,9 +633,9 @@ bool SSNCommit(Txn *txn, ObjId txnId) {
     }
 
     while ((addr.bits = next.bits)) {
-      Frame *frame = getObj(txnMap, addr);
+      frame = getObj(txnMap, addr);
 
-      for (int idx = 0; idx < addr.nslot; idx++) {
+      for (idx = 0; idx < addr.nslot; idx++) {
         objId.bits = frame->slots[idx];
 
         switch (objId.xtra) {
