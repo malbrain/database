@@ -193,7 +193,7 @@ MVCCResult mvcc_addDocRdToTxn(ObjId txnId, DbMap *docMap, ObjId docId, Ver* ver,
     //  to check later for a new version created during
     //  our lifetime
 
-    if (ver->sstamp->tsBits[1] == ~0ULL) {
+    if (ver->sstamp->lowHi[1] == ~0ULL) {
         docId.xtra = TxnRdr;
         values[cnt++] = docId.bits;
         values[cnt++] = doc->verNo;
@@ -247,7 +247,7 @@ MVCCResult mvcc_BeginTxn(Params* params, ObjId nestedTxn) {
   txn->nextTxn = nestedTxn.bits;
   *txn->state = TxnGrowing;
 
-  txn->sstamp->tsBits[1] = ~0ULL;
+  txn->sstamp->lowHi[1] = ~0ULL;
   result.value = txnId.bits;
   return result;
 }
@@ -673,8 +673,8 @@ bool SSNCommit(Txn *txn, ObjId txnId) {
 
         timestampInstall(ver->commit, txn->commit, 'd', 'd');
         timestampInstall(ver->pstamp, txn->commit, 'd', 'd');
-        ver->sstamp->tsBits[0] = 0;
-        ver->sstamp->tsBits[1] = ~0ULL;
+        ver->sstamp->lowHi[0] = 0;
+        ver->sstamp->lowHi[1] = ~0ULL;
         doc->txnId.bits = 0;
         doc->op = TxnDone;
 
