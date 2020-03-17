@@ -1,7 +1,10 @@
 #pragma once
 #define _GNU_SOURCE 1
 
-// document mvcc version header
+typedef uint32_t (*FillFcn)(uint8_t* rec, uint32_t size, void *fillOpt);
+typedef int (*Intfcnp)();
+
+    // document mvcc version header
 
 struct Version {
   union {
@@ -15,10 +18,9 @@ struct Version {
   Timestamp commit[1];	// commit timestamp
   Timestamp pstamp[1];	// highest access timestamp
   Timestamp sstamp[1];	// successor's commit timestamp, or infinity
-  DbVector keys[1];     // vector of keys for this version
   ObjId txnId;
-  uint32_t keyCnt;
   uint8_t deferred;     // some keys have deferred constraints
+  DbVector keys[1];     // vector of keys for this version
 };
 
 //	Document header for mvcc set reached by docId
@@ -54,4 +56,3 @@ uint64_t mvcc_allocDocStore(Handle* docHndl, uint32_t size, bool zeroit);
 DbStatus mvcc_installKeys(Handle* idxHndls[1], Ver* ver);
 DbStatus mvcc_removeKeys(Handle* idxHndls[1], Ver* ver, DbMmbr* mmbr,
                          DbAddr* slot);
-

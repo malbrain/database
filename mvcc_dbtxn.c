@@ -443,7 +443,7 @@ bool SSNCommit(Txn *txn, ObjId txnId) {
 
       switch (objId.xtra) {
         case TxnHndl:
-          if (docHndl) releaseHandle(docHndl, NULL);
+          if (docHndl) releaseHandle(docHndl);
           docHndl = bindHandle((DbHandle *)(frame->slots + idx), Hndl_docStore);
           docMap = MapAddr(docHndl);
           continue;
@@ -461,7 +461,7 @@ bool SSNCommit(Txn *txn, ObjId txnId) {
     }
   }
 
-  if (docHndl) releaseHandle(docHndl, NULL);
+  if (docHndl) releaseHandle(docHndl);
 
   //    evaluate writes by this txn
   //    to finalize eta(tn)
@@ -514,7 +514,7 @@ bool SSNCommit(Txn *txn, ObjId txnId) {
 
         switch (objId.xtra) {
           case TxnHndl:
-            if (docHndl) releaseHandle(docHndl, NULL);
+            if (docHndl) releaseHandle(docHndl);
             docHndl =
                 bindHandle((DbHandle *)(frame->slots + idx), Hndl_docStore);
             docMap = MapAddr(docHndl);
@@ -543,7 +543,7 @@ bool SSNCommit(Txn *txn, ObjId txnId) {
     else
       *txn->state = TxnRollback | MUTEX_BIT;
 
-    if (docHndl) releaseHandle(docHndl, NULL);
+    if (docHndl) releaseHandle(docHndl);
 
     docHndl = NULL;
     frameSet = false;
@@ -597,7 +597,7 @@ bool SSNCommit(Txn *txn, ObjId txnId) {
             continue;
 
           case TxnHndl:
-            if (docHndl) releaseHandle(docHndl, NULL);
+            if (docHndl) releaseHandle(docHndl);
             docHndl =
                 bindHandle((DbHandle *)(frame->slots + idx), Hndl_docStore);
             docMap = MapAddr(docHndl);
@@ -618,7 +618,7 @@ bool SSNCommit(Txn *txn, ObjId txnId) {
       returnFreeFrame(txnMap, addr);
     }
 
-    if (docHndl) releaseHandle(docHndl, NULL);
+    if (docHndl) releaseHandle(docHndl);
 
     docHndl = NULL;
     frameSet = false;
@@ -643,7 +643,7 @@ bool SSNCommit(Txn *txn, ObjId txnId) {
             continue;
 
           case TxnHndl:
-            if (docHndl) releaseHandle(docHndl, NULL);
+            if (docHndl) releaseHandle(docHndl);
             docHndl =
                 bindHandle((DbHandle *)(frame->slots + idx), Hndl_docStore);
             docMap = MapAddr(docHndl);
@@ -692,7 +692,7 @@ bool SSNCommit(Txn *txn, ObjId txnId) {
   }
 
   if (docHndl) 
-      releaseHandle(docHndl, NULL);
+      releaseHandle(docHndl);
 
   return result;
 }
@@ -731,7 +731,7 @@ bool snapshotCommit(Txn *txn) {
           continue;
 
         case TxnHndl:
-          if (docHndl) releaseHandle(docHndl, NULL);
+          if (docHndl) releaseHandle(docHndl);
 
           docHndl = fetchIdSlot(hndlMap, objId);
           docMap = MapAddr(docHndl);

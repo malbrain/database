@@ -49,6 +49,7 @@ typedef enum {
 	DB_ERROR_txn_not_serializable,
 	DB_ERROR_key_constraint_violation,
 	DB_ERROR_no_visible_version,
+	DB_ERROR_not_raw_document,
 	MVCC_WriteConflict,
 	MVCC_outofmemory,
 	MVCC_NoTimestampSlots,

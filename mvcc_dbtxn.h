@@ -10,9 +10,9 @@
 
 typedef enum {
 	TxnNone = 0,		// not in a txn
-	TxnInsert,			// insert new doc
+	TxnWrite,			// insert new doc
 	TxnDelete,			// delete the doc
-	TxnUpdate,			// update the doc
+	TxnRead,			// update the doc
 	TxnCommit = 128		// version being committed
 } TxnAction;
 

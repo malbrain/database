@@ -17,12 +17,18 @@ DbMap *hndlMap;
 // document header in docStore
 // next hdrs in set follow, up to docMin
 
+typedef enum {
+    DocRaw,
+    DocMvcc
+} DocType;
+
 struct Document {
   union {
     uint8_t base[4];
     uint32_t refCnt[1];
   };
-  uint32_t docMin;      // size of doc headers below user area
+  uint32_t docMin;      // offset of JsDoc user area
+  DocType docType;
   DbAddr ourAddr;
   ObjId docId;
 };
@@ -34,8 +40,10 @@ struct Document {
 // database docStore Arena extension
 
 typedef struct {
-  uint64_t docCount[1];  // count of active documents
-  uint8_t mvccDoc;      //  docStore under mvcc
+  uint64_t docCount[1]; // count of active documents
+  uint32_t blkSize;     // standard mvccDoc size
+  uint16_t keyCnt;      // number of cached keys per version
+  DocType docType;      //  docStore raw, or under mvcc
 } DocStore;
 
 //	Global Index data structure after DbArena object

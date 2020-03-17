@@ -72,7 +72,7 @@ uint64_t scanHandleTs(DbMap *map);
 
 Handle *makeHandle(DbMap *map, uint32_t clntSize, uint32_t cursorSize, 
                    HandleType type);
-void releaseHandle(Handle *handle, DbHandle *hndl);
+void releaseHandle(Handle *handle);
 bool enterHandle(Handle *handle, DbMap *map);
 Handle *bindHandle(DbHandle *dbHndl, HandleType type);
 

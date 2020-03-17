@@ -189,12 +189,10 @@ Handle *bindHandle(DbHandle *dbHndl, HandleType hndlType) {
 
 //	release handle binding
 
-void releaseHandle(Handle *handle, DbHandle *dbHndl) {
+void releaseHandle(Handle *handle) {
   if (!atomicAdd32(handle->bindCnt, -1)) {
     if ((*handle->status & KILL_BIT)) {
       destroyHandle(handle);
-
-      if (dbHndl) dbHndl->hndlId.bits = 0;
     }
   }
 }

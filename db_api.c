@@ -77,7 +77,7 @@ uint64_t arenaAlloc(DbHandle arenaHndl[1], uint32_t size, bool zeroit,
   if (dbArena) map = map->db;
 
   bits = allocBlk(map, size, zeroit);
-  releaseHandle(arena, arenaHndl);
+  releaseHandle(arena);
   return bits;
 }
 
@@ -85,7 +85,7 @@ DbStatus dropArena(DbHandle hndl[1], bool dropDefs) {
   Handle *arena = bindHandle(hndl, Hndl_any);
   DbMap *map = MapAddr(arena);
 
-  releaseHandle(arena, hndl);
+  releaseHandle(arena);
 
 
   //	wait until arena is created
@@ -160,14 +160,14 @@ DbStatus openDocStore(DbHandle hndl[1], DbHandle dbHndl[1], char *name,
   } else
     stat = DB_ERROR_arenadropped;
 
-  releaseHandle(database, dbHndl);
+  releaseHandle(database);
 
   if ((docHndl = makeHandle(map, arenaDef->clntSize, arenaDef->clntXtra, Hndl_docStore)))
     hndl->hndlId.bits = docHndl->hndlId.bits;
   else
     return DB_ERROR_outofmemory;
 
-  releaseHandle(docHndl, hndl);
+  releaseHandle(docHndl);
   return stat;
 }
 
@@ -209,12 +209,12 @@ DbStatus createIndex(DbHandle dbIdxHndl[1], DbHandle dbParentHndl[1], char *name
       arenaDef->arenaXtra = sizeof(Btree2Index);
       break;
     default:
-      releaseHandle(parentHndl, dbParentHndl);
+      releaseHandle(parentHndl);
       return DB_ERROR_indextype;
   }
 
   if (!(idxMap = arenaRbMap(parentMap, rbEntry))) {
-    releaseHandle(parentHndl, dbParentHndl);
+    releaseHandle(parentHndl);
     return DB_ERROR_createindex;
   }
 
@@ -222,7 +222,7 @@ DbStatus createIndex(DbHandle dbIdxHndl[1], DbHandle dbParentHndl[1], char *name
            makeHandle(idxMap, arenaDef->clntSize, arenaDef->clntXtra, type)))
     dbIdxHndl->hndlId.bits = idxHndl->hndlId.bits;
   else {
-    releaseHandle(parentHndl, dbParentHndl);
+    releaseHandle(parentHndl);
     return DB_ERROR_outofmemory;
   }
 
@@ -248,8 +248,8 @@ DbStatus createIndex(DbHandle dbIdxHndl[1], DbHandle dbParentHndl[1], char *name
   }
 
 createXit:
-  releaseHandle(parentHndl, dbParentHndl);
-  releaseHandle(idxHndl, dbIdxHndl);
+  releaseHandle(parentHndl);
+  releaseHandle(idxHndl);
   return DB_OK;
 }
 
@@ -271,7 +271,7 @@ DbStatus createIterator(DbHandle hndl[1], DbHandle docHndl[1], Params *params) {
   if ((iterHndl = makeHandle(docMap, sizeof(Iterator), 0, Hndl_iterator)))
     it = getObj(docMap, iterHndl->clientAddr);
   else {
-    releaseHandle(parentHndl, docHndl);
+    releaseHandle(parentHndl);
     return DB_ERROR_outofmemory;
   }
 
@@ -282,8 +282,8 @@ DbStatus createIterator(DbHandle hndl[1], DbHandle docHndl[1], Params *params) {
 
   hndl->hndlId.bits = iterHndl->hndlId.bits;
 
-  releaseHandle(parentHndl, docHndl);
-  releaseHandle(iterHndl, hndl);
+  releaseHandle(parentHndl);
+  releaseHandle(iterHndl);
   return DB_OK;
 }
 
@@ -334,7 +334,7 @@ DbStatus moveIterator(DbHandle hndl[1], IteratorOp op, void **doc,
   }
 
   docId->bits = it->docId.bits;
-  releaseHandle(docHndl, hndl);
+  releaseHandle(docHndl);
   return stat;
 }
 
@@ -355,7 +355,7 @@ DbStatus createCursor(DbHandle hndl[1], DbHandle dbIdxHndl[1], Params *params) {
                                0, Hndl_cursor)))
     dbCursor = getObj(idxMap, cursorHndl->clientAddr);
   else {
-    releaseHandle(idxHndl, dbIdxHndl);
+    releaseHandle(idxHndl);
     return DB_ERROR_outofmemory;
   }
 
@@ -377,8 +377,8 @@ DbStatus createCursor(DbHandle hndl[1], DbHandle dbIdxHndl[1], Params *params) {
   }
 
   hndl->hndlId.bits = cursorHndl->hndlId.bits;
-  releaseHandle(idxHndl, dbIdxHndl);
-  releaseHandle(cursorHndl, hndl);
+  releaseHandle(idxHndl);
+  releaseHandle(cursorHndl);
   return stat;
 }
 
@@ -411,7 +411,7 @@ DbStatus closeCursor(DbHandle hndl[1]) {
       break;
   }
 
-  releaseHandle(idxHndl, hndl);
+  releaseHandle(idxHndl);
   return stat;
 }
 
@@ -432,7 +432,7 @@ DbStatus positionCursor(DbHandle hndl[1], CursorOp op, void *key,
   dbCursor = getObj(idxMap, idxHndl->clientAddr);
 
   stat = dbFindKey(dbCursor, idxMap, key, keyLen, op);
-  releaseHandle(idxHndl, hndl);
+  releaseHandle(idxHndl);
   return stat;
 }
 
@@ -469,7 +469,7 @@ DbStatus moveCursor(DbHandle hndl[1], CursorOp op) {
       break;
   }
 
-  releaseHandle(cursorHndl, hndl);
+  releaseHandle(cursorHndl);
   return stat;
 }
 
@@ -502,7 +502,7 @@ DbStatus keyAtCursor(DbHandle *hndl, uint8_t **key, uint32_t *keyLen) {
       break;
   }
 
-  releaseHandle(cursorHndl, hndl);
+  releaseHandle(cursorHndl);
   return stat;
 }
 
@@ -562,8 +562,8 @@ DbStatus cloneHandle(DbHandle newHndl[1], DbHandle oldHndl[1]) {
         break;
       }
     }
-  releaseHandle(hndl2, newHndl);
-  releaseHandle(hndl, oldHndl);
+  releaseHandle(hndl2);
+  releaseHandle(hndl);
   return stat;
 }
 
@@ -582,7 +582,7 @@ DbStatus fetchDoc(DbHandle hndl[1], void **doc, ObjId docId) {
   slot = fetchIdSlot(docMap, docId);
   *doc = getObj(docMap, *slot);
 
-  releaseHandle(docHndl, hndl);
+  releaseHandle(docHndl);
   return DB_OK;
 }
 
@@ -604,7 +604,7 @@ DbStatus deleteDoc(DbHandle hndl[1], ObjId docId) {
   freeBlk(docMap, *slot);
   slot->bits = 0;
 
-  releaseHandle(docHndl, hndl);
+  releaseHandle(docHndl);
   return DB_OK;
 }
 
@@ -624,7 +624,7 @@ DbStatus storeDoc(DbHandle hndl[1], void *obj, uint32_t objSize, ObjId *docId) {
                             listWait(docHndl, 0), -1, objSize, false)))
     doc = getObj(docMap, addr);
   else {
-    releaseHandle(docHndl, hndl);
+    releaseHandle(docHndl);
     return DB_ERROR_outofmemory;
   }
 
@@ -639,7 +639,7 @@ DbStatus storeDoc(DbHandle hndl[1], void *obj, uint32_t objSize, ObjId *docId) {
   docStore = (DocStore *)(docMap->arena + 1);
   atomicAdd64(docStore->docCount, 1ULL);
 
-  releaseHandle(docHndl, hndl);
+  releaseHandle(docHndl);
   return DB_OK;
 }
 
@@ -673,7 +673,7 @@ DbStatus deleteKey(DbHandle hndl[1], uint8_t *key, uint32_t len) {
   if (stat == DB_OK) 
       atomicAdd64(index->numKeys, -1LL);
 
-  releaseHandle(idxHndl, hndl);
+  releaseHandle(idxHndl);
   return stat;
 }
 
@@ -721,7 +721,7 @@ DbStatus insertKey(DbHandle hndl[1], uint8_t *key, uint32_t len,
 
   if (stat == DB_OK) atomicAdd64(index->numKeys, 1LL);
 
-  releaseHandle(idxHndl, hndl);
+  releaseHandle(idxHndl);
   return stat;
 }
 
