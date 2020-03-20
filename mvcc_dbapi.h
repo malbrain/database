@@ -52,7 +52,7 @@ MVCCResult mvcc_BeginTxn(Params* params, ObjId nestedTxn);
 MVCCResult mvcc_RollbackTxn(Params* params, uint64_t txnBits);
 MVCCResult mvcc_CommitTxn(Params* params, uint64_t txnBits);
 
-MVCCResult mvcc_installNewDocVer(DbHandle hndl[1], uint32_t valSize,
+MVCCResult mvcc_installNewDocVer(Handle *docHndl, uint32_t valSize,
                                  ObjId* docId, ObjId txnId);
 
 MVCCResult mvcc_ProcessKey(DbHandle hndl[1], DbHandle hndlIdx[1], Ver* prevVer, Ver* ver, ObjId docId, KeyValue *srcKey);

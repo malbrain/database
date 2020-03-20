@@ -176,6 +176,12 @@ Handle *bindHandle(DbHandle *dbHndl, HandleType hndlType) {
 
     case Hndl_any:
       break;
+
+    default:
+      if (hndlType != type) 
+          return NULL;
+
+      break;
   }
 
   //	increment count of active binds

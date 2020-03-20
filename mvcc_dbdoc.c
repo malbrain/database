@@ -14,11 +14,10 @@ uint64_t allocDocStore(Handle* docHndl, uint32_t size, bool zeroit) {
 //	prepare space for an uncommitted new version in a docStore
 //  if it doesn't fit, install new head of doc chain
 
-MVCCResult mvcc_installNewDocVer(DbHandle hndl[1], uint32_t valSize,
+MVCCResult mvcc_installNewDocVer(Handle *docHndl, uint32_t valSize,
                          ObjId *docId, ObjId txnId) {
   MVCCResult result = {
       .value = 0, .count = 0, .objType = objErr, .status = DB_OK};
-  Handle* docHndl = bindHandle(hndl, Hndl_docStore);
   DbMap* docMap = MapAddr(docHndl);
   DbAddr* docSlot;
   DocStore* docStore;
@@ -108,7 +107,7 @@ initVer:
 
   docSlot->bits = ADDR_MUTEX_SET | docAddr.addr;
 
-  result = mvcc_addDocWrToTxn(txnId, docMap, docId, 1, hndl);
+  result = mvcc_addDocWrToTxn(txnId, docMap, docId, 1, docHndl->hndl);
 
   if (result.objType != objTxn) return result;
 

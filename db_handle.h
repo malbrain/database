@@ -10,7 +10,11 @@
 
 typedef union {
   struct {
-    ObjId hndlId;            // Handle Id in HndlMap (Catalog)
+    
+    union {
+      DbHandle hndl[1];
+      ObjId hndlId;          // Handle Id in HndlMap (Catalog)
+    };
     DbAddr mapAddr;          // addr for this map in memMaps
     DbAddr clientAddr;       // addr for client area
     DbAddr xtraAddr;         // addr for cursor area
