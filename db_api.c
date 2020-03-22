@@ -262,8 +262,6 @@ DbStatus createIterator(DbHandle hndl[1], DbHandle docHndl[1], Params *params) {
   Iterator *it;
   DbMap *docMap;
 
-  hndl->hndlId.bits = 0;
-
   if (!(parentHndl = bindHandle(docHndl, Hndl_docStore))) return DB_ERROR_handleclosed;
 
   docMap = MapAddr(parentHndl);
