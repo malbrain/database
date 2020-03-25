@@ -138,7 +138,13 @@ typedef struct {
 	uint16_t listFwd[Btree2_maxslots];
 } Btree2Cursor;
 
+typedef struct {
+  uint32_t lcgState[1];    // Lehmer's RNG state
+  uint16_t nrandState[3];  // random number generator state
+} Btree2HandleXtra;
+
 #define btree2index(map) ((Btree2Index *)(map->arena + 1))
+#define btree2HandleXtra(handle) ((Btree2HandleXtra *)(handle + 1))
 
 DbStatus btree2NewCursor(DbCursor *cursor, DbMap *map);
 DbStatus btree2ReturnCursor(DbCursor *dbCursor, DbMap *map);

@@ -30,11 +30,11 @@ typedef struct {
 	uint64_t nxtVer;			// next arena version when creating
 	uint64_t childId;			// highest child Id we've issued
 	uint64_t creation;			// milliseconds since 1/1/70
-	uint32_t clntSize;			// extra handle space after clntSize
-    uint32_t clntXtra;		    // extra handle space after clntSize
+	uint32_t clntSize;			// extra client space allocated in hndlMap
     uint32_t arenaXtra;			// shared space after DbArena (DocStore, DbIndex)
-	uint32_t objSize;			// size of ObjectId array slot
-	uint8_t arenaType;			// type of the arena
+	uint16_t objSize;			// size of ObjectId array slot
+    uint16_t xtraSize;          // extra handle space after Handle
+    uint8_t arenaType;          // type of the arena
 	uint8_t numTypes;			// number of node types
 	uint8_t dead[1];			// arena file killed/deleted
 	DbAddr nameTree[1];			// child arena name red/black tree
@@ -96,11 +96,15 @@ struct DbMap_ {
 
 //	catalog structure
 
-typedef union {
-  struct {
-	DbAddr databases[1];	// database names in the catalog
-  };
-  char filler[256];
+typedef struct {
+  ObjId objId[65536];
+} IdxSeg;
+
+typedef struct {
+  DbAddr databases[1];	// database names in the catalog
+  uint32_t maxEntry[1];
+  uint32_t numEntries[1];
+  DbAddr segAddr[1];		// preload fractions
 } Catalog;
 
 Catalog *catalog;

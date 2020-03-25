@@ -28,6 +28,7 @@ struct Document {
     uint32_t refCnt[1];
   };
   uint32_t docMin;      // offset of JsDoc user area
+  uint32_t hndlIdx;     // docStore handle Catalog index
   DocType docType;
   DbAddr ourAddr;
   ObjId docId;
@@ -41,9 +42,9 @@ struct Document {
 
 typedef struct {
   uint64_t docCount[1]; // count of active documents
-  uint32_t blkSize;     // standard mvccDoc size
+  uint32_t blkSize;     // standard new mvccDoc size
   uint16_t keyCnt;      // number of cached keys per version
-  DocType docType;      //  docStore raw, or under mvcc
+  DocType docType:16;   //  docStore raw, or under mvcc
 } DocStore;
 
 //	Global Index data structure after DbArena object

@@ -22,9 +22,10 @@ char *hndlPath;
 //	open the catalog
 //	return pointer to the Handle map
 
-Catalog *initHndlMap(char *path, int pathLen, char *name, bool onDisk) {
+Catalog *initHndlMap(char *path, int pathLen, char *name, bool onDisk, int numDocStores) {
   int nameLen = (int)strlen(name);
   ArenaDef arenaDef[1];
+  Catalog *catalog;
 
   lockLatch(hndlInit->latch);
 
@@ -39,12 +40,12 @@ Catalog *initHndlMap(char *path, int pathLen, char *name, bool onDisk) {
     hndlPath[pathLen] = 0;
   }
 
-  //    configure local process Catalog
+  //    configure local machine Catalog
   //	which contains all the Handles
   //	and has databases for children
 
   memset(arenaDef, 0, sizeof(arenaDef));
-  arenaDef->arenaXtra = sizeof(Catalog);
+  arenaDef->arenaXtra = sizeof(Catalog) + numDocStores / 65536 * sizeof(DbAddr);
   arenaDef->params[OnDisk].boolVal = onDisk;
   arenaDef->arenaType = Hndl_catalog;
   arenaDef->objSize = sizeof(Handle);
@@ -52,11 +53,17 @@ Catalog *initHndlMap(char *path, int pathLen, char *name, bool onDisk) {
   hndlMap = openMap(NULL, name, nameLen, arenaDef, NULL);
   hndlMap->db = hndlMap;
 
+  catalog = (Catalog *)(hndlMap->arena + 1);
+  catalog->maxEntry[0] = 65536;
+  catalog->segAddr[0].bits = allocBlk(hndlMap, 65536 * sizeof(ObjId), true);
+
   *hndlMap->arena->type = Hndl_catalog;
   hndlInit->type = Hndl_catalog;
 
-  return (Catalog *)(hndlMap->arena + 1);
+  return catalog;
 }
+
+int numDocStores = 65536;
 
 void initialize(void) {
   memInit(); 
@@ -65,7 +72,7 @@ void initialize(void) {
   //    indexed in an array, and all Handles indexed by ObjId
 
   if (!hndlInit->type) 
-      catalog = initHndlMap(NULL, 0, "Catalog", true);
+      catalog = initHndlMap(NULL, 0, "Catalog", true, numDocStores);
 }
 
 uint64_t arenaAlloc(DbHandle arenaHndl[1], uint32_t size, bool zeroit,
@@ -110,7 +117,7 @@ DbStatus openDatabase(DbHandle *hndl, char *name, uint32_t nameLen,
   arenaDef = (ArenaDef *)(rbEntry + 1);
 
   arenaDef->clntSize = (uint32_t)params[ClntSize].intVal;
-  arenaDef->clntXtra = (uint32_t)params[ClntXtra].intVal;
+  arenaDef->xtraSize = (uint32_t)params[XtraSize].intVal;
   arenaDef->objSize = (uint32_t)params[ObjIdSize].intVal;
   arenaDef->arenaType = Hndl_database;
   arenaDef->numTypes = ObjIdType + 1;
@@ -147,7 +154,7 @@ DbStatus openDocStore(DbHandle hndl[1], DbHandle dbHndl[1], char *name,
 
   arenaDef = (ArenaDef *)(rbEntry + 1);
   arenaDef->clntSize = (uint32_t)params[ClntSize].intVal;
-  arenaDef->clntXtra = (uint32_t)params[ClntXtra].intVal;
+  arenaDef->xtraSize = (uint32_t)params[XtraSize].intVal;
   arenaDef->arenaType = Hndl_docStore;
   arenaDef->objSize = sizeof(ObjId);
   arenaDef->numTypes = MAX_blk + 1;
@@ -162,7 +169,7 @@ DbStatus openDocStore(DbHandle hndl[1], DbHandle dbHndl[1], char *name,
 
   releaseHandle(database);
 
-  if ((docHndl = makeHandle(map, arenaDef->clntSize, arenaDef->clntXtra, Hndl_docStore)))
+  if ((docHndl = makeHandle(map, arenaDef->clntSize, arenaDef->xtraSize, Hndl_docStore)))
     hndl->hndlId.bits = docHndl->hndlId.bits;
   else
     return DB_ERROR_outofmemory;
@@ -193,20 +200,22 @@ DbStatus createIndex(DbHandle dbIdxHndl[1], DbHandle dbParentHndl[1], char *name
   arenaDef->objSize = sizeof(ObjId);
   arenaDef->arenaType = type;
   arenaDef->clntSize = (uint32_t)params[ClntSize].intVal;
-  arenaDef->clntXtra = (uint32_t)params[ClntXtra].intVal;
 
   switch (type) {
     case Hndl_artIndex:
       arenaDef->numTypes = MaxARTType;
       arenaDef->arenaXtra = sizeof(ArtIndex);
+      arenaDef->xtraSize = (uint32_t)params[XtraSize].intVal;
       break;
     case Hndl_btree1Index:
       arenaDef->numTypes = MAXBtree1Type;
+      arenaDef->xtraSize = (uint32_t)params[XtraSize].intVal;
       arenaDef->arenaXtra = sizeof(Btree1Index);
       break;
     case Hndl_btree2Index:
       arenaDef->numTypes = MAXBtree2Type;
       arenaDef->arenaXtra = sizeof(Btree2Index);
+      arenaDef->xtraSize = sizeof(Btree2HandleXtra);
       break;
     default:
       releaseHandle(parentHndl);
@@ -219,7 +228,7 @@ DbStatus createIndex(DbHandle dbIdxHndl[1], DbHandle dbParentHndl[1], char *name
   }
 
   if ((idxHndl =
-           makeHandle(idxMap, arenaDef->clntSize, arenaDef->clntXtra, type)))
+           makeHandle(idxMap, arenaDef->clntSize, arenaDef->xtraSize, type)))
     dbIdxHndl->hndlId.bits = idxHndl->hndlId.bits;
   else {
     releaseHandle(parentHndl);

@@ -100,7 +100,7 @@ typedef enum {
 	InitSize,		// initial arena size	(int)
 	ObjIdSize,		// size of arena ObjId array element	(int)
 	ClntSize,		// Handle client area size (DbCursor, Iterator)  (int)
-	ClntXtra,		// Handle client extra storage (leaf page buffer) (int)
+	XtraSize,		// Handle client extra storage (leaf page buffer) (int)
 	ArenaXtra,		// extra bytes in arena	(DbIndex, DocStore) (int)
 	ResetVersion,	// reset arena version
 

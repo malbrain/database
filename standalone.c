@@ -79,6 +79,9 @@ typedef struct {
   bool noIdx;
   uint64_t line;
   int offset;
+  uint32_t lcgState[1];    // Lehmer's RNG state
+  uint16_t nrandState[3];  // random number generator state
+
 } ThreadArgs;
 
 typedef struct {
@@ -116,7 +119,6 @@ void myExit(ThreadArgs *args) {
 //  standalone program to index file of keys
 
 int index_file(ThreadArgs *args, char cmd, char *msg, int msgMax) {
-  uint16_t nrandState[3];
   int msgLen = 0;
   uint8_t rec[4096];
   Doc *doc = (Doc *)rec;
@@ -136,7 +138,7 @@ int index_file(ThreadArgs *args, char cmd, char *msg, int msgMax) {
 
   if (pennysort) docMax = 100;
 
-  mynrand48seed(nrandState, prng, args->idx + args->offset);
+  mynrand48seed(args->nrandState, prng, args->idx + args->offset);
   msg[msgLen++] = '\n';
 
   switch (cmd | 0x20) {
@@ -178,7 +180,7 @@ int index_file(ThreadArgs *args, char cmd, char *msg, int msgMax) {
 
     if (pennysort) {
       keyMax = args->keyLen ? args->keyLen : 10;
-      docLen = createB64(body, keyMax, nrandState);
+      docLen = createB64(body, keyMax, args->nrandState);
 
       while (docLen < 100) {
         body[docLen++] = '\t';

@@ -10,28 +10,25 @@
 
 typedef union {
   struct {
-    
     union {
       DbHandle hndl[1];
-      ObjId hndlId;          // Handle Id in HndlMap (Catalog)
+      ObjId hndlId;       // Handle Id in HndlMap (Catalog)
     };
-    DbAddr mapAddr;          // addr for this map in memMaps
-    DbAddr clientAddr;       // addr for client area
-    DbAddr xtraAddr;         // addr for cursor area
-    uint64_t entryTs;        // time stamp of first api call
-    uint32_t clntSize;       // size of base area in client area
-    uint32_t xtraSize;       // size of user work area
-    uint32_t bindCnt[1];     // count of open api calls (handle binds)
-    uint32_t lcgState[1];    // Lehmer's RNG state
-    uint16_t nrandState[3];  // random number generator state
-    uint16_t listIdx;        // arena free frames entry index assigned
-    uint16_t arrayIdx;       // arena open handle array index
-    uint8_t maxType[1];      // number of arena free array frame list entries
-    uint8_t status[1];       // current status of the handle
-    uint8_t hndlType;        // type of handle
+    DbAddr mapAddr;       // addr for this map in memMaps
+    DbAddr clientAddr;    // addr for client area in hndlMap
+    uint64_t entryTs;     // time stamp of first api call
+    uint32_t hndlIdx;     // catalog docstore index for this handle
+    uint32_t clntSize;    // size of client area (iterator/cursor)
+    uint32_t xtraSize;    // size of user work area after this Handle
+    uint32_t bindCnt[1];  // count of open api calls (handle binds)
+    uint16_t listIdx;     // arena free frames entry index assigned
+    uint16_t arrayIdx;    // arena open handle array index
+    uint8_t maxType[1];   // number of arena free array frame list entries
+    uint8_t status[1];    // current status of the handle
+    uint8_t hndlType;     // type of handle
     uint8_t relaxTs;
   };
-  char filler[64];  // fill cache line
+  char filler[64];
 } Handle;
 
 typedef enum { listHead, listWait, listFree } FrameList;
@@ -71,6 +68,8 @@ typedef enum {
   Hndl_max
 } HandleType;
 
+Handle *getDocIdHndl(uint32_t docHndl);
+uint32_t assignDocStoreIdx(Handle *handle);
 uint32_t disableHndls(DbAddr *hndlCalls);
 uint64_t scanHandleTs(DbMap *map);
 

@@ -40,8 +40,9 @@ uint32_t lcg_parkmiller(uint32_t *state);
 
 
 uint32_t btree2GenHeight(Handle *index) {
-uint32_t nrand32 = mynrand48(index->nrandState);
-// uint32_t nrand32 = lcg_parkmiller(index->lcgState);
+Btree2HandleXtra *hndlXtra = ((Btree2HandleXtra *)(index + 1));
+uint32_t nrand32 = mynrand48(hndlXtra->nrandState);
+  // uint32_t nrand32 = lcg_parkmiller(index->lcgState);
 
 	nrand32 |= 0x10000;
 
