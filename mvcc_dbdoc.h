@@ -31,7 +31,8 @@ struct MVCCDoc {
   DbAddr nextAddr;		// next doc-version set
   uint32_t newestVer;	// offset of most recent committed version
   uint32_t pendingVer;	// offset of pending uncommitted version
-  uint64_t verNo;       // next version number, increment on assignment
+  uint32_t verNo;       // next version number, increment on assignment
+  uint32_t txnVer;      // txn slot sequence number
   TxnAction op;         // pending document action/committing bit
   ObjId txnId;          // pending uncommitted txn ID
 };

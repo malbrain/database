@@ -15,9 +15,9 @@ uint64_t allocDocStore(Handle* docHndl, uint32_t size, bool zeroit) {
 //  if it doesn't fit, install new head of doc chain
 
 MVCCResult mvcc_installNewDocVer(Handle *docHndl, uint32_t valSize,
-                         ObjId *docId, ObjId txnId) {
+                         ObjId *docId) { 
   MVCCResult result = {
-      .value = 0, .count = 0, .objType = objErr, .status = DB_OK};
+      .value = 0, .count = 0, .objType = objDoc, .status = DB_OK};
   DbMap* docMap = MapAddr(docHndl);
   DbAddr* docSlot;
   DocStore* docStore;
@@ -83,7 +83,7 @@ MVCCResult mvcc_installNewDocVer(Handle *docHndl, uint32_t valSize,
   ver->stop->offset = blkSize - stopSize;
   ver->stop->verSize = 0;
 
-  doc->newestVer = blkSize - stopSize;
+  doc->pendingVer = blkSize - stopSize;
 
   //    configure new version under stopper
 
@@ -99,17 +99,12 @@ initVer:
   //  integrate by subtracting verSize from newestVer
   //  and store in pendingVer
 
-  doc->txnId.bits = txnId.bits;
   doc->op = TxnWrite;
 
   ver->verNo = ++doc->verNo;
   doc->op = TxnWrite;
 
   docSlot->bits = ADDR_MUTEX_SET | docAddr.addr;
-
-  result = mvcc_addDocWrToTxn(txnId, docMap, docId, 1, docHndl->hndl);
-
-  if (result.objType != objTxn) return result;
 
   result.object = doc;
   return result;

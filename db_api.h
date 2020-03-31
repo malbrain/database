@@ -27,8 +27,8 @@ struct Document {
     uint8_t base[4];
     uint32_t refCnt[1];
   };
-  uint32_t docMin;      // offset of JsDoc user area
-  uint32_t hndlIdx;     // docStore handle Catalog index
+  uint32_t docMin;      // offset of begining of client area
+  uint32_t hndlIdx;     // linear segmented handle Catalog index
   DocType docType;
   DbAddr ourAddr;
   ObjId docId;

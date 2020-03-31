@@ -386,6 +386,7 @@ void* getObj(DbMap *map, DbAddr slot) {
 
 	//  catch up segment mappings
 
+
 	if (slot.segment >= map->numSeg)
 		mapAll(map);
 

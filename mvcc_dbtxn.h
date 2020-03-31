@@ -24,12 +24,12 @@ enum TxnState {
 	TxnRollback			// roll back
 };
 
-enum TxnType {
-	TxnKill = 0,		// txn step removed
-	TxnHndl,			// txn step is a docStore handle
-	TxnRdr,				// txn step is a docId & version
-	TxnWrt				// txn step is write
-};
+typedef enum {
+	TxnKill = 0,	// txn step removed
+	TxnIdx,			// txn step is a Catalog handle idx
+	TxnRdr,			// txn step is a docId & version
+	TxnWrt			// txn step is write
+} TxnStep;
 
 enum TxnCC {
 	TxnNotSpecified,
@@ -43,14 +43,15 @@ struct Transaction {
 	Timestamp commit[1];	// txn commit timestamp
 	Timestamp pstamp[1];	// predecessor high water
 	Timestamp sstamp[1];	// successor low water
-    ObjId hndlId[1];        // current DocStore handle
     DbAddr rdrFrame[1];     // head read set DocIds
     DbAddr rdrFirst[1];     // first read set DocIds
     DbAddr wrtFrame[1];     // head write set DocIds
     DbAddr wrtFirst[1];     // first write set DocIds
-    uint64_t nextTxn;       // nested txn next
+    ObjId nextTxn, txnId;	// nested txn next, this txn
 	uint32_t wrtCount;		// size of write set
-	union {
+    uint32_t txnVer;		// txn slot sequence number
+	uint32_t hndlIdx;		// current DocStore handle idx
+    union {
 		struct {
 			uint8_t isolation;
 			volatile uint8_t state[1];
@@ -61,12 +62,11 @@ struct Transaction {
 };
 
 Txn* mvcc_fetchTxn(ObjId txnId);
+void mvcc_releaseTxn(Txn* txn);
 
 MVCCResult mvcc_findCursorVer(DbCursor* dbCursor, DbMap* map, DbMvcc* dbMvcc,
                        Ver* ver);
-MVCCResult mvcc_addDocRdToTxn(ObjId txnId, DbMap*map, ObjId docId, Ver* ver, DbHandle hndl[1]);
+MVCCResult mvcc_addDocRdToTxn(Txn* txn, Ver* ver);
+MVCCResult mvcc_addDocWrToTxn(Txn* txn, Doc* doc);
 
-MVCCResult mvcc_addDocWrToTxn(ObjId txnId, DbMap *docMap, ObjId* docId, int tot,
-                              DbHandle hndl[1]);
-
-MVCCResult mvcc_findDocVer(DbMap* docStore, Doc* doc, DbMvcc* dbMvcc);
+MVCCResult mvcc_findDocVer(Txn *txn, DbMap* docStore, Doc* doc, DbMvcc* dbMvcc);

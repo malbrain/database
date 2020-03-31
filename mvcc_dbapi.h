@@ -18,6 +18,7 @@ typedef struct Transaction Txn;
 
 typedef enum {      
   objNone,
+  objDoc,
   objVer,
   objHndl,
   objTxn,
@@ -53,7 +54,7 @@ MVCCResult mvcc_RollbackTxn(Params* params, uint64_t txnBits);
 MVCCResult mvcc_CommitTxn(Params* params, uint64_t txnBits);
 
 MVCCResult mvcc_installNewDocVer(Handle *docHndl, uint32_t valSize,
-                                 ObjId* docId, ObjId txnId);
+                                 ObjId* docId);
 
 MVCCResult mvcc_ProcessKey(DbHandle hndl[1], DbHandle hndlIdx[1], Ver* prevVer, Ver* ver, ObjId docId, KeyValue *srcKey);
 

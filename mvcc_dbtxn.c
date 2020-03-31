@@ -75,115 +75,110 @@ Txn* mvcc_fetchTxn(ObjId txnId) {
 	return txn;
 }
 
+void mvcc_releaseTxn(Txn *txn) {
+    unlockLatch(txn->state); 
+}
+
 // Add docId to txn write set
 //	add version creation to txn write-set
-//  do not call for "update my writes"
+//  Ignore "update my writes"
 
-MVCCResult mvcc_addDocWrToTxn(ObjId txnId, DbMap *docMap, ObjId *docId, int tot,
-                              DbHandle hndl[1]) {
+MVCCResult mvcc_addDocWrToTxn(Txn *txn, Doc *doc) {
   MVCCResult result = {
       .value = 0, .count = 0, .objType = objTxn, .status = DB_OK};
-  Txn *txn = mvcc_fetchTxn(txnId);
-  uint64_t values[1024 + 16];
+  uint64_t values[16];
+  ObjId objId, docId;
   Ver *prevVer;
-  DbAddr *slot;
-  ObjId objId;
   int cnt = 0;
-  Doc *doc;
 
-  if (txn->isolation == TxnNotSpecified)
-      goto wrXit;
+  while (true) {
+    if (txn->isolation == TxnNotSpecified) break;
 
-  if ((*txn->state & TYPE_BITS) != TxnGrowing) {
-    result.status = DB_ERROR_txn_being_committed;
-    goto wrXit;
-  }
-
-  objId.bits = hndl->hndlId.bits;
-  objId.xtra = TxnHndl;
-
-  if (txn->hndlId->bits != hndl->hndlId.bits) {
-    txn->hndlId->bits = hndl->hndlId.bits;
-    values[cnt++] = objId.bits;
-  }
-
-  while (tot--) {
-    slot = fetchIdSlot(docMap, *docId++);
-    doc = getObj(docMap, *slot);
+    if ((*txn->state & TYPE_BITS) != TxnGrowing) {
+      result.status = DB_ERROR_txn_being_committed;
+      break;
+    }
 
     // ignore rewrite of our own new version
 
-    if (doc->op == TxnWrt && doc->txnId.bits == txnId.bits) 
-        continue;
+    if (doc->op == TxnWrt)
+        if( doc->txnId.bits == txn->txnId.bits) 
+            if (doc->txnVer == txn->txnVer)
+                break;
+
+    objId.addr = doc->doc->hndlIdx;
+    objId.xtra = TxnIdx;
+
+    if (txn->hndlIdx != doc->doc->hndlIdx) {
+      txn->hndlIdx = doc->doc->hndlIdx;
+      values[cnt++] = objId.bits;
+    }
 
     prevVer = (Ver *)(doc->doc->base + doc->newestVer);
 
-    docId->xtra = TxnWrt;
-    values[cnt++] = docId->bits;
-    values[cnt++] = atomicINC64(&doc->verNo) + 1;
-    
+    docId.bits = doc->doc->docId.bits;
+    docId.xtra = TxnWrt;
+    values[cnt++] = docId.bits;
+    values[cnt++] = ++doc->verNo;
+
     if (txn->isolation == TxnSerializable) {
       if (doc->newestVer)
-          timestampCAX(txn->pstamp, prevVer->pstamp, -1, 'r', 'b');
+        timestampCAX(txn->pstamp, prevVer->pstamp, -1, 'r', 'b');
 
       //    exclusion test
 
       if (timestampCmp(txn->sstamp, txn->pstamp, 0, 0) <= 0) {
         result.status = DB_ERROR_txn_not_serializable;
-        goto wrXit;
+        break;
       }
     }
   }
 
-  result.status = addValuesToFrame(txnMap, txn->wrtFrame, txn->wrtFirst, values, cnt)
-               ? (DbStatus)DB_OK : DB_ERROR_outofmemory;
+  result.status =
+      addValuesToFrame(txnMap, txn->wrtFrame, txn->wrtFirst, values, cnt)
+          ? (DbStatus)DB_OK
+          : DB_ERROR_outofmemory;
 
-  if(result.status == DB_OK)
-      txn->wrtCount += tot;
+  if (result.status == DB_OK) txn->wrtCount += 1;
 
-wrXit:
-  unlockLatch(txn->state);
   return result;
 }
 
 //  ssn_read: add docId to txn read-set
 
-MVCCResult mvcc_addDocRdToTxn(ObjId txnId, DbMap *docMap, ObjId docId, Ver* ver, DbHandle hndl[1]) {
+MVCCResult mvcc_addDocRdToTxn(Txn *txn, Ver* ver) {
   MVCCResult result = {
       .value = 0, .count = 0, .objType = objTxn, .status = DB_OK};
   Doc *doc = (Doc *)(ver->verBase - ver->stop->offset);
-  Txn *txn = mvcc_fetchTxn(txnId);
-    uint64_t values[3];
-	DbAddr* slot;
-	int cnt = 0;
-	ObjId objId;
+  uint64_t values[16];
+  int cnt = 0;
+  ObjId objId, docId;
 
-	if (txn->isolation != TxnSerializable)
-        goto rdXit;
+  while (true) {
+    if (txn->isolation != TxnSerializable) break;
 
-	if ((*txn->state & TYPE_BITS) != TxnGrowing) {
-        result.status = DB_ERROR_txn_being_committed;
-        goto rdXit;
+    if ((*txn->state & TYPE_BITS) != TxnGrowing) {
+      result.status = DB_ERROR_txn_being_committed;
+      break;
     }
-    
+
     //  switch docStore?
 
-    objId.bits = hndl->hndlId.bits;
-	objId.xtra = TxnHndl;
+    objId.addr = doc->doc->hndlIdx;
+    objId.xtra = TxnIdx;
 
-    slot = fetchIdSlot(hndlMap, objId);
+    if (txn->hndlIdx != doc->doc->hndlIdx) {
+      txn->hndlIdx = doc->doc->hndlIdx;
+      values[cnt++] = objId.bits;
+    }
 
-	if (txn->hndlId->bits != hndl->hndlId.bits) {
-		txn->hndlId->bits = hndl->hndlId.bits;
-		values[cnt++] = objId.bits;
-	}
+    //  ignore a read of our own new version
 
-    //  is this a read of our own new version?
+    if (doc->op == TxnWrt)
+      if (doc->txnId.bits == txn->txnId.bits)
+        if (doc->txnVer == txn->txnVer) break;
 
-    if (doc->op == TxnWrt && doc->txnId.bits == txnId.bits)
-        goto rdXit;
-
-    // since we only read committed versions,
+    // otherwise since we only read committed versions,
     // capture the largest commit stamp read
     // by the transaction in txn->pstamp
 
@@ -194,23 +189,23 @@ MVCCResult mvcc_addDocRdToTxn(ObjId txnId, DbMap *docMap, ObjId docId, Ver* ver,
     //  our lifetime
 
     if (ver->sstamp->lowHi[1] == ~0ULL) {
-        docId.xtra = TxnRdr;
-        values[cnt++] = docId.bits;
-        values[cnt++] = doc->verNo;
+      docId.bits = doc->doc->docId.bits;
+      docId.xtra = TxnRdr;
+      values[cnt++] = docId.bits;
+      values[cnt++] = doc->verNo;
     } else
-        timestampCAX(txn->sstamp, ver->sstamp, 1, 'r', 'b');
-
-    if (cnt)
-		addValuesToFrame(txnMap, txn->rdrFrame, txn->rdrFirst, values, cnt);
+      timestampCAX(txn->sstamp, ver->sstamp, 1, 'r', 'b');
 
     // verify exclusion window validity
 
     if (timestampCmp(txn->sstamp, txn->pstamp, 0, 0) <= 0)
-		result.status = DB_ERROR_txn_not_serializable;
+      result.status = DB_ERROR_txn_not_serializable;
+  }
 
-rdXit:
-	unlockLatch(txn->state);
-	return result;
+  if (cnt) 
+      result.status = addValuesToFrame(txnMap, txn->rdrFrame, txn->rdrFirst, values, cnt);
+
+  return result;
 }
 
 // 	begin a new Txn
@@ -244,7 +239,7 @@ MVCCResult mvcc_BeginTxn(Params* params, ObjId nestedTxn) {
     txn->isolation = TxnSnapShot;
 
   txn->tsClnt = tsClnt;
-  txn->nextTxn = nestedTxn.bits;
+  txn->nextTxn.bits = nestedTxn.bits;
   *txn->state = TxnGrowing;
 
   txn->sstamp->lowHi[1] = ~0ULL;
@@ -292,32 +287,27 @@ Ver *mvcc_getVersion(DbMap *map, Doc *doc, uint64_t verNo) {
 
 //  find appropriate document version per reader timestamp
 
-MVCCResult mvcc_findDocVer(DbMap *map, Doc *doc, DbMvcc *dbMvcc) {
+MVCCResult mvcc_findDocVer(Txn *txn, DbMap *map, Doc *doc, DbMvcc *dbMvcc) {
   MVCCResult result = {
       .value = 0, .count = 0, .objType = objVer, .status = DB_OK};
   uint32_t offset;
-  ObjId txnId;
   Ver *ver;
-
-  offset = doc->newestVer;
 
   //  is there a pending update for the document
   //	made by our transaction?
 
-  if ((txnId.bits = doc->txnId.bits)) {
-    ver = (Ver *)(doc->doc->base + offset);
-
-    if (dbMvcc->txnId.bits == txnId.bits) {
-      result.object = ver;
-      return result;
-    } 
-
-    // otherwise find a previously committed version
-
-    offset += ver->stop->verSize;
+  if ((txn->txnId.bits == doc->txnId.bits)) {
+    if (txn->txnVer == doc->txnVer)
+      if (offset = doc->pendingVer) {
+        ver = (Ver *)(doc->doc->base + offset);
+        result.object = ver;
+        return result;
+      }
   }
 
-  //	examine previously committed document versions
+  // otherwise find a previously committed version
+
+  offset = doc->newestVer;
 
   do {
     ver = (Ver *)(doc->doc->base + offset);
@@ -333,15 +323,15 @@ MVCCResult mvcc_findDocVer(DbMap *map, Doc *doc, DbMvcc *dbMvcc) {
         return result.status = DB_ERROR_no_visible_version, result;
     }
 
-      if (timestampCmp(ver->commit, dbMvcc->reader, 'l', 'l') <= 0)
+    if (timestampCmp(ver->commit, dbMvcc->reader, 'l', 'l') <= 0)
         break;
 
   } while ((offset += ver->stop->verSize));
 
   //	add this document to the txn read-set
 
-  if (dbMvcc->txnId.bits)
-    result = mvcc_addDocRdToTxn(dbMvcc->txnId, map, doc->doc->docId, ver, dbMvcc->hndl);
+    result = mvcc_addDocRdToTxn(txn, ver);
+
   result.objType = objVer;
   result.object = ver;
   return result;
@@ -442,7 +432,7 @@ bool SSNCommit(Txn *txn, ObjId txnId) {
       objId.bits = frame->slots[idx];
 
       switch (objId.xtra) {
-        case TxnHndl:
+        case TxnIdx:
           if (docHndl) releaseHandle(docHndl);
           docHndl = bindHandle((DbHandle *)(frame->slots + idx), Hndl_docStore);
           docMap = MapAddr(docHndl);
@@ -513,7 +503,7 @@ bool SSNCommit(Txn *txn, ObjId txnId) {
         objId.bits = frame->slots[idx];
 
         switch (objId.xtra) {
-          case TxnHndl:
+          case TxnIdx:
             if (docHndl) releaseHandle(docHndl);
             docHndl =
                 bindHandle((DbHandle *)(frame->slots + idx), Hndl_docStore);
@@ -596,7 +586,7 @@ bool SSNCommit(Txn *txn, ObjId txnId) {
           case TxnKill:
             continue;
 
-          case TxnHndl:
+          case TxnIdx:
             if (docHndl) releaseHandle(docHndl);
             docHndl =
                 bindHandle((DbHandle *)(frame->slots + idx), Hndl_docStore);
@@ -642,7 +632,7 @@ bool SSNCommit(Txn *txn, ObjId txnId) {
           case TxnKill:
             continue;
 
-          case TxnHndl:
+          case TxnIdx:
             if (docHndl) releaseHandle(docHndl);
             docHndl =
                 bindHandle((DbHandle *)(frame->slots + idx), Hndl_docStore);
@@ -730,7 +720,7 @@ bool snapshotCommit(Txn *txn) {
         case TxnKill:
           continue;
 
-        case TxnHndl:
+        case TxnIdx:
           if (docHndl) releaseHandle(docHndl);
 
           docHndl = fetchIdSlot(hndlMap, objId);
@@ -805,7 +795,7 @@ MVCCResult mvcc_CommitTxn(Params *params, uint64_t txnBits) {
   //	and unlock
 
   timestampQuit(globalTxn->baseTs, txn->tsClnt);
-  *(uint64_t *)fetchIdSlot(txnMap, txnId) = txn->nextTxn;
+  *(uint64_t *)fetchIdSlot(txnMap, txnId) = txn->nextTxn.bits;
   *txn->state = TxnDone;
   return result;
 }
