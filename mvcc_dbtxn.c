@@ -69,14 +69,16 @@ void initTxn(int maxClients) {
 //	fetch and lock txn
 
 Txn* mvcc_fetchTxn(ObjId txnId) {
-	Txn* txn = fetchIdSlot(txnMap, txnId);
+    Txn *txn;
 
-	lockLatch(txn->state);
+	txn = fetchIdSlot(txnMap, txnId);
+
+	lockLatch(txn->latch);
 	return txn;
 }
 
 void mvcc_releaseTxn(Txn *txn) {
-    unlockLatch(txn->state); 
+    unlockLatch(txn->latch); 
 }
 
 // Add docId to txn write set
@@ -94,7 +96,7 @@ MVCCResult mvcc_addDocWrToTxn(Txn *txn, Doc *doc) {
   while (true) {
     if (txn->isolation == TxnNotSpecified) break;
 
-    if ((*txn->state & TYPE_BITS) != TxnGrowing) {
+    if (txn->state != TxnGrowing) {
       result.status = DB_ERROR_txn_being_committed;
       break;
     }
@@ -132,6 +134,7 @@ MVCCResult mvcc_addDocWrToTxn(Txn *txn, Doc *doc) {
         break;
       }
     }
+    break;
   }
 
   result.status =
@@ -157,7 +160,7 @@ MVCCResult mvcc_addDocRdToTxn(Txn *txn, Ver* ver) {
   while (true) {
     if (txn->isolation != TxnSerializable) break;
 
-    if ((*txn->state & TYPE_BITS) != TxnGrowing) {
+    if (txn->state != TxnGrowing) {
       result.status = DB_ERROR_txn_being_committed;
       break;
     }
@@ -240,7 +243,7 @@ MVCCResult mvcc_BeginTxn(Params* params, ObjId nestedTxn) {
 
   txn->tsClnt = tsClnt;
   txn->nextTxn.bits = nestedTxn.bits;
-  *txn->state = TxnGrowing;
+  txn->state = TxnGrowing;
 
   txn->sstamp->lowHi[1] = ~0ULL;
   result.value = txnId.bits;
@@ -361,7 +364,7 @@ Ver *mvcc_firstCommittedVersion(DbMap *map, Doc *doc, ObjId docId) {
 //	verify and commit txn under
 //	Serializable isolation
 
-bool SSNCommit(Txn *txn, ObjId txnId) {
+bool SSNCommit(Txn *txn) {
   DbAddr next, *slot, addr, finalAddr;
   Timestamp pstamp[1];
   Ver *ver, *prevVer;
@@ -407,7 +410,7 @@ bool SSNCommit(Txn *txn, ObjId txnId) {
         //  is this a read of our own new version?
 
         if (doc->op == TxnWrt)
-          if (doc->txnId.bits == txnId.bits) continue;
+          if (doc->txnId.bits == txn->txnId.bits) continue;
 
         //  is there another committed version
         //  after our version?  Was there another
@@ -480,7 +483,7 @@ bool SSNCommit(Txn *txn, ObjId txnId) {
         //  is this a read of our own new version?
 
         if (doc->op == TxnWrt)
-          if (doc->txnId.bits == txnId.bits) continue;
+          if (doc->txnId.bits == txn->txnId.bits) continue;
 
         //  is there another committed version
         //  after our version?  Was there another
@@ -529,9 +532,9 @@ bool SSNCommit(Txn *txn, ObjId txnId) {
     result = timestampCmp(txn->sstamp, txn->pstamp, 0, 0) <= 0 ? false : true;
 
     if (result)
-      *txn->state = TxnCommit | MUTEX_BIT;
+      txn->state = TxnCommit;
     else
-      *txn->state = TxnRollback | MUTEX_BIT;
+      txn->state = TxnRollback;
 
     if (docHndl) releaseHandle(docHndl);
 
@@ -756,19 +759,14 @@ bool snapshotCommit(Txn *txn) {
   return true;
 }
 
-MVCCResult mvcc_CommitTxn(Params *params, uint64_t txnBits) {
+MVCCResult mvcc_CommitTxn(Txn *txn, Params *params) {
   MVCCResult result = {
       .value = 0, .count = 0, .objType = objTxn, .status = DB_OK};
-  ObjId txnId;
-  Txn *txn;
 
-  txnId.bits = txnBits;
-  txn = mvcc_fetchTxn(txnId);
-
-  if ((*txn->state & TYPE_BITS) == TxnGrowing)
-    *txn->state = TxnCommitting | MUTEX_BIT;
+  if (txn->state == TxnGrowing)
+    txn->state = TxnCommitting;
   else {
-    unlockLatch(txn->state);
+    unlockLatch(txn->latch);
     return result.status = DB_ERROR_txn_being_committed, result;
   }
 
@@ -779,7 +777,7 @@ MVCCResult mvcc_CommitTxn(Params *params, uint64_t txnBits) {
 
   switch (txn->isolation) {
     case TxnSerializable:
-      if (SSNCommit(txn, txnId)) break;
+      if (SSNCommit(txn)) break;
 
     case TxnSnapShot:
       snapshotCommit(txn);
@@ -795,7 +793,7 @@ MVCCResult mvcc_CommitTxn(Params *params, uint64_t txnBits) {
   //	and unlock
 
   timestampQuit(globalTxn->baseTs, txn->tsClnt);
-  *(uint64_t *)fetchIdSlot(txnMap, txnId) = txn->nextTxn.bits;
-  *txn->state = TxnDone;
+  *(uint64_t *)fetchIdSlot(txnMap, txn->txnId) = txn->nextTxn.bits;
+  txn->state = TxnDone;
   return result;
 }

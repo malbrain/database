@@ -51,7 +51,7 @@ typedef struct {
  
 MVCCResult mvcc_BeginTxn(Params* params, ObjId nestedTxn);
 MVCCResult mvcc_RollbackTxn(Params* params, uint64_t txnBits);
-MVCCResult mvcc_CommitTxn(Params* params, uint64_t txnBits);
+MVCCResult mvcc_CommitTxn(Txn *txn, Params* params);
 
 MVCCResult mvcc_installNewDocVer(Handle *docHndl, uint32_t valSize,
                                  ObjId* docId);

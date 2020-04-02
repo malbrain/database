@@ -53,8 +53,9 @@ struct Transaction {
 	uint32_t hndlIdx;		// current DocStore handle idx
     union {
 		struct {
-			uint8_t isolation;
-			volatile uint8_t state[1];
+			volatile uint8_t latch[1];
+			uint8_t isolation:3;
+			uint8_t state : 5;
             uint16_t tsClnt;  // timestamp generator slot
         };
 		enum TxnCC disp : 8;		  // display isolation mode in debugger

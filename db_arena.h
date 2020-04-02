@@ -101,10 +101,10 @@ typedef struct {
 } IdxSeg;
 
 typedef struct {
-  DbAddr databases[1];	// database names in the catalog
-  uint32_t maxEntry[1];
-  uint32_t numEntries[1];
-  DbAddr segAddr[1];		// preload fractions
+	DbAddr databases[1];	// database names in the catalog
+	uint32_t maxEntry[1];
+	uint32_t numEntries[1];
+	DbAddr segAddr[1];		// preload fractions
 } Catalog;
 
 Catalog *catalog;
