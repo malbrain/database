@@ -73,13 +73,22 @@ typedef union {
 
 typedef union {
 	struct {
-		uint32_t idx;	// record ID in the segment
-		uint16_t seg;	// arena segment number
-		uint16_t xtra;	// xtra bits (available for txn)
+		uint32_t idx;		// record ID in the segment
+		uint16_t seg;		// arena segment number
+		uint16_t xtra[1];	// xtra bits (available for txn)
 	};
-	uint64_t addr:48;	// address part of struct above
+	uint64_t addr:48;		// address part of struct above
 	uint64_t bits;
 } ObjId;
+
+typedef union {
+	struct {
+		enum TxnStep txnAccess : 3;
+	};
+	uint16_t bits;
+} *DocIdXtra;
+
+#define DocIdXtra(docId) ((DocIdXtra)((docId)->xtra))
 
 // string content
 
@@ -102,7 +111,7 @@ typedef enum {
 	ClntSize,		// Handle client area size (DbCursor, Iterator)  (int)
 	XtraSize,		// Handle client extra storage (leaf page buffer) (int)
 	ArenaXtra,		// extra bytes in arena	(DbIndex, DocStore) (int)
-	ResetVersion,	// reset arena version
+	RecordType,		// arena document record type: 0=raw, 1=mvcc
 
 	IdxKeyUnique = 10,	// index keys uniqueness constraint	(bool)
 	IdxKeyDeferred,		// uniqueness constraints deferred to commit	(bool)

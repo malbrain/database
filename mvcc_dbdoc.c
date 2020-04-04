@@ -46,6 +46,7 @@ MVCCResult mvcc_installNewDocVer(Handle *docHndl, uint32_t valSize,
       return result.status = DB_ERROR_outofmemory, result;
 
   docSlot = fetchIdSlot(docMap, *docId);
+  DocIdXtra(docId)->txnAccess = TxnWrt;
 
   if (docSlot->bits)
     prevDoc = getObj(docMap, *docSlot);
@@ -99,10 +100,10 @@ initVer:
   //  integrate by subtracting verSize from newestVer
   //  and store in pendingVer
 
-  doc->op = TxnWrite;
+  doc->op = OpWrt;
 
   ver->verNo = ++doc->verNo;
-  doc->op = TxnWrite;
+  doc->op = OpWrt;
 
   docSlot->bits = ADDR_MUTEX_SET | docAddr.addr;
 

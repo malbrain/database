@@ -103,13 +103,13 @@ MVCCResult mvcc_addDocWrToTxn(Txn *txn, Doc *doc) {
 
     // ignore rewrite of our own new version
 
-    if (doc->op == TxnWrt)
+    if (doc->op == OpWrt)
         if( doc->txnId.bits == txn->txnId.bits) 
             if (doc->txnVer == txn->txnVer)
                 break;
 
     objId.addr = doc->doc->hndlIdx;
-    objId.xtra = TxnIdx;
+    DocIdXtra(&objId)->txnAccess = TxnIdx;
 
     if (txn->hndlIdx != doc->doc->hndlIdx) {
       txn->hndlIdx = doc->doc->hndlIdx;
@@ -119,9 +119,8 @@ MVCCResult mvcc_addDocWrToTxn(Txn *txn, Doc *doc) {
     prevVer = (Ver *)(doc->doc->base + doc->newestVer);
 
     docId.bits = doc->doc->docId.bits;
-    docId.xtra = TxnWrt;
+    DocIdXtra(&docId)->txnAccess = TxnWrt;
     values[cnt++] = docId.bits;
-    values[cnt++] = ++doc->verNo;
 
     if (txn->isolation == TxnSerializable) {
       if (doc->newestVer)
@@ -168,7 +167,7 @@ MVCCResult mvcc_addDocRdToTxn(Txn *txn, Ver* ver) {
     //  switch docStore?
 
     objId.addr = doc->doc->hndlIdx;
-    objId.xtra = TxnIdx;
+    DocIdXtra(&docId)->txnAccess = TxnIdx;
 
     if (txn->hndlIdx != doc->doc->hndlIdx) {
       txn->hndlIdx = doc->doc->hndlIdx;
@@ -177,7 +176,7 @@ MVCCResult mvcc_addDocRdToTxn(Txn *txn, Ver* ver) {
 
     //  ignore a read of our own new version
 
-    if (doc->op == TxnWrt)
+    if (doc->op == OpWrt)
       if (doc->txnId.bits == txn->txnId.bits)
         if (doc->txnVer == txn->txnVer) break;
 
@@ -193,7 +192,7 @@ MVCCResult mvcc_addDocRdToTxn(Txn *txn, Ver* ver) {
 
     if (ver->sstamp->lowHi[1] == ~0ULL) {
       docId.bits = doc->doc->docId.bits;
-      docId.xtra = TxnRdr;
+      DocIdXtra(&docId)->txnAccess = TxnRdr;
       values[cnt++] = docId.bits;
       values[cnt++] = doc->verNo;
     } else
@@ -241,6 +240,7 @@ MVCCResult mvcc_BeginTxn(Params* params, ObjId nestedTxn) {
   else
     txn->isolation = TxnSnapShot;
 
+  txn->txnId.bits = txnId.bits;
   txn->tsClnt = tsClnt;
   txn->nextTxn.bits = nestedTxn.bits;
   txn->state = TxnGrowing;
@@ -409,8 +409,10 @@ bool SSNCommit(Txn *txn) {
 
         //  is this a read of our own new version?
 
-        if (doc->op == TxnWrt)
-          if (doc->txnId.bits == txn->txnId.bits) continue;
+        if (doc->op == OpWrt)
+          if (doc->txnId.bits == txn->txnId.bits)
+            if (doc->txnVer == txn->txnVer)
+                continue;
 
         //  is there another committed version
         //  after our version?  Was there another
@@ -434,7 +436,7 @@ bool SSNCommit(Txn *txn) {
 
       objId.bits = frame->slots[idx];
 
-      switch (objId.xtra) {
+      switch (DocIdXtra(&objId)->txnAccess) {
         case TxnIdx:
           if (docHndl) releaseHandle(docHndl);
           docHndl = bindHandle((DbHandle *)(frame->slots + idx), Hndl_docStore);
@@ -482,8 +484,10 @@ bool SSNCommit(Txn *txn) {
 
         //  is this a read of our own new version?
 
-        if (doc->op == TxnWrt)
-          if (doc->txnId.bits == txn->txnId.bits) continue;
+        if (doc->op == OpWrt)
+          if (doc->txnId.bits == txn->txnId.bits)
+            if (doc->txnVer == txn->txnVer) 
+                continue;
 
         //  is there another committed version
         //  after our version?  Was there another
@@ -505,7 +509,7 @@ bool SSNCommit(Txn *txn) {
 
         objId.bits = frame->slots[idx];
 
-        switch (objId.xtra) {
+        switch (DocIdXtra(&objId)->txnAccess) {
           case TxnIdx:
             if (docHndl) releaseHandle(docHndl);
             docHndl =
@@ -532,7 +536,7 @@ bool SSNCommit(Txn *txn) {
     result = timestampCmp(txn->sstamp, txn->pstamp, 0, 0) <= 0 ? false : true;
 
     if (result)
-      txn->state = TxnCommit;
+      txn->state = TxnCommitted;
     else
       txn->state = TxnRollback;
 
@@ -568,7 +572,7 @@ bool SSNCommit(Txn *txn) {
 
           doc = getObj(docMap, *docSlot);
 
-          if (doc->verNo == verNo && (doc->op & TxnCommitting)) continue;
+          if (doc->verNo == verNo && (doc->op & OpCommit)) continue;
 
           ver = mvcc_getVersion(docMap, doc, verNo);
 
@@ -585,8 +589,8 @@ bool SSNCommit(Txn *txn) {
 
         objId.bits = frame->slots[idx];
 
-        switch (objId.xtra) {
-          case TxnKill:
+        switch (DocIdXtra(&objId)->txnAccess) {
+          case TxnRaw:
             continue;
 
           case TxnIdx:
@@ -631,8 +635,8 @@ bool SSNCommit(Txn *txn) {
       for (idx = 0; idx < addr.nslot; idx++) {
         objId.bits = frame->slots[idx];
 
-        switch (objId.xtra) {
-          case TxnKill:
+        switch (DocIdXtra(&objId)->txnAccess) {
+          case TxnRaw:
             continue;
 
           case TxnIdx:
@@ -651,7 +655,7 @@ bool SSNCommit(Txn *txn) {
             doc = getObj(docMap, *slot);
             if (doc->verNo == verNo) break;
 
-            if (doc->op & TxnCommitting) break;
+            if (doc->op & OpCommit) break;
 
             unlockLatch(slot->latch);
             continue;
@@ -719,8 +723,8 @@ bool snapshotCommit(Txn *txn) {
     for (idx = 0; idx < nSlot; idx++) {
       objId.bits = frame->slots[idx];
 
-      switch (objId.xtra) {
-        case TxnKill:
+      switch (DocIdXtra(&objId)->txnAccess) {
+        case TxnRaw:
           continue;
 
         case TxnIdx:
@@ -735,7 +739,7 @@ bool snapshotCommit(Txn *txn) {
           slot = fetchIdSlot(docMap, objId);
           lockLatch(slot->latch);
           break;
-      }
+      } 
 
       doc = getObj(docMap, *slot);
       ver = (Ver *)(doc->doc->base + doc->pendingVer);

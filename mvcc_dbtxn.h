@@ -6,16 +6,6 @@
 
 // MVCC and TXN definitions for DATABASE project
 
-//  Pending TXN action
-
-typedef enum {
-	TxnNone = 0,		// not in a txn
-	TxnWrite,			// insert new doc
-	TxnDelete,			// delete the doc
-	TxnRead,			// update the doc
-	TxnCommit = 128		// version being committed
-} TxnAction;
-
 enum TxnState {
 	TxnDone,			// fully committed
 	TxnGrowing,			// reading and upserting
@@ -24,12 +14,12 @@ enum TxnState {
 	TxnRollback			// roll back
 };
 
-typedef enum {
-	TxnKill = 0,	// txn step removed
+enum TxnStep {
+	TxnRaw = 0,		// txn step raw read/write
 	TxnIdx,			// txn step is a Catalog handle idx
 	TxnRdr,			// txn step is a docId & version
 	TxnWrt			// txn step is write
-} TxnStep;
+};
 
 enum TxnCC {
 	TxnNotSpecified,

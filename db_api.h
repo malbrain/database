@@ -18,8 +18,8 @@ DbMap *hndlMap;
 // next hdrs in set follow, up to docMin
 
 typedef enum {
-    DocRaw,
-    DocMvcc
+    VerRaw,
+    VerMvcc
 } DocType;
 
 struct Document {

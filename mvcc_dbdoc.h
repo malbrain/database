@@ -4,7 +4,18 @@
 typedef uint32_t (*FillFcn)(uint8_t* rec, uint32_t size, void *fillOpt);
 typedef int (*Intfcnp)();
 
-    // document mvcc version header
+//  Pending Doc action
+
+typedef enum {
+    OpRaw = 0,		// not in a txn
+    OpWrt,			// insert new doc
+    OpDel,			// delete the doc
+    OpRdr,			// update the doc
+    OpMask = 7,
+    OpCommit = 8	// version committed bit
+} DocAction;
+
+// document mvcc version header
 
 struct Version {
   union {
@@ -33,7 +44,7 @@ struct MVCCDoc {
   uint32_t pendingVer;	// offset of pending uncommitted version
   uint32_t verNo;       // next version number, increment on assignment
   uint32_t txnVer;      // txn slot sequence number
-  TxnAction op;         // pending document action/committing bit
+  DocAction op;         // pending document action/committing bit
   ObjId txnId;          // pending uncommitted txn ID
 };
 
