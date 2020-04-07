@@ -27,7 +27,6 @@ struct Document {
     uint8_t base[4];
     uint32_t refCnt[1];
   };
-  uint32_t docMin;      // offset of begining of client area
   uint32_t hndlIdx;     // linear segmented handle Catalog index
   DocType docType;
   DbAddr ourAddr;

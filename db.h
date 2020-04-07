@@ -111,9 +111,11 @@ typedef enum {
 	ClntSize,		// Handle client area size (DbCursor, Iterator)  (int)
 	XtraSize,		// Handle client extra storage (leaf page buffer) (int)
 	ArenaXtra,		// extra bytes in arena	(DbIndex, DocStore) (int)
-	RecordType,		// arena document record type: 0=raw, 1=mvcc
 
-	IdxKeyUnique = 10,	// index keys uniqueness constraint	(bool)
+	RecordType = 10,// arena document record type: 0=raw, 1=mvcc
+	MvccBlkSize,    // initial mvcc document size
+
+	IdxKeyUnique = 15,	// index keys uniqueness constraint	(bool)
 	IdxKeyDeferred,		// uniqueness constraints deferred to commit	(bool)
 	IdxKeyAddr,			// index key definition address
 	IdxKeySparse,
@@ -122,16 +124,16 @@ typedef enum {
 	IdxType,			// 0 for artree, 1 & 2 for btree	(int)
 	IdxNoDocs,			// stand-alone index file	(bool)
 
-	Btree1Bits = 20,	// Btree1 page size in bits	(int)
+	Btree1Bits = 25,	// Btree1 page size in bits	(int)
 	Btree1Xtra,			// leaf page extra bits	(int)
 
-	Btree2Bits = 23,	// Btree2 page size in bits	(int)
+	Btree2Bits = 28,	// Btree2 page size in bits	(int)
 	Btree2Xtra,			// leaf page extra bits	(int)
 
-	CursorDeDup = 25,	// de-duplicate cursor results	(bool)
+	CursorDeDup = 30,	// de-duplicate cursor results	(bool)
 	Concurrency,
 
-	UserParams = 30,
+	UserParams = 40,
 	MaxParam = 64		// count of param slots defined
 } ParamSlot;
 
@@ -139,6 +141,7 @@ typedef union {
 	uint64_t intVal;
 	uint32_t offset;
 	double dblVal;
+	uint32_t wordVal;
 	char charVal;
 	bool boolVal;
 	DbAddr addr;

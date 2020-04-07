@@ -34,16 +34,20 @@ MVCCResult mvcc_installNewDocVer(Handle *docHndl, uint32_t valSize,
   docStore = (DocStore*)(docMap->arena + 1);
   blkSize = docStore->blkSize;
 
-  verSize = sizeof(Ver) + docStore->keyCnt * sizeof(DbAddr) + valSize;
-  verSize += 15;
-  verSize &= -16;
+  stopSize = sizeof(struct Stopper_);
+
+  stopSize += 15;
+  stopSize &= -16;
+
+  verSize = sizeof(Ver) + stopSize + docStore->keyCnt * sizeof(DbAddr) + valSize;
+  
+  if (verSize + sizeof(Doc) > blkSize)
+      blkSize = verSize + sizeof(Doc);
+
+  blkSize += 15;
+  blkSize &= -16;
  
   //	set up the document version
-
-  if (!docId->bits)
-    if (!(docId->bits =
-              allocObjId(docMap, listFree(docHndl, 0), listWait(docHndl, 0))))
-      return result.status = DB_ERROR_outofmemory, result;
 
   docSlot = fetchIdSlot(docMap, *docId);
   DocIdXtra(docId)->txnAccess = TxnWrt;
@@ -53,9 +57,9 @@ MVCCResult mvcc_installNewDocVer(Handle *docHndl, uint32_t valSize,
   else
     prevDoc = NULL;
 
-  //	allocate space in docStore for a new mvcc block
+  //	allocate space in docStore for a new mvcc block of versions
 
-  if (docSlot->bits == 0 || verSize + prevDoc->doc->docMin > prevDoc->newestVer)
+  if (docSlot->bits == 0 || verSize + sizeof(Doc) + sizeof(Ver) > prevDoc->newestVer)
     if ((docAddr.bits = allocDocStore(docHndl, blkSize, false)))
       blkSize = db_rawSize(docAddr);
     else
@@ -63,49 +67,45 @@ MVCCResult mvcc_installNewDocVer(Handle *docHndl, uint32_t valSize,
   else
     goto initVer;
 
-  // init new block
+  // init new document block
 
   doc = getObj(docMap, docAddr);
   memset(doc, 0, sizeof(Doc));
   doc->prevAddr = *docSlot;
                                                                                                            
+  doc->doc->hndlIdx = docHndl->hndlIdx;
   doc->doc->ourAddr.bits = docAddr.bits;
   doc->doc->docId.bits = docId->bits;
+  doc->doc->docType = VerMvcc;
 
-  //	fill-in stopper (verSize == 0) at end of version chain
+  // fill-in stopper (verSize == 0) to start an empty version chain
 
-  stopSize = sizeof(struct Stopper_);
-  stopSize += 15;
-  stopSize &= -16;
+  doc->newestVer = blkSize - stopSize;
 
-  //  fill in stopper version
-
-  ver = (Ver*)(doc->doc->base + blkSize - stopSize);
-  ver->stop->offset = blkSize - stopSize;
+  ver = (Ver*)(doc->doc->base + doc->newestVer);
+  ver->stop->offset = doc->newestVer;
   ver->stop->verSize = 0;
 
-  doc->pendingVer = blkSize - stopSize;
-
-  //    configure new version under stopper
+  //  configure pending version under newest (committed)
+  //  install new head of version chain --
+  //  subtract verSize from newestVer
+  //  and store in pendingVer
 
 initVer:
-  ver = (Ver*)(doc->doc->base + doc->newestVer - verSize);
-  ver->stop->offset = doc->newestVer - verSize;
+  doc->pendingVer = doc->newestVer - verSize;
+  ver = (Ver*)(doc->doc->base + doc->pendingVer);
+  ver->stop->offset = doc->pendingVer;
   ver->stop->verSize = verSize;
 
   ver->keys->vecMax = docStore->keyCnt;
   ver->keys->vecLen = 0;
 
-  //  install locked new head of version chain --
-  //  integrate by subtracting verSize from newestVer
-  //  and store in pendingVer
-
   doc->op = OpWrt;
+
+  //  install version address in docSlot
 
   ver->verNo = ++doc->verNo;
-  doc->op = OpWrt;
-
-  docSlot->bits = ADDR_MUTEX_SET | docAddr.addr;
+  docSlot->bits = docAddr.bits;
 
   result.object = doc;
   return result;
