@@ -439,7 +439,7 @@ bool SSNCommit(Txn *txn) {
       switch (DocIdXtra(&objId)->txnAccess) {
         case TxnIdx:
           if (docHndl) releaseHandle(docHndl);
-          docHndl = bindHandle((DbHandle *)(frame->slots + idx), Hndl_docStore);
+          docHndl = getDocIdHndl(objId.idx);
           docMap = MapAddr(docHndl);
           continue;
 
@@ -512,8 +512,7 @@ bool SSNCommit(Txn *txn) {
         switch (DocIdXtra(&objId)->txnAccess) {
           case TxnIdx:
             if (docHndl) releaseHandle(docHndl);
-            docHndl =
-                bindHandle((DbHandle *)(frame->slots + idx), Hndl_docStore);
+            docHndl = getDocIdHndl(objId.idx);
             docMap = MapAddr(docHndl);
             continue;
 
@@ -595,8 +594,7 @@ bool SSNCommit(Txn *txn) {
 
           case TxnIdx:
             if (docHndl) releaseHandle(docHndl);
-            docHndl =
-                bindHandle((DbHandle *)(frame->slots + idx), Hndl_docStore);
+            docHndl = getDocIdHndl(objId.idx);
             docMap = MapAddr(docHndl);
             continue;
 
@@ -641,8 +639,7 @@ bool SSNCommit(Txn *txn) {
 
           case TxnIdx:
             if (docHndl) releaseHandle(docHndl);
-            docHndl =
-                bindHandle((DbHandle *)(frame->slots + idx), Hndl_docStore);
+            docHndl = getDocIdHndl(objId.idx);
             docMap = MapAddr(docHndl);
             continue;
           default:
@@ -729,8 +726,7 @@ bool snapshotCommit(Txn *txn) {
 
         case TxnIdx:
           if (docHndl) releaseHandle(docHndl);
-
-          docHndl = fetchIdSlot(hndlMap, objId);
+          docHndl = getDocIdHndl(objId.idx);
           docMap = MapAddr(docHndl);
           continue;
 
