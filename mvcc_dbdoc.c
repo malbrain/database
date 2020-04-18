@@ -116,6 +116,7 @@ initVer:
 MVCCResult mvcc_ProcessKey(DbHandle hndl[1], DbHandle hndlIdx[1], Ver* prevVer,
                            Ver* ver, ObjId docId, KeyValue* srcKey) {
   Handle *docHndl = bindHandle(hndl, Hndl_docStore);
+  Handle *idxHndl = bindHandle(hndlIdx, Hndl_anyIdx);
   MVCCResult result = {
       .value = 0, .count = 0, .objType = 0, .status = DB_OK};
   uint32_t size = sizeof(KeyValue);
@@ -141,7 +142,7 @@ MVCCResult mvcc_ProcessKey(DbHandle hndl[1], DbHandle hndlIdx[1], Ver* prevVer,
     }
 
     //  otherwise install key for delete/update
-    //  and insert key into its index
+    //  and i key into its index
 
     insKey.bits = allocDocStore(docHndl, size + calc64(docId.bits), true);
     destKey = getObj(docMap, insKey);
@@ -156,7 +157,7 @@ MVCCResult mvcc_ProcessKey(DbHandle hndl[1], DbHandle hndlIdx[1], Ver* prevVer,
 	else
     	return result.status = DB_ERROR_outofmemory, result.objType = objErr, result;
 
-    result.status = insertKey(hndlIdx, destKey->bytes, destKey->keyLen, destKey->suffixLen);
+    result.status = insertKeyValue(idxHndl, destKey);
     return result;
 }
 

@@ -8,7 +8,7 @@
 typedef struct {
 	uint32_t refCnt[1];
 	uint16_t keyLen; 	    // len of base key
-	uint16_t vecIdx;		// index in key vector
+	uint16_t vecIdx;		// index in document key vector
     uint64_t keyHash;
     uint8_t unique : 1;     // index is unique
 	uint8_t deferred:1;		// uniqueness deferred
@@ -18,6 +18,4 @@ typedef struct {
 } KeyValue;
 
 uint64_t allocDocStore(Handle* docHndl, uint32_t size, bool zeroit);
-extern Handle** bindDocIndexes(Handle* docHndl);
-DbStatus installKeys(Handle* idxHndls[1], Ver* ver);
-DbStatus removeKeys(Handle* idxHndls[1], Ver* ver, DbMmbr* mmbr, DbAddr* slot);
+DbStatus insertKeyValue(Handle *idxHndl, KeyValue *keyValue);

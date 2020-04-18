@@ -193,9 +193,9 @@ DbStatus stat;
 	return stat;
 }
 
-ObjId dbGetDocId(DbCursor *cursor) {
-  ObjId objId;
+uint64_t dbGetDocId(DbCursor *cursor) {
+	if (cursor->state == CursorPosAt)
+		return get64(cursor->key, cursor->keyLen);
 
-	objId.bits = get64(cursor->key, cursor->keyLen);
-    return objId;
-} 
+	return 0;
+}

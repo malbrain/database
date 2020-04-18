@@ -235,6 +235,10 @@ DbStatus createIndex(DbHandle dbIdxHndl[1], DbHandle dbParentHndl[1], char *name
     return DB_ERROR_outofmemory;
   }
 
+  // assign docstore handle idx
+
+  idxHndl->hndlIdx = parentHndl->hndlIdx;
+
   if (*idxMap->arena->type) goto createXit;
 
   // each arena index map is followed by a DbIndex base instance

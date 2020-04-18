@@ -78,6 +78,7 @@ Txn* mvcc_fetchTxn(ObjId txnId) {
 }
 
 void mvcc_releaseTxn(Txn *txn) {
+  if( txn )
     unlockLatch(txn->latch); 
 }
 
@@ -290,21 +291,24 @@ Ver *mvcc_getVersion(DbMap *map, Doc *doc, uint64_t verNo) {
 
 //  find appropriate document version per reader timestamp
 
-MVCCResult mvcc_findDocVer(Txn *txn, DbMap *map, Doc *doc, DbMvcc *dbMvcc) {
+MVCCResult mvcc_findDocVer(Txn *txn, Doc *doc, Handle *docHndl) {
   MVCCResult result = {
       .value = 0, .count = 0, .objType = objVer, .status = DB_OK};
+  DbMap *docMap = MapAddr(docHndl);                                                            
   uint32_t offset;
   Ver *ver;
 
   //  is there a pending update for the document
   //	made by our transaction?
 
-  if ((txn->txnId.bits == doc->txnId.bits)) {
-    if (txn->txnVer == doc->txnVer)
-      if (offset = doc->pendingVer) {
-        ver = (Ver *)(doc->doc->base + offset);
-        result.object = ver;
-        return result;
+  if(txn) {
+      if ((txn->txnId.bits == doc->txnId.bits)) {
+          if (txn->txnVer == doc->txnVer)
+              if (offset = doc->pendingVer) {
+                  ver = (Ver *)(doc->doc->base + offset);
+                  result.object = ver;
+                  return result;
+              }
       }
   }
 
@@ -319,20 +323,21 @@ MVCCResult mvcc_findDocVer(Txn *txn, DbMap *map, Doc *doc, DbMvcc *dbMvcc) {
 
     if (!ver->stop->verSize) {
       if (doc->prevAddr.bits) {
-        doc = getObj(map, doc->prevAddr);
+        doc = getObj(docMap, doc->prevAddr);
         offset = doc->newestVer;
         continue;
       } else
         return result.status = DB_ERROR_no_visible_version, result;
     }
 
-    if (timestampCmp(ver->commit, dbMvcc->reader, 'l', 'l') <= 0)
+    if (timestampCmp(ver->commit, txn->commit, 'l', 'l') <= 0)
         break;
 
   } while ((offset += ver->stop->verSize));
 
   //	add this document to the txn read-set
 
+  if(txn)
     result = mvcc_addDocRdToTxn(txn, ver);
 
   result.objType = objVer;

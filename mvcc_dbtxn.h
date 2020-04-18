@@ -57,7 +57,9 @@ void mvcc_releaseTxn(Txn* txn);
 
 MVCCResult mvcc_findCursorVer(DbCursor* dbCursor, DbMap* map, DbMvcc* dbMvcc,
                        Ver* ver);
+MVCCResult mvcc_findDocVer(Txn *txn, Doc *doc, Handle *docHndl);
 MVCCResult mvcc_addDocRdToTxn(Txn* txn, Ver* ver);
 MVCCResult mvcc_addDocWrToTxn(Txn* txn, Doc* doc);
 
-MVCCResult mvcc_findDocVer(Txn *txn, DbMap* docStore, Doc* doc, DbMvcc* dbMvcc);
+//  if ((docHndl = getDocIdHndl(thisVal.hndlIdx)))
+//    docMap = MapAddr(docHndl);
