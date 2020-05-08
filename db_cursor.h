@@ -18,7 +18,8 @@ typedef struct {
 	uint32_t keyLen;	// cursor key length
 	uint32_t baseLen;   // cursor base length
 	uint32_t suffixLen; // cursor suffix length
-    DbAddr deDupHash;	// dedup hash table
+	uint32_t resultSet;	// max size buffered keys
+	DbAddr deDupHash;	// dedup hash table
 	PosState state;		// cursor position state enum
 	uint8_t foundKey;	// cursor position found the key
 	char binaryFlds;	// index keys have fields

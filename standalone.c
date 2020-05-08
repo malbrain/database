@@ -79,9 +79,6 @@ typedef struct {
   bool noIdx;
   uint64_t line;
   int offset;
-  uint32_t lcgState[1];    // Lehmer's RNG state
-  uint16_t nrandState[3];  // random number generator state
-
 } ThreadArgs;
 
 typedef struct {
@@ -119,11 +116,13 @@ void myExit(ThreadArgs *args) {
 //  standalone program to index file of keys
 
 int index_file(ThreadArgs *args, char cmd, char *msg, int msgMax) {
+  uint16_t nrandState[3];
   int msgLen = 0;
   uint8_t rec[4096];
   Doc *doc = (Doc *)rec;
   uint8_t *body = rec + sizeof(Doc);
-  uint8_t key[4096];
+  uint8_t keyBuff[4096];
+  KeyValue *kv = (KeyValue *)keyBuff;
   int keyLen = 0, docLen = 0;
   int ch, keyOff, docMax, keyMax;
   uint32_t foundLen = 0;
@@ -133,12 +132,12 @@ int index_file(ThreadArgs *args, char cmd, char *msg, int msgMax) {
   ObjId docId;
   FILE *in;
   DbStatus stat;
-
+  uint8_t *key = kv->bytes;
   docMax = 4096 - sizeof(Doc);
 
   if (pennysort) docMax = 100;
 
-  mynrand48seed(args->nrandState, prng, args->idx + args->offset);
+  mynrand48seed(nrandState, prng, args->idx + args->offset);
   msg[msgLen++] = '\n';
 
   switch (cmd | 0x20) {
@@ -180,7 +179,7 @@ int index_file(ThreadArgs *args, char cmd, char *msg, int msgMax) {
 
     if (pennysort) {
       keyMax = args->keyLen ? args->keyLen : 10;
-      docLen = createB64(body, keyMax, args->nrandState);
+      docLen = createB64(body, keyMax, nrandState);
 
       while (docLen < 100) {
         body[docLen++] = '\t';
@@ -255,9 +254,11 @@ int index_file(ThreadArgs *args, char cmd, char *msg, int msgMax) {
           docId.bits = args->line + args->offset;
 
         if (args->idxHndl->hndlId.bits) {
-          uint32_t sfxLen = store64(key, keyLen, docId.bits);
 
-          switch ((stat = insertKey(args->idxHndl, key, keyLen, sfxLen))) {
+          kv->suffixLen = store64(key, keyLen, docId.bits);
+          kv->keyLen = keyLen;
+
+          switch ((stat = insertKey(args->idxHndl, kv))) {
             case DB_ERROR_unique_key_constraint:
               fprintf(stderr, "Duplicate key <%.*s> line: %" PRIu64 "\n",
                       keyLen, key, args->line);

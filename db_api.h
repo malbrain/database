@@ -69,6 +69,18 @@ typedef enum {
 
 //	Unique Key evaluation fcn
 
+typedef struct {
+  uint32_t refCnt[1];
+  uint16_t keyLen; 	    // len of base key
+  uint16_t vecIdx;		// index in document key vector
+  uint64_t keyHash;
+  uint8_t unique : 1;     // index is unique
+  uint8_t deferred : 1;		// uniqueness deferred
+  uint8_t binaryKeys : 1;	// uniqueness deferred
+  uint8_t suffixLen;		// size of docId suffix
+  uint8_t bytes[];		// bytes of the key
+} KeyValue;
+
 typedef bool(UniqCbFcn)(DbMap *map, DbCursor *dbCursor);
 
 void initialize(void);
@@ -90,8 +102,7 @@ DbStatus positionCursor(DbHandle hndl[1], CursorOp op, void *key,
 DbStatus keyAtCursor(DbHandle hndl[1], uint8_t **key, uint32_t *keyLen);
 DbStatus moveCursor(DbHandle hndl[1], CursorOp op);
 
-DbStatus insertKey(DbHandle hndl[1], uint8_t *key, uint32_t len,
-                   uint32_t sfxLen);
+DbStatus insertKey(DbHandle hndl[1], KeyValue *kv);
 DbStatus deleteKey(DbHandle hndl[1], uint8_t *key, uint32_t len);
 
 uint64_t arenaAlloc(DbHandle arenaHndl[1], uint32_t size, bool zeroit,

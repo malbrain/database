@@ -75,20 +75,14 @@ typedef union {
 	struct {
 		uint32_t idx;		// record ID in the segment
 		uint16_t seg;		// arena segment number
-		uint16_t xtra[1];	// xtra bits (available for txn)
+		union {
+			enum TxnState step :8;
+			uint16_t xtra[1];	// xtra bits 
+		};
 	};
 	uint64_t addr:48;		// address part of struct above
 	uint64_t bits;
 } ObjId;
-
-typedef union {
-	struct {
-		enum TxnStep txnAccess : 3;
-	};
-	uint16_t bits;
-} *DocIdXtra;
-
-#define DocIdXtra(docId) ((DocIdXtra)((docId)->xtra))
 
 // string content
 
@@ -132,6 +126,7 @@ typedef enum {
 
 	CursorDeDup = 30,	// de-duplicate cursor results	(bool)
 	Concurrency,
+	ResultSetSize,	// # cursor keys or # iterator docs returned (int)
 
 	UserParams = 40,
 	MaxParam = 64		// count of param slots defined

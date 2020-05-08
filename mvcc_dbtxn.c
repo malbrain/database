@@ -110,7 +110,7 @@ MVCCResult mvcc_addDocWrToTxn(Txn *txn, Doc *doc) {
                 break;
 
     objId.addr = doc->doc->hndlIdx;
-    DocIdXtra(&objId)->txnAccess = TxnIdx;
+    objId.step = TxnIdx;
 
     if (txn->hndlIdx != doc->doc->hndlIdx) {
       txn->hndlIdx = doc->doc->hndlIdx;
@@ -120,7 +120,7 @@ MVCCResult mvcc_addDocWrToTxn(Txn *txn, Doc *doc) {
     prevVer = (Ver *)(doc->doc->base + doc->newestVer);
 
     docId.bits = doc->doc->docId.bits;
-    DocIdXtra(&docId)->txnAccess = TxnWrt;
+    docId.step = TxnWrt;
     values[cnt++] = docId.bits;
 
     if (txn->isolation == TxnSerializable) {
@@ -168,7 +168,7 @@ MVCCResult mvcc_addDocRdToTxn(Txn *txn, Ver* ver) {
     //  switch docStore?
 
     objId.addr = doc->doc->hndlIdx;
-    DocIdXtra(&docId)->txnAccess = TxnIdx;
+    docId.step = TxnIdx;
 
     if (txn->hndlIdx != doc->doc->hndlIdx) {
       txn->hndlIdx = doc->doc->hndlIdx;
@@ -193,7 +193,7 @@ MVCCResult mvcc_addDocRdToTxn(Txn *txn, Ver* ver) {
 
     if (ver->sstamp->lowHi[1] == ~0ULL) {
       docId.bits = doc->doc->docId.bits;
-      DocIdXtra(&docId)->txnAccess = TxnRdr;
+      docId.step = TxnRdr;
       values[cnt++] = docId.bits;
       values[cnt++] = doc->verNo;
     } else
@@ -441,7 +441,7 @@ bool SSNCommit(Txn *txn) {
 
       objId.bits = frame->slots[idx];
 
-      switch (DocIdXtra(&objId)->txnAccess) {
+      switch (objId.step) {
         case TxnIdx:
           if (docHndl) releaseHandle(docHndl);
           docHndl = getDocIdHndl(objId.idx);
@@ -514,7 +514,7 @@ bool SSNCommit(Txn *txn) {
 
         objId.bits = frame->slots[idx];
 
-        switch (DocIdXtra(&objId)->txnAccess) {
+        switch (objId.step) {
           case TxnIdx:
             if (docHndl) releaseHandle(docHndl);
             docHndl = getDocIdHndl(objId.idx);
@@ -593,7 +593,7 @@ bool SSNCommit(Txn *txn) {
 
         objId.bits = frame->slots[idx];
 
-        switch (DocIdXtra(&objId)->txnAccess) {
+        switch (objId.step) {
           case TxnRaw:
             continue;
 
@@ -638,7 +638,7 @@ bool SSNCommit(Txn *txn) {
       for (idx = 0; idx < addr.nslot; idx++) {
         objId.bits = frame->slots[idx];
 
-        switch (DocIdXtra(&objId)->txnAccess) {
+        switch (objId.step) {
           case TxnRaw:
             continue;
 
@@ -725,7 +725,7 @@ bool snapshotCommit(Txn *txn) {
     for (idx = 0; idx < nSlot; idx++) {
       objId.bits = frame->slots[idx];
 
-      switch (DocIdXtra(&objId)->txnAccess) {
+      switch (objId.step) {
         case TxnRaw:
           continue;
 

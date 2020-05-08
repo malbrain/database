@@ -695,8 +695,7 @@ DbStatus deleteKey(DbHandle hndl[1], uint8_t *key, uint32_t len) {
 
 bool uniqueKey(DbMap *map, DbCursor *dbCursor) { return true; }
 
-DbStatus insertKey(DbHandle hndl[1], uint8_t *key, uint32_t len,
-                   uint32_t sfxLen) {
+DbStatus insertKey(DbHandle hndl[1], KeyValue *keyValue) {
   DbStatus stat = DB_OK;
   Handle *idxHndl;
   DbIndex *index;
@@ -715,16 +714,16 @@ DbStatus insertKey(DbHandle hndl[1], uint8_t *key, uint32_t len,
       //	if (idxHndl->map->arenaDef->params[IdxKeyUnique].boolVal)
       //		stat = artInsertUniq(idxHndl, key, len, uniqueKey,
       //&defer); 	else
-      stat = artInsertKey(idxHndl, key, len, sfxLen);
+      stat = artInsertKey(idxHndl, keyValue->bytes, keyValue->keyLen, keyValue->suffixLen);
       break;
     }
 
     case Hndl_btree1Index:
-      stat = btree1InsertKey(idxHndl, key, len, sfxLen, 0, Btree1_indexed);
+      stat = btree1InsertKey(idxHndl, keyValue->bytes, keyValue->keyLen, keyValue->suffixLen, 0, Btree1_indexed);
       break;
 
     case Hndl_btree2Index:
-      stat = btree2InsertKey(idxHndl, key, len, sfxLen, 0, Btree2_slotactive);
+      stat = btree2InsertKey(idxHndl, keyValue->bytes, keyValue->keyLen, keyValue->suffixLen, 0, Btree2_slotactive);
       break;
   }
 

@@ -50,7 +50,7 @@ MVCCResult mvcc_installNewDocVer(Handle *docHndl, uint32_t valSize,
   //	set up the document version
 
   docSlot = fetchIdSlot(docMap, *docId);
-  DocIdXtra(docId)->txnAccess = TxnWrt;
+  docId->step = TxnWrt;
 
   if (docSlot->bits)
     prevDoc = getObj(docMap, *docSlot);
@@ -112,7 +112,7 @@ initVer:
 }
 
 //  process new version document key
-
+/*
 MVCCResult mvcc_ProcessKey(DbHandle hndl[1], DbHandle hndlIdx[1], Ver* prevVer,
                            Ver* ver, ObjId docId, KeyValue* srcKey) {
   Handle *docHndl = bindHandle(hndl, Hndl_docStore);
@@ -160,7 +160,7 @@ MVCCResult mvcc_ProcessKey(DbHandle hndl[1], DbHandle hndlIdx[1], Ver* prevVer,
     result.status = insertKeyValue(idxHndl, destKey);
     return result;
 }
-
+*/
 Doc* chainNextDoc(Handle* docHndl, DbAddr* docSlot, uint32_t valSize,
                   uint16_t keyCount) {
   uint32_t rawSize = valSize + sizeof(Doc) + sizeof(Ver) +

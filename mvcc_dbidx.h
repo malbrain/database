@@ -5,17 +5,6 @@
 //  version Keys stored in docStore
 //	and inserted into the index
 
-typedef struct {
-	uint32_t refCnt[1];
-	uint16_t keyLen; 	    // len of base key
-	uint16_t vecIdx;		// index in document key vector
-    uint64_t keyHash;
-    uint8_t unique : 1;     // index is unique
-	uint8_t deferred:1;		// uniqueness deferred
-	uint8_t binaryKeys:1;	// uniqueness deferred
-	uint8_t suffixLen;		// size of docId suffix
-	uint8_t bytes[];		// bytes of the key
-} KeyValue;
 
 uint64_t allocDocStore(Handle* docHndl, uint32_t size, bool zeroit);
 DbStatus insertKeyValue(Handle *idxHndl, KeyValue *keyValue);
