@@ -261,6 +261,15 @@ int index_file(ThreadArgs *args, char cmd, char *msg, int msgMax) {
           docId.bits = 0;
           if (args->txnBatch) {
             result = mvcc_WriteDoc(txn, args->docHndl, &docId, docLen, (uint8_t *)(ourDoc + 1), 1);
+            if (args->line % args->txnBatch == 0) {
+              ObjId nestTxn;
+              nestTxn.bits = 0;
+              memset(params, 0, sizeof(Params));
+              params[Concurrency].intVal = TxnSerializable;
+              result = mvcc_CommitTxn(txn, params);
+              result = mvcc_BeginTxn(params, nestTxn);
+              txn = result.object;
+            }
           } else {
             ourDoc->size = docLen;
             if ((stat =
@@ -584,6 +593,7 @@ int main(int argc, char **argv) {
   char *summary = NULL;
   char *dbName = NULL;
   char *cmds = NULL;
+  int txnBatch = 0;
   int keyLen = 10;
   int idx, cnt;
 
@@ -680,7 +690,9 @@ int main(int argc, char **argv) {
     if (!strncasecmp(argv[0], "-xtra=", 6)) {
       params[Btree1Xtra].intVal = atoi(argv[0] + 6);
       params[Btree2Xtra].intVal = atoi(argv[0] + 6);
-    } else if (!strncasecmp(argv[0], "-keyLen=", 8))
+    } else if (!strncasecmp(argv[0], "-txnBatch=", 10))
+      txnBatch = atoi(argv[0] + 10);
+    else if (!strncasecmp(argv[0], "-keyLen=", 8))
       keyLen = atoi(argv[0] + 8);
     else if (!strncasecmp(argv[0], "-bits=", 6)) {
       params[Btree1Bits].intVal = atoi(argv[0] + 6);
@@ -803,7 +815,7 @@ int main(int argc, char **argv) {
     args[idx].noIdx = noIdx;
     args[idx].cmds = cmds;
     args[idx].idx = idx;
-
+    args[idx].txnBatch = txnBatch;
     if (pipeLine || cnt == 1) {
       pipego(args);
       continue;
