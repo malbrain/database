@@ -68,8 +68,6 @@ typedef enum {
   Hndl_max
 } HandleType;
 
-Handle *getDocIdHndl(uint32_t docHndl);
-uint32_t assignDocStoreIdx(Handle *handle);
 uint32_t disableHndls(DbAddr *hndlCalls);
 uint64_t scanHandleTs(DbMap *map);
 

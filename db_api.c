@@ -22,7 +22,7 @@ char *hndlPath;
 //	open the catalog
 //	return pointer to the Handle map
 
-Catalog *initHndlMap(char *path, int pathLen, char *name, bool onDisk, int numDocStores) {
+Catalog *initHndlMap(char *path, int pathLen, char *name, bool onDisk) {
   int nameLen = (int)strlen(name);
   ArenaDef arenaDef[1];
   Catalog *catalog;
@@ -45,7 +45,7 @@ Catalog *initHndlMap(char *path, int pathLen, char *name, bool onDisk, int numDo
   //	and has databases for children
 
   memset(arenaDef, 0, sizeof(arenaDef));
-  arenaDef->arenaXtra = sizeof(Catalog) + numDocStores / 65536 * sizeof(DbAddr);
+  arenaDef->arenaXtra = sizeof(Catalog);
   arenaDef->params[OnDisk].boolVal = onDisk;
   arenaDef->arenaType = Hndl_catalog;
   arenaDef->objSize = sizeof(Handle);
@@ -54,16 +54,12 @@ Catalog *initHndlMap(char *path, int pathLen, char *name, bool onDisk, int numDo
   hndlMap->db = hndlMap;
 
   catalog = (Catalog *)(hndlMap->arena + 1);
-  catalog->maxEntry[0] = 65536;
-  catalog->segAddr[0].bits = allocBlk(hndlMap, 65536 * sizeof(ObjId), true);
 
   *hndlMap->arena->type = Hndl_catalog;
   hndlInit->type = Hndl_catalog;
 
   return catalog;
 }
-
-int numDocStores = 65536;
 
 void initialize(void) {
   memInit(); 
@@ -72,7 +68,7 @@ void initialize(void) {
   //    indexed in an array, and all Handles indexed by ObjId
 
   if (!hndlInit->type) 
-      catalog = initHndlMap(NULL, 0, "Catalog", true, numDocStores);
+      catalog = initHndlMap(NULL, 0, "Catalog", true);
 }
 
 uint64_t arenaAlloc(DbHandle arenaHndl[1], uint32_t size, bool zeroit,

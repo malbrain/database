@@ -55,7 +55,9 @@ MVCCResult mvcc_CommitTxn(Txn *txn, Params* params);
 
 MVCCResult mvcc_installNewDocVer(Handle *docHndl, uint32_t valSize,
                                  ObjId* docId);
+MVCCResult mvcc_WriteDoc(Txn *txn, DbHandle dbHndl[1], ObjId *docId, uint32_t valSize,
+  uint8_t *valBytes, uint16_t keyCount);
 
-MVCCResult mvcc_ProcessKey(DbHandle hndl[1], DbHandle hndlIdx[1], Ver* prevVer, Ver* ver, ObjId docId, KeyValue *srcKey);
+// MVCCResult mvcc_ProcessKey(DbHandle hndl[1], DbHandle hndlIdx[1], Ver* prevVer, Ver* ver, ObjId docId, KeyValue *srcKey);
 
-MVCCResult mvcc_OpenDocumentInterface (DbHandle dbHndl[1], char *name, uint32_t len, Params *params);
+// MVCCResult mvcc_OpenDocumentInterface (DbHandle dbHndl[1], char *name, uint32_t len, Params *params);

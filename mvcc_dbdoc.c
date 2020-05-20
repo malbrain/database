@@ -73,7 +73,6 @@ MVCCResult mvcc_installNewDocVer(Handle *docHndl, uint32_t valSize,
   memset(doc, 0, sizeof(Doc));
   doc->prevAddr = *docSlot;
                                                                                                            
-  doc->doc->hndlIdx = docHndl->hndlIdx;
   doc->doc->ourAddr.bits = docAddr.bits;
   doc->doc->docId.bits = docId->bits;
   doc->doc->docType = VerMvcc;
@@ -160,7 +159,7 @@ MVCCResult mvcc_ProcessKey(DbHandle hndl[1], DbHandle hndlIdx[1], Ver* prevVer,
     result.status = insertKeyValue(idxHndl, destKey);
     return result;
 }
-*/
+
 Doc* chainNextDoc(Handle* docHndl, DbAddr* docSlot, uint32_t valSize,
                   uint16_t keyCount) {
   uint32_t rawSize = valSize + sizeof(Doc) + sizeof(Ver) +
@@ -215,3 +214,4 @@ Doc* chainNextDoc(Handle* docHndl, DbAddr* docSlot, uint32_t valSize,
   docSlot->bits = ADDR_MUTEX_SET | docAddr.addr;
   return doc;
 }
+*/

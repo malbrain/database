@@ -20,14 +20,14 @@ DbAddr *listQueue(Handle *handle, int nodeType, FrameList listType) {
 //	leave it bound
 
 Handle *makeHandle(DbMap *dbMap, uint32_t clntSize, uint32_t xtraSize,
-                   HandleType type) {
+  HandleType type) {
   Handle *handle;
   ObjId hndlId, *mapHndls;
 
   //	get a new or recycled ObjId slot where the handle will live
 
   if (!(hndlId.bits =
-            allocObjId(hndlMap, hndlMap->arena->freeBlk + ObjIdType, NULL)))
+    allocObjId(hndlMap, hndlMap->arena->freeBlk + ObjIdType, NULL)))
     return NULL;
 
   handle = fetchIdSlot(hndlMap, hndlId);
@@ -42,10 +42,10 @@ Handle *makeHandle(DbMap *dbMap, uint32_t clntSize, uint32_t xtraSize,
 
   if (sizeof(Handle) + xtraSize > hndlMap->arena->objSize) {
     fprintf(stderr,
-            "Error: makeHandle(%s): sizeof (Handle: %d) + (xtraSize: %d) .gt. "
-            "(ObjSize: %d)\n",
-            hndlNames[type], 
-            (int)sizeof(Handle), xtraSize, hndlMap->arenaDef->objSize);
+      "Error: makeHandle(%s): sizeof (Handle: %d) + (xtraSize: %d) .gt. "
+      "(ObjSize: %d)\n",
+      hndlNames[type],
+      (int)sizeof(Handle), xtraSize, hndlMap->arenaDef->objSize);
     return NULL;
   }
 
@@ -63,28 +63,28 @@ Handle *makeHandle(DbMap *dbMap, uint32_t clntSize, uint32_t xtraSize,
 
   if ((*handle->maxType = dbMap->arenaDef->numTypes))
     handle->listIdx = arrayAlloc(dbMap, dbMap->arena->listArray,
-                                 sizeof(DbAddr) * *handle->maxType * 3);
+    sizeof(DbAddr) * *handle->maxType * 3);
 
   //	allocate entry slot in the open hndlId array for this arena
   //	and fill in the id for the handle's map
 
   handle->arrayIdx =
-      arrayAlloc(dbMap, dbMap->arenaDef->hndlArray, sizeof(ObjId));
+    arrayAlloc(dbMap, dbMap->arenaDef->hndlArray, sizeof(ObjId));
 
   mapHndls = arrayEntry(dbMap, dbMap->arenaDef->hndlArray, handle->arrayIdx);
   mapHndls->bits = hndlId.bits;
 
   if (debug)
     printf("listIdx = %.6d  maxType = %.3d arrayIdx = %.6d  hndl:%s\n",
-           handle->listIdx, *handle->maxType, handle->arrayIdx,
-           hndlNames[handle->hndlType]);
 
-  if (type == Hndl_docStore || type == Hndl_iterator )
-    handle->hndlIdx = assignDocStoreIdx(handle);
-  
+    handle->listIdx, *handle->maxType, handle->arrayIdx,
+    hndlNames[handle->hndlType]);
+
   handle->mapAddr = db_memAddr(dbMap);
   return handle;
 }
+
+// assign Catalog docStore idx slot
 
 //	delete handle resources
 
@@ -300,35 +300,4 @@ uint64_t scanHandleTs(DbMap *map) {
   }
 
   return lowTs;
-}
-
-// assign Catalog docStore idx slot
-
-uint32_t assignDocStoreIdx(Handle *handle) {
-  IdxSeg *idxSeg;
-  uint32_t hndlIdx;
-
-    hndlIdx = atomicAdd32(catalog->numEntries, 1);
-
-    while (catalog->numEntries[0] > catalog->maxEntry[0]) {
-      lockLatch(catalog->segAddr->latch);
-      if (catalog->numEntries[0] > catalog->maxEntry[0]) {
-        catalog->segAddr[catalog->maxEntry[0] / 65536].bits =
-            allocBlk(hndlMap, sizeof(IdxSeg), true);
-        atomicAdd32(catalog->maxEntry, 65536);
-      }
-      unlockLatch(catalog->segAddr->latch);
-    }
-
-    idxSeg = getObj(hndlMap, catalog->segAddr[hndlIdx/65536]);
-    idxSeg->objId[hndlIdx % 65536] = handle->hndlId;
-    return hndlIdx;
-}
-
-Handle *getDocIdHndl(uint32_t docHndl) {
-  DbHandle dbHndl[1];
-  IdxSeg *idxSeg = getObj(hndlMap, catalog->segAddr[docHndl / 65536]);
-
-  dbHndl->hndlId = idxSeg->objId[docHndl % 65536];
-  return HandleAddr(dbHndl);
 }

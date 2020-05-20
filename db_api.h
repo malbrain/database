@@ -27,7 +27,7 @@ struct Document {
     uint8_t base[4];
     uint32_t refCnt[1];
   };
-  uint32_t hndlIdx;     // linear segmented handle Catalog index
+  uint32_t mapId;     // db child id
   DocType docType;
   DbAddr ourAddr;
   ObjId docId;

@@ -10,6 +10,7 @@
 #include "db.h"
 #include "db_handle.h"
 #include "db_api.h"
+#include "mvcc_dbapi.h"
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -78,6 +79,7 @@ typedef struct {
   bool noDocs;
   bool noIdx;
   uint64_t line;
+  int txnBatch;
   int offset;
 } ThreadArgs;
 
@@ -105,7 +107,7 @@ HandleType indexType[] = {Hndl_artIndex, Hndl_btree1Index, Hndl_btree2Index};
 
 typedef struct {
   uint32_t size;
-} Doc;
+} OurDoc;
 
 void myExit(ThreadArgs *args) {
   if (args->noExit) return;
@@ -117,10 +119,12 @@ void myExit(ThreadArgs *args) {
 
 int index_file(ThreadArgs *args, char cmd, char *msg, int msgMax) {
   uint16_t nrandState[3];
+  int batchSize = 0;
   int msgLen = 0;
+  MVCCResult result;
   uint8_t rec[4096];
-  Doc *doc = (Doc *)rec;
-  uint8_t *body = rec + sizeof(Doc);
+  OurDoc *ourDoc = (OurDoc *)rec;
+  uint8_t *body = rec + sizeof(OurDoc);
   uint8_t keyBuff[4096];
   KeyValue *kv = (KeyValue *)keyBuff;
   int keyLen = 0, docLen = 0;
@@ -129,7 +133,9 @@ int index_file(ThreadArgs *args, char cmd, char *msg, int msgMax) {
   int lastFld = 0;
   uint8_t *foundKey;
   uint64_t count = ~0ULL;
+  Params params[MaxParam];
   ObjId docId;
+  Txn *txn;
   FILE *in;
   DbStatus stat;
   uint8_t *key = kv->bytes;
@@ -167,6 +173,14 @@ int index_file(ThreadArgs *args, char cmd, char *msg, int msgMax) {
     return msgLen + sprintf_s(msg + msgLen, msgMax - msgLen - 1,
                               "thrd:%d cmd:%c file:%s unable to open\n",
                               args->idx, cmd, args->inFile);
+  if (args->txnBatch) {
+    ObjId nestTxn;
+    nestTxn.bits = 0;
+    memset(params, 0, sizeof(Params));
+    params[Concurrency].intVal = TxnSerializable;
+    result = mvcc_BeginTxn(params, nestTxn);
+    txn = result.object;
+  }
 
   //  read or generate next doc and key
 
@@ -244,13 +258,17 @@ int index_file(ThreadArgs *args, char cmd, char *msg, int msgMax) {
         // store the entry in the docStore?
 
         if (args->docHndl->hndlId.bits) {
-          doc->size = docLen;
-          if ((stat =
-                   storeDoc(args->docHndl, doc, sizeof(Doc) + docLen, &docId)))
-            fprintf(stderr, "Add Doc %s Error %d Line: %" PRIu64 " *********\n",
-                    args->inFile, stat, args->line),
-                exit(0);
-        } else
+          docId.bits = 0;
+          if (args->txnBatch) {
+            result = mvcc_WriteDoc(txn, args->docHndl, &docId, docLen, (uint8_t *)(ourDoc + 1), 1);
+          } else {
+            ourDoc->size = docLen;
+            if ((stat =
+              storeDoc(args->docHndl, ourDoc, sizeof(OurDoc) + docLen, &docId)))
+              fprintf(stderr, "Add Doc %s Error %d Line: %" PRIu64 " *********\n",
+              args->inFile, stat, args->line), exit(0);
+          }
+    } else
           docId.bits = args->line + args->offset;
 
         if (args->idxHndl->hndlId.bits) {
@@ -341,7 +359,7 @@ int index_file(ThreadArgs *args, char cmd, char *msg, int msgMax) {
 uint64_t index_scan(ScanArgs *scan, DbHandle *database) {
   uint64_t cnt = 0;
   uint8_t rec[4096];
-  Doc *doc = (Doc *)rec;
+  OurDoc *ourDoc = (OurDoc *)rec;
 
   char cmd;
   uint32_t foundLen = 0;
@@ -370,10 +388,11 @@ uint64_t index_scan(ScanArgs *scan, DbHandle *database) {
           fprintf(stderr, "Cannot specify noDocs with iterator scan\n"),
               exit(0);
 
-        while ((moveIterator(scan->iterator, IterNext, (void **)&doc, &docId) ==
+
+        while ((moveIterator(scan->iterator, IterNext, (void **)&ourDoc, &docId) ==
                 DB_OK)) {
           if (dump) {
-            fwrite_unlocked(doc + 1, doc->size, 1, stdout);
+            fwrite_unlocked(ourDoc + 1, ourDoc->size, 1, stdout);
             fputc_unlocked('\n', stdout);
           }
           cnt++;
@@ -485,8 +504,8 @@ uint64_t index_scan(ScanArgs *scan, DbHandle *database) {
 
     if (dump && !scan->noDocs) {
       docId.bits = get64(foundKey, foundLen);
-      fetchDoc(scan->docHndl, (void **)&doc, docId);
-      fwrite_unlocked(doc + 1, doc->size, 1, stdout);
+      fetchDoc(scan->docHndl, (void **)&ourDoc, docId);
+      fwrite_unlocked(ourDoc + 1, ourDoc->size, 1, stdout);
     }
 
     if (numbers || keyList || dump) fputc_unlocked('\n', stdout);

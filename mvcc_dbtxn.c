@@ -1,6 +1,7 @@
 //  implement transactions
 
 #include "mvcc_dbapi.h"
+#include "db_skiplist.h"
 
 //  Txn arena free txn frames
 
@@ -86,7 +87,7 @@ void mvcc_releaseTxn(Txn *txn) {
 //	add version creation to txn write-set
 //  Ignore "update my writes"
 
-MVCCResult mvcc_addDocWrToTxn(Txn *txn, Doc *doc) {
+MVCCResult mvcc_addDocWrToTxn(Txn *txn, Handle *docHndl, Doc *doc) {
   MVCCResult result = {
       .value = 0, .count = 0, .objType = objTxn, .status = DB_OK};
   uint64_t values[16];
@@ -109,11 +110,11 @@ MVCCResult mvcc_addDocWrToTxn(Txn *txn, Doc *doc) {
             if (doc->txnVer == txn->txnVer)
                 break;
 
-    objId.addr = doc->doc->hndlIdx;
+    objId.addr = docHndl->hndlId.addr;
     objId.step = TxnIdx;
 
-    if (txn->hndlIdx != doc->doc->hndlIdx) {
-      txn->hndlIdx = doc->doc->hndlIdx;
+    if (txn->hndlId.addr != docHndl->hndlId.addr) {
+      txn->hndlId.addr = objId.addr;
       values[cnt++] = objId.bits;
     }
 
@@ -149,7 +150,7 @@ MVCCResult mvcc_addDocWrToTxn(Txn *txn, Doc *doc) {
 
 //  ssn_read: add docId to txn read-set
 
-MVCCResult mvcc_addDocRdToTxn(Txn *txn, Ver* ver) {
+MVCCResult mvcc_addDocRdToTxn(Txn *txn, Handle *docHndl, Ver* ver) {
   MVCCResult result = {
       .value = 0, .count = 0, .objType = objTxn, .status = DB_OK};
   Doc *doc = (Doc *)(ver->verBase - ver->stop->offset);
@@ -167,11 +168,11 @@ MVCCResult mvcc_addDocRdToTxn(Txn *txn, Ver* ver) {
 
     //  switch docStore?
 
-    objId.addr = doc->doc->hndlIdx;
+    objId.addr = docHndl->hndlId.addr;
     docId.step = TxnIdx;
 
-    if (txn->hndlIdx != doc->doc->hndlIdx) {
-      txn->hndlIdx = doc->doc->hndlIdx;
+    if (txn->hndlId.addr != docHndl->hndlId.addr) {
+      txn->hndlId = objId;
       values[cnt++] = objId.bits;
     }
 
@@ -338,7 +339,7 @@ MVCCResult mvcc_findDocVer(Txn *txn, Doc *doc, Handle *docHndl) {
   //	add this document to the txn read-set
 
   if(txn)
-    result = mvcc_addDocRdToTxn(txn, ver);
+    result = mvcc_addDocRdToTxn(txn, docHndl, ver);
 
   result.objType = objVer;
   result.object = ver;
@@ -444,7 +445,7 @@ bool SSNCommit(Txn *txn) {
       switch (objId.step) {
         case TxnIdx:
           if (docHndl) releaseHandle(docHndl);
-          docHndl = getDocIdHndl(objId.idx);
+          docHndl = fetchIdSlot(hndlMap, objId);
           docMap = MapAddr(docHndl);
           continue;
 
@@ -517,7 +518,7 @@ bool SSNCommit(Txn *txn) {
         switch (objId.step) {
           case TxnIdx:
             if (docHndl) releaseHandle(docHndl);
-            docHndl = getDocIdHndl(objId.idx);
+            docHndl = fetchIdSlot(hndlMap, objId);
             docMap = MapAddr(docHndl);
             continue;
 
@@ -599,7 +600,7 @@ bool SSNCommit(Txn *txn) {
 
           case TxnIdx:
             if (docHndl) releaseHandle(docHndl);
-            docHndl = getDocIdHndl(objId.idx);
+            docHndl = fetchIdSlot(hndlMap, objId);
             docMap = MapAddr(docHndl);
             continue;
 
@@ -644,7 +645,7 @@ bool SSNCommit(Txn *txn) {
 
           case TxnIdx:
             if (docHndl) releaseHandle(docHndl);
-            docHndl = getDocIdHndl(objId.idx);
+            docHndl = fetchIdSlot(hndlMap, objId);
             docMap = MapAddr(docHndl);
             continue;
           default:
@@ -731,7 +732,7 @@ bool snapshotCommit(Txn *txn) {
 
         case TxnIdx:
           if (docHndl) releaseHandle(docHndl);
-          docHndl = getDocIdHndl(objId.idx);
+          docHndl = fetchIdSlot(hndlMap, objId);
           docMap = MapAddr(docHndl);
           continue;
 
