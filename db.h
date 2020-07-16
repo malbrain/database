@@ -76,7 +76,7 @@ typedef union {
 		uint32_t idx;		// record ID in the segment
 		uint16_t seg;		// arena segment number
 		union {
-			enum TxnState step :8;
+			uint16_t step;
 			uint16_t xtra[1];	// xtra bits 
 		};
 	};
