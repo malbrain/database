@@ -1,0 +1,1 @@
+cc -O3 mutex.c -lpthread -D STANDALONE

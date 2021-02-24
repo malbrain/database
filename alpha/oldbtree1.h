@@ -1,13 +1,11 @@
 #pragma once
-#include "../base64.h"
-#include "../db.h"
-#include "../db_object.h"
-#include "../db_handle.h"
-#include "../db_arena.h"
-#include "../db_map.h"
-#include "../db_api.h"
-#include "../db_cursor.h"
-#include "../db_frame.h"
+
+#include "base64.h"
+#include "db_index.h"
+#include "db_malloc.h"
+#include "db_error.h"
+#include "db_map.h"
+#include "db_api.h"
 #include "../rwlock/readerwriter.h"
 
 //	BTree configuration and options
@@ -47,6 +45,7 @@ typedef enum{
 //	page address
 
 //	Btree1Index global data on disk after Arena
+//	Global Index data structure after DbArena object
 
 typedef struct {
 	DbIndex dbIndex[1];

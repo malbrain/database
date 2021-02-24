@@ -1,9 +1,10 @@
-#include "../base64.h"
+//	btree1_util.c
+
 #include "btree1.h"
 
 //	debug slot function
 
-#ifdef DEBUG
+#ifndef DEBUG
 Btree1Slot *btree1Slot(Btree1Page *page, uint32_t idx)
 {
 	return slotptr(page, idx);
@@ -27,7 +28,7 @@ uint8_t *btree1Addr(Btree1Page *page, uint32_t off)
 #define slotptr(p,x) btree1Slot(p,x)
 #endif
 
-uint32_t Splits;
+//uint32_t Splits;
 
 // split the root and raise the height of the btree1
 // call with fence key for smaller (left) half and right page addr.
@@ -129,7 +130,7 @@ DbMap *idxMap = MapAddr(index);
 Btree1Index *btree1 = btree1index(idxMap);
 uint8_t *leftKey, *rightKey, *fence;
 uint32_t cnt = 0, idx = 0, max, nxt;
-Btree1Slot librarian[1], *source, *dest;
+Btree1Slot librarian, *source, *dest;
 uint32_t size = btree1->pageSize;
 Btree1Page *leftPage, *rightPage;
 uint32_t leftLen, rightLen;
@@ -161,72 +162,58 @@ DbStatus stat;
 	cnt = max / 2;
 	nxt = size - 1;
 	idx = 0;
+	}
+}
 
-	source = slotptr(set->page, cnt);
-	dest = slotptr(rightPage, 0);
+//move a segment of keys to a new page
+//	idx - last source slot moved to dest
+//	cnt - number of source slots to move
 
-	while( source++, cnt++ < max ) {
+DbStatus btree1SplitWork(Handle *index, Btree1Page *srcPage, Btree1Page *dstPage, uint32_t idx, uint32_t cnt ) {
+DbMap *idxMap = MapAddr(index);
+Btree1Index *btree1 = btree1index(idxMap);
+		uint8_t *leftKey, *rightKey, *fence;
+		uint32_t cnt = 0, idx = 0, max, nxt;
+Btree1Slot librarian, *source, *dest;
+
+	source = slotptr(srcPage, idx);
+	dest = slotptr(dstPage, dstPage->cnt);
+
+	while( source++, cnt-- ) {
 		if( source->dead )
 			continue;
 
-		key = keyaddr(set->page, source->off);
-		totLen = keylen(key) + keypre(key);
-		nxt -= totLen;
+		//	add librarian slot per coniguration
 
-		ptr = keyaddr(rightPage, nxt);
-		memcpy (ptr, key, totLen);
-		rightPage->act++;
-
-		//	add librarian slot
-
-		if (cnt < max) {
+		if (dstpage->cnt % index->librarianDensity == 0) {
 			(++dest)->bits = librarian.bits;
 			dest->off = nxt;
-			idx++;
+			dstPage->cnt++;
 		}
 
-		//  add actual slot
+		//  transfer slot key
 
-		(++dest)->bits = source->bits;
+		key = keyaddr(srcPage, source->off);
+		nxt -= source->length;
+
+		ptr = keyaddr(destPage, nxt);
+		memcpy(ptr, key, source->length);
+		dstPage->cnt++;
+
+		//	transfer slot meta data
+
+		(++dest)->bits[0] = source->bits[0]
+		(dest)->bits[1] = source->bits[1];
+		destPage->min = nxt;
 		dest->off = nxt;
-		idx++;
 	}
-
-	memcpy(rightKey, key, totLen);
-	rightPage->min = nxt;
-	rightPage->cnt = idx;
-	rightPage->lvl = lvl;
-
-	//	copy lower keys from temporary frame back into old page
-
-	if( (addr.bits = btree1NewPage(index, lvl)) )
-		frame = getObj(idxMap, addr);
-	else
-		return DB_ERROR_outofmemory;
-
-	memcpy (frame, set->page, size);
-	memset (set->page+1, 0, size - sizeof(*set->page));
-
-	set->page->garbage = 0;
-	set->page->act = 0;
-	nxt = size - 1;
-	max /= 2;
-	cnt = 0;
-	idx = 0;
-
-	//  ignore librarian max key
-
-	if( slotptr(frame, max)->type == Btree1_librarian )
-		max--;
-
-	source = slotptr(frame, 0);
-	dest = slotptr(set->page, 0);
+}
 
 #ifdef DEBUG
 	key = keyaddr(frame, source[2].off);
 	assert(keylen(key) > 0);
 #endif	
-	//  assemble page of smaller keys from temporary frame copy
+/*	//  assemble page of smaller keys from temporary frame copy
 
  	while( source++, cnt++ < max ) {
 		if( source->dead )
@@ -436,165 +423,3 @@ DbAddr addr;
 	return DB_BTREE_needssplit;
 }
 
-//  compare two keys, return > 0, = 0, or < 0
-//  =0: all key fields are same
-//  -1: key2 > key1
-//  +1: key2 < key1
-
-int btree1KeyCmp (uint8_t *key1, uint8_t *key2, uint32_t len2)
-{
-uint32_t len1 = keylen(key1);
-int ans;
-
-	key1 += keypre(key1);
-
-	ans = memcmp (key1, key2, len1 > len2 ? len2 : len1);
-	return ans;
-}
-
-//  find slot in page that is .ge. given search key
-
-//	return zero if past end of all slots
-//	return slot idx for key that is .ge. passed key.
-
-uint32_t btree1FindSlot (Btree1Page *page, uint8_t *key, uint32_t keyLen)
-{
-uint32_t diff, higher = page->cnt + 1, low = 1, slot;
-bool good;
-
-    // virtual stopper key?
-
-	if( (good = !page->right.bits) )
-	  if( page->lvl )
-		  higher -= 1;
-	  
-	//	low is a candidate.
-	//  higher is already
-	//	tested as .ge. the given key.
-	//  loop ends when they meet
-
-	while( (diff = higher - low) ) {
-	  slot = low + diff / 2;
-
-	  if(btree1KeyCmp (keyptr (page, slot), key, keyLen) < 0)
-		low = slot + 1;
-	  else
-		higher = slot, good = true;
-	}
-
-	return good ? higher : 0;
-}
-
-//  find and load page at given level for given key
-//	leave page rd or wr locked as requested
-
-//	Librarian slots have the same key offset as their higher neighbor
-
-DbStatus btree1LoadPage(DbMap *map, Btree1Set *set, bool findGood, bool stopper, ) {
-Btree1Index *btree1 = btree1index(map);
-uint8_t drill = 0xff, *ptr;
-Btree1Page *prevPage = NULL;
-Btree1Lock mode, prevMode;
-Btree1Slot *slot;
-DbAddr prevPageNo;
-uint64_t bits;
-
-  bits = btree1->root.bits;
-  prevPageNo.bits = 0;
-
-  //  start at our idea of the root level of the btree1 and drill down
-
-  while( (set->pageNo.bits = bits) ) {
-
-	// determine lock mode of drill level
-
-	mode = (drill == lvl) ? lock : Btree1_lockRead; 
-	set->page = getObj(map, set->pageNo);
-
-	//	release parent or left sibling page
-
-	if( prevPageNo.bits ) {
-	  btree1UnlockPage(prevPage, prevMode);
-	  prevPageNo.bits = 0;
-	}
-
- 	// obtain mode lock
-
-	btree1LockPage(set->page, mode);
-
-	if( set->page->free )
-		return DB_BTREE_error;
-
-	// re-read and re-lock root after determining actual level of root
-
-	if( set->page->lvl != drill) {
-		assert(drill == 0xff);
-		drill = set->page->lvl;
-
-		if( lock != Btree1_lockRead && drill == lvl ) {
-		  btree1UnlockPage(set->page, mode);
-		  continue;
-		}
-	}
-
-	assert(lvl <= set->page->lvl);
-
-	prevPageNo.bits = set->pageNo.bits;
-	prevPage = set->page;
-	prevMode = mode;
-
-	//  find key on page at this level
-	//  and descend to requested level
-
-	if( set->page->kill ) {
-		bits = set->page->right.bits;
-		continue;
-	}
-
-	//	if page is empty
-
-	if( set->page->cnt == 0 ) {
-		set->slotIdx = 0;
-		return DB_OK;
-	}
-
-	// find slot on page
-
-	if( stopper )
-		set->slotIdx = set->page->cnt;
-	else
-		set->slotIdx = btree1FindSlot (set->page, key, keyLen);
-
-	//  slide right into next page
-
-	if( !set->slotIdx ) {
-		bits = set->page->right.bits;
-		continue;
-	}
-
-	// find next higher non-dead slot
-
-	if( (drill == lvl && findGood) || drill > lvl )
-	    while( set->slotIdx < set->page->cnt )
-		  if(slotptr (set->page, set->slotIdx)->dead)
-		    set->slotIdx++;
-	      else
-		    break;
-
-	if( drill == lvl )
-		return DB_OK;
-
-	// continue on next page down
-
-	slot = slotptr(set->page, set->slotIdx);
-	ptr = keyaddr(set->page, slot->off);
-	bits = zone64(keystr(ptr), keylen(ptr), Btree1_pagenobytes);
-
-	assert(drill > 0);
-	drill--;
-  }
-
-  // return error on end of right chain
-
-  return DB_BTREE_error;
-}
