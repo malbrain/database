@@ -109,7 +109,7 @@ uint32_t len;
   return true;
 }
 
-DbStatus artInsertKey( Handle *index, uint8_t *key, uint16_t keyLen, uint16_t sfxLen) {
+DbStatus artInsertKey( Handle *index, uint8_t *key, uint16_t keyLen, uint64_t payLoad, uint16_t sfxLen) {
 DbMap *idxMap = MapAddr(index);
 uint16_t totLen = keyLen + sfxLen;
 ARTKeyEnd *keyEndNode;

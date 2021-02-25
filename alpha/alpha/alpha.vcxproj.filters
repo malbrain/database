@@ -99,6 +99,9 @@
     <ClCompile Include="..\..\Hi-Performance-Timestamps\timestamps.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\db_skiplist.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\db.h">

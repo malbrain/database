@@ -6,7 +6,7 @@ extern bool debug;
 
 DbStatus btree1LoadStopper(DbMap *map, Btree1Set *set, uint8_t lvl);
 
-DbStatus btree1InsertKey(Handle *index, uint8_t *key, uint32_t keyLen, uint64_t aux, uint32_t auxCnt, uint8_t lvl, Btree1SlotType type) {
+DbStatus btree1InsertKey(Handle *index, uint8_t *key, uint16_t keyLen, uint64_t payload, uint16_t tailLen, uint8_t lvl, Btree1SlotType type) {
 DbMap *idxMap = MapAddr(index);
 uint32_t slotIdx, slotOff, idx;
 uint32_t idx, length, fence;

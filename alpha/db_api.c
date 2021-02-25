@@ -714,16 +714,16 @@ DbStatus insertKey(DbHandle hndl[1], KeyValue *keyValue) {
       //	if (idxHndl->map->arenaDef->params[IdxKeyUnique].boolVal)
       //		stat = artInsertUniq(idxHndl, key, len, uniqueKey,
       //&defer); 	else
-      stat = artInsertKey(idxHndl, keyValue->bytes, keyValue->keyLen, keyValue->suffixLen);
+      stat = artInsertKey(idxHndl, keyValue->bytes, keyValue->keyLen, keyValue->payLoad.bits, keyValue->suffix);
       break;
     }
 
     case Hndl_btree1Index:
-      stat = btree1InsertKey(idxHndl, keyValue->bytes, keyValue->keyLen, keyValue->suffixLen, 0, Btree1_indexed);
+      stat = btree1InsertKey(idxHndl, keyValue->bytes, keyValue->keyLen, keyValue->payLoad.bits, keyValue->suffix, 0, Btree1_indexed);
       break;
 
     case Hndl_btree2Index:
-      stat = btree2InsertKey(idxHndl, keyValue->bytes, keyValue->keyLen, keyValue->suffixLen, 0, Btree2_slotactive);
+      stat = btree2InsertKey(idxHndl, keyValue->bytes, keyValue->keyLen, keyValue->payLoad.bits, keyValue->suffix, 0, Btree2_slotactive);
       break;
   }
 

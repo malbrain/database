@@ -15,7 +15,7 @@
 #define ClntAddr(handle) getObj(MapAddr(handle), handle->clientAddr)
 
 
-// extern bool Btree1_stats, debug;
+extern bool Btree1_stats, debug;
 
 //	general object pointer
 
@@ -186,4 +186,5 @@ DbAddr *vectorFind(DbMap*, DbVector *, uint32_t);
 #include "db_malloc.h"
 #include "db_error.h"
 #include "db_handle.h"
+#include "db_object.h"
 

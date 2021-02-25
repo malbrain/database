@@ -107,10 +107,11 @@ typedef union {
   uint64_t bits[2];
 
   struct {
-	uint32_t off : 29;	// key bytes and page  offset
+	uint32_t off : 28;	// key bytes and page  offset
 	uint32_t type : 3;	// Btree1SlotType of key slot
-	uint32_t length : 24;	// key length incluing suffix
-	uint32_t nsuffix : 8;	// number of 64 bit suffix in key
+	uint32_t dead : 1;	// key slot deleted/dea
+	uint16_t length;	// key length incluing suffix
+	uint16_t suffix;	// bytes of 64 bit suffix in key
   };
   union {
 	  PageId childId;	// page Id of next level to leaf
@@ -160,7 +161,7 @@ DbStatus btree1PrevKey (DbCursor *cursor, DbMap *map);
 DbStatus btree1StoreSlot (Handle *hndl, uint8_t *key, uint32_t keyLen, int64_t *values, uint32_t valueCnt);
 DbStatus btree1Init(Handle *hndl, Params *params);
 
-DbStatus btree1InsertKey(Handle *index, uint8_t *key, uint32_t keyLen, uint64_t aux, uint32_t auxCnt, uint8_t lvl, Btree1SlotType type);
+DbStatus btree1InsertKey(Handle *index, uint8_t *key, uint16_t keyLen, uint64_t payLoad, uint16_t auxCnt, uint8_t lvl, Btree1SlotType type);
 
 DbStatus btree1DeleteKey(Handle *hndl, void *key, uint32_t keyLen);
 

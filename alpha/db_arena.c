@@ -409,7 +409,7 @@ uint64_t max, addr, off;
 	size += 63;
 	size &= -64;
 
-	if( stats )
+	if(debug )
 		atomicAdd64 (totalMemoryReq, size);
 
 	// see if existing segment has space
@@ -460,15 +460,15 @@ void *fetchIdSlot (DbMap *map, ObjId objId) {
 // allocate next available object id
 //
 
-ObjId allocObjId(DbMap *map, DbAddr *free, DbAddr *wait) {
-ObjId objId;
+uint64_t allocObjId(DbMap *map, DbAddr *free, DbAddr *wait) {
+ObjId objId[1];
 
 	lockLatch(free->latch);
 
 	// see if there is a free object in the free queue
 	// otherwise create a new frame of new objects
 
-	while (!(objId.bits = getNodeFromFrame(map, free) & ADDR_BITS)) {
+	while (!(objId->bits = getNodeFromFrame(map, free) & ADDR_BITS)) {
 //		if (!getNodeWait(map, free, wait))
 			if (!initObjIdFrame(map, free)) {
 				unlockLatch(free->latch);
@@ -477,5 +477,5 @@ ObjId objId;
 	}
 
 	unlockLatch(free->latch);
-	return objId;
+	return objId->bits;
 }

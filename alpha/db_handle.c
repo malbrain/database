@@ -22,15 +22,15 @@ int listBase = listType * handle->maxType[0] + nodeType;
 Handle *makeHandle(DbMap *dbMap, uint32_t clntSize, uint32_t xtraSize,
   HandleType type) {
   Handle *handle;
-  ObjId hndlId, *mapHndls;
+  ObjId hndlId[1], *mapHndls;
 
   //	get a new or recycled ObjId slot where the handle will live
 
-  if (!(hndlId.bits =
+  if (!(hndlId->bits =
     allocObjId(hndlMap, hndlMap->arena->freeBlk + ObjIdType, NULL)))
     return NULL;
 
-  handle = fetchIdSlot(hndlMap, hndlId);
+  handle = fetchIdSlot(hndlMap, *hndlId);
 
   //  initialize the new Handle
   //	allocate in HndlMap
@@ -53,7 +53,7 @@ Handle *makeHandle(DbMap *dbMap, uint32_t clntSize, uint32_t xtraSize,
     handle->clientAddr.bits = allocBlk(dbMap, clntSize, true);
 
   handle->entryTs = atomicAdd64(&dbMap->arena->nxtTs, 1);
-  handle->hndlId.bits = hndlId.bits;
+  handle->hndlId.bits = hndlId->bits;
   handle->hndlType = type;
   handle->bindCnt[0] = 1;
 
@@ -72,7 +72,7 @@ Handle *makeHandle(DbMap *dbMap, uint32_t clntSize, uint32_t xtraSize,
     arrayAlloc(dbMap, dbMap->arenaDef->hndlArray, sizeof(ObjId));
 
   mapHndls = arrayEntry(dbMap, dbMap->arenaDef->hndlArray, handle->arrayIdx);
-  mapHndls->bits = hndlId.bits;
+  mapHndls->bits = hndlId->bits;
 
   if (debug)
     printf("listIdx = %.6d  maxType = %.3d arrayIdx = %.6d  hndl:%s\n",

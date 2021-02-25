@@ -31,7 +31,7 @@ Btree1Page *btree1NewPage (Handle *hndl, uint8_t lvl, Btree1PageType type) {
 DbMap * idxMap = MapAddr(hndl);
 Btree1Index *btree1 = btree1index(idxMap);
 Btree1Page *page;
-PageId pageId;
+ObjId pageId;
 uint32_t size;
 DbAddr *pageAddr;
 

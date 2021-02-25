@@ -165,6 +165,7 @@
     <ClCompile Include="..\db_malloc.c" />
     <ClCompile Include="..\db_map.c" />
     <ClCompile Include="..\db_redblack.c" />
+    <ClCompile Include="..\db_skiplist.c" />
     <ClCompile Include="..\mutex\mutex.c" />
     <ClCompile Include="..\rwlock\readerwriter.c" />
     <ClCompile Include="..\standalone.c" />

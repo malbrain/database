@@ -52,6 +52,7 @@ typedef struct {
   uint32_t refCnt[1];
   uint16_t keyLen; 	    // len of base key
   uint16_t vecIdx;		// index in document key vector
+  uint16_t suffix;      // number of suffix bytes
   uint64_t keyHash;     // used by MVCC if key changed
   ObjId payLoad;        // docId key comes from
   uint8_t unique : 1;   // index is unique
