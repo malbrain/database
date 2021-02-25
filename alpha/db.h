@@ -81,13 +81,6 @@ typedef union {
 } ObjId;
 
 
-typedef struct {
-	uint64_t numKeys[1];  // number of keys in index
-	DbAddr keySpec;
-	char binaryFlds;  // keys made with field values
-	bool uniqueKeys;  // keys made with field values
-} DbIndex;
-
 #define MAX_key	65536
 
 // string content
@@ -98,7 +91,6 @@ typedef struct {
 } DbString;
 
 typedef struct SkipHead_ SkipHead;
-typedef struct RedBlack_ RedBlack;
 typedef struct DbMap_ DbMap;
 
 //	param slots
@@ -165,7 +157,8 @@ typedef enum {
 // user's DbHandle
 //	contains the Handle ObjId bits
 
-typedef struct {
+typedef union {
+	ObjId hndlId;
 	uint64_t hndlBits;
 } DbHandle;
 
@@ -187,9 +180,10 @@ DbAddr *vectorFind(DbMap*, DbVector *, uint32_t);
 #define ClntAddr(handle) getObj(MapAddr(handle), handle->clientAddr)
 
 #include "db_arena.h"
+#include "db_index.h"
 #include "db_cursor.h"
 #include "db_map.h"
 #include "db_malloc.h"
 #include "db_error.h"
-#include "db_object.h"
+#include "db_handle.h"
 

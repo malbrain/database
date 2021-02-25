@@ -1,8 +1,8 @@
 //	database API interface
 
 #pragma once
-#include <stdint.h>
-#include "db_handle.h"
+#include "base64.h"
+#include "db.h"
 
 DbMap *hndlMap;
 
@@ -52,12 +52,12 @@ typedef struct {
   uint32_t refCnt[1];
   uint16_t keyLen; 	    // len of base key
   uint16_t vecIdx;		// index in document key vector
-  uint64_t keyHash;
-  uint8_t unique : 1;     // index is unique
-  uint8_t deferred : 1;		// uniqueness deferred
+  uint64_t keyHash;     // used by MVCC if key changed
+  ObjId payLoad;        // docId key comes from
+  uint8_t unique : 1;   // index is unique
+  uint8_t deferred : 1;	// uniqueness deferred
   uint8_t binaryKeys : 1;	// uniqueness deferred
-  uint8_t suffixLen;		// size of docId suffix
-  uint8_t bytes[];		// bytes of the key
+  uint8_t bytes[];		// bytes of the key with suffix
 } KeyValue;
 
 typedef bool(UniqCbFcn)(DbMap *map, DbCursor *dbCursor);

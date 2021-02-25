@@ -1,3 +1,4 @@
+#pragma once
 //	Index data structure after DbArena object
 
 

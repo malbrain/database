@@ -18,9 +18,6 @@
     <ClCompile Include="..\base64.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\base.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\db_cursor.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -60,9 +57,6 @@
     <ClCompile Include="..\btree1\btree1.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\rwlock\rwfutex.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\mutex\mutex.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -82,6 +76,27 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\btree1\btree1_util.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\standalone.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\rwlock\readerwriter.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\mvcc_dbapi.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\mvcc_dbdoc.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\mvcc_dbidx.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\mvcc_dbtxn.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Hi-Performance-Timestamps\timestamps.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -129,6 +144,24 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\base64.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\db_index.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\mvcc_dbapi.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\mvcc_dbdoc.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\mvcc_dbidx.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\mvcc_dbtxn.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Hi-Performance-Timestamps\timestamps.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

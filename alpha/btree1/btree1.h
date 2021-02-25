@@ -2,6 +2,7 @@
 #include "../base64.h"
 #include "../db.h"
 #include "../db_malloc.h"
+#include "../db_index.h"
 #include "../db_error.h"
 #include "../db_map.h"
 #include "../db_api.h"
@@ -80,19 +81,7 @@ typedef struct {
 	PageId left;		// page to left
 	PageId self;		// current page no
 } Btree1Page;
-
-typedef struct {
-	uint8_t *keyVal;
-	uint32_t keyLen;
-	uint64_t *aux;
-	uint32_t auxCnt;
-	PageId pageId;
-	Btree1Slot *slot;
-	Btree1Page *page;	// current page Addr
-	uint32_t slotIdx;	// slot on page for key
-	uint32_t length;
-} Btree1Set;
-
+	
 //	Page key slot definition.
 
 //	Keys are marked dead, but remain on the page until
@@ -120,8 +109,8 @@ typedef union {
   struct {
 	uint32_t off : 29;	// key bytes and page  offset
 	uint32_t type : 3;	// Btree1SlotType of key slot
-	uint16_t length;	// key length incluing suffix
-	uint16_t nsuffix;	// number of 64 bit suffix in key
+	uint32_t length : 24;	// key length incluing suffix
+	uint32_t nsuffix : 8;	// number of 64 bit suffix in key
   };
   union {
 	  PageId childId;	// page Id of next level to leaf
@@ -135,6 +124,18 @@ typedef struct {
   uint32_t slotIdx;   // cursor position index
   Btree1Page page[];  // cursor position page buffer
 } Btree1Cursor;
+
+typedef struct {
+	uint8_t *keyVal;
+	uint32_t keyLen;
+	uint64_t *aux;
+	uint32_t auxCnt;
+	PageId pageId;
+	Btree1Slot *slot;
+	Btree1Page *page;	// current page Addr
+	uint32_t slotIdx;	// slot on page for key
+	uint32_t length;
+} Btree1Set;
 
 //	access macros
 
@@ -158,7 +159,7 @@ DbStatus btree1PrevKey (DbCursor *cursor, DbMap *map);
 
 DbStatus btree1StoreSlot (Handle *hndl, uint8_t *key, uint32_t keyLen, int64_t *values, uint32_t valueCnt);
 DbStatus btree1Init(Handle *hndl, Params *params);
-DbStatus btree1InsertKey(Handle *hndl, uint8_t *key, uint32_t keyLen, uint32_t sfxLen, uint8_t lvl, Btree1SlotType type);
+
 DbStatus btree1InsertKey(Handle *index, uint8_t *key, uint32_t keyLen, uint64_t aux, uint32_t auxCnt, uint8_t lvl, Btree1SlotType type);
 
 DbStatus btree1DeleteKey(Handle *hndl, void *key, uint32_t keyLen);

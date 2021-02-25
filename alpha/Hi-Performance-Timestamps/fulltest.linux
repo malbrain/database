@@ -1,0 +1,19 @@
+echo on
+
+gcc -mcx16 -std=c11 -D RDTSC -O2 *.c -lpthread -latomic
+./a.out 1 100000000
+./a.out 2 50000000
+./a.out 3 33333333
+./a.out 4 25000000
+./a.out 5 20000000
+./a.out 6 16666666
+./a.out 7 14280000
+
+gcc -mcx16 -std=c11 -D RDTSC -O2 *.c -lpthread -latomic
+./a.out 1 100000000
+./a.out 2 50000000
+./a.out 3 33333333
+./a.out 4 25000000
+./a.out 5 20000000
+./a.out 6 16666666
+./a.out 7 14280000

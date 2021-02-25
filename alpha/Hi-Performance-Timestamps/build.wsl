@@ -1,0 +1,4 @@
+#gcc -mcx16 -D RDTSC -D WSL -O2 -std=c11 *.c -lpthread -latomic
+gcc -D RDTSC -D WSL -mcx16 -O2 -std=c11 *.c -lpthread -latomic
+./a.out 1 1000000000
+./a.out 5 200000000

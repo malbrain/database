@@ -1,6 +1,7 @@
 #pragma once
 
 #include "db_error.h"
+#include "db_redblack.h"
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN

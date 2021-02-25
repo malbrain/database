@@ -141,6 +141,11 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\db_cursor.c" />
+    <ClCompile Include="..\..\Hi-Performance-Timestamps\timestamps.c" />
+    <ClCompile Include="..\..\mvcc_dbapi.c" />
+    <ClCompile Include="..\..\mvcc_dbdoc.c" />
+    <ClCompile Include="..\..\mvcc_dbidx.c" />
+    <ClCompile Include="..\..\mvcc_dbtxn.c" />
     <ClCompile Include="..\artree\artree.c" />
     <ClCompile Include="..\artree\artree_cursor.c" />
     <ClCompile Include="..\artree\artree_delete.c" />
@@ -149,7 +154,6 @@
     <ClCompile Include="..\artree\artree_uniq.c" />
     <ClCompile Include="..\base64.c" />
     <ClCompile Include="..\btree1\btree1.c" />
-    <ClCompile Include="..\base.c" />
     <ClCompile Include="..\btree1\btree1_cursor.c" />
     <ClCompile Include="..\btree1\btree1_delete.c" />
     <ClCompile Include="..\btree1\btree1_find.c" />
@@ -162,9 +166,14 @@
     <ClCompile Include="..\db_map.c" />
     <ClCompile Include="..\db_redblack.c" />
     <ClCompile Include="..\mutex\mutex.c" />
-    <ClCompile Include="..\rwlock\rwfutex.c" />
+    <ClCompile Include="..\rwlock\readerwriter.c" />
+    <ClCompile Include="..\standalone.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\mvcc_dbapi.h" />
+    <ClInclude Include="..\..\mvcc_dbdoc.h" />
+    <ClInclude Include="..\..\mvcc_dbidx.h" />
+    <ClInclude Include="..\..\mvcc_dbtxn.h" />
     <ClInclude Include="..\artree\artree.h" />
     <ClInclude Include="..\base64.h" />
     <ClInclude Include="..\btree1\btree1.h" />
@@ -174,10 +183,12 @@
     <ClInclude Include="..\db_cursor.h" />
     <ClInclude Include="..\db_error.h" />
     <ClInclude Include="..\db_handle.h" />
+    <ClInclude Include="..\db_index.h" />
     <ClInclude Include="..\db_malloc.h" />
     <ClInclude Include="..\db_map.h" />
     <ClInclude Include="..\db_object.h" />
     <ClInclude Include="..\db_redblack.h" />
+    <ClInclude Include="..\Hi-Performance-Timestamps\timestamps.h" />
     <ClInclude Include="..\mutex\mutex.h" />
     <ClInclude Include="..\rwlock\readerwriter.h" />
   </ItemGroup>

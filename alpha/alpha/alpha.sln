@@ -8,7 +8,6 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{D9CB5854-EEA0-4DD2-9861-53E80636E67A}"
 	ProjectSection(SolutionItems) = preProject
 		..\db_api.h = ..\db_api.h
-		..\wrk.c = ..\wrk.c
 	EndProjectSection
 EndProject
 Global
