@@ -15,7 +15,7 @@ DbStatus stat;
 	set->keyVal = key;
 	set->keyLen = keyLen;
 
-	if ((stat = btree1LoadPage(map, set, Btree1_lockRead)))
+	if ((stat = btree1LoadPage(map, set, Btree1_lockRead, 0)))
 		return stat;
 
 	slot = slotptr(set->page, set->slotIdx);

@@ -74,16 +74,15 @@ typedef struct {
   bool noExit;
   bool noDocs;
   bool noIdx;
-  uint64_t line;
+  uint64_t line, offset;
   int txnBatch;
-  int offset;
 } ThreadArgs;
 
 typedef struct {
   char *cmds;
   char *minKey;
   char *maxKey;
-  int offset;
+  uint64_t offset;
   Params *params;
   DbHandle *dbHndl;
   DbHandle *iterator;
@@ -114,15 +113,15 @@ void myExit(ThreadArgs *args) {
 
 //  standalone program to index file of keys
 
-int index_file(ThreadArgs *args, char cmd, char *msg, int msgMax) {
+int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
   uint16_t nrandState[3];
   int batchSize = 0;
-  int msgLen = 0;
+  uint32_t msgLen = 0;
   MVCCResult result;
   uint8_t rec[4096];
   OurDoc *ourDoc = (OurDoc *)rec;
   uint8_t *body = rec + sizeof(OurDoc);
-  uint8_t keyBuff[65532];
+  uint8_t *keyBuff = malloc   (65532);
   KeyValue *kv = (KeyValue *)keyBuff;
   int keyLen = 0, docLen = 0, avail;
   int ch, keyOff, docMax, keyMax;
@@ -132,7 +131,7 @@ int index_file(ThreadArgs *args, char cmd, char *msg, int msgMax) {
   uint64_t count = ~0ULL;
   Params params[MaxParam];
   ObjId docId;
-  Txn *txn;
+  Txn *txn = NULL;
   FILE *in;
   DbStatus stat;
   uint8_t *key = kv->bytes;
@@ -162,14 +161,11 @@ int index_file(ThreadArgs *args, char cmd, char *msg, int msgMax) {
   }
 
   if (pennysort) {
-    msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1,
-                        "thrd:%d cmd:%c %s: prng:%d 10 byte pennysort keys\n",
-                        args->idx, cmd, idxName, prng);
+    msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1, "thrd:%d cmd:%c %s: prng:%d 10 byte pennysort keys\n", args->idx, cmd, idxName, prng);
     count = atoi(args->inFile);
+    in = stdin;
   } else if (fopen_s(&in, args->inFile, "r"))
-    return msgLen + sprintf_s(msg + msgLen, msgMax - msgLen - 1,
-                              "thrd:%d cmd:%c file:%s unable to open\n",
-                              args->idx, cmd, args->inFile);
+    return msgLen + sprintf_s(msg + msgLen, msgMax - msgLen - 1, "thrd:%d cmd:%c file:%s unable to open\n", args->idx, cmd, args->inFile);
   if (args->txnBatch) {
     ObjId nestTxn, currTxn;
     nestTxn.bits = 0;
@@ -204,8 +200,7 @@ int index_file(ThreadArgs *args, char cmd, char *msg, int msgMax) {
                             "thrd:%d cmd:%c %s: first key: <%.10s>", args->idx,
                             cmd, idxName, body);
         if (args->offset)
-          msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1,
-                              "lineno offset: %u", args->offset);
+          msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1, "lineno offset: %I64u", args->offset);
         msg[msgLen++] = '\n';
       }
 

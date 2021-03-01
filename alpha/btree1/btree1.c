@@ -52,6 +52,7 @@ DbAddr *pageAddr;
 
 	btree1InitPage(page, type);
 	page->self.bits = pageAddr->bits;
+	page->size = size;
 	page->min = size;
 	page->lvl = lvl;
 
@@ -64,6 +65,8 @@ DbStatus btree1StoreSlot(Handle * hndl, uint8_t * key, uint32_t keyLen, int64_t 
 {
 	return DB_OK;
 }
+
+extern uint32_t librarianDensity;
 
 DbStatus btree1Init(Handle *hndl, Params *params) {
 DbMap *idxMap = MapAddr(hndl);

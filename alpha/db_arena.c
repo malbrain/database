@@ -134,7 +134,7 @@ int amt;
 	//	initialize the map
 	//	and map seg zero
 
-	assert(segZero->segs->size > 0);
+	assert(segZero &&(segZero->segs->size > 0));
 	mapZero(map, segZero->segs->size);
 #ifdef _WIN32
 	VirtualFree(segZero, 0, MEM_RELEASE);

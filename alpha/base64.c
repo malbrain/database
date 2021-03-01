@@ -90,7 +90,7 @@ bool neg;
 	//	the sign bit in the first byte
 
 	if (avail--)
-	  *--ptr = (uint8_t)((tst64 & 0xf) |(uint8_t) (xtraBytes << 4) | 0x80);
+	  *--ptr = (uint8_t)(tst64 & 0xf) |(uint8_t) (xtraBytes << 4) | 0x80;
 	else
 	  return 0;
 
