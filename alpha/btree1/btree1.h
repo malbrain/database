@@ -134,9 +134,9 @@ typedef struct {
 typedef struct {
 	uint8_t *keyVal;
 	uint32_t keyLen;
-	uint64_t *aux;
-	uint32_t auxCnt;
+	uint32_t auxLen;
 	PageId pageId;
+	DbAddr *pageAddr;
 	Btree1Slot *slot;
 	Btree1Page *page;	// current page Addr
 	uint32_t slotIdx;	// slot on page for key
@@ -170,7 +170,7 @@ DbStatus btree1InsertKey(Handle *index, uint8_t *key, uint16_t keyLen, uint64_t 
 
 DbStatus btree1DeleteKey(Handle *hndl, void *key, uint32_t keyLen);
 
-DbStatus btree1LoadPage(DbMap *map, Btree1Set *set, Btree1Lock lockMode, uint8_t lvl);
+DbStatus btree1LoadPage(DbMap *map, Btree1Set *set, Btree1Lock lockMode,  bool findGood, bool stopper, uint8_t lvl);
 
 DbStatus btree1CleanPage(Handle *hndl, Btree1Set *set);
 DbStatus btree1SplitPage (Handle *hndl, Btree1Set *set);
@@ -181,4 +181,4 @@ Btree1Page *btree1NewPage(Handle *index, uint8_t lvl, Btree1PageType type);
 void btree1LockPage(Btree1Page *page, Btree1Lock mode);
 void btree1UnlockPage(Btree1Page *page, Btree1Lock mode);
 
-int btree1KeyCmp(Btree1Page *page, Btree1Slot *slot, Btree1Set *set);			
+int btree1KeyCmp(Btree1Page *page, uint32_t idx, uint8_t *keyVal, uint32_t keyLen);
