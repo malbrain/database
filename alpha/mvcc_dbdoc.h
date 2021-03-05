@@ -55,13 +55,13 @@ struct DbMvcc {
 	DbAddr deDup[1];		// de-duplication set membership
 	DbHandle hndl[1];	    // docStore DbHandle
 	Timestamp reader[1];	// read timestamp
-	enum TxnCC isolation;	// txn isolation mode
+	TxnCC isolation;	// txn isolation mode
 };
 
 // catalog concurrency parameters
 
 typedef struct {
-	enum TxnCC isolation;
+	TxnCC isolation;
 } CcMethod;
 
 uint64_t mvcc_allocDocStore(Handle* docHndl, uint32_t size, bool zeroit);
