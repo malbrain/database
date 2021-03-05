@@ -105,7 +105,7 @@ int btree1KeyCmp(Btree1Page *page, uint32_t idx, uint8_t *keyVal, uint32_t keyLe
 Btree1Slot *slot = slotptr(page, idx);
 int ans;
 
-	ans = memcmp(keyptr(page, idx), keyVal, min(slot->length, keyLen));
+	ans = memcmp(keyptr(page, idx), keyVal, MIN(slot->length, keyLen));
 
 	return ans;
 }

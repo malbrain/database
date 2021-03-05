@@ -140,12 +140,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\db_cursor.c" />
-    <ClCompile Include="..\..\Hi-Performance-Timestamps\timestamps.c" />
-    <ClCompile Include="..\..\mvcc_dbapi.c" />
-    <ClCompile Include="..\..\mvcc_dbdoc.c" />
-    <ClCompile Include="..\..\mvcc_dbidx.c" />
-    <ClCompile Include="..\..\mvcc_dbtxn.c" />
+    <ClCompile Include="..\db_cursor.c" />
+    <ClCompile Include="..\db_iterator.c" />
+    <ClCompile Include="..\Hi-Performance-Timestamps\timestamps.c" />
+    <ClCompile Include="..\mvcc_dbapi.c" />
+    <ClCompile Include="..\mvcc_dbdoc.c" />
+    <ClCompile Include="..\mvcc_dbidx.c" />
+    <ClCompile Include="..\mvcc_dbtxn.c" />
     <ClCompile Include="..\artree\artree.c" />
     <ClCompile Include="..\artree\artree_cursor.c" />
     <ClCompile Include="..\artree\artree_delete.c" />
@@ -171,10 +172,10 @@
     <ClCompile Include="..\standalone.c" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\mvcc_dbapi.h" />
-    <ClInclude Include="..\..\mvcc_dbdoc.h" />
-    <ClInclude Include="..\..\mvcc_dbidx.h" />
-    <ClInclude Include="..\..\mvcc_dbtxn.h" />
+    <ClInclude Include="..\mvcc_dbapi.h" />
+    <ClInclude Include="..\mvcc_dbdoc.h" />
+    <ClInclude Include="..\mvcc_dbidx.h" />
+    <ClInclude Include="..\mvcc_dbtxn.h" />
     <ClInclude Include="..\artree\artree.h" />
     <ClInclude Include="..\base64.h" />
     <ClInclude Include="..\btree1\btree1.h" />

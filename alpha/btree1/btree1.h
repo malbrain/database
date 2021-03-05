@@ -172,7 +172,6 @@ DbStatus btree1DeleteKey(Handle *hndl, void *key, uint32_t keyLen);
 
 DbStatus btree1LoadPage(DbMap *map, Btree1Set *set, Btree1Lock lockMode,  bool findGood, bool stopper, uint8_t lvl);
 
-DbStatus btree1CleanPage(Handle *hndl, Btree1Set *set);
 DbStatus btree1SplitPage (Handle *hndl, Btree1Set *set);
 DbStatus btree1FixKey (Handle *index, uint8_t *fenceKey, uint64_t prev, uint64_t suffix, uint8_t lvl, bool stopper);
 DbStatus btree1InsertSfxKey(Handle *hndl, uint8_t *key, uint32_t keyLen, uint64_t suffix, uint8_t lvl, Btree1SlotType type);

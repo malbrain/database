@@ -1,0 +1,1 @@
+gcc -std=c11 -O2 -g -o standalone db*.c base64.c artree/*.c btree1/*.c btree2/*.c standalone.c mutex/mutex.c rwlock/readerwriter.c -lpthread -latomic

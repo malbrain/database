@@ -14,10 +14,10 @@ bool incrObjId(Iterator *it, DbMap *map) {
 ObjId start = it->docId;
 
 	while (it->docId.seg <= map->arena->objSeg) {
-		if (++it->docId.idx <= map->arena->segs[it->docId.seg].nextId.idx)
+		if (++it->docId.off <= map->arena->segs[it->docId.seg].nextId.off)
 			return true;
 
-		it->docId.idx = 0;
+		it->docId.off = 0;
 		it->docId.seg++;
 	}
 
@@ -33,14 +33,14 @@ bool decrObjId(Iterator *it, DbMap *map) {
 ObjId start = it->docId;
 
 	while (true) {
-		if (it->docId.idx) {
-			if (--it->docId.idx)
+		if (it->docId.off) {
+			if (--it->docId.off)
 				return true;
 		}
 
 		if (it->docId.seg) {
 			it->docId.seg--;
-			it->docId.idx = map->arena->segs[it->docId.seg].nextId.idx + 1;
+			it->docId.off = map->arena->segs[it->docId.seg].nextId.off + 1;
 			continue;
 		}
 

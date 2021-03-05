@@ -15,6 +15,32 @@
 #define ClntAddr(handle) getObj(MapAddr(handle), handle->clientAddr)
 
 
+// MVCC and TXN definitions for DATABASE project
+
+typedef enum {
+	TxnDone,			// fully committed
+	TxnGrowing,			// reading and upserting
+	TxnCommitting,		// committing
+	TxnCommitted,		// committed
+	TxnRollback			// roll back
+} TxnState;
+
+typedef enum {
+	TxnRaw = 0,		// txn step raw read/write
+	TxnIdx,			// txn step is a Catalog handle idx
+	TxnRdr,			// txn step is a docId & version
+	TxnWrt			// txn step is write
+} TxnStep;
+
+typedef enum {
+	TxnNotSpecified,
+	TxnSnapShot,
+	TxnReadCommitted,
+	TxnSerializable
+} TxnCC;
+
+
+
 extern bool Btree1_stats, debug;
 
 //	general object pointer
@@ -23,39 +49,32 @@ typedef union {
   uint64_t bits;
   uint64_t addr:48;		// address part of struct above
 
-  union {
-	uint32_t slot;		// slot index in arena segment
-	uint32_t offset;	//  the segment
-	struct {
-	  uint32_t idx;		// record ID in the segment
-	  uint16_t seg;		// arena segment number
-	  union {
-		enum TxnState step :8;
-		uint16_t xtra[1];	// xtra bits 
-			};
-		};
-  };
-  uint16_t segment;	// arena segment number
   struct {
+	uint32_t off;	// 16 byte offset in segment
+	uint16_t seg;	// slot index in arena segment array
 	union {
+		TxnState step :8;
+		uint16_t xtra[1];	// xtra bits 
+		volatile uint8_t latch[1];
 		struct {
 		  uint8_t mutex :1;	// mutex bit
 		  uint8_t kill  :1;	// kill entry
 		  uint8_t type  :6;	// object type
+		  union {
+			uint8_t nbyte;	// number of bytes in a span node
+			uint8_t nslot;		// number of frame slots in use
+			uint8_t maxidx;		// maximum slot index in use
+			uint8_t firstx;		// first array inUse to chk
+			uint8_t ttype;		// index transaction type
+			uint8_t docIdx;     // document key index no
+			int8_t rbcmp;       // red/black comparison
 		  };
-		volatile uint8_t latch[1];
-	};
-	union {
-		uint8_t nbyte;		// number of bytes in a span node
-		uint8_t nslot;		// number of frame slots in use
-		uint8_t maxidx;		// maximum slot index in use
-		uint8_t firstx;		// first array inUse to chk
-		uint8_t ttype;		// index transaction type
-        uint8_t docIdx;     // document key index no
-        int8_t rbcmp;       // red/black comparison
+		};
 	};
   };
 } DbAddr;
+
+typedef DbAddr ObjId;
 
 #define TYPE_SHIFT (6*8 + 2)	// number of bits to shift type left and zero all bits
 #define BYTE_SHIFT (2)			// number of bits to shift type left and zero latch
@@ -67,23 +86,23 @@ typedef union {
 #define ADDR_KILL_SET	0x0002000000000000ULL
 #define ADDR_BITS		0x0000ffffffffffffULL
 
-typedef union {
+/* typedef union {
 	struct {
 		uint32_t idx;		// record ID in the segment
 		uint16_t seg;		// arena segment number
 		union {
-			enum TxnState step :8;
+			TxnState step :8;
 			uint16_t xtra[1];	// xtra bits 
 		};
 	};
 	uint64_t addr:48;		// address part of struct above
 	uint64_t bits;
 } ObjId;
-
+*/
 
 #define MAX_key	65536
 
-// string content
+// string /./content
 
 typedef struct {
 	uint16_t len;
