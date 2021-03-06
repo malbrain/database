@@ -253,7 +253,7 @@ DbStatus createIndex(DbHandle dbIdxHndl[1], DbHandle dbParentHndl[1], char *name
       break;
 
     case Hndl_btree2Index:
-      btree2Init(idxHndl, params);
+//      btree2Init(idxHndl, params);
       break;
 
     default:
@@ -383,7 +383,7 @@ DbStatus createCursor(DbHandle hndl[1], DbHandle dbIdxHndl[1], Params *params) {
       break;
 
     case Hndl_btree2Index:
-      stat = btree2NewCursor(dbCursor, idxMap);
+  //    stat = btree2NewCursor(dbCursor, idxMap);
       break;
   }
 
@@ -418,7 +418,7 @@ DbStatus closeCursor(DbHandle hndl[1]) {
       break;
 
     case Hndl_btree2Index:
-      stat = btree2ReturnCursor(dbCursor, idxMap);
+//      stat = btree2ReturnCursor(dbCursor, idxMap);
       break;
   }
 
@@ -563,7 +563,7 @@ DbStatus cloneHandle(DbHandle newHndl[1], DbHandle oldHndl[1]) {
         break;
 
       case Hndl_btree2Index:
-        stat = btree2NewCursor(getObj(map, hndl2->clientAddr), map);
+  //      stat = btree2NewCursor(getObj(map, hndl2->clientAddr), map);
         break;
 
       case Hndl_iterator: {
@@ -675,7 +675,7 @@ DbStatus deleteKey(DbHandle hndl[1], uint8_t *key, uint32_t len) {
       break;
 
     case Hndl_btree2Index:
-      stat = btree2DeleteKey(idxHndl, key, len);
+   //   stat = btree2DeleteKey(idxHndl, key, len);
       break;
   }
 
@@ -723,7 +723,7 @@ DbStatus insertKey(DbHandle hndl[1], KeyValue *keyValue) {
       break;
 
     case Hndl_btree2Index:
-      stat = btree2InsertKey(idxHndl, keyValue->bytes, keyValue->keyLen, keyValue->payLoad.bits, keyValue->suffix, 0, Btree2_slotactive);
+     // stat = btree2InsertKey(idxHndl, keyValue->bytes, keyValue->keyLen, keyValue->payLoad.bits, keyValue->suffix, 0, Btree2_slotactive);
       break;
   }
 

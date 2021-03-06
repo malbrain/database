@@ -209,7 +209,7 @@ void timestampNext(Timestamp *tsBase, uint16_t idx) {
     tsBase[idx].tsSeqCnt = spec->tv_nsec;
     tsBase[idx].tsIdx = idx;
 
-  } while (timestampCmp(prev, tsBase + idx) == 0);
+  } while (timestampCmp(prev, tsBase + idx, 0 ,0) == 0);
 
   return;
 #endif

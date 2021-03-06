@@ -1,4 +1,30 @@
-// #define _POSIX_C_SOURCE 200012L
+#define _POSIX_C_SOURCE 199309
+
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <intrin.h>
+#endif
+
+#define _GNU_SOURCE 1
+#define _DEFAULT_SOURCE 1
+
+#ifdef __linux__
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/file.h>
+#include <errno.h>
+#include <sched.h>
+#include <time.h>
+#endif
+
+#ifdef apple
+#include <libkern/OSAtomic.h>
+#define pause() OSMemoryBarrier()
+#else
+#define pause() __asm __volatile("pause\n": : : "memory")
+#endif
 
 #include "base64.h"
 #include "db.h"
@@ -7,16 +33,10 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <intrin.h>
-#else
+#endif
+
 #define _GNU_SOURCE 1
 #define _DEFAULT_SOURCE 1
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/mman.h>
-#include <sys/file.h>
-#include <errno.h>
-#include <sched.h>
-#include <time.h>
 
 #ifdef apple
 #include <libkern/OSAtomic.h>
@@ -24,8 +44,6 @@
 #else
 #define pause() __asm __volatile("pause\n": : : "memory")
 #endif
-#endif
-
 
 #ifndef PRIx64
 #define PRIx64 I64x
@@ -36,7 +54,7 @@
 #include "db_arena.h"
 #include "db_map.h"
 
-extern char *hndlPath;
+char *hndlPath;
 
 void yield() {
 #ifndef _WIN32
@@ -350,7 +368,7 @@ void *mem;
 int flags = MAP_SHARED;
 
 	if( map->hndl < 0 ) {
-		flags |= MAP_ANON;
+		flags |= MAP_ANONYMOUS;
 		offset = 0;
 	}
 

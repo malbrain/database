@@ -17,7 +17,7 @@ DbStatus stat = DB_ERROR_indextype;
 		break;
 
 	case Hndl_btree2Index:
-		stat = btree2ReturnCursor(dbCursor, map);
+	//	stat = btree2ReturnCursor(dbCursor, map);
 		break;
 	}
 
@@ -66,7 +66,10 @@ DbStatus stat;
 	  }
 
 	  case Hndl_btree2Index: {
-		if ((stat = btree2FindKey(dbCursor, map, key, keyLen, op == OpOne)))
+//		if ((stat = btree2FindKey(dbCursor, map, key, keyLen, op == OpOne)))
+stat=DB_OK;
+
+
 			return stat;
 
 		if (op == OpAfter) {
@@ -78,8 +81,8 @@ DbStatus stat;
 
 		if (op == OpBefore) {
 		  if (memcmp (dbCursor->key, key, keyLen) >= 0)
-			return btree2PrevKey (dbCursor, map);
-		  else
+		//	return btree2PrevKey (dbCursor, map);
+		//  else
 			return DB_OK;
 		}
 
@@ -107,7 +110,7 @@ DbStatus stat = DB_OK;
 	  }
 
 	  case Hndl_btree2Index: {
-		stat = btree2LeftKey(dbCursor, map);
+	//	stat = btree2LeftKey(dbCursor, map);
 		break;
 	  }
 	}
@@ -133,7 +136,7 @@ DbStatus stat = DB_OK;
 	  }
 
 	  case Hndl_btree2Index: {
-		stat = btree2RightKey(dbCursor, map);
+	//	stat = btree2RightKey(dbCursor, map);
 		break;
 	  }
 	}
@@ -158,14 +161,15 @@ DbStatus stat;
 		break;
 
 	case Hndl_btree2Index:
-		stat = btree2NextKey (dbCursor, map);
+//		stat = btree2NextKey (dbCursor, map);
+		stat = DB_OK;
 		break;
 
 	default:
 		stat = DB_ERROR_indextype;
 		break;
 	}
-
+	stat = DB_OK;
 	return stat;
 }
 
@@ -182,7 +186,8 @@ DbStatus stat;
 		break;
 
 	case Hndl_btree2Index:
-		stat = btree2PrevKey (dbCursor, map);
+	//	stat = btree2PrevKey (dbCursor, map);
+stat=DB_OK;
 		break;
 
 	default:

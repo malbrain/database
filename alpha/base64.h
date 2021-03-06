@@ -1,4 +1,6 @@
 #pragma once
+#define _POSIX_C_SOURCE 200809L
+
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -6,7 +8,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <inttypes.h>
-#include <time.h>
 #include <memory.h>
 #include <limits.h>
 #include <string.h>
