@@ -18,6 +18,7 @@
 #include <process.h>
 #include <windows.h>
 #endif
+extern DbMap *txnMap;
 
 #ifdef _WIN32
 #define strncasecmp _strnicmp
@@ -174,12 +175,13 @@ int index_file(ThreadArgs *args, char cmd, char *msg, int msgMax) {
                               "thrd:%d cmd:%c file:%s unable to open\n",
                               args->idx, cmd, args->inFile);
   if (args->txnBatch) {
-    ObjId nestTxn;
+    ObjId nestTxn, currTxn;
     nestTxn.bits = 0;
     memset(params, 0, sizeof(Params));
     params[Concurrency].intVal = TxnSerializable;
     result = mvcc_BeginTxn(params, nestTxn);
-    txn = result.object;
+    currTxn.bits = result.value;
+    txn = fetchIdSlot(txnMap, currTxn);
   }
 
   //  read or generate next doc and key
@@ -262,13 +264,14 @@ int index_file(ThreadArgs *args, char cmd, char *msg, int msgMax) {
           if (args->txnBatch) {
             result = mvcc_WriteDoc(txn, args->docHndl, &docId, docLen, (uint8_t *)(ourDoc + 1), 1);
             if (args->line % args->txnBatch == 0) {
-              ObjId nestTxn;
+              ObjId nestTxn, currTxn;
               nestTxn.bits = 0;
               memset(params, 0, sizeof(Params));
               params[Concurrency].intVal = TxnSerializable;
               result = mvcc_CommitTxn(txn, params);
               result = mvcc_BeginTxn(params, nestTxn);
-              txn = result.object;
+              currTxn.bits = result.value;
+              txn = fetchIdSlot(txnMap, currTxn);
             }
           } else {
             ourDoc->size = docLen;

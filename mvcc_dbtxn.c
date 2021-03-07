@@ -96,7 +96,8 @@ MVCCResult mvcc_addDocWrToTxn(Txn *txn, Handle *docHndl, Doc *doc) {
   int cnt = 0;
 
   while (true) {
-    if (txn->isolation == TxnNotSpecified) break;
+    if (txn->isolation == TxnNotSpecified) 
+      break;
 
     if (txn->state != TxnGrowing) {
       result.status = DB_ERROR_txn_being_committed;

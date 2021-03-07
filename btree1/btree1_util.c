@@ -1,3 +1,4 @@
+#include "../base64.h"
 #include "btree1.h"
 
 //	debug slot function
@@ -29,32 +30,32 @@ uint8_t *btree1Addr(Btree1Page *page, uint32_t off)
 uint32_t Splits;
 
 // split the root and raise the height of the btree1
-// call with key for smaller half and right page addr.
+// call with fence key for smaller (left) half and right page addr.
 
-DbStatus btree1SplitRoot(Handle *index, Btree1Set *root, DbAddr right, uint8_t *leftKey) {
+DbStatus btree1SplitRoot(Handle *index, Btree1Set *set, PageId right, uint8_t *leftKey) {
 DbMap *idxMap = MapAddr(index);
 Btree1Index *btree1 = btree1index(idxMap);
-uint32_t keyLen, nxt = btree1->pageSize - 1;
+uint32_t keyLen, nxt = btree1->pageSize;
 Btree1Page *leftPage, *rightPage;
+DbAddr *rightAddr;
 Btree1Slot *slot;
-uint8_t *dest;
 uint32_t off, amt;
-DbAddr left;
 
-	//  Obtain an empty page to use, and copy the current
-	//  root contents into it, e.g. lower keys
+	//  copy lower keys into new left empty page from passed
+	//  old root page contents into it, e.g. lower keys
 
-	if( (left.bits = btree1NewPage(index, root->page->lvl)) )
-		leftPage = getObj(idxMap, left);
+	if( (leftPage = btree1NewPage(index, root->page->lvl, )) )
+		memcpy(leftPage->latch + 1, root->page->latch + 1, btree1->pageSize - sizeof(*leftPage->latch));
 	else
 		return DB_ERROR_outofmemory;
 
-	//	copy in new smaller keys into left page
-	//	(clear the latches)
+	//  circlar sibling relations
 
-	memcpy (leftPage->latch + 1, root->page->latch + 1, btree1->pageSize - sizeof(*leftPage->latch));
-	rightPage = getObj(idxMap, right);
-	rightPage->left.bits = left.bits;
+	rightAddr = fetchIdSlot(idxMap, right);
+	rightPage = getObj(idxMap, *rightAddr);
+
+	rightPage->left = leftPage->self;
+	leftPage->right = rightPage->self;
 
 	// preserve the page info at the bottom
 	// of higher keys page and set rest to zero
@@ -65,25 +66,13 @@ DbAddr left;
 	// pointing to the new right half page 
 	// and increase the root height
 
-	// key slot contains keyLen(1 value byte) followed by right pageNo (upto pagenobytes) 
-	//	ending with filler zeroes (remaining from pagenobytes)
-	//	this assures larger pageNo values will always fit)
+	// key slot 2 constructed with no keyLen, right pageId
 
 	slot = slotptr(root->page, 2);
 	slot->type = Btree1_stopper;
-	slot->off = nxt -= Btree1_pagenobytes + 1;
-
-	dest = keyaddr(root->page, nxt);
-	*dest++ = Btree1_pagenobytes;
-
-	amt = store64(dest, 0, right.bits);
-    dest[Btree1_pagenobytes - 1] = Btree1_pagenobytes - amt;
-    
-	while( amt < Btree1_pagenobytes - 1)
-		dest[amt++] = 0;
 
 	// next insert lower keys (left) fence key on newroot page as
-	// f irst key and reserve space for the key.
+	// first key and reserve space for the key.
 
 	keyLen = keylen(leftKey);
 
@@ -130,87 +119,118 @@ DbAddr left;
 	return DB_OK;
 }
 
-//  split already locked full node
-//	return with pages unlocked.
+//  split locked full node (set->page) into two (left & right)
+//  each with 1/2 of the keys lower (left) and higher (right)
+//  if this was the root page, pass lower/upper to split root
+//	return with pages unlocked and new Btree key from set installd.
+
+typedef enum {
+	firstSet, lastSet, done
+} Phase;
 
 DbStatus btree1SplitPage (Handle *index, Btree1Set *set) {
 DbMap *idxMap = MapAddr(index);
 Btree1Index *btree1 = btree1index(idxMap);
-uint8_t leftKey[MAX_key], rightKey[MAX_key];
+uint8_t *leftKey, *rightKey, *fence;
 uint32_t cnt = 0, idx = 0, max, nxt;
 Btree1Slot librarian, *source, *dest;
+Btree1Slot *destLeft, *destRight;
 uint32_t size = btree1->pageSize;
-Btree1Page *frame, *rightPage;
+Btree1Page *leftPage, *rightPage, *page;
+uint32_t leftLen, rightLen;
 uint8_t lvl = set->page->lvl;
-uint32_t totLen, keyLen;
 uint8_t *key, *ptr;
 DbAddr right, addr;
+Phase phase = firstSet;
 bool stopper;
 DbStatus stat;
 
 	if( stats )
 		atomicAdd32(&Splits, 1);
 
-	librarian.bits = 0;
+	librarian.bits[0] = 0;
+	librarian.bits[1] = 0;
 	librarian.type = Btree1_librarian;
 	librarian.dead = 1;
 
 	if( !set->page->lvl )
 		size <<= btree1->leafXtra;
 
-	//	get new page and write higher keys to it.
+	//	get empty left and right pages and split keys to them.
 
-	if( (right.bits = btree1NewPage(index, lvl)) )
-		rightPage = getObj(idxMap, right);
+	if( (rightPage = btree1NewPage(index, lvl, set->page->type)) )
+		destRight = slotptr(rightPage, 1);
 	else
 		return DB_ERROR_outofmemory;
 
+	if ((leftPage = btree1NewPage(index, lvl, set->page->type)))
+		destLeft = slotptr(leftPage, 1);
+	else
+		return DB_ERROR_outofmemory;
+
+	//  copy keys from lower half (Left Page)
+
+	source = slotptr(set->page, 0);
 	max = set->page->cnt;
-	cnt = max / 2;
-	nxt = size - 1;
-	idx = 0;
+	idx = 0;		// current source slot index
+	setup, firstSet, lastSet, done
 
-	source = slotptr(set->page, cnt);
-	dest = slotptr(rightPage, 0);
+	do { 
+	  switch (phase) {
+	  case firstSet:
+		page = leftPage;
+		dest = destLeft;
+		nxt = size;		// key byte array offset
+		cnt = 0;		// number of keys in each left & ight 
+		phase = firstSet;
+		break;
 
-	while( source++, cnt++ < max ) {
-		if( source->dead )
-			continue;
+	  case lastSet:
+		page = rightPage;
+		nxt = size;
+		dest = destRight;
+		break;
+}
 
-		key = keyaddr(set->page, source->off);
-		totLen = keylen(key) + keypre(key);
-		nxt -= totLen;
 
-		ptr = keyaddr(rightPage, nxt);
-		memcpy (ptr, key, totLen);
-		rightPage->act++;
 
-		//	add librarian slot
 
-		if (cnt < max) {
-			(++dest)->bits = librarian.bits;
-			dest->off = nxt;
-			idx++;
-		}
+DbStatus cleanPage(Btree1Page *srcPage,  uint32_t idx, uint32_t cnt, Btree1Page *dstPage ) {
+Btree1Slot *src = slotptr(srcPage, 1)
+Btree1Slot *dst = slotptr(dstPage, 1)
 
-		//  add actual slot
+	while( idx <= cnt ) {
+	  if( src[++idx].dead )
+		continue;
+	  
+	  // source key pointer & length
 
-		(++dest)->bits = source->bits;
-		dest->off = nxt;
-		idx++;
-	}
+	  key = keyaddr(src, src);
+	  nxt -= src[idx].length;
 
+	  dest->bits[0] = source->bits[0]; 
+	  dest->off = nxt;
+
+	  ptr = keyaddr(dest, nxt);
+	  memcpy (ptr, key, source->length);
+	  page->act++;
+
+	  //	add librarian slot per configuration
+
+	  if( (idx % btree1->librarianDensity) == 0) {
+		(++dest)->bits[0] = librarian.bits[0];
+		dest->bits[1] = librarian.bits[1];
+      }
+	}	  
+	} while( idx < max);
+
+	dest = slotptr(set->page, 0);
 	memcpy(rightKey, key, totLen);
 	rightPage->min = nxt;
 	rightPage->cnt = idx;
 	rightPage->lvl = lvl;
 
-	//	copy lower keys from temporary frame back into old page
-
-	if( (addr.bits = btree1NewPage(index, lvl)) )
-		frame = getObj(idxMap, addr);
-	else
-		return DB_ERROR_outofmemory;
+	//	copy lower keys 
 
 	memcpy (frame, set->page, size);
 	memset (set->page+1, 0, size - sizeof(*set->page));
@@ -224,16 +244,16 @@ DbStatus stat;
 
 	//  ignore librarian max key
 
+
 	if( slotptr(frame, max)->type == Btree1_librarian )
 		max--;
 
 	source = slotptr(frame, 0);
-	dest = slotptr(set->page, 0);
 
 #ifdef DEBUG
 	key = keyaddr(frame, source[2].off);
 	assert(keylen(key) > 0);
-#endif
+#endif	
 	//  assemble page of smaller keys from temporary frame copy
 
  	while( source++, cnt++ < max ) {
@@ -287,10 +307,10 @@ DbStatus stat;
 
 	set->page->right.bits = right.bits;
 
-	// if current page is the root page, split it
+	// if current full page is the root page, split it
 
-	if (set->pageNo.type == Btree1_rootPage) {
-      if (!(stat = btree1SplitRoot(index, set, right, leftKey)))
+	if (set->page->type == Btree1_rootPage) {
+      if (!(stat = btree1SplitRoot(index, set, fenceKey)))
         if (addSlotToFrame(idxMap, listFree(index, addr.type), NULL,
            addr.bits))
               return DB_OK;
@@ -319,7 +339,7 @@ DbStatus stat;
 
 	// switch parent key for larger keys to new right page
 
-	if( (stat = btree1FixKey(index, rightKey, set->pageNo.bits, right.bits, lvl+1, !stopper) ))
+	if( (stat = btree1FixKey(index, rightKey, set->pageI.bits, right.bits, lvl+1, !stopper) ))
 		return stat;
 
 	btree1UnlockPage (set->page, Btree1_lockParent);
@@ -336,7 +356,7 @@ DbStatus stat;
 //	false - page needs splitting
 //	true  - ok to insert
 
-DbStatus btree1CleanPage(Handle *index, Btree1Set *set, uint32_t totKeyLen) {
+DbStatus btree1CleanPage(Handle *index, Btree1Set *set) {
 DbMap *idxMap = MapAddr(index);
 Btree1Index *btree1 = btree1index(idxMap);
 Btree1Slot librarian, *source, *dest;
@@ -347,6 +367,7 @@ uint32_t len, cnt, idx;
 uint32_t newSlot = max;
 Btree1PageType type;
 Btree1Page *frame;
+uint32_t totKeyLen;
 uint8_t *key;
 DbAddr addr;
 
@@ -357,9 +378,8 @@ DbAddr addr;
 	if( !page->lvl ) {
 		size <<= btree1->leafXtra;
 		type = Btree1_leafPage;
-	} else {
+	} else
 		type = Btree1_interior;
-	}
 
 	if( page->min >= (max+1) * sizeof(Btree1Slot) + sizeof(*page) + totKeyLen )
 		return DB_OK;
@@ -498,7 +518,7 @@ bool good;
 
 //	Librarian slots have the same key offset as their higher neighbor
 
-DbStatus btree1LoadPage(DbMap *map, Btree1Set *set, void *key, uint32_t keyLen, uint8_t lvl, bool findGood, bool stopper, Btree1Lock lock) {
+DbStatus btree1LoadPage(DbMap *map, Btree1Set *set, bool findGood, bool stopper, ) {
 Btree1Index *btree1 = btree1index(map);
 uint8_t drill = 0xff, *ptr;
 Btree1Page *prevPage = NULL;

@@ -3,40 +3,28 @@
 extern bool debug;
 
 DbStatus btree1LoadStopper(DbMap *map, Btree1Set *set, uint8_t lvl);
-/*
-DbStatus btree1InsertSfxKey(Handle *index, uint8_t *key, uint32_t keyLen, uint64_t suffix, uint8_t lvl, Btree1SlotType type) {
-uint8_t keyBuff[MAX_key];
-uint32_t sfxLen;
 
-    memcpy(keyBuff, key, keyLen);
-	sfxLen = store64(keyBuff, keyLen, suffix);
-    keyBuff[keyLen + Btree1_pagenobytes - 1] = Btree1_pagenobytes - sfxLen;
-
-	while( sfxLen < Btree1_pagenobytes - 1 )
-		keyBuff[keyLen + sfxLen++] = 0;
-
-	return btree1InsertKey(index, keyBuff, keyLen, sfxLen + 1, lvl, type);
-}
-*/
-DbStatus btree1InsertKey(Handle *index, uint8_t *key, uint32_t keyLen, uint64_t suffix, uint8_t lvl, Btree1SlotType type) {
+DbStatus btree1InsertKey(Handle *index, uint8_t *key, uint32_t keyLen, int64_t *suffix, uint32_t suffixCnt, uint8_t lvl, Btree1SlotType type) {
 DbMap *idxMap = MapAddr(index);
-uint32_t totLen, idx, pfxLen, fence;
+uint32_t slotIdx, slotOff, idx;
+uint32_t idx, pfxLen, fence;
+uint32_t fence, pfxLen;
 Btree1Slot *slot;
 Btree1Set set[1];
+Btree1Page *page;
+uint32_t avail;
 DbStatus stat;
 uint8_t *ptr;
-
-	totLen = keyLen + sizeof(suffix) + 2;
 
 	while (true) {
 	  memset(set, 0, sizeof(set));
 
-	  // find first node/page larger than our new key
+	  // find first node/page larger than our key
 
-	  if ((stat = btree1LoadPage(idxMap, set, key, totLen, lvl, false, false, Btree1_lockWrite)))
+	  if ((stat = btree1LoadPage(idxMap, set, Btree1_lockWrite)))
 		return stat;
 
-	  if ((stat = btree1CleanPage(index, set, totLen + pfxLen))) {
+	  if ((stat = btree1CleanPage(index, set))) {
 		if (stat == DB_BTREE_needssplit) {
 		  if ((stat = btree1SplitPage(index, set)))
 			return stat;
@@ -68,9 +56,12 @@ uint8_t *ptr;
 	  if(slot->type == Btree1_librarian)
 	    set->slotIdx++, slot++;
 
-	ptr = keyaddr(set->page, slot->off);
+	page = set->page;
+	ptr = keyaddr(page, slot->off);
 
-	if( set->slotIdx <= set->page->cnt )
+	//	check for duplicate key
+
+	if( set->slotIdx <= page->cnt )
 	  if( !btree1KeyCmp(ptr, key, totLen) )
 		return DB_ERROR_duplicatekey;
 	
@@ -86,14 +77,14 @@ uint8_t *ptr;
 
 	//	find first dead/librarian slot
 
-	for( idx = 0; idx + set->slotIdx <= set->page->cnt; idx++ )
+	for( idx = 0; idx + set->slotIdx <= page->cnt; idx++ )
 	  if( slot[idx].dead )
 		break;
 
 	//	slots 0 thru idx-1 get moved up one slot
 
-	if( idx + set->slotIdx >= set->page->cnt )
-		set->page->cnt++;
+	if( idx + set->slotIdx >= page->cnt )
+		page->cnt++;
 
 	//  move these slots out of our way
 
@@ -101,14 +92,19 @@ uint8_t *ptr;
 		slot[idx + 1].bits = slot[idx].bits;
 
 	//	fill new key in new slot
+}
 
-fillSlot:
-	set->page->act++;
-	  
-	// add the key to the page
+uint32_t btree1FillSlot(DbMap *idxMap, Btree1Set *set) {
+Btree1Page *page = set->page;
+uint8_t *ptr = keyaddr(page, page->min);
+int32_t avail = page->min - slotmax(page);
 
-	set->page->min -= pfxLen + totLen;
-	ptr = keyaddr(set->page, set->page->min);
+	page->act++;
+
+	// add the key and its suffix to the page, putting suffixbytes at top
+
+	if(suffixCnt)
+	  if( avail = append64(ptr, suffix, suffixCnt, slotmin(page)) )
 
 	if( totLen < 128 )	
 		*ptr++ = totLen;

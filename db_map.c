@@ -34,7 +34,7 @@
 #include "db_arena.h"
 #include "db_map.h"
 
-extern char *hndlPath;
+char *hndlPath;
 
 void yield() {
 #ifndef _WIN32

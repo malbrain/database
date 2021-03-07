@@ -1,4 +1,5 @@
-#include "db_api.h"
+#include "base64.h"
+#include "db.h"
 
 #include "artree/artree.h"
 #include "btree1/btree1.h"
@@ -6,6 +7,10 @@
 #include "db_iterator.h"
 #include "db_malloc.h"
 #include "db_object.h"
+#include "db_arena.h"
+#include "db_handle.h"
+#include "db_cursor.h"
+#include "db_map.h"
 
 char *hndlNames[] = {"newarena", "non-specific", "catalog",     "database",    "docStore",
                      "artIndex", "btree1Index", "btree2Index", "colIndex",
@@ -425,7 +430,7 @@ DbStatus closeCursor(DbHandle hndl[1]) {
 //	position cursor on a key
 
 DbStatus positionCursor(DbHandle hndl[1], CursorOp op, void *key,
-                        uint32_t keyLen) {
+  uint32_t keyLen) {
   DbCursor *dbCursor;
   Handle *idxHndl;
   DbStatus stat;

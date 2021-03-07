@@ -21,15 +21,6 @@
 
 extern bool stats, debug;
 
-typedef enum {
-	prngRandom,		// pure randomness all streams unique
-	prngProcess,	// all streams are the same
-	prngThread		// each thread has own stream, repeats across processes
-} PRNG;
-
-void mynrand48seed(uint16_t* nrandState, PRNG prng, int init);
-int createB64(uint8_t* key, int size, unsigned short next[3]);
-uint64_t get64(uint8_t* key, uint32_t len);
 
 #define MAX_key		4096	// maximum key size in bytes
 

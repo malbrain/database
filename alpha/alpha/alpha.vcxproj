@@ -140,7 +140,16 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\btree2\btree2 - Copy.c" />
+    <ClCompile Include="..\btree2\btree2.c" />
+    <ClCompile Include="..\btree2\btree2_cursor.c" />
+    <ClCompile Include="..\btree2\btree2_delete - Copy.c" />
+    <ClCompile Include="..\btree2\btree2_delete.c" />
+    <ClCompile Include="..\btree2\btree2_find.c" />
+    <ClCompile Include="..\btree2\btree2_insert.c" />
+    <ClCompile Include="..\btree2\btree2_skip.c" />
     <ClCompile Include="..\db_cursor.c" />
+    <ClCompile Include="..\db_frame.c" />
     <ClCompile Include="..\db_iterator.c" />
     <ClCompile Include="..\Hi-Performance-Timestamps\timestamps.c" />
     <ClCompile Include="..\mvcc_dbapi.c" />
@@ -172,6 +181,10 @@
     <ClCompile Include="..\standalone.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\btree2\btree2 - Copy.h" />
+    <ClInclude Include="..\btree2\btree2.h" />
+    <ClInclude Include="..\btree2\btree2_slot.h" />
+    <ClInclude Include="..\db_frame.h" />
     <ClInclude Include="..\mvcc_dbapi.h" />
     <ClInclude Include="..\mvcc_dbdoc.h" />
     <ClInclude Include="..\mvcc_dbidx.h" />

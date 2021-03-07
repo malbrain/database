@@ -1,10 +1,12 @@
 #pragma once
+#include "../base64.h"
 #include "../db.h"
 #include "../db_object.h"
 #include "../db_handle.h"
 #include "../db_arena.h"
 #include "../db_map.h"
 #include "../db_api.h"
+#include "../db_index.h"
 #include "../db_cursor.h"
 #include "../db_frame.h"
 #include "../rwlock/readerwriter.h"
@@ -18,7 +20,7 @@
 #define Btree1_maxpage		(1 << Btree1_maxbits)	// maximum page size
 #define Btree1_keylenbits	(15)
 #define Btree1_maxkey		(1 << Btree1_keybits)	// maximum key length
-#
+
 //	There are four lock types for each node in three independent sets: 
 //	1. (set 1) ReadLock: Sharable. Read the node. Incompatible with WriteLock. 
 //	2. (set 1) WriteLock: Exclusive. Modify the node. Incompatible with ReadLock and other WriteLocks. 
@@ -31,6 +33,8 @@ typedef enum {
 	Btree1_lockParent = 4,
 	Btree1_lockLink   = 8
 } Btree1Lock;
+
+typedef ObjId PageId;
 
 //	types of btree pages/allocations
 
@@ -50,11 +54,10 @@ typedef struct {
 	uint32_t pageSize;
 	uint32_t pageBits;
 	uint32_t leafXtra;
-	DbAddr readOnlyRoot;
-	DbAddr currentRoot;  
-	DbAddr root[2];
-	DbAddr left;					// leftmost page level 0
-	DbAddr right;					//	rightmost page lvl 0
+	uint32_t librarianDensity;// 2 == every other key
+	PageId root;
+	PageId left;					// leftmost page level 0
+	PageId right;					//	rightmost page lvl 0
 } Btree1Index;
 
 //	Btree page      layout
@@ -67,24 +70,29 @@ typedef struct {
 
 //	The page structure is immediately
 //	followed by an array of the key slots
-//	and key strings on this page
+//	and key strings on this page, allocated top-down
 
 typedef struct {
 	LatchSet latch[1];	// latches for this page
 	uint32_t cnt;		// count of keys in page
 	uint32_t act;		// count of active keys
-	uint32_t min;		// next page key offset
+	uint32_t min;		// next page key end offset
 	uint32_t garbage;	// page garbage in bytes
-	uint8_t lvl:6;		// level of page
+	Btree1PageType type:4;
+	uint8_t lvl:4;		// level of page in btree
 	uint8_t free:1;		// page is unused on free chain
 	uint8_t kill:1;		// page is being deleted
-	DbAddr right;		// page to right
-	DbAddr left;		// page to left
+	PageId right;		// page to right
+	PageId left;		// page to left
+	PageId self;		// current page no
 } Btree1Page;
 
 typedef struct {
-	DbAddr pageNo;		// current page addr
-	Btree1Page *page;	// current page
+	uint8_t *keyVal;
+	uint32_t keyLen;
+	int64_t *suffix;
+	uint32_t suffixCnt;
+	Btree1Page *page;	// current page Addr
 	uint32_t slotIdx;	// slot on page
 } Btree1Set;
 
@@ -105,16 +113,23 @@ typedef enum {
 	Btree1_indexed,		// key was indexed
 	Btree1_deleted,		// key was deleted
 	Btree1_librarian,	// librarian slot
+	Btree1_fenceKey,	// fence key for page
 	Btree1_stopper		// stopper slot
 } Btree1SlotType;
 
 typedef union {
-	struct {
-		uint32_t off:Btree1_maxbits;	// page offset for key start
-		uint32_t type:2;			// type of key slot
-		uint32_t dead:1;			// dead/librarian slot
-	};
-	uint32_t bits;
+  uint64_t bits[2];
+
+  struct {
+	uint32_t off : 29;	// key bytes offset
+	uint32_t type : 2;	// type of key slot
+	uint32_t dead : 1;	// dead/librarian slot
+	uint32_t length;	// key length
+  };
+  union {
+	  PageId childId;		// page Id of next level to leaf
+	  ObjId payLoad;
+  };
 } Btree1Slot;
 
 typedef struct {
@@ -126,14 +141,12 @@ typedef struct {
 
 //	access macros
 
-#define btree1index(map) ((Btree1Index *)(map->arena + 1))
 #define slotptr(page, slot) (((Btree1Slot *)(page+1)) + (((int)slot)-1))
+
+#define btree1index(map) ((Btree1Index *)(map->arena + 1))
 
 #define keyaddr(page, off) ((uint8_t *)((uint8_t *)(page) + off))
 #define keyptr(page, slot) ((uint8_t *)((uint8_t *)(page) + slotptr(page, slot)->off))
-#define keylen(key) ((key[0] & 0x80) ? ((key[0] & 0x7f) << 8 | key[1]) : key[0])
-#define keystr(key) ((key[0] & 0x80) ? (key + 2) : (key + 1))
-#define keypre(key) ((key[0] & 0x80) ? 2 : 1)
 
 //	btree1 implementation
 
@@ -147,19 +160,19 @@ DbStatus btree1FindKey(DbCursor *dbCursor, DbMap *map, void *key, uint32_t keyle
 DbStatus btree1NextKey (DbCursor *cursor, DbMap *map);
 DbStatus btree1PrevKey (DbCursor *cursor, DbMap *map);
 
+DbStatus btree1StoreSlot (Handle *hndl, uint8_t *key, uint32_t keyLen, int64_t *values, uint32_t valueCnt);
 DbStatus btree1Init(Handle *hndl, Params *params);
 DbStatus btree1InsertKey(Handle *hndl, uint8_t *key, uint32_t keyLen, uint32_t sfxLen, uint8_t lvl, Btree1SlotType type);
 DbStatus btree1DeleteKey(Handle *hndl, void *key, uint32_t keyLen);
 
-DbStatus btree1LoadPage(DbMap *map, Btree1Set *set, void *key, uint32_t keyLen, uint8_t lvl, bool goodOnly, bool stopper, Btree1Lock lock);
+DbStatus btree1LoadPage(DbMap *map, Btree1Set *set, Btree1Lock lockMode);
 
-uint64_t btree1NewPage (Handle *hndl, uint8_t lvl);
-
-DbStatus btree1CleanPage(Handle *hndl, Btree1Set *set, uint32_t totKeyLen);
+DbStatus btree1CleanPage(Handle *hndl, Btree1Set *set);
 DbStatus btree1SplitPage (Handle *hndl, Btree1Set *set);
 DbStatus btree1FixKey (Handle *index, uint8_t *fenceKey, uint64_t prev, uint64_t suffix, uint8_t lvl, bool stopper);
 DbStatus btree1InsertSfxKey(Handle *hndl, uint8_t *key, uint32_t keyLen, uint64_t suffix, uint8_t lvl, Btree1SlotType type);
 
+Btree1Page *btree1NewPage(Handle *index, uint8_t lvl, Btree1PageType type);
 void btree1LockPage(Btree1Page *page, Btree1Lock mode);
 void btree1UnlockPage(Btree1Page *page, Btree1Lock mode);
 int btree1KeyCmp (uint8_t *key1, uint8_t *key2, uint32_t len2);

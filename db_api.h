@@ -48,13 +48,6 @@ typedef struct {
 
 //	Global Index data structure after DbArena object
 
-typedef struct {
-  uint64_t numKeys[1];  // number of keys in index
-  DbAddr keySpec;
-  char binaryFlds;  // keys made with field values
-  bool uniqueKeys;  // keys made with field values
-} DbIndex;
-
 typedef enum { IterNone, IterLeftEof, IterRightEof, IterPosAt } IterState;
 
 //	Iterator operations

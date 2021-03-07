@@ -26,7 +26,7 @@ void mynrand48seed(uint16_t* nrandState, PRNG prng, int init);
 
 int createB64(uint8_t* key, int size, unsigned short next[3]);
 
-#define MAX_key		(256 * 32768)	// maximum key size in bytes
+//#define MAX_key		(65535)	// maximum key size in bytes
 
 //  assemble binary values after key bytes
 
