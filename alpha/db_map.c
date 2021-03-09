@@ -1,5 +1,3 @@
-#define _POSIX_C_SOURCE 199309
-
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>

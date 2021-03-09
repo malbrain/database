@@ -200,7 +200,7 @@ stat=DB_OK;
 
 uint64_t dbGetDocId(DbCursor *cursor) {
 	if (cursor->state == CursorPosAt)
-		return get64(cursor->key, cursor->keyLen);
+		return (cursor->key, cursor->keyLen);
 
 	return 0;
 }

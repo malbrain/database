@@ -342,7 +342,7 @@ int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
                                     args->line);
 
         if (args->docHndl->hndlId.bits && args->idxHndl->hndlId.bits) {
-          docId.bits = get64(foundKey, foundLen);
+          docId.bits = parse64(foundKey, foundLen);
           foundLen -= size64(foundKey, foundLen);
         }
 

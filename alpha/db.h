@@ -3,7 +3,6 @@
 #include "base64.h"
 
 #ifndef _WIN32
-#include <unistd.h>
 #include <pthread.h>
 #else
 #define WIN32_LEAN_AND_MEAN

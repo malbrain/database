@@ -106,24 +106,135 @@ bool neg;
   return avail;
 }
 
+//	return 64 bit suffix value from key
+
+uint64_t get64(uint8_t *key, uint32_t len) {
+int idx = 0, xtraBytes, off;
+uint64_t result;
+
+	xtraBytes = key[len - 1] & 7;
+	off = len - xtraBytes - 2;
+
+    //  get sign of the result
+	// 	positive has bit set
+
+	if (key[off] & 0x80)
+		result = 0;
+	else
+		result = -1;
+
+	// get high order 4 bits
+	//	from first byte
+
+	result <<= 4;
+	result |= key[off] & 0x0f;
+
+	//	assemble complete bytes
+	//	up to 56 bits
+
+	while (idx++ < xtraBytes) {
+	  result <<= 8;
+	  result |= key[off + idx];
+	}
+
+	//	add in low order 4 bits
+
+	result <<= 4;
+	result |= key[len - 1] >> 4;
+	return result;
+}
+
+//	calculate offset from right end of zone
+//	and return suffix value
+
+uint64_t zone64(uint8_t* key, uint32_t len, uint32_t zone) {
+uint32_t amt = key[len - 1];
+
+	return get64(key + len - zone, zone - amt);
+}
+
+// concatenate key with sortable 64 bit value
+// returns number of bytes concatenated
+
+uint32_t store64(uint8_t *key, uint32_t keyLen, int64_t value) {
+int64_t tst64 = value >> 8;
+uint32_t xtraBytes = 0;
+uint32_t idx;
+bool neg;
+
+	neg = value < 0;
+
+	while (tst64)
+	  if (neg && tst64 == -1)
+		break;
+	  else
+		xtraBytes++, tst64 >>= 8;
+
+	//	store low order 4 bits of given
+	//	value in final extended key byte
+ 
+    key[keyLen + xtraBytes + 1] = (uint8_t)((value & 0xf) << 4 | xtraBytes | 8);
+
+    value >>= 4;
+
+	//	store complete value bytes
+
+    for (idx = xtraBytes; idx; idx--) {
+        key[keyLen + idx] = (value & 0xff);
+        value >>= 8;
+    }
+
+	//	store high order 4 bits and
+	//	the 3 bits of xtraBytes and
+	//	the sign bit in the first byte
+
+    key[keyLen] = (uint8_t)((value & 0xf) | (xtraBytes << 4) | 0x80);
+
+	//	if neg, complement the sign bit & xtraBytes bits to
+	//	make negative numbers lexically smaller than positive ones
+
+	if (neg)
+		key[keyLen] ^= 0xf0;
+
+    return xtraBytes + 2;
+}
+
+//	calc space needed to store 64 bit value
+
+uint32_t calc64 (int64_t value) {
+int64_t tst64 = value >> 8;
+uint32_t xtraBytes = 0;
+bool neg;
+
+	neg = value < 0;
+
+	while (tst64)
+	  if (neg && tst64 == -1)
+		break;
+	  else
+		xtraBytes++, tst64 >>= 8;
+
+    return xtraBytes + 2;
+}
+
 //  size of suffix at end of a key
 
-uint32_t size64(uint8_t *keyDest) {
-	return (*--keyDest & 0x7) + 2;
+uint32_t size64(uint8_t *key, uint32_t len) {
+	return (key[len - 1] & 0x7) + 2;
 }
 
 //	generate random base64 string
 
+long mynrand48(unsigned short xseed[3]);
+
 const char* base64 = "0123456789@ABCDEFGHIJKLMNOPQRSTUVWXYZ`abcdefghijklmnopqrstuvwxyz";
 
-long mynrand48(unsigned short xseed[3]);
- 
-int createB64(uint8_t *key, int size, unsigned short next[3])
-{
+int createB64(uint8_t *key, int size, unsigned short next[3]) {
 uint64_t byte8 = 0;
 int base;
 
 	for( base = 0; base < size; base++ ) {
+
 		if( base % 8 == 0 ) {
 			byte8 = (uint64_t)mynrand48(next) << 32;
 			byte8 |= mynrand48(next);
@@ -168,7 +279,7 @@ void mynrand48seed(uint16_t* nrandState, PRNG prng, int init) {
 	* tod ^= GetTickCount64();
 #else
 	{ struct timespec ts[1];
-	clock_gettime(CLOCK_REALTIME, ts);
+	clock_gettime(_XOPEN_REALTIME, ts);
 	*tod ^= ts->tv_sec << 32 | ts->tv_nsec;
 	}
 #endif
@@ -194,8 +305,7 @@ void mynrand48seed(uint16_t* nrandState, PRNG prng, int init) {
 	}
 }
 
-long mynrand48(unsigned short xseed[3]) 
-{
+long mynrand48(unsigned short xseed[3]) {
 unsigned short temp[2];
 unsigned long accu;
 
@@ -334,7 +444,6 @@ int i, idx;
 }
 
 uint32_t hxgram() {
-uint32_t nrand32 = mynrand48(xseed);
 //uint32_t nrand32 = lcg_parkmiller(lcgState);
 
 	nrand32 |= 0x10000;

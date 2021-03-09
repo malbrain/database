@@ -1,9 +1,9 @@
 #pragma once
-#define _POSIX_C_SOURCE 200809L
 
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <unistd.h>
 #include <time.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -39,3 +39,18 @@ uint32_t append64(uint8_t *keyDest, int64_t *keyValues, uint8_t max, uint32_t av
 //	return number of values
 
 uint8_t parse64(uint8_t *sourceKey, int64_t *keyValues, uint8_t max);
+
+//	return 64 bit suffix value from key
+
+uint64_t get64(uint8_t *key, uint32_t len);
+
+//	calculate offset from right end of zone
+//	and return suffix value
+
+uint64_t zone64(uint8_t* key, uint32_t len, uint32_t zone);
+
+// concatenate key with sortable 64 bit value
+// returns number of bytes concatenated
+
+uint32_t store64(uint8_t *key, uint32_t keyLen, int64_t value);
+
