@@ -1,7 +1,7 @@
 #ifndef _TIMESTAMPS_H_
 #define _TIMESTAMPS_H_
 
-#define _DEFAULT_SOURCE 1
+// #define _POSIX_C_SOURCE 199309L
 
 #include <inttypes.h>
 #include <stdint.h>
@@ -25,18 +25,15 @@
 #include <time.h>
 #endif
 
-#ifdef _WIN32
-#define pausex() YieldProcessor()
-#else
-#ifndef apple
-#include <unistd.h>
-#define pausex() sched_yield()
-#endif
-#endif
-
+#ifndef _WIN32
 #ifdef apple
 #include <libkern/OSAtomic.h>
 #define pausex() OSMemoryBarrier()
+#else
+#define pausex() sched_yield()
+#endif
+#else
+#define pausex() YieldProcessor()
 #endif
 
 #if !defined(ALIGN) && !defined(ATOMIC) && !defined(CLOCK) && !defined(RDTSC)
