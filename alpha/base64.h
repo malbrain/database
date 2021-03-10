@@ -7,7 +7,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
-#include <unistd.h>
 #include <time.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -18,6 +17,10 @@
 #include <assert.h>
 #include <errno.h>
 #include <sys/types.h>
+
+#ifndef _WIN32
+#include <unistd.h>
+#endif
 
 #define MIN(a,b) (((a)<(b))?(a):(b))
 

@@ -3,7 +3,6 @@
 
 #define _DEFAULT_SOURCE 1
 
-#include <unistd.h>
 #include <inttypes.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -26,15 +25,18 @@
 #include <time.h>
 #endif
 
-#ifndef _WIN32
+#ifdef _WIN32
+#define pausex() YieldProcessor()
+#else
+#ifndef apple
+#include <unistd.h>
+#define pausex() sched_yield()
+#endif
+#endif
+
 #ifdef apple
 #include <libkern/OSAtomic.h>
 #define pausex() OSMemoryBarrier()
-#else
-#define pausex() sched_yield()
-#endif
-#else
-#define pausex() YieldProcessor()
 #endif
 
 #if !defined(ALIGN) && !defined(ATOMIC) && !defined(CLOCK) && !defined(RDTSC)

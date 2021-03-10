@@ -4,12 +4,13 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #else
-#ifndef apple
-#include <malloc.h>
-#endif
 #include <unistd.h>
 #include <stdlib.h>
 #include <errno.h>
+#endif
+
+#ifndef apple
+#include <malloc.h>
 #endif
 
 #include <inttypes.h>
