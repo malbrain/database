@@ -1,5 +1,4 @@
 #define __STDC_WANT_LIB_EXT1__ 1
-#define _DEFAULT_SOURCE 1
 
 #include "base64.h"
 #include "db.h"
@@ -25,7 +24,7 @@ extern DbMap *txnMap;
 #define sprintf_s snprintf
 #endif
 
-bool stats = true;
+extern bool stats;
 
 extern uint64_t totalMemoryReq[1];
 extern uint64_t nodeAlloc[64];
@@ -200,7 +199,7 @@ int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
                             "thrd:%d cmd:%c %s: first key: <%.10s>", args->idx,
                             cmd, idxName, body);
         if (args->offset)
-          msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1, "lineno offset: %I64u", args->offset);
+          msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1, "lineno offset: %" PRIu64,   args->offset);
         msg[msgLen++] = '\n';
       }
 
@@ -342,7 +341,7 @@ int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
                                     args->line);
 
         if (args->docHndl->hndlId.bits && args->idxHndl->hndlId.bits) {
-          docId.bits = parse64(foundKey, foundLen);
+          docId.bits = get64(foundKey, foundLen);
           foundLen -= size64(foundKey, foundLen);
         }
 

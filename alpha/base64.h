@@ -1,5 +1,9 @@
 #pragma once
 
+#ifndef _DEFAULT_SOURCE
+#define _DEFAULT_SOURCE
+#endif
+
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -13,6 +17,7 @@
 #include <string.h>
 #include <assert.h>
 #include <errno.h>
+#include <sys/types.h>
 
 #define MIN(a,b) (((a)<(b))?(a):(b))
 
@@ -53,4 +58,6 @@ uint64_t zone64(uint8_t* key, uint32_t len, uint32_t zone);
 // returns number of bytes concatenated
 
 uint32_t store64(uint8_t *key, uint32_t keyLen, int64_t value);
+
+uint32_t size64(uint8_t *key, uint32_t keyLen);
 

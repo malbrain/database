@@ -27,7 +27,7 @@ void timestampLock(uint8_t *latch) {
 #endif
     do
 #ifndef _WIN32
-      pause();
+      pausey(20);
 #else
       YieldProcessor();
 #endif
@@ -138,7 +138,7 @@ uint64_t sum = 0, first = 0, nxt = 0;
 int64_t start, end;
 int idx;
 
-  clock_gettime(_XOPEN_REALTIME, spec);
+  clock_gettime(CLOCK_REALTIME, spec);
   rdtscEpoch->tod[0] = spec->tv_sec;
   rdtscEpoch->base = __rdtsc() - (1000000000ULL - spec->tv_nsec);
 
@@ -149,14 +149,14 @@ int idx;
     nxt = __rdtsc();
   while (first == nxt);
 
-  clock_gettime(_XOPEN_REALTIME, spec);
+  clock_gettime(CLOCK_REALTIME, spec);
   start = spec->tv_nsec + spec->tv_sec * 1000000000;
 
   for (sum = idx = 0; idx < 1000000; idx++) {
     sum += __rdtsc();
   }
 
-  clock_gettime(_XOPEN_REALTIME, spec);
+  clock_gettime(CLOCK_REALTIME, spec);
   end = spec->tv_nsec + spec->tv_sec * 1000000000;
 
   if(debug)
@@ -252,7 +252,7 @@ void timestampNext(Timestamp *tsBase, uint16_t idx) {
       oldEpoch->base = ts - range;
       oldEpoch->tod[0] = tod[0];
 
-      clock_gettime(_XOPEN_REALTIME, spec);
+      clock_gettime(CLOCK_REALTIME, spec);
 
       // same epoch?
 
@@ -300,7 +300,7 @@ void timestampNext(Timestamp *tsBase, uint16_t idx) {
 
       //  Release new Epoch via atomicCAS128
 
-      atomicCAS128(rdtscEpoch, oldEpoch, newEpoch);
+      atomicCASEpoch(rdtscEpoch, oldEpoch, newEpoch);
     } while (true);
 #endif
     // emit assigned Timestamp.

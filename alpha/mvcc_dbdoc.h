@@ -1,5 +1,4 @@
 #pragma once
-#define _GNU_SOURCE 1
 
 typedef uint32_t (*FillFcn)(uint8_t* rec, uint32_t size, void *fillOpt);
 typedef int (*Intfcnp)();

@@ -1,6 +1,9 @@
 #ifndef _TIMESTAMPS_H_
 #define _TIMESTAMPS_H_
 
+#define _DEFAULT_SOURCE 1
+
+#include <unistd.h>
 #include <inttypes.h>
 #include <stdint.h>
 #include <stdbool.h>

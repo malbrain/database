@@ -1,5 +1,4 @@
 #pragma once
-#define _GNU_SOURCE 1
 #include "base64.h"
 
 #ifndef _WIN32
