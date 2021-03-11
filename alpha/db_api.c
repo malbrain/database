@@ -723,7 +723,7 @@ DbStatus insertKey(DbHandle hndl[1], KeyValue *keyValue) {
       break;
 
     case Hndl_btree2Index:
-     // stat = btree2InsertKey(idxHndl, keyValue->bytes, keyValue->keyLen, keyValue->payLoad.bits, keyValue->suffix, 0, Btree2_slotactive);
+      stat = btree2InsertKey(idxHndl, keyValue->bytes, keyValue->keyLen, keyValue->payLoad.bits, keyValue->suffix, 0, Btree2_slotactive);
       break;
   }
 

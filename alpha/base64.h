@@ -1,8 +1,10 @@
 #pragma once
 
 #ifndef _DEFAULT_SOURCE
-#define _DEFAULT_SOURCE
+#define _DEFAULT_SOURCE  1
 #endif
+
+#define _POSIX_C_SOURCE 199309L
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -35,7 +37,7 @@ typedef enum {
 	prngThread		// each thread has own stream, repeats across processes
 } PRNG;
 
-void mynrand48seed(uint16_t* nrandState, PRNG prng, int init);
+void mynrand48seed(uint16_t* nrandState, PRNG prng, uint16_t init);
 
 int createB64(uint8_t* key, int size, unsigned short next[3]);
 

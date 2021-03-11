@@ -35,8 +35,8 @@ typedef struct {
 	uint64_t creation;			// milliseconds since 1/1/70
 	uint32_t clntSize;			// extra client space allocated in hndlMap
     uint32_t arenaXtra;			// shared space after DbArena (DocStore, DbIndex)
-	uint16_t objSize;			// size of ObjectId array slot
-    uint16_t xtraSize;          // extra handle space after Handle
+	uint32_t objSize;			// size of ObjectId array slot
+    uint32_t xtraSize;          // extra handle space after Handle
     uint8_t arenaType;          // type of the arena
 	uint8_t numTypes;			// number of node types
 	uint8_t dead[1];			// arena file killed/deleted

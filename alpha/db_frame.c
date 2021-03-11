@@ -327,7 +327,7 @@ Frame *frame;
 //	initialize frame of available ObjId
 
 bool initObjIdFrame(DbMap *map, DbAddr *free) {
-uint64_t dup = FrameSlots;
+uint32_t dup = FrameSlots;
 uint64_t max, bits;
 Frame *frame;
 

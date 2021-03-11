@@ -93,9 +93,9 @@ typedef struct {
   bool noIdx;
 } ScanArgs;
 
-char *indexNames[] = {"ARTree", "Btree1", "Btree2"};
+char *indexNames[4] = {"ARTree", "Btree1", "Btree2"};
 
-HandleType indexType[] = {Hndl_artIndex, Hndl_btree1Index, Hndl_btree2Index};
+HandleType indexType[4] = {Hndl_artIndex, Hndl_btree1Index, Hndl_btree2Index};
 
 //	our documents in the docStore
 
@@ -122,7 +122,7 @@ int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
   uint8_t *body = rec + sizeof(OurDoc);
   uint8_t *keyBuff = malloc   (65532);
   KeyValue *kv = (KeyValue *)keyBuff;
-  int keyLen = 0, docLen = 0, avail;
+  int keyLen = 0, docLen = 0;
   int ch, keyOff, docMax, keyMax;
   uint32_t foundLen = 0;
   int lastFld = 0;
@@ -138,7 +138,7 @@ int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
 
   if (pennysort) docMax = 100;
 
-  mynrand48seed(nrandState, prng, args->idx + args->offset);
+ 
   msg[msgLen++] = '\n';
 
   switch (cmd | 0x20) {
@@ -534,15 +534,14 @@ uint64_t index_scan(ScanArgs *scan, DbHandle *database) {
 
   elapsed = getCpuTime(0) - startx1;
   fprintf(stderr, " real %dm%.3fs\n", (int)(elapsed / 60),
-          elapsed - (int)(elapsed / 60) * 60);
+          elapsed - (elapsed / 60) * 60);
 
   elapsed = getCpuTime(1) - startx2;
-  fprintf(stderr, " user %dm%.3fs\n", (int)(elapsed / 60),
-          elapsed - (int)(elapsed / 60) * 60);
+  fprintf(stderr, " user %dm%.3fs\n", (int)(elapsed / 60),(elapsed / 60) * 60);
 
   elapsed = getCpuTime(2) - startx3;
   fprintf(stderr, " sys  %dm%.3fs\n", (int)(elapsed / 60),
-          elapsed - (int)(elapsed / 60) * 60);
+          elapsed - (elapsed / 60) * 60);
 
   return cnt;
 }
@@ -571,17 +570,17 @@ unsigned __stdcall pipego(void *arg) {
     elapsed = getCpuTime(0) - startx1;
 
     len += sprintf_s(msg + len, sizeof(msg) - len - 1, " real %dm%.3fs\n",
-                     (int)(elapsed / 60), elapsed - (int)(elapsed / 60) * 60);
+                     (int)(elapsed / 60), elapsed - (elapsed / 60) * 60);
 
     elapsed = getCpuTime(1) - startx2;
 
     len += sprintf_s(msg + len, sizeof(msg) - len - 1, " user %dm%.3fs\n",
-                     (int)(elapsed / 60), elapsed - (int)(elapsed / 60) * 60);
+                     (int)(elapsed / 60), elapsed - (elapsed / 60) * 60);
 
     elapsed = getCpuTime(2) - startx3;
 
     len += sprintf_s(msg + len, sizeof(msg) - len - 1, " sys  %dm%.3fs\n",
-                     (int)(elapsed / 60), elapsed - (int)(elapsed / 60) * 60);
+                     (int)(elapsed / 60), elapsed - (elapsed / 60) * 60);
   }
 
   fwrite(msg, 1ULL, len, stderr);
@@ -921,3 +920,4 @@ int main(int argc, char **argv) {
 #endif
   }
 }
+

@@ -188,8 +188,10 @@ bool neg;
 	//	the 3 bits of xtraBytes and
 	//	the sign bit in the first byte
 
-    key[keyLen] = (uint8_t)((value & 0xf) | (xtraBytes << 4) | 0x80);
-
+	key[keyLen]  = value & 0xf;
+	key[keyLen] |= xtraBytes << 4;
+	key[keyLen] |= 0x80;
+	
 	//	if neg, complement the sign bit & xtraBytes bits to
 	//	make negative numbers lexically smaller than positive ones
 
@@ -271,7 +273,7 @@ unsigned short _rand48_mult[3] = {
     RAND48_MULT_2
 };
 
-void mynrand48seed(uint16_t* nrandState, PRNG prng, int init) {
+void mynrand48seed(uint16_t* nrandState, PRNG prng, uint16_t init) {
 	time_t tod[1];
 
 	time(tod);

@@ -29,3 +29,12 @@ RedBlack *rbNext(DbMap *map, PathStk *path);
 void rbAdd(DbMap *map, DbAddr *root, RedBlack *entry, PathStk *path);
 bool rbDel (DbMap *map, DbAddr *root, RedBlack *entry);
 void rbKill (DbMap *map, DbAddr root);
+void rbLeftRotate (DbMap *map, DbAddr *root, DbAddr slot, RedBlack *parent, int cmp);
+void rbLeftRotate (DbMap *map, DbAddr *root, DbAddr slot, RedBlack *parent, int cmp);
+void rbAdd (DbMap *map, DbAddr *root, RedBlack *entry, PathStk *path);
+bool rbDel (DbMap *map, DbAddr *root, RedBlack *entry);RedBlack *rbNew (DbMap *map, char *key, uint32_t keyLen, uint32_t payLoad);
+RedBlack *rbStart(DbMap *map, PathStk *path, DbAddr *root);
+RedBlack *rbNext(DbMap *map, PathStk *path);
+void rbKill (DbMap *map, DbAddr slot);
+
+
