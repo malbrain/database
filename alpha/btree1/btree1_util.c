@@ -29,7 +29,7 @@ uint8_t *btree1Addr(Btree1Page *page, uint32_t off)
 #endif
 
 uint32_t librarianDensity = 3;
-bool stats = true;
+extern bool stats;
 uint32_t Splits;
 
 // function to copy keys from one page to another

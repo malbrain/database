@@ -1,6 +1,5 @@
 #pragma once
 #include "base64.h"
-
 #ifndef _WIN32
 #include <pthread.h>
 #else

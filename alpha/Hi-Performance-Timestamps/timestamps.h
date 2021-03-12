@@ -1,13 +1,29 @@
 #ifndef _TIMESTAMPS_H_
 #define _TIMESTAMPS_H_
 
-// #define _POSIX_C_SOURCE 199309L
+#ifndef _DEFAULT_SOURCE
+#define _DEFAULT_SOURCE  1
+#endif
 
-#include <inttypes.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h>
+#include <time.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <inttypes.h>
 #include <memory.h>
+#include <limits.h>
+#include <string.h>
+#include <assert.h>
+#include <errno.h>
+#include <sys/types.h>
+
+#ifndef _WIN32
+#include <unistd.h>
+#endif
+
+#define MIN(a,b) (((a)<(b))?(a):(b))
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -15,7 +31,6 @@
 #include <winbase.h>
 #include <process.h>
 #include <intrin.h>
-#include <time.h>
 
 #define	 aligned_malloc _aligned_malloc
 #else

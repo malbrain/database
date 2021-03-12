@@ -4,8 +4,6 @@
 #define _DEFAULT_SOURCE  1
 #endif
 
-#define _POSIX_C_SOURCE 199309L
-
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
