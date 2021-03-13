@@ -105,16 +105,10 @@
     <ClCompile Include="..\db_iterator.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\btree2\btree2 - Copy.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\btree2\btree2.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\btree2\btree2_cursor.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\btree2\btree2_delete - Copy.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\btree2\btree2_delete.c">
@@ -197,16 +191,13 @@
     <ClInclude Include="..\mvcc_dbtxn.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\btree2\btree2 - Copy.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\btree2\btree2.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\btree2\btree2_slot.h">
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="..\db_frame.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\btree2\btree2.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
