@@ -4,26 +4,6 @@
 #include "base64.h"
 #include "db.h"
 
-DbMap *hndlMap;
-
-// document header in docStore
-// next hdrs in set follow, up to docMin
-
-typedef enum {
-    VerRaw,
-    VerMvcc
-} DocType;
-
-struct Document {
-  union {
-    uint8_t base[4];
-    uint32_t refCnt[1];
-  };
-  uint32_t mapId;     // db child id
-  DocType docType;
-  DbAddr ourAddr;
-  ObjId docId;
-};
 
 // database docStore Arena extension
 
@@ -52,7 +32,7 @@ typedef struct {
   uint32_t refCnt[1];
   uint16_t keyLen; 	    // len of base key
   uint16_t vecIdx;		// index in document key vector
-  uint16_t suffix;      // number of suffix bytes
+  uint16_t suffix;      // number of suffix ending bytes
   uint64_t keyHash;     // used by MVCC if key changed
   ObjId payLoad;        // docId key comes from
   uint8_t unique : 1;   // index is unique
@@ -78,7 +58,7 @@ DbStatus closeHandle(DbHandle dbHndl[1]);
 DbStatus createCursor(DbHandle hndl[1], DbHandle idxHndl[1], Params *params);
 DbStatus closeCursor(DbHandle dbHndl[1]);
 DbStatus positionCursor(DbHandle hndl[1], CursorOp op, void *key,
-                        uint32_t keyLen);
+                       uint32_t keyLen);
 DbStatus keyAtCursor(DbHandle hndl[1], uint8_t **key, uint32_t *keyLen);
 DbStatus moveCursor(DbHandle hndl[1], CursorOp op);
 

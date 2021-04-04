@@ -137,8 +137,8 @@ int index_file(ThreadArgs *args, char cmd, char *msg, int msgMax) {
   uint64_t count = ~0ULL;
   Params params[MaxParam];
   ObjId docId;
-  Txn *txn;
-  FILE *in;
+  Txn *txn = NULL;
+  FILE *in = NULL;
   DbStatus stat;
   uint8_t *key = kv->bytes;
   docMax = 4096 - sizeof(Doc);

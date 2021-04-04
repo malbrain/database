@@ -1,4 +1,6 @@
+#include "base64.h"
 #include "db.h"
+
 #include "db_object.h"
 #include "db_handle.h"
 #include "db_arena.h"

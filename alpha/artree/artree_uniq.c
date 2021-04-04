@@ -135,7 +135,7 @@ ArtIndex *artIdx;
 	return DB_OK;
 }
 
-DbStatus artEvalUniq( DbMap *map, void *key, uint32_t uniqueLen, uint32_t suffixLen, UniqCbFcn *evalFcn) {
+DbStatus artEvalUniq( DbMap *map, void *key, uint32_t uniqueLen, uint32_t suffix, UniqCbFcn *evalFcn) {
 uint8_t area[sizeof(ArtCursor) + sizeof(DbCursor)];
 ARTKeyUniq *keyUniqNode;
 volatile DbAddr *uniq;

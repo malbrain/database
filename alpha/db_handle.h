@@ -33,7 +33,7 @@ typedef union {
 
 typedef enum { listHead, listWait, listFree } FrameList;
 
-//  listHead:		frame of newest nodes waiting to be recycled
+//  listHead:		frame of commit nodes waiting to be recycled
 //	listWait:		frame of oldest nodes waiting to be recycled
 //	listFree;		frames of available free objects
 

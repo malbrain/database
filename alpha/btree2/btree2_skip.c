@@ -32,7 +32,7 @@ Btree2Index *btree2 = btree2index(map);
 volatile uint16_t *tower;
 uint16_t towerOff;
 ObjId *pageNoPtr;
-Btree2Slot *slot;
+Btree2Slot *slot = NULL;
 int idx, result = 0;
 bool targetLvl;
 

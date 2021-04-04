@@ -16,10 +16,10 @@
 #include <string.h>
 #include <assert.h>
 #include <errno.h>
-#include <sys/types.h>
 
 #ifndef _WIN32
 #include <unistd.h>
+#include <sys/time.h>
 #endif
 
 #define MIN(a,b) (((a)<(b))?(a):(b))
@@ -63,4 +63,4 @@ uint64_t zone64(uint8_t* key, uint32_t len, uint32_t zone);
 uint32_t store64(uint8_t *key, uint32_t keyLen, int64_t value);
 
 uint32_t size64(uint8_t *key, uint32_t keyLen);
-
+uint32_t calc64 (int64_t value);
