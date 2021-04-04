@@ -89,7 +89,8 @@ MVCCResult mvcc_addDocWrToTxn(Txn* txn, Handle *docHndl, Doc* doc) {
 MVCCResult result = (MVCCResult) {
       .value = 0, .count = 0, .objType = objTxn, .status = DB_OK};
   uint64_t values[16];
-  ObjId objId, docId;
+  DocId docId;
+  ObjId objId;
   Ver *prevVer;
   int cnt = 0;
 
@@ -155,8 +156,8 @@ MVCCResult result = {
   Doc *doc = (Doc *)(ver->verBase - ver->stop->offset);
   uint64_t values[16];
   int cnt = 0;
-  ObjId objId, docId;
-
+  ObjId objId;
+  DocId docId;
   while (true) {
     if (txn->isolation != TxnSerializable) break;
 
@@ -192,7 +193,7 @@ MVCCResult result = {
     //  our lifetime
 
     if (ver->sstamp->lowHi[1] == ~0ULL) {
-      docId.bits = doc->docId.bits;
+      docId.bits = docId.bits;
       docId.step = TxnRdr;
       values[cnt++] = docId.bits;
       values[cnt++] = doc->verNo;
@@ -214,7 +215,7 @@ MVCCResult result = {
 // 	begin a new Txn
 
 MVCCResult mvcc_BeginTxn(Params* params, ObjId nestedTxn) {
-struct   MVCCResult result = {.value = 0, .count = 0, .objType = objTxn, .status = DB_OK};
+MVCCResult result = {.value = 0, .count = 0, .objType = objTxn, .status = DB_OK};
   uint16_t tsClnt;
   ObjId txnId;
   Txn* txn;
@@ -350,12 +351,12 @@ MVCCResult mvcc_findDocVer(Txn *txn, Doc *doc, Handle *docHndl) {
 
 //  find predecessor version
 
-Ver *mvcc_firstCommittedVersion(DbMap *map, Doc *doc, ObjId docId) {
+Ver *mvcc_firstCommittedVersion(DbMap *map, Doc *doc, DocId docId) {
   uint32_t offset = doc->commitVer;
   uint32_t size;
   Ver *ver;
 
-  ver = (Ver *)(doc->doc->base + offset);
+  ver = (Ver *)(doc->dbDoc->base + offset);
 
   if (!(size = ver->stop->verSize)) {
     if (doc->prevAddr.bits)
@@ -366,26 +367,15 @@ Ver *mvcc_firstCommittedVersion(DbMap *map, Doc *doc, ObjId docId) {
     offset = doc->commitVer;
   }
 
-  return (Ver *)(doc->doc->base + offset + ver->stop->verSize);
+  return (Ver *)(doc->dbDoc->base + offset + ver->stop->verSize);
 }
 
 //	verify and commit txn under
 //	Serializable isolation
 
 bool SSNCommit(Txn *txn) {
-  DbAddr next, *slot, addr, finalAddr;
-  Timestamp pstamp[1];
-  Ver *ver, *prevVer;
-  bool result = true;
-  DbMap *docMap;
-  Handle *docHndl;
-  uint64_t verNo;
-  ObjId docId;
-  ObjId objId;
-  Frame *frame;
-  Doc *doc;
-  int idx;
-
+bool result = true;
+/*
 //    scan1 wrt start
 
   timestampCAX(txn->sstamp, txn->commit, 1, 0, 0);
@@ -397,7 +387,7 @@ bool SSNCommit(Txn *txn) {
   //  for v in t.writes: # finalize \eta(T)
   //  t.pstamp = max(t.pstamp, v.pstamp)
 
-  if( result = SSNScan1(txn) )
+  if(( result = mvcc_scan1(txn)))
     return result;
 
   // # finalize \pi(T)
@@ -419,7 +409,7 @@ bool SSNCommit(Txn *txn) {
   //  process the reader pstamp from our commit time
   //	return reader set Frames.
 
-  if( result = SSNScan2(txn) )
+  if( result = mvcc_scan2(txn) )
     return result;
 
   // if we also write this read-set mmbr, skip it
@@ -454,7 +444,6 @@ bool SSNCommit(Txn *txn) {
 
           case TxnRdr:
             docId.bits = objId.bits;
-            frameSet = true;
             continue;
         }
       }
@@ -473,7 +462,7 @@ bool SSNCommit(Txn *txn) {
       releaseHandle(docHndl);
 
   returnFreeFrame(txnMap, addr);
-  return result;
+ */ return result;
 }
 
 //	commit txn under snapshot isolation
@@ -528,7 +517,7 @@ bool snapshotCommit(Txn *txn) {
           lockLatch(slot->latch);
 
           doc = getObj(docMap, *slot);
-          ver = (Ver *)(doc->doc->base + doc->pendingVer);
+          ver = (Ver *)(doc->dbDoc->base + doc->pendingVer);
 
           timestampInstall(ver->commit, txn->commit, 'd', 0);
           doc->txnId.bits = 0;

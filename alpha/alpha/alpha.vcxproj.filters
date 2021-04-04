@@ -138,6 +138,15 @@
     <ClCompile Include="..\mvcc_dbssn2.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\db_drop.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\db_object.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\db_params.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\db.h">

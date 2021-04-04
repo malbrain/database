@@ -1,17 +1,6 @@
 #define __STDC_WANT_LIB_EXT1__ 1
 #define _DEFAULT_SOURCE 1
-
-#include <errno.h>
-#include <inttypes.h>
-#include <stdint.h>
-#include <stdbool.h>
-#include <stdio.h>
-#include <string.h>
-
-#include "db.h"
-#include "db_handle.h"
-#include "db_api.h"
-#include "mvcc_dbapi.h"
+#include "mvcc.h"
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN

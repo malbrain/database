@@ -71,6 +71,12 @@ typedef struct Transaction {
 	};
 } Txn;
 
+DbStatus mvcc_scan1(Txn* txn);
+DbStatus mvcc_scan2(Txn* txn);
+DbStatus mvcc_scan3(Txn* txn);
+DbStatus mvcc_scan4(Txn* txn);
+DbStatus mvcc_scan5(Txn* txn);
+
 Txn* mvcc_fetchTxn(ObjId txnId);
 void mvcc_releaseTxn(Txn* txn);
 

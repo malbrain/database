@@ -147,8 +147,11 @@
     <ClCompile Include="..\btree2\btree2_insert.c" />
     <ClCompile Include="..\btree2\btree2_skip.c" />
     <ClCompile Include="..\db_cursor.c" />
+    <ClCompile Include="..\db_drop.c" />
     <ClCompile Include="..\db_frame.c" />
     <ClCompile Include="..\db_iterator.c" />
+    <ClCompile Include="..\db_object.c" />
+    <ClCompile Include="..\db_params.c" />
     <ClCompile Include="..\Hi-Performance-Timestamps\timestamps.c" />
     <ClCompile Include="..\mvcc_dbapi.c" />
     <ClCompile Include="..\mvcc_dbdoc.c" />

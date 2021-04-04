@@ -3,7 +3,7 @@
 #include <mach/clock.h>
 #include <mach/mach.h>
 #endif
-
+#include "base64.h"
 #include "db.h"
 #include "db_object.h"
 #include "db_redblack.h"
