@@ -29,6 +29,7 @@ struct Version {
   Timestamp pstamp[1];	// highest access timestamp
   Timestamp sstamp[1];	// successor's commit timestamp, or infinity
   ObjId txnId;
+  DocId docId;
   uint8_t deferred;     // some keys have deferred constraints
   DbVector keys[1];     // vector of keys for this version
 };

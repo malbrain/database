@@ -1,12 +1,10 @@
-// #define _POSIX_C_SOURCE 200012L
-
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <intrin.h>
+
 #else
-#define _GNU_SOURCE 1
-#define _DEFAULT_SOURCE 1
+#define _XOPEN_SOURCE 500
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/mman.h>
@@ -14,6 +12,7 @@
 #include <errno.h>
 #include <sched.h>
 #include <time.h>
+#endif
 
 #ifdef apple
 #include <libkern/OSAtomic.h>
@@ -21,15 +20,14 @@
 #else
 #define pause() __asm __volatile("pause\n": : : "memory")
 #endif
-#endif
 
-#include <inttypes.h>
+#include "base64.h"
+#include "db.h"
 
 #ifndef PRIx64
 #define PRIx64 I64x
 #endif
 
-#include "db.h"
 #include "db_object.h"
 #include "db_arena.h"
 #include "db_map.h"
@@ -348,7 +346,12 @@ void *mem;
 int flags = MAP_SHARED;
 
 	if( map->hndl < 0 ) {
+#ifdef MAP_ANON
 		flags |= MAP_ANON;
+#endif
+#ifdef MAP_ANONYMOUS
+		flags |= MAP_ANONYMOUS;
+#endif
 		offset = 0;
 	}
 

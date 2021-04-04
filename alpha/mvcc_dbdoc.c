@@ -77,7 +77,7 @@ MVCCResult chainNewDoc(Handle* docHndl, DbAddr* docSlot, uint32_t verSize) {
 
 //  process new document's version keys
 
-MVCCResult mvcc_ProcessKeys(DbHandle hndl[1], DbHandle hndlIdx[1], Ver* prevVer, Ver* ver, ObjId docId, KeyValue* srcKey) {
+MVCCResult mvcc_ProcessKeys(DbHandle hndl[1], DbHandle hndlIdx[1], Ver* prevVer, Ver* ver, DocId docId, KeyValue* srcKey) {
 
   Handle *docHndl = bindHandle(hndl, Hndl_docStore);
   Handle *idxHndl = bindHandle(hndlIdx, Hndl_anyIdx);
@@ -128,7 +128,7 @@ MVCCResult mvcc_ProcessKeys(DbHandle hndl[1], DbHandle hndlIdx[1], Ver* prevVer,
     return result;
 }
 
-MVCCResult mvcc_installNewVersion(Handle *docHndl, uint32_t valSize, ObjId *docSlot, uint16_t keyCnt) { 
+MVCCResult mvcc_installNewVersion(Handle *docHndl, uint32_t valSize, DocId *docSlot, uint16_t keyCnt) { 
   MVCCResult result = {
     .value = 0, .count = 0, .objType = objDoc, .status = DB_OK};
   DbMap* docMap = MapAddr(docHndl);
@@ -186,7 +186,7 @@ MVCCResult mvcc_installNewVersion(Handle *docHndl, uint32_t valSize, ObjId *docS
 
 
 
-MVCCResult mvcc_WriteDoc(Txn *txn, DbHandle dbHndl[1], ObjId *docId, uint32_t valSize,  uint8_t *valBytes, uint16_t keyCnt) {
+MVCCResult mvcc_WriteDoc(Txn *txn, DbHandle dbHndl[1], DocId *docId, uint32_t valSize,  uint8_t *valBytes, uint16_t keyCnt) {
   MVCCResult result = {
       .value = 0, .count = 0, .objType = 0, .status = DB_OK };
   Handle *docHndl = bindHandle(dbHndl, Hndl_docStore);

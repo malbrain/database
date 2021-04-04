@@ -40,9 +40,7 @@ typedef union {
 			};
 		};
 	};
-} DbAddr, ObjId;
-
-// typedef DbAddr ObjId;
+} DbAddr, ObjId, DocId;
 
 #define TYPE_SHIFT (6*8 + 2)	// number of bits to shift type left and zero all bits
 #define BYTE_SHIFT (2)			// number of bits to shift type left and zero latch
@@ -183,7 +181,7 @@ typedef struct {
   uint32_t mapId;     // db child id
   DocType docType;
   DbAddr ourAddr;
-  ObjId docId;
+  DocId docId;
 } DbDoc;
 
 

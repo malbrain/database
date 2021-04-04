@@ -12,7 +12,7 @@ DbStatus SSNScan3(Txn *txn) {
   DbMap *docMap = NULL;
   Handle *docHndl = NULL;
   uint64_t verNo;
-  ObjId docId;
+  DocId docId;
   ObjId objId;
   Frame *frame;
   Doc *doc;

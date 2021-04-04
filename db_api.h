@@ -1,41 +1,9 @@
 //	database API interface
 
 #pragma once
-
-#include <stdbool.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-
+#include "base64.h"
 #include "db.h"
-#include "db_cursor.h"
-#include "db_error.h"
-#include "db_redblack.h"
 
-DbMap *hndlMap;
-
-// document header in docStore
-// next hdrs in set follow, up to docMin
-
-typedef enum {
-    VerRaw,
-    VerMvcc
-} DocType;
-
-struct Document {
-  union {
-    uint8_t base[4];
-    uint32_t refCnt[1];
-  };
-  uint32_t mapId;     // db child id
-  DocType docType;
-  DbAddr ourAddr;
-  ObjId docId;
-};
-
-#define HandleAddr(dbHndl) fetchIdSlot(hndlMap, dbHndl->hndlId)
-#define MapAddr(handle) (DbMap *)(db_memObj(handle->mapAddr))
-#define ClntAddr(handle) getObj(MapAddr(handle), handle->clientAddr)
 
 // database docStore Arena extension
 
@@ -45,8 +13,6 @@ typedef struct {
   uint16_t keyCnt;      // number of cached keys per version
   DocType docType:16;   //  docStore raw, or under mvcc
 } DocStore;
-
-//	Global Index data structure after DbArena object
 
 typedef enum { IterNone, IterLeftEof, IterRightEof, IterPosAt } IterState;
 
@@ -66,12 +32,13 @@ typedef struct {
   uint32_t refCnt[1];
   uint16_t keyLen; 	    // len of base key
   uint16_t vecIdx;		// index in document key vector
-  uint64_t keyHash;
-  uint8_t unique : 1;     // index is unique
-  uint8_t deferred : 1;		// uniqueness deferred
+  uint16_t suffix;      // number of suffix ending bytes
+  uint64_t keyHash;     // used by MVCC if key changed
+  ObjId payLoad;        // docId key comes from
+  uint8_t unique : 1;   // index is unique
+  uint8_t deferred : 1;	// uniqueness deferred
   uint8_t binaryKeys : 1;	// uniqueness deferred
-  uint8_t suffixLen;		// size of docId suffix
-  uint8_t bytes[];		// bytes of the key
+  uint8_t bytes[];		// bytes of the key with suffix
 } KeyValue;
 
 typedef bool(UniqCbFcn)(DbMap *map, DbCursor *dbCursor);
@@ -91,7 +58,7 @@ DbStatus closeHandle(DbHandle dbHndl[1]);
 DbStatus createCursor(DbHandle hndl[1], DbHandle idxHndl[1], Params *params);
 DbStatus closeCursor(DbHandle dbHndl[1]);
 DbStatus positionCursor(DbHandle hndl[1], CursorOp op, void *key,
-                        uint32_t keyLen);
+                       uint32_t keyLen);
 DbStatus keyAtCursor(DbHandle hndl[1], uint8_t **key, uint32_t *keyLen);
 DbStatus moveCursor(DbHandle hndl[1], CursorOp op);
 
@@ -99,7 +66,7 @@ DbStatus insertKey(DbHandle hndl[1], KeyValue *kv);
 DbStatus deleteKey(DbHandle hndl[1], uint8_t *key, uint32_t len);
 
 uint64_t arenaAlloc(DbHandle arenaHndl[1], uint32_t size, bool zeroit,
-                    bool dbArena);
+  bool dbArena);
 
 DbStatus storeDoc(DbHandle hndl[1], void *obj, uint32_t objSize, ObjId *docId);
 DbStatus deleteDoc(DbHandle hndl[1], ObjId docId);

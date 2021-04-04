@@ -1,56 +1,48 @@
 #pragma once
-#define _GNU_SOURCE 1
-
-#include <stdint.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <stdio.h>
-#include <inttypes.h>
-#include <time.h>
-#include <memory.h>
-#include <limits.h>
-#include <string.h>
-#include <assert.h>
 
 #ifndef _WIN32
-#include <unistd.h>
 #include <pthread.h>
+#else
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
 #endif
 
-#include "db_error.h"
 
-extern bool stats, debug;
-
-
-#define MAX_key		4096	// maximum key size in bytes
+ bool Btree1_stats, debug;
 
 //	general object pointer
 
 typedef union {
-	struct {
-		uint32_t offset;	// offset in the segment
-		uint16_t segment;	// arena segment number
+  uint64_t bits;
+  uint64_t addr:48;		// address part of struct below
+  uint64_t verNo:48;	// document version number
+
+  struct {
+	  uint32_t off;	// 16 byte offset in segment
+	  uint16_t seg;	// slot index in arena segment array
 		union {
-			struct {
-				uint8_t mutex :1;	// mutex bit
-				uint8_t kill  :1;	// kill entry
-				uint8_t type  :6;	// object type
+		  uint8_t step:8;
+		  uint16_t xtra[1];	// xtra bits 
+		  volatile uint8_t latch[1];
+		  struct {
+		    uint8_t mutex :1;	// mutex bit
+		    uint8_t kill  :1;	// kill entry
+		    uint8_t type  :6;	// object type
+		    union {
+			    uint8_t nbyte;	// number of bytes in a span node
+			    uint8_t nslot;		// number of frame slots in use
+					uint8_t maxidx;		// maximum slot index in use
+					uint8_t firstx;		// first array inUse to chk
+					uint8_t ttype;		// index transaction type
+					uint8_t docIdx;     // document key index no
+		  	  int8_t rbcmp;       // red/black comparison
+			  };
 			};
-			volatile uint8_t latch[1];
-		};
-		union {
-			uint8_t nbyte;		// number of bytes in a span node
-			uint8_t nslot;		// number of frame slots in use
-			uint8_t maxidx;		// maximum slot index in use
-			uint8_t firstx;		// first array inUse to chk
-			uint8_t ttype;		// index transaction type
-            uint8_t docIdx;     // document key index no
-            int8_t rbcmp;       // red/black comparison
 		};
 	};
-	uint64_t addr:48;			// segment/offset
-	uint64_t bits;
-} DbAddr;
+} DbAddr, ObjId;
+
+// typedef DbAddr ObjId;
 
 #define TYPE_SHIFT (6*8 + 2)	// number of bits to shift type left and zero all bits
 #define BYTE_SHIFT (2)			// number of bits to shift type left and zero latch
@@ -61,21 +53,23 @@ typedef union {
 #define ADDR_MUTEX_SET	0x0001000000000000ULL
 #define ADDR_KILL_SET	0x0002000000000000ULL
 #define ADDR_BITS		0x0000ffffffffffffULL
-
+/*
 typedef union {
 	struct {
 		uint32_t idx;		// record ID in the segment
 		uint16_t seg;		// arena segment number
 		union {
-			uint16_t step;
+			uint8_t step :8;
 			uint16_t xtra[1];	// xtra bits 
 		};
 	};
 	uint64_t addr:48;		// address part of struct above
 	uint64_t bits;
 } ObjId;
+*/
+#define MAX_key	65536
 
-// string content
+// string /./content
 
 typedef struct {
 	uint16_t len;
@@ -83,7 +77,6 @@ typedef struct {
 } DbString;
 
 typedef struct SkipHead_ SkipHead;
-typedef struct RedBlack_ RedBlack;
 typedef struct DbMap_ DbMap;
 
 //	param slots
@@ -147,10 +140,12 @@ typedef enum {
 	OpAfter		= 'a'
 } CursorOp;
 
-// DbHandle
+// user's DbHandle
+//	contains the Handle ObjId bits
 
-typedef struct {
-  ObjId hndlId;
+typedef union {
+	ObjId hndlId;
+	uint64_t hndlBits;
 } DbHandle;
 
 // DbVector definition
@@ -166,10 +161,39 @@ typedef struct {
 uint32_t vectorPush(DbMap*, DbVector *, DbAddr);
 DbAddr *vectorFind(DbMap*, DbVector *, uint32_t);
 
-uint32_t store64(uint8_t *key, uint32_t keylen, int64_t what);
-uint64_t get64(uint8_t *key, uint32_t len);
-uint32_t size64(uint8_t *key, uint32_t len);
-uint64_t zone64(uint8_t* key, uint32_t len, uint32_t zone);
-uint32_t calc64(int64_t value);
+#define HandleAddr(dbHndl) fetchIdSlot(hndlMap, dbHndl->hndlId)
+#define MapAddr(handle) (DbMap *)(db_memObj(handle->mapAddr))
+#define ClntAddr(handle) getObj(MapAddr(handle), handle->clientAddr)
 
+DbMap *hndlMap;
+
+// document header in docStore
+// next hdrs in set follow, up to docMin
+
+typedef enum {
+    VerRaw,
+    VerMvcc
+} DocType;
+
+typedef struct {
+  union {
+    uint32_t refCnt[1];
+    uint8_t base[4];
+  };
+  uint32_t mapId;     // db child id
+  DocType docType;
+  DbAddr ourAddr;
+  ObjId docId;
+} DbDoc;
+
+
+#include "db_arena.h"
+#include "db_index.h"
+#include "db_cursor.h"
+#include "db_map.h"
+#include "db_error.h"
+#include "db_frame.h"
+#include "db_api.h"
 #include "db_malloc.h"
+#include "db_object.h"
+#include "db_handle.h"

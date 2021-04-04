@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -136,8 +137,8 @@ int index_file(ThreadArgs *args, char cmd, char *msg, int msgMax) {
   uint64_t count = ~0ULL;
   Params params[MaxParam];
   ObjId docId;
-  Txn *txn;
-  FILE *in;
+  Txn *txn = NULL;
+  FILE *in = NULL;
   DbStatus stat;
   uint8_t *key = kv->bytes;
   docMax = 4096 - sizeof(Doc);
@@ -285,7 +286,7 @@ int index_file(ThreadArgs *args, char cmd, char *msg, int msgMax) {
 
         if (args->idxHndl->hndlId.bits) {
 
-          kv->suffixLen = store64(key, keyLen, docId.bits);
+          kv->suffix = store64(key, keyLen, docId.bits);
           kv->keyLen = keyLen;
 
           switch ((stat = insertKey(args->idxHndl, kv))) {

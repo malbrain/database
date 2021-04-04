@@ -84,7 +84,7 @@ int64_t db_getEpoch(void) {
   return mts->tv_sec * 1000ULL + mts->tv_nsec;
 #elif !defined(_WIN32)
   struct timespec ts[1];
-  clock_gettime(CLOCK_REALTIME, ts);
+  clock_gettime(_XOPEN_REALTIME, ts);
   return ts->tv_sec * 1000ULL + ts->tv_nsec / 1000000ULL;
 #else
    int64_t wintime[1];

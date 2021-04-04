@@ -1,4 +1,6 @@
 #pragma once
+#include "base64.h"
+#include "db.h"
 
 /**
  *	memory allocation

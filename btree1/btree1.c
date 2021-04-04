@@ -1,3 +1,5 @@
+//  btree1.c
+
 #include "btree1.h"
 
 extern uint32_t cursorSize[];
@@ -29,7 +31,7 @@ Btree1Page *btree1NewPage (Handle *hndl, uint8_t lvl, Btree1PageType type) {
 DbMap * idxMap = MapAddr(hndl);
 Btree1Index *btree1 = btree1index(idxMap);
 Btree1Page *page;
-PageId pageId;
+ObjId pageId;
 uint32_t size;
 DbAddr *pageAddr;
 
@@ -50,6 +52,7 @@ DbAddr *pageAddr;
 
 	btree1InitPage(page, type);
 	page->self.bits = pageAddr->bits;
+	page->size = size;
 	page->min = size;
 	page->lvl = lvl;
 
@@ -57,6 +60,13 @@ DbAddr *pageAddr;
 }
 
 //	initialize btree1 root and first page
+
+DbStatus btree1StoreSlot(Handle * hndl, uint8_t * key, uint32_t keyLen, int64_t * values, uint32_t valueCnt)
+{
+	return DB_OK;
+}
+
+extern uint32_t librarianDensity;
 
 DbStatus btree1Init(Handle *hndl, Params *params) {
 DbMap *idxMap = MapAddr(hndl);
