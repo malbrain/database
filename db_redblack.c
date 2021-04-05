@@ -1,3 +1,5 @@
+//	db_redblack.c
+
 #include "db.h"
 #include "db_arena.h"
 #include "db_map.h"
@@ -220,7 +222,7 @@ DbAddr slot;
 //	delete found entry from rbtree at top of path stack
 
 void rbRemove (DbMap *map, DbAddr *root, PathStk *path) {
-RedBlack *parent, *sibling, *grand = NULL;
+RedBlack *parent = NULL, *sibling, *grand = NULL;
 DbAddr slot = path->entry[path->lvl];
 RedBlack *node = getObj (map, slot);
 uint8_t red = node->red, lvl, idx;

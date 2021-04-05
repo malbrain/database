@@ -4,13 +4,12 @@
 #include "artree/artree.h"
 #include "btree1/btree1.h"
 #include "btree2/btree2.h"
+#include "db_map.h"
 #include "db_iterator.h"
+#include "db_redblack.h"
 #include "db_malloc.h"
 #include "db_object.h"
-#include "db_arena.h"
-#include "db_handle.h"
-#include "db_cursor.h"
-#include "db_map.h"
+#include "db_api.h"
 
 char *hndlNames[] = {"newarena", "non-specific", "catalog",     "database",    "docStore",
                      "artIndex", "btree1Index", "btree2Index", "colIndex",
@@ -254,7 +253,7 @@ DbStatus createIndex(DbHandle dbIdxHndl[1], DbHandle dbParentHndl[1], char *name
       break;
 
     case Hndl_btree2Index:
-      btree2Init(idxHndl, params);
+//      btree2Init(idxHndl, params);
       break;
 
     default:
@@ -384,7 +383,7 @@ DbStatus createCursor(DbHandle hndl[1], DbHandle dbIdxHndl[1], Params *params) {
       break;
 
     case Hndl_btree2Index:
-      stat = btree2NewCursor(dbCursor, idxMap);
+  //    stat = btree2NewCursor(dbCursor, idxMap);
       break;
   }
 
@@ -419,7 +418,7 @@ DbStatus closeCursor(DbHandle hndl[1]) {
       break;
 
     case Hndl_btree2Index:
-      stat = btree2ReturnCursor(dbCursor, idxMap);
+//      stat = btree2ReturnCursor(dbCursor, idxMap);
       break;
   }
 
@@ -430,7 +429,7 @@ DbStatus closeCursor(DbHandle hndl[1]) {
 //	position cursor on a key
 
 DbStatus positionCursor(DbHandle hndl[1], CursorOp op, void *key,
-  uint32_t keyLen) {
+                        uint32_t keyLen) {
   DbCursor *dbCursor;
   Handle *idxHndl;
   DbStatus stat;
@@ -564,7 +563,7 @@ DbStatus cloneHandle(DbHandle newHndl[1], DbHandle oldHndl[1]) {
         break;
 
       case Hndl_btree2Index:
-        stat = btree2NewCursor(getObj(map, hndl2->clientAddr), map);
+  //      stat = btree2NewCursor(getObj(map, hndl2->clientAddr), map);
         break;
 
       case Hndl_iterator: {
@@ -676,7 +675,7 @@ DbStatus deleteKey(DbHandle hndl[1], uint8_t *key, uint32_t len) {
       break;
 
     case Hndl_btree2Index:
-      stat = btree2DeleteKey(idxHndl, key, len);
+   //   stat = btree2DeleteKey(idxHndl, key, len);
       break;
   }
 
@@ -715,16 +714,16 @@ DbStatus insertKey(DbHandle hndl[1], KeyValue *keyValue) {
       //	if (idxHndl->map->arenaDef->params[IdxKeyUnique].boolVal)
       //		stat = artInsertUniq(idxHndl, key, len, uniqueKey,
       //&defer); 	else
-      stat = artInsertKey(idxHndl, keyValue->bytes, keyValue->keyLen, keyValue->suffixLen);
+      stat = artInsertKey(idxHndl, keyValue->bytes, keyValue->keyLen, keyValue->payLoad.bits, keyValue->suffix);
       break;
     }
 
     case Hndl_btree1Index:
-      stat = btree1InsertKey(idxHndl, keyValue->bytes, keyValue->keyLen, keyValue->suffixLen, 0, Btree1_indexed);
+      stat = btree1InsertKey(idxHndl, keyValue->bytes, keyValue->keyLen, keyValue->payLoad.bits, keyValue->suffix, 0, Btree1_indexed);
       break;
 
     case Hndl_btree2Index:
-      stat = btree2InsertKey(idxHndl, keyValue->bytes, keyValue->keyLen, keyValue->suffixLen, 0, Btree2_slotactive);
+      stat = btree2InsertKey(idxHndl, keyValue->bytes, keyValue->keyLen, keyValue->payLoad.bits, keyValue->suffix, 0, Btree2_slotactive);
       break;
   }
 

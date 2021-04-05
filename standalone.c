@@ -1,16 +1,6 @@
 #define __STDC_WANT_LIB_EXT1__ 1
-#define _DEFAULT_SOURCE 1
 
-#include <errno.h>
-#include <inttypes.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <string.h>
-
-#include "db.h"
-#include "db_handle.h"
-#include "db_api.h"
-#include "mvcc_dbapi.h"
+#include "base64.h"
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -18,7 +8,6 @@
 #include <process.h>
 #include <windows.h>
 #endif
-extern DbMap *txnMap;
 
 #ifdef _WIN32
 #define strncasecmp _strnicmp
@@ -30,7 +19,13 @@ extern DbMap *txnMap;
 #define sprintf_s snprintf
 #endif
 
-bool stats = true;
+#include "db.h"
+#include "db_handle.h"
+#include "db_api.h"
+#include "mvcc_dbapi.h"
+
+extern DbMap *txnMap;
+extern bool stats;
 
 extern uint64_t totalMemoryReq[1];
 extern uint64_t nodeAlloc[64];
@@ -79,16 +74,15 @@ typedef struct {
   bool noExit;
   bool noDocs;
   bool noIdx;
-  uint64_t line;
+  uint64_t line, offset;
   int txnBatch;
-  int offset;
 } ThreadArgs;
 
 typedef struct {
   char *cmds;
   char *minKey;
   char *maxKey;
-  int offset;
+  uint64_t offset;
   Params *params;
   DbHandle *dbHndl;
   DbHandle *iterator;
@@ -100,14 +94,15 @@ typedef struct {
   bool noIdx;
 } ScanArgs;
 
-char *indexNames[] = {"ARTree", "Btree1", "Btree2"};
+char *indexNames[4] = {"ARTree", "Btree1", "Btree2"};
 
-HandleType indexType[] = {Hndl_artIndex, Hndl_btree1Index, Hndl_btree2Index};
+HandleType indexType[4] = {Hndl_artIndex, Hndl_btree1Index, Hndl_btree2Index};
 
 //	our documents in the docStore
 
 typedef struct {
   uint32_t size;
+  uint8_t body[];
 } OurDoc;
 
 void myExit(ThreadArgs *args) {
@@ -118,15 +113,15 @@ void myExit(ThreadArgs *args) {
 
 //  standalone program to index file of keys
 
-int index_file(ThreadArgs *args, char cmd, char *msg, int msgMax) {
+int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
   uint16_t nrandState[3];
   int batchSize = 0;
-  int msgLen = 0;
+  uint32_t msgLen = 0;
   MVCCResult result;
   uint8_t rec[4096];
   OurDoc *ourDoc = (OurDoc *)rec;
   uint8_t *body = rec + sizeof(OurDoc);
-  uint8_t keyBuff[4096];
+  uint8_t *keyBuff = malloc   (65532);
   KeyValue *kv = (KeyValue *)keyBuff;
   int keyLen = 0, docLen = 0;
   int ch, keyOff, docMax, keyMax;
@@ -136,7 +131,7 @@ int index_file(ThreadArgs *args, char cmd, char *msg, int msgMax) {
   uint64_t count = ~0ULL;
   Params params[MaxParam];
   ObjId docId;
-  Txn *txn;
+  Txn *txn = NULL;
   FILE *in;
   DbStatus stat;
   uint8_t *key = kv->bytes;
@@ -144,7 +139,7 @@ int index_file(ThreadArgs *args, char cmd, char *msg, int msgMax) {
 
   if (pennysort) docMax = 100;
 
-  mynrand48seed(nrandState, prng, args->idx + args->offset);
+ 
   msg[msgLen++] = '\n';
 
   switch (cmd | 0x20) {
@@ -166,14 +161,11 @@ int index_file(ThreadArgs *args, char cmd, char *msg, int msgMax) {
   }
 
   if (pennysort) {
-    msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1,
-                        "thrd:%d cmd:%c %s: prng:%d 10 byte pennysort keys\n",
-                        args->idx, cmd, idxName, prng);
+    msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1, "thrd:%d cmd:%c %s: prng:%d 10 byte pennysort keys\n", args->idx, cmd, idxName, prng);
     count = atoi(args->inFile);
+    in = stdin;
   } else if (fopen_s(&in, args->inFile, "r"))
-    return msgLen + sprintf_s(msg + msgLen, msgMax - msgLen - 1,
-                              "thrd:%d cmd:%c file:%s unable to open\n",
-                              args->idx, cmd, args->inFile);
+    return msgLen + sprintf_s(msg + msgLen, msgMax - msgLen - 1, "thrd:%d cmd:%c file:%s unable to open\n", args->idx, cmd, args->inFile);
   if (args->txnBatch) {
     ObjId nestTxn, currTxn;
     nestTxn.bits = 0;
@@ -208,8 +200,7 @@ int index_file(ThreadArgs *args, char cmd, char *msg, int msgMax) {
                             "thrd:%d cmd:%c %s: first key: <%.10s>", args->idx,
                             cmd, idxName, body);
         if (args->offset)
-          msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1,
-                              "lineno offset: %u", args->offset);
+          msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1, "lineno offset: %" PRIu64,   args->offset);
         msg[msgLen++] = '\n';
       }
 
@@ -262,7 +253,7 @@ int index_file(ThreadArgs *args, char cmd, char *msg, int msgMax) {
         if (args->docHndl->hndlId.bits) {
           docId.bits = 0;
           if (args->txnBatch) {
-            result = mvcc_WriteDoc(txn, args->docHndl, &docId, docLen, (uint8_t *)(ourDoc + 1), 1);
+            result = mvcc_WriteDoc(txn, args->docHndl, &docId, docLen, ourDoc->body, 1);
             if (args->line % args->txnBatch == 0) {
               ObjId nestTxn, currTxn;
               nestTxn.bits = 0;
@@ -284,8 +275,20 @@ int index_file(ThreadArgs *args, char cmd, char *msg, int msgMax) {
           docId.bits = args->line + args->offset;
 
         if (args->idxHndl->hndlId.bits) {
+/*            if( avail = append64(kv, suffix, suffixCnt, avail);
 
-          kv->suffixLen = store64(key, keyLen, docId.bits);
+            append64(kv, int64_t * keyValues, uint8_t max, uint32_t avail);
+  uint32_t refCnt[1];
+  uint16_t keyLen; 	    // len of base key
+  uint16_t vecIdx;		// index in document key vector
+  uint64_t keyHash;     // used by MVCC if key changed
+  ObjId payLoad;        // docId key comes from
+  uint8_t unique : 1;   // index is unique
+  uint8_t deferred : 1;	// uniqueness deferred
+  uint8_t binaryKeys : 1;	// uniqueness deferred
+  uint8_t bytes[];		// bytes of the key with suffix
+*/
+          kv->payLoad.bits = docId.bits;
           kv->keyLen = keyLen;
 
           switch ((stat = insertKey(args->idxHndl, kv))) {
@@ -532,15 +535,14 @@ uint64_t index_scan(ScanArgs *scan, DbHandle *database) {
 
   elapsed = getCpuTime(0) - startx1;
   fprintf(stderr, " real %dm%.3fs\n", (int)(elapsed / 60),
-          elapsed - (int)(elapsed / 60) * 60);
+          elapsed - (elapsed / 60) * 60);
 
   elapsed = getCpuTime(1) - startx2;
-  fprintf(stderr, " user %dm%.3fs\n", (int)(elapsed / 60),
-          elapsed - (int)(elapsed / 60) * 60);
+  fprintf(stderr, " user %dm%.3fs\n", (int)(elapsed / 60),(elapsed / 60) * 60);
 
   elapsed = getCpuTime(2) - startx3;
   fprintf(stderr, " sys  %dm%.3fs\n", (int)(elapsed / 60),
-          elapsed - (int)(elapsed / 60) * 60);
+          elapsed - (elapsed / 60) * 60);
 
   return cnt;
 }
@@ -569,17 +571,17 @@ unsigned __stdcall pipego(void *arg) {
     elapsed = getCpuTime(0) - startx1;
 
     len += sprintf_s(msg + len, sizeof(msg) - len - 1, " real %dm%.3fs\n",
-                     (int)(elapsed / 60), elapsed - (int)(elapsed / 60) * 60);
+                     (int)(elapsed / 60), elapsed - (elapsed / 60) * 60);
 
     elapsed = getCpuTime(1) - startx2;
 
     len += sprintf_s(msg + len, sizeof(msg) - len - 1, " user %dm%.3fs\n",
-                     (int)(elapsed / 60), elapsed - (int)(elapsed / 60) * 60);
+                     (int)(elapsed / 60), elapsed - (elapsed / 60) * 60);
 
     elapsed = getCpuTime(2) - startx3;
 
     len += sprintf_s(msg + len, sizeof(msg) - len - 1, " sys  %dm%.3fs\n",
-                     (int)(elapsed / 60), elapsed - (int)(elapsed / 60) * 60);
+                     (int)(elapsed / 60), elapsed - (elapsed / 60) * 60);
   }
 
   fwrite(msg, 1ULL, len, stderr);
@@ -919,3 +921,4 @@ int main(int argc, char **argv) {
 #endif
   }
 }
+

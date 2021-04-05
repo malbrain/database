@@ -1,14 +1,16 @@
+#include "base64.h"
+
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #else
-#ifndef apple
-#define _XOPEN_SOURCE 600
-#include <malloc.h>
-#endif
 #include <unistd.h>
 #include <stdlib.h>
 #include <errno.h>
+#endif
+
+#ifndef apple
+#include <malloc.h>
 #endif
 
 #include <inttypes.h>
@@ -134,7 +136,7 @@ int amt;
 	//	initialize the map
 	//	and map seg zero
 
-	assert(segZero->segs->size > 0);
+	assert(segZero &&(segZero->segs->size > 0));
 	mapZero(map, segZero->segs->size);
 #ifdef _WIN32
 	VirtualFree(segZero, 0, MEM_RELEASE);
@@ -210,7 +212,7 @@ uint32_t bits;
 	assert(initSize > 0);
 
 	mapZero(map, initSize);
-	map->arena->segs->nextObject.offset = segOffset >> 4;
+	map->arena->segs->nextObject.off = segOffset >> 4;
 	map->arena->baseSize = arenaDef->arenaXtra;
 	map->arena->objSize = arenaDef->objSize;
 	map->arena->segs->size = initSize;
@@ -276,7 +278,7 @@ uint64_t nextSize;
 
 	map->arena->segs[nextSeg].off = off;
 	map->arena->segs[nextSeg].size = nextSize;
-	map->arena->segs[nextSeg].nextObject.segment = nextSeg;
+	map->arena->segs[nextSeg].nextObject.seg = nextSeg;
 	map->arena->segs[nextSeg].nextId.seg = nextSeg;
 
 	//  extend the disk file, windows does this automatically
@@ -387,10 +389,10 @@ void* getObj(DbMap *map, DbAddr slot) {
 	//  catch up segment mappings
 
 
-	if (slot.segment >= map->numSeg)
+	if (slot.seg >= map->numSeg)
 		mapAll(map);
 
-	return map->base[slot.segment] + slot.offset * 16ULL;
+	return map->base[slot.seg] + slot.off * 16ULL;
 }
 
 //  allocate raw space in the current segment
@@ -402,20 +404,20 @@ uint64_t max, addr, off;
 	lockLatch(map->arena->mutex);
 
 	max = map->arena->segs[map->arena->currSeg].size
-		  - map->arena->segs[map->arena->objSeg].nextId.idx * (uint64_t)map->objSize;
+		  - map->arena->segs[map->arena->objSeg].nextId.off * (uint64_t)map->objSize;
 
 	// round request up to cache line size
 
 	size += 63;
 	size &= -64;
 
-	if( stats )
+	if(debug )
 		atomicAdd64 (totalMemoryReq, size);
 
 	// see if existing segment has space
 	// otherwise allocate a new segment.
 
-	off = map->arena->segs[map->arena->currSeg].nextObject.offset;
+	off = map->arena->segs[map->arena->currSeg].nextObject.off;
 
 	if (off * 16ULL + size > max) {
 		if (!newSeg(map, size)) {
@@ -425,7 +427,7 @@ uint64_t max, addr, off;
 	}
 
 	addr = map->arena->segs[map->arena->currSeg].nextObject.bits;
-	map->arena->segs[map->arena->currSeg].nextObject.offset += size >> 4;
+	map->arena->segs[map->arena->currSeg].nextObject.off += size >> 4;
 	unlockLatch(map->arena->mutex);
 	return addr;
 }
@@ -445,30 +447,30 @@ uint64_t off = map->arena->segs[currSeg].off;
 //	return pointer to Obj slot
 
 void *fetchIdSlot (DbMap *map, ObjId objId) {
-	if (!objId.idx) {
-		fprintf (stderr, "Invalid zero document index: %s\n", map->arenaPath);
+	if (!objId.seg) {
+		fprintf (stderr, "Invalid zero document segment: %s\n", map->arenaPath);
 		exit(1);
 	}
 
 	if (objId.seg >= map->numSeg)
 		mapAll(map);
 
-	return map->base[objId.seg] + map->arena->segs[objId.seg].size - objId.idx * (uint64_t)map->objSize;
+	return map->base[objId.seg] + map->arena->segs[objId.seg].size - objId.off * (uint64_t)map->objSize;
 }
 
 //
 // allocate next available object id
 //
 
-ObjId allocObjId(DbMap *map, DbAddr *free, DbAddr *wait) {
-ObjId objId;
+uint64_t allocObjId(DbMap *map, DbAddr *free, DbAddr *wait) {
+ObjId objId[1];
 
 	lockLatch(free->latch);
 
 	// see if there is a free object in the free queue
 	// otherwise create a new frame of new objects
 
-	while (!(objId.bits = getNodeFromFrame(map, free) & ADDR_BITS)) {
+	while (!(objId->bits = getNodeFromFrame(map, free) & ADDR_BITS)) {
 //		if (!getNodeWait(map, free, wait))
 			if (!initObjIdFrame(map, free)) {
 				unlockLatch(free->latch);
@@ -477,5 +479,5 @@ ObjId objId;
 	}
 
 	unlockLatch(free->latch);
-	return objId;
+	return objId->bits;
 }

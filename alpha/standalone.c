@@ -1,10 +1,6 @@
 #define __STDC_WANT_LIB_EXT1__ 1
 
 #include "base64.h"
-#include "db.h"
-#include "db_handle.h"
-#include "db_api.h"
-#include "mvcc_dbapi.h"
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -12,7 +8,6 @@
 #include <process.h>
 #include <windows.h>
 #endif
-extern DbMap *txnMap;
 
 #ifdef _WIN32
 #define strncasecmp _strnicmp
@@ -24,6 +19,12 @@ extern DbMap *txnMap;
 #define sprintf_s snprintf
 #endif
 
+#include "db.h"
+#include "db_handle.h"
+#include "db_api.h"
+#include "mvcc_dbapi.h"
+
+extern DbMap *txnMap;
 extern bool stats;
 
 extern uint64_t totalMemoryReq[1];

@@ -1,13 +1,18 @@
-#include <errno.h>
+//  db_malloc.c
+
+#include "base64.h"
+#include "db.h"
+
+#include "db_arena.h"
+#include "db_object.h"
+#include "db_handle.h"
+#include "db_cursor.h"
+#include "db_map.h"
+#include "db_malloc.h"
 
 #ifndef __APPLE__
 #include <malloc.h>
 #endif
-
-#include "db.h"
-#include "db_arena.h"
-#include "db_malloc.h"
-#include "db_map.h"
 
 bool mallocDebug;
 

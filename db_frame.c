@@ -50,7 +50,7 @@ DbAddr slot;
 
 	for (idx = dup; idx--; ) {
 		frame->slots[idx] = slot.bits;
-		slot.offset += size >> 4;
+		slot.off += size >> 4;
 	}
 
 	return dup;
@@ -335,14 +335,14 @@ Frame *frame;
 
 	while (true) {
 	  max = map->arena->segs[map->arena->objSeg].size -
-		map->arena->segs[map->arena->objSeg].nextId.idx * map->objSize;
+		map->arena->segs[map->arena->objSeg].nextId.off * map->objSize;
 	  max -= dup * map->objSize;
 
-	  if (map->arena->segs[map->arena->objSeg].nextObject.offset * 16ULL < max )
+	  if (map->arena->segs[map->arena->objSeg].nextObject.off * 16ULL < max )
 		break;
 
 	  if (map->arena->objSeg < map->arena->currSeg) {
-		map->arena->segs[++map->arena->objSeg].nextId.idx++;
+		map->arena->segs[++map->arena->objSeg].nextId.off++;
 		continue;
 	  }
 
@@ -350,13 +350,13 @@ Frame *frame;
 	  	return false;
 
 	  map->arena->objSeg = map->arena->currSeg;
-	  map->arena->segs[map->arena->objSeg].nextId.idx++;
+	  map->arena->segs[map->arena->objSeg].nextId.off++;
 	  break;
 	}
 
 	// allocate a batch of ObjIds
 
-	map->arena->segs[map->arena->objSeg].nextId.idx += dup;
+	map->arena->segs[map->arena->objSeg].nextId.off += dup;
 	bits = map->arena->segs[map->arena->objSeg].nextId.bits;
 	unlockLatch(map->arena->mutex);
 

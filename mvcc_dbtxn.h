@@ -4,30 +4,6 @@
 
 //	Database transactions: DbAddr housed in database ObjId slots
 
-// MVCC and TXN definitions for DATABASE project
-
-enum TxnState {
-	TxnDone,			// fully committed
-	TxnGrowing,			// reading and upserting
-	TxnCommitting,		// committing
-	TxnCommitted,		// committed
-	TxnRollback			// roll back
-};
-
-enum TxnStep {
-	TxnRaw = 0,		// txn step raw read/write
-	TxnIdx,			// txn step is a Catalog handle idx
-	TxnRdr,			// txn step is a docId & version
-	TxnWrt			// txn step is write
-};
-
-enum TxnCC {
-	TxnNotSpecified,
-	TxnSnapShot,
-	TxnReadCommitted,
-	TxnSerializable
-};
-
 struct Transaction {
 	Timestamp reader[1];	// txn begin timestamp
 	Timestamp commit[1];	// txn commit timestamp
@@ -48,7 +24,7 @@ struct Transaction {
 			uint8_t state : 5;
             uint16_t tsClnt;  // timestamp generator slot
         };
-		enum TxnCC disp : 8;		  // display isolation mode in debugger
+		TxnCC disp : 8;		  // display isolation mode in debugger
 	};
 };
 

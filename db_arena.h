@@ -1,5 +1,8 @@
 #pragma once
 
+#include "db_error.h"
+#include "db_redblack.h"
+
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -32,8 +35,8 @@ typedef struct {
 	uint64_t creation;			// milliseconds since 1/1/70
 	uint32_t clntSize;			// extra client space allocated in hndlMap
     uint32_t arenaXtra;			// shared space after DbArena (DocStore, DbIndex)
-	uint16_t objSize;			// size of ObjectId array slot
-    uint16_t xtraSize;          // extra handle space after Handle
+	uint32_t objSize;			// size of ObjectId array slot
+    uint32_t xtraSize;          // extra handle space after Handle
     uint8_t arenaType;          // type of the arena
 	uint8_t numTypes;			// number of node types
 	uint8_t dead[1];			// arena file killed/deleted
@@ -131,5 +134,7 @@ bool newSeg(DbMap *map, uint32_t minSize);
 void mapSegs(DbMap *map);
 
 DbStatus dropMap(DbMap *db, bool dropDefs);
+
 void getPath(DbMap *map, char *name, uint32_t nameLen, uint64_t ver);
+
 uint32_t addPath(char *path, uint32_t len, char *name, uint32_t nameLen, uint64_t ver);
