@@ -1,14 +1,11 @@
 #pragma once
 #include "../base64.h"
 #include "../db.h"
-#include "../db_object.h"
-#include "../db_handle.h"
-#include "../db_arena.h"
+#include "../db_malloc.h"
+#include "../db_index.h"
+#include "../db_error.h"
 #include "../db_map.h"
 #include "../db_api.h"
-#include "../db_index.h"
-#include "../db_cursor.h"
-#include "../db_frame.h"
 #include "../rwlock/readerwriter.h"
 
 //	BTree configuration and options
@@ -38,16 +35,14 @@ typedef ObjId PageId;
 
 //	types of btree pages/allocations
 
-typedef enum{
+typedef enum {
 	Btree1_rootPage = 3,
 	Btree1_interior,
 	Btree1_leafPage,
 	MAXBtree1Type
 } Btree1PageType;
 
-//	page address
-
-//	Btree1Index global data on disk after Arena
+//	index tree configuration
 
 typedef struct {
 	DbIndex dbIndex[1];
@@ -59,47 +54,6 @@ typedef struct {
 	PageId left;					// leftmost page level 0
 	PageId right;					//	rightmost page lvl 0
 } Btree1Index;
-
-//	Btree page      layout
-
-typedef struct {
-	RWLock readwr[1];	// read/write access lock
-	RWLock parent[1];	// posting of fence key
-	RWLock link[1];	// left link update
-} LatchSet;
-
-//	The page structure is immediately
-//	followed by an array of the key slots
-//	and key strings on this page, allocated top-down
-
-typedef struct {
-	LatchSet latch[1];	// latches for this page
-	uint32_t cnt;		// count of keys in page
-	uint32_t act;		// count of active keys
-	uint32_t min;		// next page key end offset
-	uint32_t garbage;	// page garbage in bytes
-	Btree1PageType type:4;
-	uint8_t lvl:4;		// level of page in btree
-	uint8_t free:1;		// page is unused on free chain
-	uint8_t kill:1;		// page is being deleted
-	PageId right;		// page to right
-	PageId left;		// page to left
-	PageId self;		// current page no
-} Btree1Page;
-
-typedef struct {
-	uint8_t *keyVal;
-	uint32_t keyLen;
-	int64_t *suffix;
-	uint32_t suffixCnt;
-	Btree1Page *page;	// current page Addr
-	uint32_t slotIdx;	// slot on page
-} Btree1Set;
-
-//	Page key slot definition.
-
-//	Keys are marked dead, but remain on the page until
-//	it cleanup is called.
 
 //	Slot types
 
@@ -118,19 +72,57 @@ typedef enum {
 } Btree1SlotType;
 
 typedef union {
-  uint64_t bits[2];
+	uint64_t bits[2];
 
-  struct {
-	uint32_t off : 29;	// key bytes offset
-	uint32_t type : 2;	// type of key slot
-	uint32_t dead : 1;	// dead/librarian slot
-	uint32_t length;	// key length
-  };
-  union {
-	  PageId childId;		// page Id of next level to leaf
-	  ObjId payLoad;
-  };
+	struct {
+		uint32_t off : 28;	// key bytes and page  offset
+		uint32_t type : 3;	// Btree1SlotType of key slot
+		uint32_t dead : 1;	// key slot deleted/dea
+		uint16_t length;	// key length incluing suffix
+		uint16_t suffix;	// bytes of 64 bit suffix in key
+	};
+	union {
+		PageId childId;	// page Id of next level to leaf
+		ObjId payLoad;	// leaf (level zero) page objid
+	};
 } Btree1Slot;
+
+//	Btree page      layout
+
+typedef struct {
+	RWLock readwr[1];	// read/write access lock
+	RWLock parent[1];	// posting of fence key
+	RWLock link[1];	// left link update
+} LatchSet;
+
+//	The page structure is immediately
+//	followed by an array of the key slots
+//	and key strings on this page, allocated top-down
+
+typedef struct {
+	union {
+		LatchSet latch[1];	// latches for this page
+		uint8_t base[8];	// page addressing base 
+	};
+	uint32_t cnt;		// count of keys in page
+	uint32_t act;		// count of active keys
+	uint32_t min;		// next page key end offset
+	uint32_t size;		// page size in bytes
+	uint32_t garbage;	// page garbage in bytes
+	Btree1PageType type:4;
+	uint8_t lvl:4;		// level of page in btree
+	uint8_t free:1;		// page is unused on free chain
+	uint8_t kill:1;		// page is being deleted
+	PageId right;		// page to right
+	PageId left;		// page to left
+	PageId self;		// current page no
+	Btree1Slot slot[1];	// slot zero for 1 based index
+} Btree1Page;
+	
+//	Page key slot definition.
+
+//	Keys are marked dead, but remain on the page until
+//	it cleanup is called.
 
 typedef struct {
   DbCursor base[1];	  // base object
@@ -139,14 +131,25 @@ typedef struct {
   Btree1Page page[];  // cursor position page buffer
 } Btree1Cursor;
 
-//	access macros
+typedef struct {
+	uint8_t *keyVal;
+	uint32_t keyLen;
+	uint32_t auxLen;
+	PageId pageId;
+	DbAddr *pageAddr;
+	Btree1Slot *slot;
+	Btree1Page *page;	// current page Addr
+	uint32_t slotIdx;	// slot on page for key
+	uint32_t length;
+} Btree1Set;
 
-#define slotptr(page, slot) (((Btree1Slot *)(page+1)) + (((int)slot)-1))
+//	access macros
 
 #define btree1index(map) ((Btree1Index *)(map->arena + 1))
 
-#define keyaddr(page, off) ((uint8_t *)((uint8_t *)(page) + off))
-#define keyptr(page, slot) ((uint8_t *)((uint8_t *)(page) + slotptr(page, slot)->off))
+#define slotptr(page, slotidx) (page->slot + slotidx)
+#define keyaddr(page, keyoff) ((page->base) + keyoff)
+#define keyptr(page, slotidx) ((page->slot[slotidx].off + page->base))
 
 //	btree1 implementation
 
@@ -162,12 +165,13 @@ DbStatus btree1PrevKey (DbCursor *cursor, DbMap *map);
 
 DbStatus btree1StoreSlot (Handle *hndl, uint8_t *key, uint32_t keyLen, int64_t *values, uint32_t valueCnt);
 DbStatus btree1Init(Handle *hndl, Params *params);
-DbStatus btree1InsertKey(Handle *hndl, uint8_t *key, uint32_t keyLen, uint32_t sfxLen, uint8_t lvl, Btree1SlotType type);
+
+DbStatus btree1InsertKey(Handle *index, uint8_t *key, uint16_t keyLen, uint64_t payLoad, uint16_t auxCnt, uint8_t lvl, Btree1SlotType type);
+
 DbStatus btree1DeleteKey(Handle *hndl, void *key, uint32_t keyLen);
 
-DbStatus btree1LoadPage(DbMap *map, Btree1Set *set, Btree1Lock lockMode);
+DbStatus btree1LoadPage(DbMap *map, Btree1Set *set, Btree1Lock lockMode,  bool findGood, bool stopper, uint8_t lvl);
 
-DbStatus btree1CleanPage(Handle *hndl, Btree1Set *set);
 DbStatus btree1SplitPage (Handle *hndl, Btree1Set *set);
 DbStatus btree1FixKey (Handle *index, uint8_t *fenceKey, uint64_t prev, uint64_t suffix, uint8_t lvl, bool stopper);
 DbStatus btree1InsertSfxKey(Handle *hndl, uint8_t *key, uint32_t keyLen, uint64_t suffix, uint8_t lvl, Btree1SlotType type);
@@ -175,4 +179,5 @@ DbStatus btree1InsertSfxKey(Handle *hndl, uint8_t *key, uint32_t keyLen, uint64_
 Btree1Page *btree1NewPage(Handle *index, uint8_t lvl, Btree1PageType type);
 void btree1LockPage(Btree1Page *page, Btree1Lock mode);
 void btree1UnlockPage(Btree1Page *page, Btree1Lock mode);
-int btree1KeyCmp (uint8_t *key1, uint8_t *key2, uint32_t len2);
+
+int btree1KeyCmp(Btree1Page *page, uint32_t idx, uint8_t *keyVal, uint32_t keyLen);

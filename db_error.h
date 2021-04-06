@@ -12,6 +12,7 @@ typedef enum {
 	DB_ERROR_createindex,
 	DB_ERROR_badhandle,
 	DB_ERROR_badrecid,
+	DB_ERROR_badobjslot,
 	DB_ERROR_notbasever,
 	DB_ERROR_recorddeleted,
 	DB_ERROR_recordnotvisible,

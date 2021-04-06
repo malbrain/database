@@ -213,7 +213,7 @@ int slot, len;
 		ARTKeyEnd* keyEndNode = getObj(map, *stack->slot);
 
 		// first time?
-		// enumerate suffix strings for the key
+		// enumerate 3 strings for the key
 
 		if(stack->ch < 0) {
 		  dbCursor->baseLen = dbCursor->keyLen;

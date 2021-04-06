@@ -1,4 +1,6 @@
+#include "base64.h"
 #include "db.h"
+
 #include "db_arena.h"
 #include "db_map.h"
 #include "db_frame.h"
@@ -161,9 +163,10 @@ bool addValuesToFrame(DbMap *map, DbAddr *free, DbAddr *wait, uint64_t *values, 
 DbAddr slot2;
 Frame *frame;
 
-
   if (free->addr)
 	frame = getObj(map, *free);
+  else
+	frame = NULL;
 
   while (count--) {
 	//  space in current frame?

@@ -17,7 +17,7 @@ typedef struct {
 	uint32_t size;		// size of user data
 	uint32_t keyLen;	// cursor key length
 	uint32_t baseLen;   // cursor base length
-	uint32_t suffixLen; // cursor suffix length
+	uint32_t suffix;	// cursor suffix length
 	uint32_t resultSet;	// max size buffered keys
 	DbAddr deDupHash;	// dedup hash table
 	PosState state;		// cursor position state enum

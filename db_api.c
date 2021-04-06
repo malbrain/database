@@ -580,7 +580,7 @@ DbStatus cloneHandle(DbHandle newHndl[1], DbHandle oldHndl[1]) {
 
 //	fetch document from a docStore by docId
 
-DbStatus fetchDoc(DbHandle hndl[1], void **doc, ObjId docId) {
+DbStatus fetchDoc(DbHandle hndl[1], void **doc, DocId docId) {
   Handle *docHndl;
   DbAddr *slot;
   DbMap *docMap;
@@ -597,7 +597,7 @@ DbStatus fetchDoc(DbHandle hndl[1], void **doc, ObjId docId) {
   return DB_OK;
 }
 
-DbStatus deleteDoc(DbHandle hndl[1], ObjId docId) {
+DbStatus deleteDoc(DbHandle hndl[1], DocId docId) {
   DocStore *docStore;
   Handle *docHndl;
   DbAddr *slot;
@@ -619,7 +619,7 @@ DbStatus deleteDoc(DbHandle hndl[1], ObjId docId) {
   return DB_OK;
 }
 
-DbStatus storeDoc(DbHandle hndl[1], void *obj, uint32_t objSize, ObjId *docId) {
+DbStatus storeDoc(DbHandle hndl[1], void *obj, uint32_t objSize, DocId *docId) {
   DocStore *docStore;
   DbAddr *slot, addr;
   Handle *docHndl;

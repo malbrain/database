@@ -1,5 +1,4 @@
 #pragma once
-#include "base64.h"
 
 #ifndef _WIN32
 #include <pthread.h>
@@ -12,6 +11,7 @@
 #define MapAddr(handle) (DbMap *)(db_memObj(handle->mapAddr))
 #define ClntAddr(handle) getObj(MapAddr(handle), handle->clientAddr)
 
+ bool Btree1_stats, debug;
 
 // MVCC and TXN definitions for DATABASE project
 
@@ -45,32 +45,33 @@ extern bool Btree1_stats, debug;
 
 typedef union {
   uint64_t bits;
-  uint64_t addr:48;		// address part of struct above
+  uint64_t addr:48;		// address part of struct below
+  uint64_t verNo:48;	// document version number
 
   struct {
-	uint32_t off;	// 16 byte offset in segment
-	uint16_t seg;	// slot index in arena segment array
-	union {
-		TxnState step :8;
-		uint16_t xtra[1];	// xtra bits 
-		volatile uint8_t latch[1];
-		struct {
-		  uint8_t mutex :1;	// mutex bit
-		  uint8_t kill  :1;	// kill entry
-		  uint8_t type  :6;	// object type
-		  union {
-			uint8_t nbyte;	// number of bytes in a span node
-			uint8_t nslot;		// number of frame slots in use
-			uint8_t maxidx;		// maximum slot index in use
-			uint8_t firstx;		// first array inUse to chk
-			uint8_t ttype;		// index transaction type
-			uint8_t docIdx;     // document key index no
-			int8_t rbcmp;       // red/black comparison
-		  };
+	  uint32_t off;	// 16 byte offset in segment
+	  uint16_t seg;	// slot index in arena segment array
+		union {
+		  uint8_t step:8;
+		  uint16_t xtra[1];	// xtra bits 
+		  volatile uint8_t latch[1];
+		  struct {
+		    uint8_t mutex :1;	// mutex bit
+		    uint8_t kill  :1;	// kill entry
+		    uint8_t type  :6;	// object type
+		    union {
+			    uint8_t nbyte;	// number of bytes in a span node
+			    uint8_t nslot;		// number of frame slots in use
+					uint8_t maxidx;		// maximum slot index in use
+					uint8_t firstx;		// first array inUse to chk
+					uint8_t ttype;		// index transaction type
+					uint8_t docIdx;     // document key index no
+		  	  int8_t rbcmp;       // red/black comparison
+			  };
+			};
 		};
 	};
-  };
-} DbAddr;
+} DbAddr, ObjId, DocId;
 
 typedef DbAddr ObjId;
 
@@ -83,13 +84,13 @@ typedef DbAddr ObjId;
 #define ADDR_MUTEX_SET	0x0001000000000000ULL
 #define ADDR_KILL_SET	0x0002000000000000ULL
 #define ADDR_BITS		0x0000ffffffffffffULL
-
-/* typedef union {
+/*
+typedef union {
 	struct {
 		uint32_t idx;		// record ID in the segment
 		uint16_t seg;		// arena segment number
 		union {
-			TxnState step :8;
+			uint8_t step :8;
 			uint16_t xtra[1];	// xtra bits 
 		};
 	};
@@ -97,7 +98,6 @@ typedef DbAddr ObjId;
 	uint64_t bits;
 } ObjId;
 */
-
 #define MAX_key	65536
 
 // string /./content
@@ -196,12 +196,39 @@ DbAddr *vectorFind(DbMap*, DbVector *, uint32_t);
 #define MapAddr(handle) (DbMap *)(db_memObj(handle->mapAddr))
 #define ClntAddr(handle) getObj(MapAddr(handle), handle->clientAddr)
 
+DbMap *hndlMap;
+
+// document header in docStore
+// next hdrs in set follow, up to docMin
+
+typedef enum {
+    VerRaw,
+    VerMvcc
+} DocType;
+
+typedef struct {
+  union {
+    uint32_t refCnt[1];
+    uint8_t base[4];
+  };
+  uint32_t mapId;     // db child id
+  DocType docType;
+  DbAddr ourAddr;
+  DocId docId;
+} DbDoc;
+
+
 #include "db_arena.h"
 #include "db_index.h"
 #include "db_cursor.h"
 #include "db_map.h"
+#include "db_error.h"
+#include "db_frame.h"
+#include "db_api.h"
 #include "db_malloc.h"
 #include "db_error.h"
 #include "db_handle.h"
 #include "db_object.h"
 
+#include "db_object.h"
+#include "db_handle.h"

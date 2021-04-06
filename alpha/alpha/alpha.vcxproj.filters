@@ -105,16 +105,10 @@
     <ClCompile Include="..\db_iterator.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\btree2\btree2 - Copy.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\btree2\btree2.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\btree2\btree2_cursor.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\btree2\btree2_delete - Copy.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\btree2\btree2_delete.c">
@@ -130,6 +124,27 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\db_frame.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mvcc_dbssn4.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mvcc_dbssn1.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mvcc_dbssn3.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mvcc_dbssn2.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\db_drop.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\db_object.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\db_params.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -173,9 +188,6 @@
     <ClInclude Include="..\mutex\mutex.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\base64.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\db_index.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -197,16 +209,22 @@
     <ClInclude Include="..\mvcc_dbtxn.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\btree2\btree2 - Copy.h">
-      <Filter>Source Files</Filter>
+    <ClInclude Include="..\db_frame.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\btree2\btree2.h">
-      <Filter>Source Files</Filter>
+      <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\btree2\btree2_slot.h">
-      <Filter>Source Files</Filter>
+      <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\db_frame.h">
+    <ClInclude Include="..\mvcc_dbssn.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\base64.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mvcc.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

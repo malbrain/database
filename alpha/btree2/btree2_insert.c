@@ -99,7 +99,7 @@ DbMap *idxMap = MapAddr(index);
 uint8_t *key, lvl = set->page->lvl, keyBuff[MAX_key];
 Btree2Page *leftPage, *rightPage, *rootPage = NULL, *tmpPage;
 Btree2Index *btree2 = btree2index(idxMap);
-Btree2Slot *rSlot, *lSlot, *slot;
+Btree2Slot *rSlot, *lSlot = NULL, *slot;
 uint16_t keyLen, min, next, off;
 uint16_t fwd[Btree2_maxtower];
 DbAddr left, right, root;

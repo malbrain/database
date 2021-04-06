@@ -1,8 +1,8 @@
 //	db_redblack.c
 
+#include "base64.h"
 #include "db.h"
-#include "db_arena.h"
-#include "db_map.h"
+
 #include "db_redblack.h"
 
 //	red/black entry

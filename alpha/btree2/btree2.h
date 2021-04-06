@@ -1,4 +1,5 @@
 #pragma once
+#include "../base64.h"
 #include "../db.h"
 #include "../db_object.h"
 #include "../db_handle.h"

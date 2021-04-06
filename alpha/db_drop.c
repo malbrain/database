@@ -1,11 +1,6 @@
+#include "base64.h"
 #include "db.h"
-#include "db_arena.h"
-#include "db_map.h"
-#include "db_api.h"
-#include "db_object.h"
-#include "db_handle.h"
-#include "db_redblack.h"
-#include "db_skiplist.h"
+
 
 DbMap memMap[1];
 
@@ -77,7 +72,7 @@ DbMap *ourDb;
 	//	remove id from parent's childMap list
 
 	lockLatch(map->parent->childMaps->latch);
-	skipDel(memMap, map->parent->childMaps, id);
+//	skipDel(memMap, map->parent->childMaps, id);
 	unlockLatch(map->parent->childMaps->latch);
 
 	//  delete our r/b entry from parent's child nameList

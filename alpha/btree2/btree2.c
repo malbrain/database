@@ -1,4 +1,4 @@
-#include <inttypes.h>
+#include <stdint.h>
 
 #include "btree2.h"
 #include "btree2_slot.h"

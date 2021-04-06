@@ -1,5 +1,6 @@
 //	skip list implementation
 
+#include "base64.h"
 #include "db.h"
 #include "db_arena.h"
 #include "db_map.h"

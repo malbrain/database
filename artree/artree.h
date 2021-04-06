@@ -1,5 +1,7 @@
 #pragma once
+#include "../base64.h"
 #include "../db.h"
+
 #include "../db_arena.h"
 #include "../db_map.h"
 #include "../db_api.h"
@@ -155,7 +157,7 @@ DbStatus artPrevKey(DbCursor *dbCursor, DbMap *map);
 
 DbStatus artInit(Handle *hndl, Params *params);
 DbStatus artDeleteKey (Handle *hndl, uint8_t *key, uint16_t keyLen, uint16_t suffixLen);
-DbStatus artInsertKey (Handle *hndl, uint8_t *key, uint16_t keyLen, uint16_t suffixLen);
+DbStatus artInsertKey (Handle *hndl, uint8_t *key, uint16_t keyLen, uint64_t payLoad, uint16_t suffixLen);
 DbStatus artInsertUniq (Handle *hndl, uint8_t *key, uint16_t keyLen, uint16_t suffixLen, UniqCbFcn *fcn, bool *defer);
 DbStatus artEvalUniq( DbMap *map, uint8_t *key, uint16_t keyLen, uint16_t suffixLen, UniqCbFcn *evalFcn);
 

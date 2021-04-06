@@ -390,7 +390,7 @@ uint64_t index_scan(ScanArgs *scan, DbHandle *database) {
   bool verify = false;
   bool dump = false;
   uint8_t *foundKey;
-  ObjId docId;
+  DocId docId;
   int stat;
 
   fprintf(stderr, "\nIndex %s summary scan:\n", idxName);

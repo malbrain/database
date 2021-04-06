@@ -1,3 +1,5 @@
+// btree1_cursor.c
+
 #include "btree1.h"
 
 DbStatus btree1NewCursor(DbCursor *dbCursor, DbMap *idxMap) {
@@ -16,13 +18,20 @@ DbStatus btree1ReturnCursor(DbCursor *dbCursor, DbMap *map) {
 DbStatus btree1LeftKey(DbCursor *dbCursor, DbMap *map) {
 Btree1Cursor *cursor = (Btree1Cursor *)dbCursor;
 Btree1Index *btree1 = btree1index(map);
-Btree1Page *left;
+Btree1Page  *leftPage;
+DbAddr *leftAddr;
+PageId leftId;
 
-	left = getObj(map, btree1->left);
-	btree1LockPage (left, Btree1_lockRead);
+	if (leftId.bits = cursor->page->left.bits)
+		leftAddr = fetchIdSlot(map, leftId);
+	else
+		return DB_CURSOR_eof;
 
-	memcpy (cursor->page, left, cursor->leafSize);
-	btree1UnlockPage (left, Btree1_lockRead);
+	leftPage = getObj(map, *leftAddr);
+	btree1LockPage (leftPage, Btree1_lockRead);
+
+	memcpy (cursor->page, leftPage, cursor->leafSize);
+	btree1UnlockPage (leftPage, Btree1_lockRead);
 
 	cursor->slotIdx = 1;
 	return DB_OK;
@@ -31,21 +40,28 @@ Btree1Page *left;
 DbStatus btree1RightKey(DbCursor *dbCursor, DbMap *map) {
 Btree1Cursor *cursor = (Btree1Cursor *)dbCursor;
 Btree1Index *btree1 = btree1index(map);
-Btree1Page *right;
+Btree1Page *rightPage;
+DbAddr *rightAddr;
+PageId rightId;
 
-	right = getObj(map, btree1->right);
-	btree1LockPage (right, Btree1_lockRead);
+  if (rightId.bits = cursor->page->right.bits)
+	  rightAddr = fetchIdSlot(map, rightId);
+  else
+	  return DB_CURSOR_eof;
 
-	memcpy (cursor->page, right, cursor->leafSize);
-	btree1UnlockPage (right, Btree1_lockRead);
-
-	cursor->slotIdx = cursor->page->cnt;
-	return DB_OK;
+  rightPage = getObj(map, *rightAddr);
+  btree1LockPage(rightPage, Btree1_lockRead);
+  memcpy(cursor->page, rightPage, cursor->leafSize);
+  btree1UnlockPage(rightPage, Btree1_lockRead);
+  cursor->slotIdx = cursor->page->cnt;
+  return DB_OK;
 }
 
 DbStatus btree1NextKey (DbCursor *dbCursor, DbMap *map) {
 Btree1Cursor *cursor = (Btree1Cursor *)dbCursor;
-Btree1Page *right;
+Btree1Page *rightPage;
+DbAddr *rightAddr;
+PageId rightId;
 uint8_t *key;
 
 	switch (dbCursor->state) {
@@ -70,18 +86,21 @@ uint8_t *key;
 		  continue;
 
 		key = keyaddr(cursor->page, slot->off);
-		dbCursor->key = key + keypre(key);
-		dbCursor->keyLen = keylen(key);
+		dbCursor->key = key;
+		dbCursor->keyLen = slot->length;
 		dbCursor->state = CursorPosAt;
 		return DB_OK;
 	  }
 
-	  if (!cursor->page->right.bits) break;
+	  if (rightId.bits = cursor->page->right.bits)
+		  rightAddr = fetchIdSlot(map, rightId);
+	  else
+		  break;
 
-	  right = getObj(map, cursor->page->right),
-      btree1LockPage(right, Btree1_lockRead);
-      memcpy(cursor->page, right, cursor->leafSize);
-      btree1UnlockPage(right, Btree1_lockRead);
+	  rightPage = getObj(map, *rightAddr);
+      btree1LockPage(rightPage, Btree1_lockRead);
+      memcpy(cursor->page, rightPage, cursor->leafSize);
+      btree1UnlockPage(rightPage, Btree1_lockRead);
 	  cursor->slotIdx = 1;
 	}
 
@@ -91,7 +110,9 @@ uint8_t *key;
 
 DbStatus btree1PrevKey (DbCursor *dbCursor, DbMap *map) {
 Btree1Cursor *cursor = (Btree1Cursor *)dbCursor;
-Btree1Page *left;
+Btree1Page *leftPage;
+DbAddr *leftAddr;
+PageId leftId;
 uint8_t *key;
 
 	switch (dbCursor->state) {
@@ -114,18 +135,21 @@ uint8_t *key;
 		  continue;
 
 		key = keyaddr(cursor->page, slot->off);
-		dbCursor->key = key + keypre(key);
-		dbCursor->keyLen = keylen(key);
+		dbCursor->key = key;
+		dbCursor->keyLen = slot->length;
 		dbCursor->state = CursorPosAt;
 		return DB_OK;
 	  }
 
-	  if (!cursor->page->left.bits) break;
+	  if (leftId.bits = cursor->page->left.bits)
+	  	leftAddr = fetchIdSlot(map,leftId);
+	  else
+		break;
 
-	  left = getObj(map, cursor->page->left),
-      btree1LockPage(left, Btree1_lockRead);
-      memcpy(cursor->page, left, cursor->leafSize);
-      btree1UnlockPage(left, Btree1_lockRead);
+	  leftPage = getObj(map, *leftAddr);
+      btree1LockPage(leftPage, Btree1_lockRead);
+      memcpy(cursor->page, leftPage, cursor->leafSize);
+      btree1UnlockPage(leftPage, Btree1_lockRead);
       cursor->slotIdx = cursor->page->cnt;
 	}
 
