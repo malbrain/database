@@ -4,7 +4,7 @@
 
 //	allocate docStore power-of-two memory
 
-uint64_t allocDocStore(Handle* docHndl, uint32_t size, bool zeroit) {
+uint64_t mvcc_allocDocStore(Handle* docHndl, uint32_t size, bool zeroit) {
   DbAddr* free = listFree(docHndl, 0);
   DbAddr* wait = listWait(docHndl, 0);
 
@@ -47,7 +47,7 @@ MVCCResult chainNewDoc(Handle* docHndl, DbAddr* docSlot, uint32_t verSize) {
 
   //  allocate space in docStore for the new Document and version
     
-  if ((docAddr.bits = allocDocStore(docHndl, blkSize, false)))
+  if ((docAddr.bits = mvcc_allocDocStore(docHndl, blkSize, false)))
     doc = getObj(docMap, docAddr);
   else 
     return result.status = DB_ERROR_outofmemory, result;
@@ -111,7 +111,7 @@ MVCCResult mvcc_ProcessKeys(DbHandle hndl[1], DbHandle hndlIdx[1], Ver* prevVer,
     //  otherwise install key for delete/update
     //  and i key into its index
 
-    insKey.bits = allocDocStore(docHndl, size + calc64(docId.bits), true);
+    insKey.bits = mvcc_allocDocStore(docHndl, size + calc64(docId.bits), true);
     destKey = getObj(docMap, insKey);
     memcpy(destKey, srcKey, size);  
     destKey->keyHash = hashKey;

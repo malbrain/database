@@ -6,5 +6,5 @@
 //	and inserted into the index
 
 
-uint64_t allocDocStore(Handle* docHndl, uint32_t size, bool zeroit);
+uint64_t mvcc_allocDocStore(Handle* docHndl, uint32_t size, bool zeroit);
 DbStatus insertKeyValue(Handle *idxHndl, KeyValue *keyValue);

@@ -4,7 +4,7 @@
 
 #include "mvcc.h"
 
-DbStatus SSNScan4(Txn *txn) {
+DbStatus mvcc_scan4(Txn *txn) {
   DbAddr *slot, addr, next, finalAddr;
   Ver *ver, *prevVer;
   bool result = true;

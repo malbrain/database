@@ -1,6 +1,7 @@
 #define __STDC_WANT_LIB_EXT1__ 1
 
-#include "base64.h"
+
+#include "mvcc.h"
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -18,11 +19,6 @@
 #define fopen_s(file, path, mode) ((*file = fopen(path, mode)) ? 0 : errno)
 #define sprintf_s snprintf
 #endif
-
-#include "db.h"
-#include "db_handle.h"
-#include "db_api.h"
-#include "mvcc_dbapi.h"
 
 extern DbMap *txnMap;
 extern bool stats;

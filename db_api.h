@@ -14,16 +14,14 @@ typedef enum {
     VerMvcc
 } DocType;
 
-struct Document {
+typedef struct Document {
   union {
     uint8_t base[4];
     uint32_t refCnt[1];
   };
-  uint32_t mapId;     // db child id
-  DocType docType;
-  DbAddr ourAddr;
-  ObjId docId;
-};
+  DocType docType:8;
+  DocId docId;
+} DbDoc;
 
 // database docStore Arena extension
 

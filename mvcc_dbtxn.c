@@ -107,7 +107,6 @@ MVCCResult result = (MVCCResult) {
 
     if (doc->op == OpWrt)
         if( doc->txnId.bits == txn->txnId.bits) 
-            if (doc->txnVer == txn->txnVer)
                 break;
 
     objId.addr = docHndl->hndlId.addr;
@@ -180,7 +179,7 @@ MVCCResult result = {
 
     if (doc->op == OpWrt)
       if (doc->txnId.bits == txn->txnId.bits)
-        if (doc->txnVer == txn->txnVer) break;
+        break;
 
     // otherwise since we only read committed versions,
     // capture the largest commit stamp read
@@ -270,7 +269,7 @@ Ver * mvcc_getVersion(DbMap *map, Doc *doc, uint64_t verNo) {
   //	enumerate previous document versions
 
   do {
-    ver = (Ver *)(doc->base + offset);
+    ver = (Ver *)(doc->dbDoc->base + offset);
 
     //  continue to next version chain on stopper version
 
@@ -306,10 +305,9 @@ MVCCResult mvcc_findDocVer(Txn *txn, Doc *doc, Handle *docHndl) {
 
   if(txn) {
       if ((txn->txnId.bits == doc->txnId.bits)) {
-          if (txn->txnVer == doc->txnVer)
-              if (offset = doc->pendingVer) {
-                  ver = (Ver *)(doc->base + offset);
-                  result.object = ver;
+        if (offset = doc->pendingVer) {
+           ver = (Ver *)(doc->dbDoc->base + offset);
+             result.object = ver;
                   return result;
               }
       }
@@ -320,7 +318,7 @@ MVCCResult mvcc_findDocVer(Txn *txn, Doc *doc, Handle *docHndl) {
   offset = doc->commitVer;
 
   do {
-    ver = (Ver *)(doc->base + offset);
+    ver = (Ver *)(doc->dbDoc->base + offset);
 
     //  continue to next version chain on stopper version
 

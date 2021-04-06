@@ -13,30 +13,6 @@
 
  bool Btree1_stats, debug;
 
-// MVCC and TXN definitions for DATABASE project
-
-typedef enum {
-	TxnDone,			// fully committed
-	TxnGrowing,			// reading and upserting
-	TxnCommitting,		// committing
-	TxnCommitted,		// committed
-	TxnRollback			// roll back
-} TxnState;
-
-typedef enum {
-	TxnRaw = 0,		// txn step raw read/write
-	TxnIdx,			// txn step is a Catalog handle idx
-	TxnRdr,			// txn step is a docId & version
-	TxnWrt			// txn step is write
-} TxnStep;
-
-typedef enum {
-	TxnNotSpecified,
-	TxnSnapShot,
-	TxnReadCommitted,
-	TxnSerializable
-} TxnCC;
-
 
 
 extern bool Btree1_stats, debug;
@@ -72,8 +48,6 @@ typedef union {
 		};
 	};
 } DbAddr, ObjId, DocId;
-
-typedef DbAddr ObjId;
 
 #define TYPE_SHIFT (6*8 + 2)	// number of bits to shift type left and zero all bits
 #define BYTE_SHIFT (2)			// number of bits to shift type left and zero latch
@@ -199,24 +173,6 @@ DbAddr *vectorFind(DbMap*, DbVector *, uint32_t);
 DbMap *hndlMap;
 
 // document header in docStore
-// next hdrs in set follow, up to docMin
-
-typedef enum {
-    VerRaw,
-    VerMvcc
-} DocType;
-
-typedef struct {
-  union {
-    uint32_t refCnt[1];
-    uint8_t base[4];
-  };
-  uint32_t mapId;     // db child id
-  DocType docType;
-  DbAddr ourAddr;
-  DocId docId;
-} DbDoc;
-
 
 #include "db_arena.h"
 #include "db_index.h"

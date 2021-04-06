@@ -4,7 +4,7 @@
 
 #include "mvcc.h"
 
-DbStatus SSNScan3(Txn *txn) {
+DbStatus mvcc_scan3(Txn *txn) {
   DbAddr addr, next, finalAddr;
   Timestamp pstamp[1];
   Ver *ver;

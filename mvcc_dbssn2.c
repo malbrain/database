@@ -4,7 +4,7 @@
 
 #include "mvcc.h"
 
-DbStatus SSNScan2(Txn *txn) {
+DbStatus mvcc_scan2(Txn *txn) {
   DbAddr next, addr, finalAddr;
   DbAddr *docSlot;
   Ver *ver;
@@ -66,8 +66,7 @@ DbStatus SSNScan2(Txn *txn) {
 
         if (doc->op == OpWrt)
           if (doc->txnId.bits == txn->txnId.bits)
-            if (doc->txnVer == txn->txnVer) 
-                continue;
+              continue;
 
         //  is there another committed version
         //  after our version?  Was there another
