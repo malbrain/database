@@ -1,3 +1,7 @@
+#include "../base64.h"
+#include "../db.h"
+#include "../mvcc.h"
+
 #include "btree2.h"
 #include "btree2_slot.h"
 
@@ -5,8 +9,8 @@ uint16_t btree2InstallSlot (Btree2Page *page, Btree2Slot *source, uint8_t height
 bool btree2LinkTower(Btree2Set *set, volatile uint16_t *tower, volatile uint8_t *bitLatch, uint8_t idx);
 void btree2FillTower(Btree2Page *page, uint16_t off, uint16_t *fwd, uint8_t height);
 
-DbStatus btree2InsertKey(Handle *index, uint8_t *key, uint32_t keyLen, uint64_t payLoad, uint32_t sfxLen, uint8_t lvl, Btree2SlotState type) {
-uint32_t slotSize, totLen = keyLen + sfxLen;
+DbStatus btree2InsertKey(Handle *index, DbKeyDef *key, uint8_t lvl, Btree2SlotState type) {
+uint32_t slotSize;
 uint8_t height = btree2GenHeight(index);
 DbMap *idxMap = MapAddr(index);
 Btree2Set set[1];
@@ -15,17 +19,17 @@ uint16_t next;
 
     assert (height <= 16);
 	
-	if (totLen > MAX_key)
+	if (key->keyLen > MAX_key)
 		return DB_ERROR_keylength;
 
-	slotSize = btree2SizeSlot (totLen, height);
+	slotSize = btree2SizeSlot (key->keyLen, height);
 
 	do {
 	  memset(set, 0, sizeof(set));
-	  next = btree2LoadPage(idxMap, set, key, totLen, lvl);
+	  next = btree2LoadPage(idxMap, set, key->bytes, key->keyLen, lvl);
 
 	  if( (set->off = btree2AllocSlot (set->page, slotSize) ))
-		 return btree2InstallKey (set, key, totLen, height);
+		 return btree2InstallKey (set, key->bytes, key->keyLen, height);
 
 	   if( (stat = btree2CleanPage (index, set)))
 		 return stat;
@@ -102,6 +106,7 @@ Btree2Index *btree2 = btree2index(idxMap);
 Btree2Slot *rSlot, *lSlot = NULL, *slot;
 uint16_t keyLen, min, next, off;
 uint16_t fwd[Btree2_maxtower];
+KeyValue kv[1];
 DbAddr left, right, root;
 DbAddr *tmpPageNoPtrL;
 DbAddr *tmpPageNoPtrR;
@@ -228,16 +233,16 @@ DbStatus stat;
 
 	//	insert left fence key into parent 
 
-    key = slotkey(lSlot);
-	keyLen = keylen(key);
+  kv->key->bytes = slotkey(lSlot);
+	keyLen = keylen(kv->key->bytes);
 
 	if( lvl )
 		keyLen -= size64(keystr(key), keyLen);		// strip off pageNo
 	
-	memcpy(keyBuff, keystr(key), keyLen);
+	memcpy(keyBuff, kv->key->bytes, keyLen);
 	sfxLen = store64(keyBuff, keyLen, leftPage->pageNo.bits);
 	
-	if( (stat = btree2InsertKey (index, keyBuff, keyLen,0, sfxLen, lvl + 1, Btree2_slotactive)) )
+	if( (stat = btree2InsertKey (index, kv->key, lvl + 1, Btree2_slotactive)) )
 		return stat;
 
 	// rightmost leaf page number is always 1
@@ -261,16 +266,16 @@ DbStatus stat;
 //	This function IS thread safe
 
 uint16_t btree2InstallSlot (Btree2Page *page, Btree2Slot *source, uint8_t height) {
-uint8_t *key;
-uint32_t keyLen;
+DbKeyDef kv[1];
+uint32_t keyLen=1;
 uint32_t slotSize;
 Btree2Slot *slot;
 uint16_t off;
 uint8_t *dest;
 
-    key = slotkey (source);
-	keyLen = keylen(key);
-
+  kv->bytes = slotkey (source);
+	keyLen = kv->keyLen;
+/********** fix to get keyLen *****/
 	slotSize = btree2SizeSlot(keyLen, height);
 
 	if( (off = btree2AllocSlot(page, slotSize)) )
@@ -292,7 +297,7 @@ uint8_t *dest;
 	else
 		*dest++ = (keyLen >> 8) | 0x80, *dest++ = keyLen;
 
-	memcpy (dest, keystr(key), keyLen);
+	memcpy (dest, kv->bytes, keyLen);
 	return off;
 }
 

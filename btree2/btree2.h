@@ -158,7 +158,7 @@ DbStatus btree2NextKey (DbCursor *cursor, DbMap *map);
 DbStatus btree2PrevKey (DbCursor *cursor, DbMap *map);
 
 DbStatus btree2Init(Handle *hndl, Params *params);
-DbStatus btree2InsertKey(Handle *hndl, uint8_t *key, uint32_t keyLen, uint64_t payLoad, uint32_t sfxLen, uint8_t lvl, Btree2SlotState state);
+DbStatus btree2InsertKey(Handle *hndl, DbKeyDef *kv, uint8_t lvl, Btree2SlotState state);
 DbStatus btree2DeleteKey(Handle *hndl, uint8_t *key, uint32_t keyLen);
 
 uint16_t btree2LoadPage(DbMap *map, Btree2Set *set, uint8_t *key, uint32_t keyLen, uint8_t lvl);

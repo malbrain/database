@@ -213,7 +213,7 @@ MVCCResult result = {
 
 // 	begin a new Txn
 
-MVCCResult mvcc_BeginTxn(Params* params, ObjId nestedTxn) {
+MVCCResult mvcc_beginTxn(Params* params, ObjId nestedTxn) {
 MVCCResult result = {.value = 0, .count = 0, .objType = objTxn, .status = DB_OK};
   uint16_t tsClnt;
   ObjId txnId;
@@ -251,7 +251,7 @@ MVCCResult result = {.value = 0, .count = 0, .objType = objTxn, .status = DB_OK}
   return result;
 }
 
-MVCCResult mvcc_RollbackTxn(Params *params, uint64_t txnBits) {
+MVCCResult mvcc_rollbackTxn(Params *params, uint64_t txnBits) {
 MVCCResult result = {
     .value = 0, .count = 0, .objType = objTxn, .status = DB_OK};
 
@@ -538,7 +538,7 @@ bool snapshotCommit(Txn *txn) {
   return true;
 }
 
-MVCCResult mvcc_CommitTxn(Txn *txn, Params *params) {
+MVCCResult mvcc_commitTxn(Txn *txn, Params *params) {
   MVCCResult result = {
       .value = 0, .count = 0, .objType = objTxn, .status = DB_OK};
 

@@ -157,7 +157,7 @@ DbStatus artPrevKey(DbCursor *dbCursor, DbMap *map);
 
 DbStatus artInit(Handle *hndl, Params *params);
 DbStatus artDeleteKey (Handle *hndl, uint8_t *key, uint16_t keyLen, uint16_t suffixLen);
-DbStatus artInsertKey (Handle *hndl, uint8_t *key, uint16_t keyLen, uint64_t payLoad, uint16_t suffixLen);
+DbStatus artInsertKey (Handle *hndl, DbKeyDef *kv, uint8_t lvl);
 DbStatus artInsertUniq (Handle *hndl, uint8_t *key, uint16_t keyLen, uint16_t suffixLen, UniqCbFcn *fcn, bool *defer);
 DbStatus artEvalUniq( DbMap *map, uint8_t *key, uint16_t keyLen, uint16_t suffixLen, UniqCbFcn *evalFcn);
 
