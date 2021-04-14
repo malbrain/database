@@ -1,1 +1,1 @@
-gcc -std=c11 -O2 -g -o standalone db*.c base64.c artree/*.c btree1/*.c btree2/*.c standalone.c mutex/mutex.c rwlock/readerwriter.c -lpthread -latomic
+gcc -std=gnu99 -O2 -g -o standalone db*.c base64.c artree/*.c btree1/*.c btree2/*.c standalone.c mvcc_db*.c Hi-Performance-Timestamps/timestamps.c mutex/mutex.c rwlock/readerwriter.c -lpthread -latomic
