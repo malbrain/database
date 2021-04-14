@@ -100,13 +100,13 @@ ObjId *pageNoPtr;
 
 DbStatus btree2SplitPage (Handle *index, Btree2Set *set) {
 DbMap *idxMap = MapAddr(index);
-uint8_t *key, lvl = set->page->lvl, keyBuff[MAX_key];
+uint8_t lvl = set->page->lvl, keyBuff[MAX_key];
 Btree2Page *leftPage, *rightPage, *rootPage = NULL, *tmpPage;
 Btree2Index *btree2 = btree2index(idxMap);
 Btree2Slot *rSlot, *lSlot = NULL, *slot;
 uint16_t keyLen, min, next, off;
 uint16_t fwd[Btree2_maxtower];
-KeyValue kv[1];
+DbKeyDef key[1];
 DbAddr left, right, root;
 DbAddr *tmpPageNoPtrL;
 DbAddr *tmpPageNoPtrR;
@@ -233,16 +233,16 @@ DbStatus stat;
 
 	//	insert left fence key into parent 
 
-  kv->key->bytes = slotkey(lSlot);
-	keyLen = keylen(kv->key->bytes);
+  key->bytes = slotkey(lSlot);
+	keyLen = keylen(key->bytes);
 
 	if( lvl )
-		keyLen -= size64(keystr(key), keyLen);		// strip off pageNo
+		keyLen -= size64(key->bytes, keyLen);		// strip off pageNo
 	
-	memcpy(keyBuff, kv->key->bytes, keyLen);
+	memcpy(keyBuff, key->bytes, keyLen);
 	sfxLen = store64(keyBuff, keyLen, leftPage->pageNo.bits);
 	
-	if( (stat = btree2InsertKey (index, kv->key, lvl + 1, Btree2_slotactive)) )
+	if( (stat = btree2InsertKey (index, key, lvl + 1, Btree2_slotactive)) )
 		return stat;
 
 	// rightmost leaf page number is always 1
@@ -266,15 +266,17 @@ DbStatus stat;
 //	This function IS thread safe
 
 uint16_t btree2InstallSlot (Btree2Page *page, Btree2Slot *source, uint8_t height) {
-DbKeyDef kv[1];
+DbKeyDef key[1];
 uint32_t keyLen=1;
 uint32_t slotSize;
 Btree2Slot *slot;
 uint16_t off;
 uint8_t *dest;
 
-  kv->bytes = slotkey (source);
-	keyLen = kv->keyLen;
+	memset(key, 0, sizeof(DbKeyDef));
+
+  key->bytes = slotkey (source);
+	keyLen = key->keyLen;
 /********** fix to get keyLen *****/
 	slotSize = btree2SizeSlot(keyLen, height);
 
@@ -297,7 +299,7 @@ uint8_t *dest;
 	else
 		*dest++ = (keyLen >> 8) | 0x80, *dest++ = keyLen;
 
-	memcpy (dest, kv->bytes, keyLen);
+	memcpy (dest, key->bytes, keyLen);
 	return off;
 }
 

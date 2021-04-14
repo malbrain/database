@@ -4,5 +4,6 @@
 
 DbStatus mvcc_insertKeyValue(Handle *idxHndl, KeyValue *keyValue) {
 
+	return DB_OK;
 }
 
