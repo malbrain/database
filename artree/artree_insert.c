@@ -109,9 +109,10 @@ uint32_t len;
   return true;
 }
 
-DbStatus artInsertKey( Handle *index, uint8_t *key, uint16_t keyLen, uint64_t payLoad, uint16_t sfxLen) {
+// basic insert of key value
+
+DbStatus artInsertKey( Handle *index, DbKeyDef *kv, uint8_t lvl) {
 DbMap *idxMap = MapAddr(index);
-uint16_t totLen = keyLen + sfxLen;
 ARTKeyEnd *keyEndNode;
 ArtIndex *artIndex;
 bool pass = false;
@@ -121,7 +122,7 @@ volatile DbAddr* install;
 
 	artIndex = artindex(idxMap);
 
-	if (totLen > MAX_key)
+	if (kv->keyLen > MAX_key)
 		return DB_ERROR_keylength;
 
 	do {
@@ -129,10 +130,10 @@ volatile DbAddr* install;
 
 		p->binaryFlds = artIndex->dbIndex->binaryFlds;
         p->slot = artIndex->root;
-        p->keyLen = keyLen;
+        p->keyLen = kv->keyLen;
         p->restart = false;
         p->idxMap = idxMap;
-        p->key = key;
+        p->key = kv->bytes;
         p->index = index;
 		p->fldLen = 0;
 		p->off = 0;
@@ -176,8 +177,8 @@ volatile DbAddr* install;
 
 		p->slot = keyEndNode->suffix;
 
-		p->key = key + keyLen;
-        p->keyLen = sfxLen;
+		p->key = kv->bytes + kv->keyLen;
+        p->keyLen = kv->suffixLen;
         p->restart = false;
 		p->binaryFlds = 0;
 		p->fldLen = 0;

@@ -4,7 +4,7 @@
 
 //	allocate docStore power-of-two memory
 
-uint64_t allocDocStore(Handle* docHndl, uint32_t size, bool zeroit) {
+uint64_t mvcc_allocDocStore(Handle* docHndl, uint32_t size, bool zeroit) {
   DbAddr* free = listFree(docHndl, 0);
   DbAddr* wait = listWait(docHndl, 0);
 
@@ -47,7 +47,7 @@ MVCCResult chainNewDoc(Handle* docHndl, DbAddr* docSlot, uint32_t verSize) {
 
   //  allocate space in docStore for the new Document and version
     
-  if ((docAddr.bits = allocDocStore(docHndl, blkSize, false)))
+  if ((docAddr.bits = mvcc_allocDocStore(docHndl, blkSize, false)))
     doc = getObj(docMap, docAddr);
   else 
     return result.status = DB_ERROR_outofmemory, result;
@@ -75,11 +75,12 @@ MVCCResult chainNewDoc(Handle* docHndl, DbAddr* docSlot, uint32_t verSize) {
   return result;
 }
 
-//  process new document's version keys
+//  process new document version keys
 
-MVCCResult mvcc_ProcessKeys(DbHandle hndl[1], DbHandle hndlIdx[1], Ver* prevVer, Ver* ver, DocId docId, KeyValue* srcKey) {
+MVCCResult mvcc_ProcessKeys(DbHandle hndl[1], DbHandle hndlIdx[1], Ver* prevVer, Ver* ver, DocId docId, KeyValue* srcKey, uint16_t keyCnt) {
 
   Handle *docHndl = bindHandle(hndl, Hndl_docStore);
+
   Handle *idxHndl = bindHandle(hndlIdx, Hndl_anyIdx);
   MVCCResult result = {
       .value = 0, .count = 0, .objType = 0, .status = DB_OK};
@@ -94,29 +95,26 @@ MVCCResult mvcc_ProcessKeys(DbHandle hndl[1], DbHandle hndlIdx[1], Ver* prevVer,
 		return result.objType = objErr, result.status = DB_ERROR_handleclosed, result;
 
 	docMap = MapAddr(docHndl);
-    size += srcKey->keyLen + srcKey->suffix;
-    hashKey =
-          hashVal(srcKey->bytes, srcKey->keyLen + srcKey->suffix);
+  size += srcKey->key->keyLen + srcKey->suffix;
+  hashKey = hashVal(srcKey->key->bytes, srcKey->key->keyLen - srcKey->suffix);
 
-    //  see if this key already indexed
+  //  see if this key already indexed
 	//  in previous version
 
-    //	fill-in stopper (verSize == 0) at end of version chain
-
-    if (prevVer) {
+  if (prevVer) {
      verSize = sizeof(struct Stop);
 
-    }
+  }
 
-    //  otherwise install key for delete/update
-    //  and i key into its index
+  //  otherwise install key for delete/update
+  //  and i key into its index
 
-    insKey.bits = allocDocStore(docHndl, size + calc64(docId.bits), true);
-    destKey = getObj(docMap, insKey);
-    memcpy(destKey, srcKey, size);  
-    destKey->keyHash = hashKey;
+  insKey.bits = mvcc_allocDocStore(docHndl, size + calc64(docId.bits), true);
+  destKey = getObj(docMap, insKey);
+  memcpy(destKey, srcKey, size);  
+  destKey->keyHash = hashKey;
 
-    size += store64((uint8_t *)destKey, size, docId.bits);
+  size += store64((uint8_t *)destKey, size, docId.bits);
 	addr.bits = insKey.bits;
 
 	if(( slot = vectorPush(docMap, ver->keys, addr)))
@@ -124,9 +122,14 @@ MVCCResult mvcc_ProcessKeys(DbHandle hndl[1], DbHandle hndlIdx[1], Ver* prevVer,
 	else
     	return result.status = DB_ERROR_outofmemory, result.objType = objErr, result;
 
-//    result.status = insertKeyValue(idxHndl, destKey);
+    result.status = mvcc_insertKeyValue(idxHndl, destKey);
     return result;
 }
+
+//  allocates and installs a new
+//  document version by fitting it between the previous
+//  version base and the sizeof the Doc structure plus the
+//  size of the key vector of document version keys.
 
 MVCCResult mvcc_installNewVersion(Handle *docHndl, uint32_t valSize, DocId *docSlot, uint16_t keyCnt) { 
   MVCCResult result = {
@@ -134,17 +137,20 @@ MVCCResult mvcc_installNewVersion(Handle *docHndl, uint32_t valSize, DocId *docS
   DbMap* docMap = MapAddr(docHndl);
   Doc *prevDoc;
   uint32_t verSize;
+  DocId docId[1];
   Ver* ver;
   Doc* doc;
 
-  if (docSlot)
-    prevDoc = getObj(docMap, *docSlot);
-  else
+
+  if (docSlot == NULL)
     return result.status = DB_ERROR_badhandle, result;
+
+  if( docId->bits = docSlot->bits ) 
+    prevDoc = getObj(docMap, *docSlot);
 
   verSize = sizeof(Ver) + keyCnt * sizeof(DbAddr) + valSize;
 
-  //	allocate space in docStore for a new mvcc version
+  //	allocate space in docStore for a new mvcc document
   //   or add new version to existing Document
 
   if (verSize > prevDoc->commitVer )
@@ -184,9 +190,14 @@ MVCCResult mvcc_installNewVersion(Handle *docHndl, uint32_t valSize, DocId *docS
   return result;
 }
 
+// write new document version into collection
+// pass docId slot address with existing document dbaddr
+//  or zero to allocate an Id for the new document.
 
+// the docId slot remains locked until each of the keys are
+//  installed as either no change, or new.
 
-MVCCResult mvcc_WriteDoc(Txn *txn, DbHandle dbHndl[1], DocId *docId, uint32_t valSize,  uint8_t *valBytes, uint16_t keyCnt) {
+MVCCResult mvcc_writeDoc(Txn *txn, DbHandle dbHndl[1], DocId *docId, uint32_t valSize,  uint8_t *valBytes, uint16_t keyCnt) {
   MVCCResult result = {
       .value = 0, .count = 0, .objType = 0, .status = DB_OK };
   Handle *docHndl = bindHandle(dbHndl, Hndl_docStore);
@@ -206,7 +217,7 @@ MVCCResult mvcc_WriteDoc(Txn *txn, DbHandle dbHndl[1], DocId *docId, uint32_t va
     doc = result.object;
     result = mvcc_addDocWrToTxn(txn, docHndl, (Doc *)result.object);
 
-    memcpy(doc + 1, valBytes, valSize);
+    memcpy(doc->dbDoc->base, valBytes, valSize);
   }
   
   return result;

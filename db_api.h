@@ -4,6 +4,39 @@
 #include "base64.h"
 #include "db.h"
 
+DbMap *hndlMap;
+
+// document header in docStore
+// next hdrs in set follow, up to docMin
+
+typedef enum {
+    VerRaw,
+    VerMvcc
+} DocType;
+
+typedef struct Document {
+  union {
+    uint8_t base[4];
+    uint32_t refCnt[1];
+  };
+  DocType docType:8;
+  DbAddr keyValues;
+  DocId docId;
+  uint16_t nKeys;
+} DbDoc;
+
+//  fields in basic key
+
+typedef struct {
+  uint32_t refCnt[1];
+  uint16_t keyLen; 	    // len of entire key
+  uint16_t suffixLen; 	// len of base key
+  ObjId payLoad;        // docId key comes from
+  uint8_t unique : 1;   // index is unique
+  uint8_t deferred : 1;	// uniqueness deferred
+  uint8_t binaryKeys : 1;	// use key fields with binary comparisons
+  uint8_t *bytes;		// bytes of the key with suffix
+} DbKeyDef;
 
 // database docStore Arena extension
 
@@ -28,19 +61,6 @@ typedef enum {
 
 //	Unique Key evaluation fcn
 
-typedef struct {
-  uint32_t refCnt[1];
-  uint16_t keyLen; 	    // len of base key
-  uint16_t vecIdx;		// index in document key vector
-  uint16_t suffix;      // number of suffix ending bytes
-  uint64_t keyHash;     // used by MVCC if key changed
-  ObjId payLoad;        // docId key comes from
-  uint8_t unique : 1;   // index is unique
-  uint8_t deferred : 1;	// uniqueness deferred
-  uint8_t binaryKeys : 1;	// uniqueness deferred
-  uint8_t bytes[];		// bytes of the key with suffix
-} KeyValue;
-
 typedef bool(UniqCbFcn)(DbMap *map, DbCursor *dbCursor);
 
 void initialize(void);
@@ -57,12 +77,11 @@ DbStatus closeHandle(DbHandle dbHndl[1]);
 
 DbStatus createCursor(DbHandle hndl[1], DbHandle idxHndl[1], Params *params);
 DbStatus closeCursor(DbHandle dbHndl[1]);
-DbStatus positionCursor(DbHandle hndl[1], CursorOp op, void *key,
-                       uint32_t keyLen);
+DbStatus positionCursor(DbHandle hndl[1], CursorOp op, void *key, uint32_t keyLen);
 DbStatus keyAtCursor(DbHandle hndl[1], uint8_t **key, uint32_t *keyLen);
 DbStatus moveCursor(DbHandle hndl[1], CursorOp op);
 
-DbStatus insertKey(DbHandle hndl[1], KeyValue *kv);
+DbStatus insertKey(DbHandle hndl[1], DbKeyDef *kv);
 DbStatus deleteKey(DbHandle hndl[1], uint8_t *key, uint32_t len);
 
 uint64_t arenaAlloc(DbHandle arenaHndl[1], uint32_t size, bool zeroit,

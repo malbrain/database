@@ -2,9 +2,10 @@
 
 #include "btree1.h"
 
+
 extern bool debug;
 
-DbStatus btree1InsertKey(Handle *index, uint8_t *key, uint16_t keyLen, uint64_t payload, uint16_t auxLen, uint8_t lvl, Btree1SlotType type) {
+DbStatus btree1InsertKey(Handle *index, DbKeyDef *kv, uint8_t lvl, Btree1SlotType type) {
 DbMap *idxMap = MapAddr(index);
 uint32_t length;
 Btree1Slot *slot;
@@ -15,13 +16,13 @@ int32_t idx, tst;
 DbStatus stat;
 uint8_t *ptr;
 
-  length = keyLen + auxLen;
+  length = kv->keyLen;
 
   while (true) {
 	memset(set, 0, sizeof(set));
-	set->keyLen = keyLen;
-	set->keyVal = key;
-	set->auxLen = auxLen;
+	set->keyLen = kv->keyLen;
+	set->keyVal = kv->bytes;
+	set->auxLen = kv->suffixLen;
 	set->length = length;
 
 	//  drill down to lvl page containing key
@@ -49,7 +50,7 @@ uint8_t *ptr;
 	//	check for duplicate key already on the page
 
 	if( set->slotIdx <= set->page->cnt )
-	  if( !btree1KeyCmp(set->page, set->slotIdx, key, keyLen) )
+	  if( !btree1KeyCmp(set->page, set->slotIdx, kv->bytes, kv->keyLen) )
 		return DB_ERROR_duplicatekey;
 
 	//	slot now points to where the new 
@@ -80,7 +81,7 @@ uint8_t *ptr;
 	  }
 	} while( cnt > 0 );
 
-	assert(page->min < sizeof (Btree1Slot) * (uint64_t)(page->cnt + 1) + (uint64_t)set->length + sizeof(Btree1Page));
+	assert((uint64_t)page->min < sizeof (Btree1Slot) * (uint64_t)(page->cnt + 1) + (uint64_t)set->length + sizeof(Btree1Page));
 
 	slot->off = page->min -= set->length;
 
@@ -88,7 +89,7 @@ uint8_t *ptr;
 
 	ptr = keyaddr(page, page->min);
 	page->act += 1;
-	memcpy (ptr, key, set->length);
+	memcpy (ptr, kv->bytes, set->length);
 	slot->type = type;
   }
   btree1UnlockPage (set->page, Btree1_lockWrite);

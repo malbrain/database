@@ -107,7 +107,6 @@ MVCCResult result = (MVCCResult) {
 
     if (doc->op == OpWrt)
         if( doc->txnId.bits == txn->txnId.bits) 
-            if (doc->txnVer == txn->txnVer)
                 break;
 
     objId.addr = docHndl->hndlId.addr;
@@ -180,7 +179,7 @@ MVCCResult result = {
 
     if (doc->op == OpWrt)
       if (doc->txnId.bits == txn->txnId.bits)
-        if (doc->txnVer == txn->txnVer) break;
+        break;
 
     // otherwise since we only read committed versions,
     // capture the largest commit stamp read
@@ -214,7 +213,7 @@ MVCCResult result = {
 
 // 	begin a new Txn
 
-MVCCResult mvcc_BeginTxn(Params* params, ObjId nestedTxn) {
+MVCCResult mvcc_beginTxn(Params* params, ObjId nestedTxn) {
 MVCCResult result = {.value = 0, .count = 0, .objType = objTxn, .status = DB_OK};
   uint16_t tsClnt;
   ObjId txnId;
@@ -252,7 +251,7 @@ MVCCResult result = {.value = 0, .count = 0, .objType = objTxn, .status = DB_OK}
   return result;
 }
 
-MVCCResult mvcc_RollbackTxn(Params *params, uint64_t txnBits) {
+MVCCResult mvcc_rollbackTxn(Params *params, uint64_t txnBits) {
 MVCCResult result = {
     .value = 0, .count = 0, .objType = objTxn, .status = DB_OK};
 
@@ -270,7 +269,7 @@ Ver * mvcc_getVersion(DbMap *map, Doc *doc, uint64_t verNo) {
   //	enumerate previous document versions
 
   do {
-    ver = (Ver *)(doc->base + offset);
+    ver = (Ver *)(doc->dbDoc->base + offset);
 
     //  continue to next version chain on stopper version
 
@@ -306,10 +305,9 @@ MVCCResult mvcc_findDocVer(Txn *txn, Doc *doc, Handle *docHndl) {
 
   if(txn) {
       if ((txn->txnId.bits == doc->txnId.bits)) {
-          if (txn->txnVer == doc->txnVer)
-              if (offset = doc->pendingVer) {
-                  ver = (Ver *)(doc->base + offset);
-                  result.object = ver;
+        if (offset = doc->pendingVer) {
+           ver = (Ver *)(doc->dbDoc->base + offset);
+             result.object = ver;
                   return result;
               }
       }
@@ -320,7 +318,7 @@ MVCCResult mvcc_findDocVer(Txn *txn, Doc *doc, Handle *docHndl) {
   offset = doc->commitVer;
 
   do {
-    ver = (Ver *)(doc->base + offset);
+    ver = (Ver *)(doc->dbDoc->base + offset);
 
     //  continue to next version chain on stopper version
 
@@ -540,7 +538,7 @@ bool snapshotCommit(Txn *txn) {
   return true;
 }
 
-MVCCResult mvcc_CommitTxn(Txn *txn, Params *params) {
+MVCCResult mvcc_commitTxn(Txn *txn, Params *params) {
   MVCCResult result = {
       .value = 0, .count = 0, .objType = objTxn, .status = DB_OK};
 

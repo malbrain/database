@@ -2,13 +2,14 @@
 #define _DEFAULT_SOURCE 1
 #include "mvcc.h"
 
+#include "base64.h"
+
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <direct.h>
 #include <process.h>
 #include <windows.h>
 #endif
-extern DbMap *txnMap;
 
 #ifdef _WIN32
 #define strncasecmp _strnicmp
@@ -20,7 +21,13 @@ extern DbMap *txnMap;
 #define sprintf_s snprintf
 #endif
 
-bool stats = true;
+#include "db.h"
+#include "db_handle.h"
+#include "db_api.h"
+#include "mvcc_dbapi.h"
+
+extern DbMap *txnMap;
+extern bool stats;
 
 extern uint64_t totalMemoryReq[1];
 extern uint64_t nodeAlloc[64];

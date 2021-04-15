@@ -31,8 +31,6 @@ typedef struct {
   DbStatus status;
   DbAddr dbobject;
 } MVCCResult;
-
-#include "Hi-Performance-Timestamps/timestamps.h"
  
 #include "mvcc_dbdoc.h"
 #include "mvcc_dbtxn.h"

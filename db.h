@@ -7,8 +7,15 @@
 #include <Windows.h>
 #endif
 
+#define HandleAddr(dbHndl) fetchIdSlot(hndlMap, dbHndl->hndlId)
+#define MapAddr(handle) (DbMap *)(db_memObj(handle->mapAddr))
+#define ClntAddr(handle) getObj(MapAddr(handle), handle->clientAddr)
 
  bool Btree1_stats, debug;
+
+
+
+extern bool Btree1_stats, debug;
 
 //	general object pointer
 
@@ -166,24 +173,6 @@ DbAddr *vectorFind(DbMap*, DbVector *, uint32_t);
 DbMap *hndlMap;
 
 // document header in docStore
-// next hdrs in set follow, up to docMin
-
-typedef enum {
-    VerRaw,
-    VerMvcc
-} DocType;
-
-typedef struct {
-  union {
-    uint32_t refCnt[1];
-    uint8_t base[4];
-  };
-  uint32_t mapId;     // db child id
-  DocType docType;
-  DbAddr ourAddr;
-  DocId docId;
-} DbDoc;
-
 
 #include "db_arena.h"
 #include "db_index.h"
@@ -193,5 +182,9 @@ typedef struct {
 #include "db_frame.h"
 #include "db_api.h"
 #include "db_malloc.h"
+#include "db_error.h"
+#include "db_handle.h"
+#include "db_object.h"
+
 #include "db_object.h"
 #include "db_handle.h"

@@ -1,4 +1,6 @@
 #include "base64.h"
+#include "db.h"
+#include "db_api.h"
 
 //	fill in top down values from keyend
 //	return number of values array used
