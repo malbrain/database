@@ -54,7 +54,6 @@ uint64_t result;
 
 uint32_t append64(uint8_t *ptr, int64_t *suffix, uint8_t suffixCnt, uint32_t avail) {
 uint8_t xtraBytes, cnt = 0;
-uint32_t keyEnd = avail;
 int64_t tst64;
 bool neg;
 
@@ -67,7 +66,7 @@ bool neg;
 	//	the sign bit in the right most byte
 
 	if( avail--)
-		*--ptr = (uint8_t)(tst64 & 0xf | 0x80);
+		*--ptr = (uint8_t)(tst64 & 0xf) | 0x80;
 	else
 		return 0;
 

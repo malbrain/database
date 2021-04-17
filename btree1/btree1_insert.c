@@ -5,7 +5,7 @@
 
 extern bool debug;
 
-DbStatus btree1InsertKey(Handle *index, DbKeyDef *kv, uint8_t lvl, Btree1SlotType type) {
+DbStatus btree1InsertKey(Handle *index, DbKeyBase *kv, uint8_t lvl, Btree1SlotType type) {
 DbMap *idxMap = MapAddr(index);
 uint32_t length;
 Btree1Slot *slot;

@@ -9,7 +9,7 @@ uint16_t btree2InstallSlot (Btree2Page *page, Btree2Slot *source, uint8_t height
 bool btree2LinkTower(Btree2Set *set, volatile uint16_t *tower, volatile uint8_t *bitLatch, uint8_t idx);
 void btree2FillTower(Btree2Page *page, uint16_t off, uint16_t *fwd, uint8_t height);
 
-DbStatus btree2InsertKey(Handle *index, DbKeyDef *key, uint8_t lvl, Btree2SlotState type) {
+DbStatus btree2InsertKey(Handle *index, DbKeyBase *key, uint8_t lvl, Btree2SlotState type) {
 uint32_t slotSize;
 uint8_t height = btree2GenHeight(index);
 DbMap *idxMap = MapAddr(index);
@@ -26,10 +26,10 @@ uint16_t next;
 
 	do {
 	  memset(set, 0, sizeof(set));
-	  next = btree2LoadPage(idxMap, set, key->bytes, key->keyLen, lvl);
+	  next = btree2LoadPage(idxMap, set, getObj(idxMap, key->bytes), key->keyLen, lvl);
 
 	  if( (set->off = btree2AllocSlot (set->page, slotSize) ))
-		 return btree2InstallKey (set, key->bytes, key->keyLen, height);
+		 return btree2InstallKey (set, key);
 
 	   if( (stat = btree2CleanPage (index, set)))
 		 return stat;
@@ -106,7 +106,7 @@ Btree2Index *btree2 = btree2index(idxMap);
 Btree2Slot *rSlot, *lSlot = NULL, *slot;
 uint16_t keyLen, min, next, off;
 uint16_t fwd[Btree2_maxtower];
-DbKeyDef key[1];
+DbKeyBase key[1];
 DbAddr left, right, root;
 DbAddr *tmpPageNoPtrL;
 DbAddr *tmpPageNoPtrR;
@@ -266,14 +266,14 @@ DbStatus stat;
 //	This function IS thread safe
 
 uint16_t btree2InstallSlot (Btree2Page *page, Btree2Slot *source, uint8_t height) {
-DbKeyDef key[1];
+DbKeyBase key[1];
 uint32_t keyLen=1;
 uint32_t slotSize;
 Btree2Slot *slot;
 uint16_t off;
 uint8_t *dest;
 
-	memset(key, 0, sizeof(DbKeyDef));
+	memset(key, 0, sizeof(DbKeyBase));
 
   key->bytes = slotkey (source);
 	keyLen = key->keyLen;
@@ -299,7 +299,7 @@ uint8_t *dest;
 	else
 		*dest++ = (keyLen >> 8) | 0x80, *dest++ = keyLen;
 
-	memcpy (dest, key->bytes, keyLen);
+	memcpy (dest, getobj(key->bytes, keyLen);
 	return off;
 }
 

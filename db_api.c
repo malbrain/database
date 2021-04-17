@@ -695,7 +695,7 @@ DbStatus deleteKey(DbHandle hndl[1], uint8_t *key, uint32_t len) {
 
 bool uniqueKey(DbMap *map, DbCursor *dbCursor) { return true; }
 
-DbStatus insertKey(DbHandle hndl[1], DbKeyDef *kv) {
+DbStatus insertKey(DbHandle hndl[1], DbKeyBase *kv) {
   DbStatus stat = DB_OK;
   Handle *idxHndl;
   DbIndex *index;

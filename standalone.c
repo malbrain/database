@@ -202,7 +202,7 @@ int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
         msg[msgLen++] = '\n';
       }
 
-      memcpy(kv->key->bytes + keyOff, body, keyMax);
+      memcpy(getObj(kv->key->bytes + keyOff, body, keyMax);
       keyLen += keyMax;
     } else {
       keyMax = 4096;
@@ -286,7 +286,7 @@ int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
   uint8_t binaryKeys : 1;	// uniqueness deferred
   uint8_t bytes[];		// bytes of the key with suffix
 */
-          kv->payLoad.bits = docId.bits;
+          kv->docId.bits = docId.bits;
           kv->key->keyLen = keyLen;
 
 //          switch ((stat = insertKey(args->idxHndl, kv->key))) {

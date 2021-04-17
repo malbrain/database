@@ -89,14 +89,16 @@ MVCCResult mvcc_ProcessKeys(DbHandle hndl[1], DbHandle hndlIdx[1], Ver* prevVer,
   DbAddr insKey, addr;
   KeyValue *destKey;
   uint32_t hashKey, verSize;
+  uint8_t *key = getObj(docMap, srcKey->bytex)
   int slot;
 
 	if( !docHndl )
 		return result.objType = objErr, result.status = DB_ERROR_handleclosed, result;
 
 	docMap = MapAddr(docHndl);
-  size += srcKey->key->keyLen + srcKey->suffix;
-  hashKey = hashVal(srcKey->key->bytes, srcKey->key->keyLen - srcKey->suffix);
+  size += srcKey->key->keyLen;
+
+  hashKey = hashVal(getObj(docMap->key->bytes, srcKey->key->keyLen - srcKey->suffix);
 
   //  see if this key already indexed
 	//  in previous version

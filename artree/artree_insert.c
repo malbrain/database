@@ -94,12 +94,13 @@ uint32_t len;
 	if (p->binaryFlds)
 	  p->fldLen -= len;
 
-	if (p->binaryFlds && !p->fldLen)
+	if (p->binaryFlds && !p->fldLen) {
 	  if ((slot->bits = artAllocateNode(p->index, FldEnd, sizeof(ARTFldEnd)))) {
 		ARTFldEnd *fldEndNode = getObj(p->idxMap, *slot);
 		slot = fldEndNode->nextFld;
 	  } else
 		return false;
+	}
   }
 
   //  install the span chain
@@ -111,7 +112,7 @@ uint32_t len;
 
 // basic insert of key value
 
-DbStatus artInsertKey( Handle *index, DbKeyDef *kv, uint8_t lvl) {
+DbStatus artInsertKey( Handle *index, DbKeyBase *kv, uint8_t lvl) {
 DbMap *idxMap = MapAddr(index);
 ARTKeyEnd *keyEndNode;
 ArtIndex *artIndex;
@@ -133,7 +134,7 @@ volatile DbAddr* install;
         p->keyLen = kv->keyLen;
         p->restart = false;
         p->idxMap = idxMap;
-        p->key = kv->bytes;
+        p->key = getObj(idxMap, kv->bytes);
         p->index = index;
 		p->fldLen = 0;
 		p->off = 0;
