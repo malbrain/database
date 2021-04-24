@@ -60,7 +60,7 @@ MVCCResult chainNewDoc(Handle* docHndl, DbAddr* docSlot, uint32_t verSize) {
   doc->commitVer = rawSize - stopSize;
   doc->prevAddr = *docSlot;
 
-  doc->dbDoc->docId.bits = docAddr.bits;
+  doc->dbDoc->docId->bits = docAddr.bits;
   doc->dbDoc->docType = VerMvcc;
 
   //  fill-in stopper version (verSize == 0) at end of document
@@ -77,28 +77,28 @@ MVCCResult chainNewDoc(Handle* docHndl, DbAddr* docSlot, uint32_t verSize) {
 
 //  process new document version keys
 
-MVCCResult mvcc_ProcessKeys(DbHandle hndl[1], DbHandle hndlIdx[1], Ver* prevVer, Ver* ver, DocId docId, KeyValue* srcKey, uint16_t keyCnt) {
+MVCCResult mvcc_ProcessKeys(DbHandle hndl[1], DbHandle hndlIdx[1], Ver* prevVer, Ver* ver, DocId docId, MVCCKeyValue *srcKey, uint16_t keyCnt) {
 
   Handle *docHndl = bindHandle(hndl, Hndl_docStore);
 
   Handle *idxHndl = bindHandle(hndlIdx, Hndl_anyIdx);
   MVCCResult result = {
       .value = 0, .count = 0, .objType = 0, .status = DB_OK};
-  uint32_t size = sizeof(KeyValue);
+  uint32_t size = sizeof(DbKeyValue);
   DbMap* docMap = MapAddr(docHndl);
   DbAddr insKey, addr;
-  KeyValue *destKey;
+  MVCCKeyValue *destKey;
   uint32_t hashKey, verSize;
-  uint8_t *key = getObj(docMap, srcKey->bytex)
+  uint8_t *key = getObj(docMap, srcKey->bytes);
   int slot;
 
 	if( !docHndl )
 		return result.objType = objErr, result.status = DB_ERROR_handleclosed, result;
 
 	docMap = MapAddr(docHndl);
-  size += srcKey->key->keyLen;
+  size += srcKey->kv->keyLen;
 
-  hashKey = hashVal(getObj(docMap->key->bytes, srcKey->key->keyLen - srcKey->suffix);
+  hashKey = hashVal(key, srcKey->kv->keyLen - srcKey->suffix);
 
   //  see if this key already indexed
 	//  in previous version

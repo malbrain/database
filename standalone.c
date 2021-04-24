@@ -1,6 +1,7 @@
 #define __STDC_WANT_LIB_EXT1__ 1
 
 #include "mvcc.h"
+#include "db_iterator.h"
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -40,6 +41,9 @@ bool pennysort = false;
 char *idxName;
 int numThreads = 1;
 char binaryFlds = 0;
+
+#define MAX_BUFF 65535
+
 
 double getCpuTime(int type);
 
@@ -94,13 +98,6 @@ char *indexNames[4] = {"ARTree", "Btree1", "Btree2"};
 
 HandleType indexType[4] = {Hndl_artIndex, Hndl_btree1Index, Hndl_btree2Index};
 
-//	our documents in the docStore
-
-typedef struct {
-  uint32_t size;
-  uint8_t body[];
-} OurDoc;
-
 void myExit(ThreadArgs *args) {
   if (args->noExit) return;
 
@@ -113,31 +110,27 @@ int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
   uint16_t nrandState[3];
   int batchSize = 0;
   uint32_t msgLen = 0;
+  uint32_t suffixLen;
   MVCCResult result;
-  uint8_t rec[4096];
-  OurDoc *ourDoc = (OurDoc *)rec;
-  uint8_t *body = rec + sizeof(OurDoc);
-  uint8_t *keyBuff = malloc   (65532);
-  KeyValue kv[1];
-  int keyLen = 0, docLen = 0;
-  int ch, keyOff, docMax, keyMax;
+  uint32_t docMax = MAX_BUFF - sizeof(DbDoc);
+  uint32_t docLen = 0;
+  uint32_t keyOff, keyMax;
   uint32_t foundLen = 0;
+  DbKeyValue kv[1];
   int lastFld = 0;
   uint8_t *foundKey;
   uint64_t count = ~0ULL;
   Params params[MaxParam];
-  ObjId docId;
+  DocId docId[1];
   Txn *txn = NULL;
   FILE *in;
   DbStatus stat;
-  docMax = 4096 - sizeof(Doc);
+  int ch;
 
   if (pennysort)
     docMax = 100;
   
   memset (kv, 0, sizeof(kv));
-  kv->key->bytes = keyBuff;
-   
   msg[msgLen++] = '\n';
 
   switch (cmd | 0x20) {
@@ -148,13 +141,11 @@ int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
       break;
     case 'f':
       msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1,
-                          "thrd:%d cmd:%c %s: begin find keys file:%s\n",
-                          args->idx, cmd, idxName, args->inFile);
+                "thrd:%d cmd:%c %s: begin find keys file:%s\n", args->idx, cmd, idxName, args->inFile);
       break;
     case 'w':
       msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1,
-                          "thrd:%d cmd:%c %s: begin add keys file:%s\n",
-                          args->idx, cmd, idxName, args->inFile);
+               "thrd:%d cmd:%c %s: begin add keys file:%s\n", args->idx, cmd, idxName, args->inFile);
       break;
   }
 
@@ -180,50 +171,49 @@ int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
     docLen = 0;
 
     keyOff = binaryFlds ? 2 : 0;
-    keyLen = keyOff;
+    kv->keyLen = keyOff;
     lastFld = 0;
 
     if (pennysort) {
       keyMax = args->keyLen ? args->keyLen : 10;
-      docLen = createB64(body, keyMax, nrandState);
+      docLen = createB64(kv->keyBuff, keyMax, nrandState);
 
       while (docLen < 100) {
-        body[docLen++] = '\t';
-        memset(body + docLen, 'A' + docLen / 10, 9);
+        kv->keyBuff[docLen++] = '\t';
+        memset(kv->keyBuff + docLen, 'A' + docLen / 10, 9);
         docLen += 9;
       }
 
       if (args->line == 0) {
-        msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1,
-                            "thrd:%d cmd:%c %s: first key: <%.10s>", args->idx,
-                            cmd, idxName, body);
+        msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1, "thrd:%d cmd:%c %s: first key: <%.10s>", args->idx, cmd, idxName, kv->keyBuff);
+
         if (args->offset)
           msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1, "lineno offset: %" PRIu64,   args->offset);
+
         msg[msgLen++] = '\n';
       }
 
-      memcpy(getObj(kv->key->bytes + keyOff, body, keyMax);
-      keyLen += keyMax;
+      kv->keyLen += keyMax;
     } else {
-      keyMax = 4096;
+      keyMax = MAX_key;
 
       while (ch = getc_unlocked(in), ch != EOF && ch != '\n') {
         if (!args->noDocs)
-          if (docLen < docMax) body[docLen++] = (uint8_t)ch;
+          if (docLen < docMax) kv->keyBuff[docLen++] = (uint8_t)ch;
 
         if (!args->noIdx)
           if (docLen < keyMax) {
             if (binaryFlds)
               if (ch == '\t' || ch == binaryFlds) {
-                kv->key->bytes[lastFld] = (uint8_t)((keyLen - lastFld - 2) >> 8);
-                kv->key->bytes[lastFld + 1] = (uint8_t)(keyLen - lastFld - 2);
-                lastFld = keyLen;
+                kv->keyBuff[lastFld] = (uint8_t)((kv->keyLen - lastFld - 2) >> 8);
+                kv->keyBuff[lastFld + 1] = (uint8_t)(kv->keyLen - lastFld - 2);
+                lastFld = kv->keyLen;
                 if (ch == '\t')
                   keyMax = 0;
                 else
-                  keyLen += 2;
+                  kv->keyLen += 2;
               } else
-                kv->key->bytes[keyLen++] = (uint8_t)ch;
+                kv->keyBuff[kv->keyLen++] = (uint8_t)ch;
           }
       }
 
@@ -237,8 +227,8 @@ int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
       fprintf(stderr, "thrd:%d cmd:%c line: %" PRIu64 "\n", args->idx, cmd, args->line);
 
     if (binaryFlds && keyMax) {
-      kv->key->bytes[lastFld] = (uint8_t)((keyLen - lastFld - 2) >> 8);
-      kv->key->bytes[lastFld + 1] = (uint8_t)(keyLen - lastFld - 2);
+      kv->keyBuff[lastFld] = (uint8_t)((kv->keyLen - lastFld - 2) >> 8);
+      kv->keyBuff[lastFld + 1] = (uint8_t)(kv->keyLen - lastFld - 2);
     }
 
     lastFld = 0;
@@ -249,9 +239,9 @@ int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
         // store the entry in the docStore?
 
         if (args->docHndl->hndlId.bits) {
-          docId.bits = 0;
+          docId->bits = 0;
           if (args->txnBatch) {
-            result = mvcc_writeDoc(txn, args->docHndl, &docId, docLen, ourDoc->body, 1);
+            result = mvcc_writeDoc(txn, args->docHndl, docId, docLen, kv->keyBuff, 1);
             if (args->line % args->txnBatch == 0) {
               ObjId nestTxn, currTxn;
               nestTxn.bits = 0;
@@ -263,50 +253,35 @@ int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
               txn = fetchIdSlot(txnMap, currTxn);
             }
           } else {
-            ourDoc->size = docLen;
             if ((stat =
-              storeDoc(args->docHndl, ourDoc, sizeof(OurDoc) + docLen, &docId)))
+              storeDoc(args->docHndl, kv->keyBuff, docLen, docId)))
               fprintf(stderr, "Add Doc %s Error %d Line: %" PRIu64 " *********\n",
               args->inFile, stat, args->line), exit(0);
           }
-    } else
-          docId.bits = args->line + args->offset;
+        } else if (args->idxHndl->hndlId.bits) {
+            if( suffixLen = store64(kv->keyBuff, kv->keyLen, args->line + args->offset))
+              kv->keyLen += kv->suffixLen;
 
-        if (args->idxHndl->hndlId.bits) {
-            if( kv->key->suffixLen = store64(kv->key->bytes, keyLen, docId.bits))
-              keyLen += kv->key->suffixLen;
+          stat = insertKey(args->idxHndl, kv->keyBuff, kv->keyLen, *docId, MAX_BUFF);
 
-/*  uint32_t refCnt[1];
-  uint16_t keyLen; 	    // len of base key
-  uint16_t vecIdx;		// index in document key vector
-  uint64_t keyHash;     // used by MVCC if key changed
-  ObjId payLoad;        // docId key comes from
-  uint8_t unique : 1;   // index is unique
-  uint8_t deferred : 1;	// uniqueness deferred
-  uint8_t binaryKeys : 1;	// uniqueness deferred
-  uint8_t bytes[];		// bytes of the key with suffix
-*/
-          kv->docId.bits = docId.bits;
-          kv->key->keyLen = keyLen;
-
-//          switch ((stat = insertKey(args->idxHndl, kv->key))) {
+          switch (stat) {
             case DB_ERROR_unique_key_constraint:
-              fprintf(stderr, "Duplicate key <%.*s> line: %" PRIu64 "\n", keyLen, kv->key->bytes, args->line);
+              fprintf(stderr, "Duplicate key <%.*s> line: %" PRIu64 "\n", kv->keyLen, kv->keyBuff, args->line);
               break;
             case DB_OK:
               break;
             default:
-              return msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1,"thrd:%d cmd:%c file:%s InsertKey " "dbError:%d errno:%d line: %" PRIu64 " **********\n",
+             return msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1,"thrd:%d cmd:%c file:%s InsertKey " "dbError:%d errno:%d line: %" PRIu64 " **********\n",
               args->idx, cmd, args->inFile, stat, errno, args->line);
           }
-
+                  
         break;
 
         //	delete key
 
       case 'd':
 
-        if ((stat = deleteKey(args->idxHndl, kv->key->bytes, keyLen)))
+        if ((stat = deleteKey(args->idxHndl, kv->keyBuff, kv->keyLen, 0)))
           return msgLen + sprintf_s(msg + msgLen, msgMax - msgLen - 1,"thrd:%d cmd:%c file:%s deleteKey "
            "dbError:%d errno:%d line: %" PRIu64 " **********\n", args->idx, cmd, args->inFile, stat, errno,
                  args->line);
@@ -316,7 +291,7 @@ int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
         //	find record by key
 
       case 'f':
-        if ((stat = positionCursor(args->cursor, OpOne, kv->key->bytes, keyLen)))
+        if ((stat = positionCursor(args->cursor, OpOne, kv->keyBuff, kv->keyLen)))
           return msgLen + sprintf_s(msg + msgLen, msgMax - msgLen - 1, "thrd:%d cmd:%c file:%s findKey dbError:%d " "errno: %d line: %" PRIu64 " **********\n",
            args->idx, cmd, args->inFile, stat, errno,
                                     args->line);
@@ -325,14 +300,14 @@ int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
           return msgLen + sprintf_s(msg + msgLen, msgMax - msgLen - 1, "thrd:%d cmd:%c file:%s findKey dbError:%d " "errno: %d line: %" PRIu64 " **********\n", args->idx, cmd, args->inFile, stat, errno, args->line);
 
         if (args->docHndl->hndlId.bits && args->idxHndl->hndlId.bits) {
-          docId.bits = get64(foundKey, foundLen);
+          docId->bits = get64(foundKey, foundLen);
           foundLen -= size64(foundKey, foundLen);
         }
 
         if (!binaryFlds)
-          if (memcmp(foundKey, kv->key->bytes, keyLen))
+          if (memcmp(foundKey, kv->keyBuff, kv->keyLen))
             fprintf(stderr, "findKey %s not Found: line: %" PRIu64 " expected: %.*s \n",
-             args->inFile, args->line, keyLen, kv->key->bytes), myExit(args);
+             args->inFile, args->line, kv->keyLen, kv->keyBuff), myExit(args);
 
         break;
     }
@@ -347,14 +322,18 @@ int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
   closeHandle(args->idxHndl);
   closeHandle(args->cursor);
   closeHandle(args->dbHndl);
+  }
 
-  return msgLen;
+ return msgLen;
+  
 }
 
 uint64_t index_scan(ScanArgs *scan, DbHandle *database) {
   uint64_t cnt = 0;
-  uint8_t rec[4096];
-  OurDoc *ourDoc = (OurDoc *)rec;
+  uint8_t *keyBuff = malloc   (65532);
+  DbDoc *dbDoc = (DbDoc *)keyBuff;
+  uint32_t docMax = MAX_BUFF - sizeof(DbDoc);
+  int keyLen = 0, docLen = 0;
 
   char cmd;
   uint32_t foundLen = 0;
@@ -370,7 +349,8 @@ uint64_t index_scan(ScanArgs *scan, DbHandle *database) {
   bool verify = false;
   bool dump = false;
   uint8_t *foundKey;
-  DocId docId;
+  DocId docId[1];
+  DbDoc *ourDoc;
   int stat;
 
   fprintf(stderr, "\nIndex %s summary scan:\n", idxName);
@@ -383,11 +363,10 @@ uint64_t index_scan(ScanArgs *scan, DbHandle *database) {
           fprintf(stderr, "Cannot specify noDocs with iterator scan\n"),
               exit(0);
 
-
-        while ((moveIterator(scan->iterator, IterNext, (void **)&ourDoc, &docId) ==
-                DB_OK)) {
+        while ((ourDoc = iteratorNext(scan->iterator)))
+        {
           if (dump) {
-            fwrite_unlocked(ourDoc + 1, ourDoc->size, 1, stdout);
+            fwrite_unlocked(ourDoc + 1, ourDoc->docSize, 1, stdout);
             fputc_unlocked('\n', stdout);
           }
           cnt++;
@@ -468,14 +447,14 @@ uint64_t index_scan(ScanArgs *scan, DbHandle *database) {
 
     if (verify) {
       if (prevLen == keyLen) {
-        int comp = memcmp(foundKey, rec, prevLen);
+        int comp = memcmp(foundKey, ourDoc + 1, prevLen);
 
         if ((reverse && comp > 0) || (!reverse && comp < 0))
           fprintf(stderr, "verify: Key compare error: %d\n", (int)cnt), exit(0);
       }
 
       prevLen = keyLen;
-      memcpy(rec, foundKey, keyLen);
+      memcpy(keyBuff, foundKey, keyLen);
     }
 
     if (cntOnly) {
@@ -498,9 +477,9 @@ uint64_t index_scan(ScanArgs *scan, DbHandle *database) {
     if (numbers || keyList) fputc_unlocked('\t', stdout);
 
     if (dump && !scan->noDocs) {
-      docId.bits = get64(foundKey, foundLen);
-      fetchDoc(scan->docHndl, (void **)&ourDoc, docId);
-      fwrite_unlocked(ourDoc + 1, ourDoc->size, 1, stdout);
+      docId->bits = get64(foundKey, foundLen);
+      ourDoc = fetchDoc(scan->docHndl, *docId);
+      fwrite_unlocked(ourDoc + 1, ourDoc->docSize, 1, stdout);
     }
 
     if (numbers || keyList || dump) fputc_unlocked('\n', stdout);
@@ -530,10 +509,11 @@ uint64_t index_scan(ScanArgs *scan, DbHandle *database) {
 //  run index_file once for each command
 
 #ifndef _WIN32
-void *pipego(void *arg) {
+void *pipego(void *arg)
 #else
-unsigned __stdcall pipego(void *arg) {
+unsigned __stdcall pipego(void *arg)
 #endif
+{
   ThreadArgs *args = arg;
   int len = 0, max;
   char cmd;
@@ -550,18 +530,15 @@ unsigned __stdcall pipego(void *arg) {
 
     elapsed = getCpuTime(0) - startx1;
 
-    len += sprintf_s(msg + len, sizeof(msg) - len - 1, " real %dm%.3fs\n",
-                     (int)(elapsed / 60), elapsed - (elapsed / 60) * 60);
+    len += sprintf_s(msg + len, sizeof(msg) - len - 1, " real %dm%.3fs\n", (int)(elapsed / 60), elapsed - (elapsed / 60) * 60);
 
     elapsed = getCpuTime(1) - startx2;
 
-    len += sprintf_s(msg + len, sizeof(msg) - len - 1, " user %dm%.3fs\n",
-                     (int)(elapsed / 60), elapsed - (elapsed / 60) * 60);
+    len += sprintf_s(msg + len, sizeof(msg) - len - 1, " user %dm%.3fs\n", (int)(elapsed / 60), elapsed - (elapsed / 60) * 60);
 
     elapsed = getCpuTime(2) - startx3;
 
-    len += sprintf_s(msg + len, sizeof(msg) - len - 1, " sys  %dm%.3fs\n",
-                     (int)(elapsed / 60), elapsed - (elapsed / 60) * 60);
+    len += sprintf_s(msg + len, sizeof(msg) - len - 1, " sys  %dm%.3fs\n", (int)(elapsed / 60), elapsed - (elapsed / 60) * 60);
   }
 
   fwrite(msg, 1ULL, len, stderr);
@@ -610,7 +587,7 @@ int main(int argc, char **argv) {
   if (argc < 3) {
     fprintf(stderr,
             "Usage: %s db_name -cmds=[wdf] -summary=[csrvikdn]idxType=[012] "
-            "-bits=# -xtra=# -inMem -    s -prng=# -debug -monitor - uniqueKeys "
+            "-bits=# -xtra=# -inMem -s -prng=# -debug -monitor -uniqueKeys "
             "-noDocs -noIdx -keyLen=# -minKey=abcd -maxKey=abce -drop "
             "-idxBinary=. -pipeline -offset=# src_file1 src_file2 ... ]\n",
             argv[0]);
@@ -762,8 +739,7 @@ int main(int argc, char **argv) {
   }
 
   if (!noIdx) {
-    if ((stat = createIndex(idxHndl, parent, idxName, (int)strlen(idxName),
-                            params)))
+    if ((stat = createIndex(idxHndl, parent, idxName, (int)strlen(idxName), params)))
       fprintf(stderr, "file:%s unable to open error %d\n", idxName, stat),
           exit(3);
 
@@ -815,8 +791,7 @@ int main(int argc, char **argv) {
       fprintf(stderr, "Error creating thread errno = %d\n", errno);
 #endif
 
-    fprintf(stderr, "thread %d launched for file %s cmds %s\n", idx,
-            args[idx].inFile, cmds);
+    fprintf(stderr, "thread %d launched for file %s cmds %s\n", idx, args[idx].inFile, cmds);
   } while (++idx < cnt);
 
   // 	wait for termination
@@ -827,7 +802,8 @@ int main(int argc, char **argv) {
 #else
     WaitForMultipleObjects(cnt, threads, TRUE, INFINITE);
 
-    for (idx = 0; idx < cnt; idx++) CloseHandle(threads[idx]);
+    for (idx = 0; idx < cnt; idx++)
+      CloseHandle(threads[idx]);
 #endif
   }
 
@@ -862,8 +838,7 @@ int main(int argc, char **argv) {
         for (idx = 0; idx < 64; idx++)
           if (nodeAlloc[idx])
    
-   fprintf(stderr, "%s Index type %d blks allocated: %" PRIu64 "\n",
-                    idxName, idx, nodeAlloc[idx]);
+   fprintf(stderr, "%s Index type %d blks allocated: %" PRIu64 "\n", idxName, idx, nodeAlloc[idx]);
 
         fputc(0x0a, stderr);
 

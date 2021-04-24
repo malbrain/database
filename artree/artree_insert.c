@@ -112,14 +112,14 @@ uint32_t len;
 
 // basic insert of key value
 
-DbStatus artInsertKey( Handle *index, DbKeyBase *kv, uint8_t lvl) {
+DbStatus artInsertKey( Handle *index, DbKeyValue *kv, uint8_t lvl) {
 DbMap *idxMap = MapAddr(index);
 ARTKeyEnd *keyEndNode;
 ArtIndex *artIndex;
 bool pass = false;
 DbAddr keyEndSlot;
 InsertParam p[1];
-volatile DbAddr* install;
+DbAddr* install;
 
 	artIndex = artindex(idxMap);
 
@@ -134,7 +134,7 @@ volatile DbAddr* install;
         p->keyLen = kv->keyLen;
         p->restart = false;
         p->idxMap = idxMap;
-        p->key = getObj(idxMap, kv->bytes);
+        p->key = kv->keyBuff;
         p->index = index;
 		p->fldLen = 0;
 		p->off = 0;
@@ -178,7 +178,7 @@ volatile DbAddr* install;
 
 		p->slot = keyEndNode->suffix;
 
-		p->key = kv->bytes + kv->keyLen;
+		p->key = kv->keyBuff + kv->keyLen;
         p->keyLen = kv->suffixLen;
         p->restart = false;
 		p->binaryFlds = 0;

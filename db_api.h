@@ -6,37 +6,26 @@
 
 DbMap *hndlMap;
 
-
 // document header in docStore
 // next hdrs in set follow, up to docMin
+
 typedef enum {
     VerRaw,
     VerMvcc
 } DocType;
 
-typedef struct Document {
+typedef struct {
   union {
     uint8_t base[4];
     uint32_t refCnt[1];
   };
+  uint32_t docSize;
   DocType docType:8;
   DbAddr keyValues;
-  DocId docId;
+  DocId docId[1];
 } DbDoc;
 
 //  fields in basic key
-
-typedef struct {
-  uint32_t refCnt[1];
-  uint16_t keyLen; 	    // len of entire key
-  uint16_t suffixLen; 	// len of base key at end
-  uint8_t unique : 1;   // index is unique
-  uint8_t deferred : 1;	// uniqueness deferred
-  uint8_t binaryKeys : 1;	// use key fields with binary comparisons
-  DbAddr bytes;		    // bytes of the key with suffix
-  DocId docId;          // docId key comes from
-} DbKeyBase;
-
 // database docStore Arena extension
 
 typedef struct {
@@ -46,17 +35,7 @@ typedef struct {
   DocType docType:16;   //  docStore raw, or under mvcc
 } DocStore;
 
-typedef enum { IterNone, IterLeftEof, IterRightEof, IterPosAt } IterState;
 
-//	Iterator operations
-
-typedef enum {
-  IterNext = 'n',
-  IterPrev = 'p',
-  IterBegin = 'b',
-  IterEnd = 'e',
-  IterSeek = 's',
-} IteratorOp;
 
 //	Unique Key evaluation fcn
 
@@ -78,18 +57,14 @@ DbStatus positionCursor(DbHandle hndl[1], CursorOp op, void *key, uint32_t keyLe
 DbStatus keyAtCursor(DbHandle hndl[1], uint8_t **key, uint32_t *keyLen);
 DbStatus moveCursor(DbHandle hndl[1], CursorOp op);
 
-DbStatus insertKey(DbHandle hndl[1], DbKeyBase *kv);
-DbStatus deleteKey(DbHandle hndl[1], uint8_t *key, uint32_t len);
+DbStatus insertKey(DbHandle hndl[1], uint8_t *keyBuff, uint32_t keylen, DocId docId, uint32_t maxLen);
+DbStatus deleteKey(DbHandle hndl[1], uint8_t *key, uint32_t len, uint64_t suffix);
 
 uint64_t arenaAlloc(DbHandle arenaHndl[1], uint32_t size, bool zeroit,
   bool dbArena);
 
 DbStatus storeDoc(DbHandle hndl[1], void *obj, uint32_t objSize, DocId *docId);
 DbStatus deleteDoc(DbHandle hndl[1], DocId docId);
-DbStatus fetchDoc(DbHandle hndl[1], void **doc, DocId docId);
-
-DbStatus createIterator(DbHandle hndl[1], DbHandle docHndl[1], Params *params);
-DbStatus moveIterator(DbHandle hndl[1], IteratorOp op, void **doc,
-                      DocId *docId);
+DbDoc *fetchDoc(DbHandle hndl[1], DocId docId);
 
 void *docStoreObj(DbAddr addr);

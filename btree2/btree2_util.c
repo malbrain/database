@@ -28,7 +28,7 @@ uint32_t btree2SlotSize(Btree2Slot *slot, uint8_t skipBits, uint8_t height)
 uint8_t *key = slotkey(slot);
 uint32_t size;
 
-	size = sizeof(*slot) + keylen(key) + keypre(key);
+	size = sizeof(*slot) + slot->keyLen;
 	size += (height ? height : slot->height) * sizeof(uint16_t);
 	return size;
 }
@@ -54,13 +54,13 @@ uint32_t nrand32 = mynrand48(hndlXtra->nrandState);
 }
 
 //	calculate amount of space needed to install slot in page
-//	include key length bytes, and tower height
+//	include key length, docId, and tower height
 
 uint32_t btree2SizeSlot (uint32_t keySize, uint8_t height)
 {
 uint32_t amt = (uint16_t)(sizeof(Btree2Slot) + height * sizeof(uint16_t) + keySize);
 
-	return amt + (keySize > 127 ? 2 : 1);
+	return amt;
 }
 
 // allocate space for new slot (in skipBits units)
@@ -90,11 +90,11 @@ union Btree2Alloc alloc[1], before[1];
 uint64_t btree2Get64 (Btree2Slot *slot) {
 uint8_t *key = slotkey(slot);
 
-	return get64 (keystr(key), keylen(key));
+	return get64 (key, slot->keyLen);
 }
 
 uint32_t btree2Store64 (Btree2Slot *slot, uint64_t value) {
 uint8_t *key = slotkey(slot);
 
-	return store64(keystr(key), keylen(key), value);
+	return store64(key, slot->keyLen, value);
 }

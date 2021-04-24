@@ -5,7 +5,7 @@
 
 extern bool debug;
 
-DbStatus btree1InsertKey(Handle *index, DbKeyBase *kv, uint8_t lvl, Btree1SlotType type) {
+DbStatus btree1InsertKey(Handle *index, DbKeyValue *kv, uint8_t lvl, Btree1SlotType type) {
 DbMap *idxMap = MapAddr(index);
 uint32_t length;
 Btree1Slot *slot;
@@ -21,7 +21,7 @@ uint8_t *ptr;
   while (true) {
 	memset(set, 0, sizeof(set));
 	set->keyLen = kv->keyLen;
-	set->keyVal = kv->bytes;
+	set->keyVal = kv->keyBuff;
 	set->auxLen = kv->suffixLen;
 	set->length = length;
 
@@ -50,8 +50,8 @@ uint8_t *ptr;
 	//	check for duplicate key already on the page
 
 	if( set->slotIdx <= set->page->cnt )
-	  if( !btree1KeyCmp(set->page, set->slotIdx, kv->bytes, kv->keyLen) )
-		return DB_ERROR_duplicatekey;
+	  if( !btree1KeyCmp(set->page, set->slotIdx, kv->keyBuff, kv->keyLen) )
+			return DB_ERROR_duplicatekey;
 
 	//	slot now points to where the new 
 	//	key would be inserted when open
@@ -89,7 +89,7 @@ uint8_t *ptr;
 
 	ptr = keyaddr(page, page->min);
 	page->act += 1;
-	memcpy (ptr, kv->bytes, set->length);
+	memcpy (ptr, kv->keyBuff, kv->keyLen);
 	slot->type = type;
   }
   btree1UnlockPage (set->page, Btree1_lockWrite);

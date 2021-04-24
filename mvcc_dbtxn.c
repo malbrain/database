@@ -119,7 +119,7 @@ MVCCResult result = (MVCCResult) {
 
     prevVer = (Ver *)(doc->dbDoc->base + doc->commitVer);
       
-    docId.bits = doc->dbDoc->docId.bits;
+    docId.bits = doc->dbDoc->docId->bits;
     docId.step = TxnWrt;
     values[cnt++] = docId.bits;
 

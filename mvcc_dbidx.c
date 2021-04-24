@@ -2,7 +2,7 @@
 
 #include "mvcc.h"
 
-DbStatus mvcc_insertKeyValue(Handle *idxHndl, KeyValue *keyValue) {
+DbStatus mvcc_insertKeyValue(Handle *idxHndl, DbKeyValue *keyValue) {
 
 	return DB_OK;
 }

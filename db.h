@@ -30,7 +30,7 @@ typedef union {
 		union {
 		  uint8_t step:8;
 		  uint16_t xtra[1];	// xtra bits 
-		  volatile uint8_t latch[1];
+		  uint8_t latch[1];
 		  struct {
 		    uint8_t mutex :1;	// mutex bit
 		    uint8_t kill  :1;	// kill entry
@@ -72,7 +72,7 @@ typedef union {
 	uint64_t bits;
 } ObjId;
 */
-#define MAX_key	65536
+#define MAX_key	1024
 
 // string /./content
 
@@ -156,7 +156,7 @@ typedef union {
 // DbVector definition
 
 typedef struct {
-	volatile uint8_t latch[1];
+	uint8_t latch[1];
 	uint8_t type;
 	uint16_t vecLen;
 	uint16_t vecMax;

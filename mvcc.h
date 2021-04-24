@@ -3,6 +3,7 @@
 #include "base64.h"
 #include "db.h"
 #include "db_api.h"
+#include "db_index.h"
 #include "Hi-Performance-Timestamps/timestamps.h"
 
 // MVCC and TXN definitions for DATABASE project
@@ -82,7 +83,7 @@ typedef struct {
   uint32_t txnVer;		// txn slot sequence number
   union {
 		struct {
-			volatile uint8_t latch[1];
+			uint8_t latch[1];
 			uint8_t isolation:3;
 			uint8_t state : 5;
       uint16_t tsClnt;  // timestamp generator slot

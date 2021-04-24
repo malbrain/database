@@ -3,11 +3,31 @@
 //	iterator object
 //	created in handle client area
 
+typedef enum { IterNone, IterLeftEof, IterRightEof, IterPosAt } IterState;
+
 typedef struct {
 	ObjId docId;		// current ObjID
 	IterState state;
 } Iterator;
 
-DbAddr *iteratorSeek(Handle *itHndl, IteratorOp op, ObjId objId);
-DbAddr *iteratorNext(Handle *itHndl);
-DbAddr *iteratorPrev(Handle *itHndl);
+//	Iterator operations
+
+typedef enum {
+  IterNext = 'n',
+  IterPrev = 'p',
+  IterBegin = 'b',
+  IterEnd = 'e',
+  IterSeek = 's',
+  IterFetch = 'f'
+} IteratorOp;
+
+DbStatus iteratorMove(DbHandle hndl[1], IteratorOp op, DocId *docId);
+
+DbDoc *iteratorFetch(DbHandle *hndl, ObjId docId);
+DbDoc *iteratorSeek(DbHandle *hndl, ObjId docId);
+DbDoc *iteratorNext(DbHandle *hndl);
+DbDoc *iteratorPrev(DbHandle *hndl);
+
+DbStatus createIterator(DbHandle hndl[1], DbHandle docHndl[1], Params *params);
+
+

@@ -253,7 +253,7 @@ DbStatus createIndex(DbHandle dbIdxHndl[1], DbHandle dbParentHndl[1], char *name
       break;
 
     case Hndl_btree2Index:
-//      btree2Init(idxHndl, params);
+      btree2Init(idxHndl, params);
       break;
 
     default:
@@ -296,57 +296,6 @@ DbStatus createIterator(DbHandle hndl[1], DbHandle docHndl[1], Params *params) {
   releaseHandle(parentHndl);
   releaseHandle(iterHndl);
   return DB_OK;
-}
-
-//	advance/reverse iterator
-
-DbStatus moveIterator(DbHandle hndl[1], IteratorOp op, void **doc,
-                      ObjId *docId) {
-  DbStatus stat = DB_ERROR_indextype;
-  Handle *docHndl;
-  Iterator *it;
-  DbAddr *slot;
-  DbMap *docMap;
-
-  if ((docHndl = bindHandle(hndl, Hndl_docStore)))
-    docMap = MapAddr(docHndl);
-  else
-    return DB_ERROR_handleclosed;
-
-  it = getObj(docMap, docHndl->clientAddr);
-
-  switch (op) {
-    case IterNext:
-      if ((slot = iteratorNext(docHndl))) {
-        *doc = getObj(docMap, *slot);
-        stat = DB_OK;
-      } else
-        stat = DB_ITERATOR_eof;
-
-      break;
-    case IterPrev:
-      if ((slot = iteratorPrev(docHndl))) {
-        *doc = getObj(docMap, *slot);
-        stat = DB_OK;
-      } else
-        stat = DB_ITERATOR_eof;
-
-      break;
-    case IterSeek:
-    case IterBegin:
-    case IterEnd:
-      if ((slot = iteratorSeek(docHndl, op, *docId))) {
-        *doc = getObj(docMap, *slot);
-        stat = DB_OK;
-      } else
-        stat = DB_ITERATOR_notfound;
-
-      break;
-  }
-
-  docId->bits = it->docId.bits;
-  releaseHandle(docHndl);
-  return stat;
 }
 
 //	create new cursor
@@ -528,7 +477,7 @@ DbStatus closeHandle(DbHandle hndl[1]) {
 
   hndl->hndlId.bits = 0;
 
-  atomicOr8((volatile uint8_t *)handle->status, KILL_BIT);
+  atomicOr8((uint8_t *)handle->status, KILL_BIT);
 
   if (!handle->bindCnt[0]) destroyHandle(handle);
 
@@ -580,21 +529,22 @@ DbStatus cloneHandle(DbHandle newHndl[1], DbHandle oldHndl[1]) {
 
 //	fetch document from a docStore by docId
 
-DbStatus fetchDoc(DbHandle hndl[1], void **doc, DocId docId) {
+DbDoc *fetchDoc(DbHandle hndl[1], DocId docId) {
   Handle *docHndl;
   DbAddr *slot;
   DbMap *docMap;
+  DbDoc *doc;
 
   if ((docHndl = bindHandle(hndl, Hndl_docStore)))
       docMap = MapAddr(docHndl);
   else
-      return DB_ERROR_handleclosed;
+      return NULL;
 
   slot = fetchIdSlot(docMap, docId);
-  *doc = getObj(docMap, *slot);
+  doc = getObj(docMap, *slot);
 
   releaseHandle(docHndl);
-  return DB_OK;
+  return doc;
 }
 
 DbStatus deleteDoc(DbHandle hndl[1], DocId docId) {
@@ -654,7 +604,7 @@ DbStatus storeDoc(DbHandle hndl[1], void *obj, uint32_t objSize, DocId *docId) {
   return DB_OK;
 }
 
-DbStatus deleteKey(DbHandle hndl[1], uint8_t *key, uint32_t len) {
+DbStatus deleteKey(DbHandle hndl[1], uint8_t *key, uint32_t len, uint64_t suffix) {
   DbStatus stat = DB_OK;
   Handle *idxHndl;
   DbIndex *index;
@@ -695,8 +645,9 @@ DbStatus deleteKey(DbHandle hndl[1], uint8_t *key, uint32_t len) {
 
 bool uniqueKey(DbMap *map, DbCursor *dbCursor) { return true; }
 
-DbStatus insertKey(DbHandle hndl[1], DbKeyBase *kv) {
+DbStatus insertKey(DbHandle hndl[1], uint8_t *keyBuff, uint32_t keyLen, DocId docId, uint32_t maxLen) {
   DbStatus stat = DB_OK;
+  DbKeyValue kv[1];
   Handle *idxHndl;
   DbIndex *index;
   DbMap *idxMap;
@@ -705,6 +656,14 @@ DbStatus insertKey(DbHandle hndl[1], DbKeyBase *kv) {
       idxMap = MapAddr(idxHndl);
   else
       return DB_ERROR_handleclosed;
+  
+  memset (kv, 0, sizeof(kv));
+
+  if( calc64(docId.bits) > maxLen - keyLen)
+    return 0;
+
+  kv->suffixLen = store64(keyBuff, keyLen, docId.bits);
+  kv->keyLen = keyLen + kv->suffixLen; 
 
   switch (*idxMap->arena->type) {
     case Hndl_artIndex: {

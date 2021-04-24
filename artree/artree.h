@@ -105,7 +105,7 @@ typedef struct {
 } ArtIndex;
 
 typedef struct {
-	volatile DbAddr *addr;	// tree addr of slot
+	DbAddr *addr;	// tree addr of slot
 	DbAddr slot[1];			// slot that points to node
 	uint16_t off;			// offset within key
 	uint16_t lastFld;		// offset of current field
@@ -124,8 +124,8 @@ typedef struct {
 } ArtCursor;
 
 typedef struct {
-	volatile DbAddr *slot;
-	volatile DbAddr *prev;
+	DbAddr *slot;
+	DbAddr *prev;
 	DbAddr oldSlot[1];
 	DbAddr newSlot[1];
 
@@ -157,7 +157,7 @@ DbStatus artPrevKey(DbCursor *dbCursor, DbMap *map);
 
 DbStatus artInit(Handle *hndl, Params *params);
 DbStatus artDeleteKey (Handle *hndl, uint8_t *key, uint16_t keyLen, uint16_t suffixLen);
-DbStatus artInsertKey (Handle *hndl, DbKeyBase *kv, uint8_t lvl);
+DbStatus artInsertKey (Handle *hndl, DbKeyValue *kv, uint8_t lvl);
 DbStatus artInsertUniq (Handle *hndl, uint8_t *key, uint16_t keyLen, uint16_t suffixLen, UniqCbFcn *fcn, bool *defer);
 DbStatus artEvalUniq( DbMap *map, uint8_t *key, uint16_t keyLen, uint16_t suffixLen, UniqCbFcn *evalFcn);
 

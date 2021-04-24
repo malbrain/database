@@ -12,3 +12,12 @@ typedef struct {
 	bool uniqueKeys;  // keys made with field values
 } DbIndex;
 
+typedef struct {
+  uint8_t keyBuff[MAX_key];
+  uint16_t keyLen; 	    // len of entire key
+  uint8_t suffixLen; 	// len of payload key at end
+  uint8_t unique : 1;   // index is unique
+  uint8_t deferred : 1;	// uniqueness deferred
+  uint8_t binaryKeys : 1;	// use key fields with binary comparisons
+} DbKeyValue;
+

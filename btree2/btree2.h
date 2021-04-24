@@ -71,7 +71,7 @@ typedef enum {
 //	followed by the key slots
 
 typedef struct {
-	volatile union Btree2Alloc {
+	union Btree2Alloc {
 		struct {
 			uint8_t state;
 			uint8_t filler;
@@ -110,14 +110,17 @@ typedef enum {
 } Btree2SlotState;
 
 //	Page key slot definition.
-//	length of key (one or two bytes), 
-//	and key bytes follow these fields
+//  tower and key bytes follow these fields
 
-typedef volatile struct {
-	uint8_t height;		// final tower height 
+typedef struct {
+	union {
+		uint8_t keyBase[2];
+		uint16_t keyLen;
+	};
 	uint8_t state[1];
+	uint8_t height;		// final tower height 
 	uint8_t bitLatch[Btree2_maxtower / 8];
-	uint16_t volatile tower[];	// skip list tower
+	uint16_t tower[];	// skip-list tower
 } Btree2Slot;
 
 typedef struct {
@@ -158,7 +161,7 @@ DbStatus btree2NextKey (DbCursor *cursor, DbMap *map);
 DbStatus btree2PrevKey (DbCursor *cursor, DbMap *map);
 
 DbStatus btree2Init(Handle *hndl, Params *params);
-DbStatus btree2InsertKey(Handle *hndl, DbKeyBase *kv, uint8_t lvl, Btree2SlotState state);
+DbStatus btree2InsertKey(Handle *hndl, DbKeyValue *kv, uint8_t lvl, Btree2SlotState state);
 DbStatus btree2DeleteKey(Handle *hndl, uint8_t *key, uint32_t keyLen);
 
 uint16_t btree2LoadPage(DbMap *map, Btree2Set *set, uint8_t *key, uint32_t keyLen, uint8_t lvl);
@@ -168,7 +171,7 @@ DbStatus btree2CleanPage(Handle *hndl, Btree2Set *set);
 DbStatus btree2SplitPage (Handle *hndl, Btree2Set *set);
 DbStatus btree2InstallKey(Btree2Set *set, uint8_t *key, uint32_t keyLen, uint8_t height);
 
-int btree2KeyCmp(uint8_t *key1, uint8_t *key2, uint32_t len2);
+int btree2KeyCmp(uint8_t *key1, uint8_t *key2, uint32_t len1, uint32_t len2);
 void btree2FindSlot(Btree2Set *set, uint8_t *key, uint32_t keyLen);
 uint64_t btree2AllocPageNo(Handle *index);
 uint64_t btree2Get64 (Btree2Slot *slot);

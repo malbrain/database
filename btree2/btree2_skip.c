@@ -8,12 +8,10 @@
 //  -1: key2 > key1
 //  +1: key2 < key1
 
-int btree2KeyCmp (uint8_t *key1, uint8_t *key2, uint32_t len2)
-{
-uint32_t len1 = keylen(key1);
+int btree2KeyCmp (uint8_t *key1, uint8_t *key2, uint32_t len1, uint32_t len2) {
 int ans;
 
-	if((ans = memcmp (keystr(key1), key2, len1 > len2 ? len2 : len1)))
+	if((ans = memcmp (key1, key2, len1 > len2 ? len2 : len1)))
 		return ans;
 
 	if( len1 > len2 )
@@ -29,7 +27,7 @@ int ans;
 
 uint16_t btree2LoadPage(DbMap *map, Btree2Set *set, uint8_t *key, uint32_t keyLen, uint8_t lvl) {
 Btree2Index *btree2 = btree2index(map);
-volatile uint16_t *tower;
+uint16_t *tower;
 uint16_t towerOff;
 ObjId *pageNoPtr;
 Btree2Slot *slot = NULL;
@@ -73,7 +71,7 @@ bool targetLvl;
 		else
 			break;
 
-		result = btree2KeyCmp (slotkey(slot), key, keyLen); 
+		result = btree2KeyCmp (slotkey(slot), key, slot->keyLen, keyLen); 
 
 		if( targetLvl && result == 0 )
 			set->found = towerOff;
@@ -95,7 +93,7 @@ bool targetLvl;
 	if( towerOff == TowerHeadSlot ) {
 	  if( set->page->left.bits ) {
 		Btree2Slot	*lFenceSlot = slotptr (set->page, set->page->lFence);	// test left fence
-		int fResult = btree2KeyCmp (slotkey(lFenceSlot), key, keyLen);
+		int fResult = btree2KeyCmp (slotkey(lFenceSlot), key, lFenceSlot->keyLen, keyLen);
 		if( fResult >= 0 ) {
 			set->pageNo.bits = set->page->left.bits;
 			continue;
