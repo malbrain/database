@@ -212,5 +212,11 @@
     <ClInclude Include="mvcc_dbapi.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="mvcc.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="db_index.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

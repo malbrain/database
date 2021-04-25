@@ -111,6 +111,7 @@
       <PreprocessorDefinitions>
       </PreprocessorDefinitions>
       <IntrinsicFunctions>true</IntrinsicFunctions>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
     <Link>
       <GenerateMapFile>true</GenerateMapFile>
@@ -161,7 +162,10 @@
     <ClCompile Include="db_params.c" />
     <ClCompile Include="db_redblack.c" />
     <ClCompile Include="db_skiplist.c" />
-    <ClCompile Include="Hi-Performance-Timestamps\timestamps.c" />
+    <ClCompile Include="Hi-Performance-Timestamps\timestamps.c">
+      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">RDTSC</PreprocessorDefinitions>
+      <LanguageStandard_C Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">stdc11</LanguageStandard_C>
+    </ClCompile>
     <ClCompile Include="mutex\mutex.c" />
     <ClCompile Include="mvcc_dbapi.c" />
     <ClCompile Include="mvcc_dbdoc.c" />
@@ -182,6 +186,7 @@
     <ClInclude Include="db_error.h" />
     <ClInclude Include="db_frame.h" />
     <ClInclude Include="db_handle.h" />
+    <ClInclude Include="db_index.h" />
     <ClInclude Include="db_iterator.h" />
     <ClInclude Include="db_malloc.h" />
     <ClInclude Include="db_map.h" />
@@ -190,6 +195,7 @@
     <ClInclude Include="db_skiplist.h" />
     <ClInclude Include="Hi-Performance-Timestamps\timestamps.h" />
     <ClInclude Include="mutex\mutex.h" />
+    <ClInclude Include="mvcc.h" />
     <ClInclude Include="mvcc_dbapi.h" />
     <ClInclude Include="mvcc_dbdoc.h" />
     <ClInclude Include="mvcc_dbidx.h" />

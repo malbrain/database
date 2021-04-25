@@ -112,10 +112,12 @@ int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
   uint32_t msgLen = 0;
   uint32_t suffixLen;
   MVCCResult result;
-  uint32_t docMax = MAX_BUFF - sizeof(DbDoc);
-  uint32_t docLen = 0;
   uint32_t keyOff, keyMax;
   uint32_t foundLen = 0;
+  uint8_t keyBuff[MAX_key];
+  uint8_t docBuff[MAX_BUFF];
+  uint32_t docMax = MAX_BUFF - sizeof(DbDoc);
+  uint32_t docLen = 0;
   DbKeyValue kv[1];
   int lastFld = 0;
   uint8_t *foundKey;
@@ -131,6 +133,7 @@ int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
     docMax = 100;
   
   memset (kv, 0, sizeof(kv));
+  kv->keyBuff = keyBuff;
   msg[msgLen++] = '\n';
 
   switch (cmd | 0x20) {
@@ -179,13 +182,13 @@ int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
       docLen = createB64(kv->keyBuff, keyMax, nrandState);
 
       while (docLen < 100) {
-        kv->keyBuff[docLen++] = '\t';
-        memset(kv->keyBuff + docLen, 'A' + docLen / 10, 9);
+        docBuff[docLen++] = '\t';
+        memset(docBuff + docLen, 'A' + docLen / 10, 9);
         docLen += 9;
       }
 
       if (args->line == 0) {
-        msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1, "thrd:%d cmd:%c %s: first key: <%.10s>", args->idx, cmd, idxName, kv->keyBuff);
+        msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1, "thrd:%d cmd:%c %s: first key: <%.10s>", args->idx, cmd, idxName, docBuff);
 
         if (args->offset)
           msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1, "lineno offset: %" PRIu64,   args->offset);
@@ -199,7 +202,7 @@ int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
 
       while (ch = getc_unlocked(in), ch != EOF && ch != '\n') {
         if (!args->noDocs)
-          if (docLen < docMax) kv->keyBuff[docLen++] = (uint8_t)ch;
+          if (docLen < docMax) docBuff[docLen++] = (uint8_t)ch;
 
         if (!args->noIdx)
           if (docLen < keyMax) {
@@ -241,7 +244,7 @@ int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
         if (args->docHndl->hndlId.bits) {
           docId->bits = 0;
           if (args->txnBatch) {
-            result = mvcc_writeDoc(txn, args->docHndl, docId, docLen, kv->keyBuff, 1);
+            result = mvcc_writeDoc(txn, args->docHndl, docId, docLen, docBuff, 1);
             if (args->line % args->txnBatch == 0) {
               ObjId nestTxn, currTxn;
               nestTxn.bits = 0;
@@ -254,12 +257,12 @@ int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
             }
           } else {
             if ((stat =
-              storeDoc(args->docHndl, kv->keyBuff, docLen, docId)))
+              storeDoc(args->docHndl, docBuff, docLen, docId)))
               fprintf(stderr, "Add Doc %s Error %d Line: %" PRIu64 " *********\n",
               args->inFile, stat, args->line), exit(0);
           }
         } else if (args->idxHndl->hndlId.bits) {
-            if( suffixLen = store64(kv->keyBuff, kv->keyLen, args->line + args->offset))
+            if( suffixLen = store64(keyBuff, kv->keyLen, args->line + args->offset))
               kv->keyLen += kv->suffixLen;
 
           stat = insertKey(args->idxHndl, kv->keyBuff, kv->keyLen, *docId, MAX_BUFF);
@@ -330,8 +333,8 @@ int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
 
 uint64_t index_scan(ScanArgs *scan, DbHandle *database) {
   uint64_t cnt = 0;
-  uint8_t *keyBuff = malloc   (65532);
-  DbDoc *dbDoc = (DbDoc *)keyBuff;
+  uint8_t *docBuff = malloc   (65532);
+  DbDoc *dbDoc = (DbDoc *)docBuff;
   uint32_t docMax = MAX_BUFF - sizeof(DbDoc);
   int keyLen = 0, docLen = 0;
 
@@ -454,7 +457,7 @@ uint64_t index_scan(ScanArgs *scan, DbHandle *database) {
       }
 
       prevLen = keyLen;
-      memcpy(keyBuff, foundKey, keyLen);
+      memcpy(docBuff, foundKey, keyLen);
     }
 
     if (cntOnly) {

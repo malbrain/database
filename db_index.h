@@ -13,7 +13,10 @@ typedef struct {
 } DbIndex;
 
 typedef struct {
-  uint8_t keyBuff[MAX_key];
+  union {
+    uint8_t *keyBuff;
+    DbAddr bytes;
+  };
   uint16_t keyLen; 	    // len of entire key
   uint8_t suffixLen; 	// len of payload key at end
   uint8_t unique : 1;   // index is unique
