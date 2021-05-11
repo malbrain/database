@@ -1,8 +1,0 @@
-gcc -mcx16 -std=c11 -D RDTSC -O2 *.c -lpthread -latomic
-./a.out 1 1000000000
-./a.out 5 200000000
-
-gcc -mcx16 -std=c11 -D CLOCK -O2 *.c -lpthread -latomic
-./a.out 1 1000000000
-./a.out 5 200000000
-

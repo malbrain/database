@@ -1,9 +1,0 @@
-[submodule "mutex"]
-	path = mutex
-	url = https://github.com/malbrain/mutex
-[submodule "rwlock"]
-	path = rwlock
-	url = https://github.com/malbrain/rwlock
-[submodule "Hi-Performance-Timestamps"]
-	path = Hi-Performance-Timestamps
-	url = https://github.com/malbrain/Hi-Performance-Timestamps
