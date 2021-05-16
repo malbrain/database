@@ -4,7 +4,7 @@
 #include "base64.h"
 #include "db.h"
 
-DbMap *hndlMap;
+extern DbMap *hndlMap;
 
 // document header in docStore
 // next hdrs in set follow, up to docMin
@@ -43,28 +43,28 @@ typedef bool(UniqCbFcn)(DbMap *map, DbCursor *dbCursor);
 
 void initialize(void);
 
-DbStatus openDatabase(DbHandle hndl[1], char *name, uint32_t len,
+DbStatus openDatabase(DbHandle *hndl, char *name, uint32_t len,
                       Params *params);
-DbStatus openDocStore(DbHandle hndl[1], DbHandle dbHndl[1], char *name, uint32_t len, Params *params);
-DbStatus createIndex(DbHandle hndl[1], DbHandle docHndl[1], char *name,uint32_t len, Params *params);
-DbStatus cloneHandle(DbHandle hndl[1], DbHandle fromHndl[1]);
-DbStatus dropArena(DbHandle hndl[1], bool dropDefinitions);
-DbStatus closeHandle(DbHandle dbHndl[1]);
+DbStatus openDocStore(DbHandle *hndl, DbHandle dbHndl, char *name, uint32_t len, Params *params);
+DbStatus createIndex(DbHandle *hndl, DbHandle docHndl, char *name,uint32_t len, Params *params);
+DbStatus cloneHandle(DbHandle *hndl, DbHandle fromHndl);
+DbStatus dropArena(DbHandle hndl, bool dropDefinitions);
+DbStatus closeHandle(DbHandle dbHndl);
 
-DbStatus createCursor(DbHandle hndl[1], DbHandle idxHndl[1], Params *params);
-DbStatus closeCursor(DbHandle dbHndl[1]);
-DbStatus positionCursor(DbHandle hndl[1], CursorOp op, void *key, uint32_t keyLen);
-DbStatus keyAtCursor(DbHandle hndl[1], uint8_t **key, uint32_t *keyLen);
-DbStatus moveCursor(DbHandle hndl[1], CursorOp op);
+DbStatus createCursor(DbHandle *hndl, DbHandle idxHndl, Params *params);
+DbStatus closeCursor(DbHandle dbHndl);
+DbStatus positionCursor(DbHandle hndl, CursorOp op, void *key, uint32_t keyLen);
+DbStatus keyAtCursor(DbHandle hndl, uint8_t **key, uint32_t *keyLen);
+DbStatus moveCursor(DbHandle hndl, CursorOp op);
 
-DbStatus insertKey(DbHandle hndl[1], uint8_t *keyBuff, uint32_t keylen, DocId docId, uint32_t maxLen);
-DbStatus deleteKey(DbHandle hndl[1], uint8_t *key, uint32_t len, uint64_t suffix);
+DbStatus insertKey(DbHandle hndl, uint8_t *keyBuff, uint32_t keylen, DocId docId, uint32_t maxLen);
+DbStatus deleteKey(DbHandle hndl, uint8_t *key, uint32_t len, uint64_t suffix);
 
-uint64_t arenaAlloc(DbHandle arenaHndl[1], uint32_t size, bool zeroit,
+uint64_t arenaAlloc(DbHandle arenaHndl, uint32_t size, bool zeroit,
   bool dbArena);
 
-DbStatus storeDoc(DbHandle hndl[1], void *obj, uint32_t objSize, DocId *docId);
-DbStatus deleteDoc(DbHandle hndl[1], DocId docId);
-DbDoc *fetchDoc(DbHandle hndl[1], DocId docId);
+DbStatus storeDoc(DbHandle hndl, void *obj, uint32_t objSize, DocId *docId);
+DbStatus deleteDoc(DbHandle hndl, DocId docId);
+DbDoc *fetchDoc(DbHandle hndl, DocId docId);
 
 void *docStoreObj(DbAddr addr);

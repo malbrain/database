@@ -18,12 +18,12 @@ DbAddr addr;
 
 	if (!lvl) {
 		size <<= btree2->leafXtra;
-		type = Btree2_leafPage;;
+		type = Btree2_leafPage;
 	}
   
 	//  allocate page
   
-	if ((addr.bits = allocObj(idxMap, listFree(index,type), NULL, type, size, true)))
+	if ((addr.bits = allocObj(idxMap, idxMap->arena->usrFrame, type, size, true)))
 		page = getObj(idxMap, addr);
 	else
 		return 0;
@@ -65,9 +65,9 @@ DbAddr addr;
 	btree2->pageBits = (uint32_t)params[Btree2Bits].intVal;
 	btree2->leafXtra = (uint32_t)params[Btree2Xtra].intVal;
 
-	cursorSize[Hndl_btree2Index] = 1 << btree2->pageBits
-                                          << btree2->leafXtra;
-        //	initial btree2 root/leaf page
+	cursorSize[Hndl_btree2Index] = 1 << btree2->pageBits << btree2->leafXtra;
+
+  //	initial btree2 root/leaf page
 
 	if ((addr.bits = btree2NewPage(index, 0)))
 		page = getObj(idxMap, addr);
@@ -96,13 +96,12 @@ DbAddr addr;
 //	allocate btree2 pageNo
 
 uint64_t btree2AllocPageNo(Handle *index) {
-	return allocObjId(MapAddr(index), listFree(index, ObjIdType), listWait(index, ObjIdType));
-}
-
-bool btree2RecyclePageNo(Handle *index, ObjId pageNo) {
-	return addSlotToFrame(MapAddr(index), listHead(index, ObjIdType), listWait(index, ObjIdType), pageNo.bits);
+	return allocObjId(MapAddr(index));
 }
 
 bool btree2RecyclePage(Handle *index, int type, DbAddr addr) {
-	return addSlotToFrame(MapAddr(index), listHead(index, type), listWait(index, type), addr.bits);
+DbMap *idxMap = MapAddr(index);
+Btree2Index *btree2 = btree2index(idxMap);
+
+	return addSlotToFrame(idxMap, idxMap->arena->usrFrame[type].headFrame, addr.bits);
 }

@@ -7,14 +7,6 @@
 #include <Windows.h>
 #endif
 
-#define HandleAddr(dbHndl) fetchIdSlot(hndlMap, dbHndl->hndlId)
-#define MapAddr(handle) (DbMap *)(db_memObj(handle->mapAddr))
-#define ClntAddr(handle) getObj(MapAddr(handle), handle->clientAddr)
-
- bool Btree1_stats, debug;
-
-
-
 extern bool Btree1_stats, debug;
 
 //	general object pointer
@@ -166,9 +158,9 @@ typedef struct {
 uint32_t vectorPush(DbMap*, DbVector *, DbAddr);
 DbAddr *vectorFind(DbMap*, DbVector *, uint32_t);
 
-#define HandleAddr(dbHndl) fetchIdSlot(hndlMap, dbHndl->hndlId)
+#define HandleAddr(id) fetchIdSlot(hndlMap, id)
 #define MapAddr(handle) (DbMap *)(db_memObj(handle->mapAddr))
-#define ClntAddr(handle) getObj(MapAddr(handle), handle->clientAddr)
+#define ClntAddr(handle) getObj(hndlMap, handle->clientAddr)
 
 DbMap *hndlMap;
 

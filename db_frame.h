@@ -12,10 +12,9 @@ typedef struct {
 void returnFreeFrame(DbMap *map, DbAddr slot);
 
 uint64_t getNodeFromFrame (DbMap *map, DbAddr *queue);
-bool getNodeWait (DbMap *map, DbAddr *queue, DbAddr *tail);
 uint32_t initObjFrame (DbMap *map, DbAddr *queue, uint32_t type, uint32_t size);
-bool addValuesToFrame(DbMap *map, DbAddr *free, DbAddr *wait, uint64_t *values, int count);
-bool addSlotToFrame(DbMap *map, DbAddr *head, DbAddr *tail, uint64_t value);
+bool addValuesToFrame(DbMap *map, DbAddr *queue, uint64_t *values, int count);
+bool addSlotToFrame(DbMap *map, DbAddr *queue, uint64_t value);
 bool initObjIdFrame(DbMap *map, DbAddr *free);
 void returnFreeFrame(DbMap *map, DbAddr free);
 

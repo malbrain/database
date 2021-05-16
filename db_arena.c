@@ -150,7 +150,6 @@ int amt;
 	map->arenaDef = (ArenaDef *)(rbEntry + 1);
 	map->objSize = map->arena->objSize;
 	map->rbEntry = rbEntry;
-
 	map->type[0] = map->arenaDef->arenaType;
 	unlockArena(map->hndl, map->arenaPath);
 
@@ -230,7 +229,7 @@ uint32_t bits;
 
 	map->objSize = map->arena->objSize;
 	map->rbEntry = rbEntry;
-        map->name = rbkey(rbEntry);
+  map->name = rbkey(rbEntry);
 
 	map->type[0] = arenaDef->arenaType;
 	return map;
@@ -279,7 +278,7 @@ uint64_t nextSize;
 	map->arena->segs[nextSeg].off = off;
 	map->arena->segs[nextSeg].size = nextSize;
 	map->arena->segs[nextSeg].nextObject.seg = nextSeg;
-	map->arena->segs[nextSeg].nextId.seg = nextSeg;
+	map->arena->segs[nextSeg].maxId = 1;
 
 	//  extend the disk file, windows does this automatically
 
@@ -299,11 +298,16 @@ uint64_t nextSize;
 	return true;
 }
 
+//TriadQueue blkFrame[MAX_blk];	// 1/2 bit blk sized frames
+//TriadQueue usrFrame[MAX_usr];	// user object frames 
+//TriadQueue sysFrame[MAX_sys];	// system objec frames
+
 //  allocate an object from frame list
 //  return 0 if out of memory.
 
-uint64_t allocObj(DbMap* map, DbAddr *free, DbAddr *wait, int type, uint32_t size, bool zeroit ) {
+uint64_t allocObj(DbMap* map, TriadQueue *queue, int type, uint32_t size, bool zeroit ) {
 uint32_t bits, amt;
+DbAddr *free, *tail;
 DbAddr slot;
 
 	size += 15;
@@ -312,7 +316,7 @@ DbAddr slot;
 	if (!size)
 		size = 16;
 
-	if (type < 0) {
+	if (type < 0) { // blk request
 #ifdef _WIN32
 		_BitScanReverse((unsigned long *)&bits, size - 1);
 		bits++;
@@ -330,12 +334,13 @@ DbAddr slot;
 		else
 			type++;
 
-		free += type;
-
-		if (wait)
-			wait += type;
-	} else
+		free = map->arena->blkFrame[type].freeFrame;
+		tail = map->arena->blkFrame[type].tailFrame;
+	} else {
 		amt = size;
+		free = map->arena->usrFrame[type].freeFrame;
+		tail = map->arena->usrFrame[type].tailFrame;
+	}
 
 	lockLatch(free->latch);
 
@@ -356,16 +361,29 @@ DbAddr slot;
 	return slot.bits;
 }
 
+//TriadQueue blkFrame[MAX_blk];	// 1/2 bit blk sized frames
+//TriadQueue usrFrame[MAX_usr];	// user object frames 
+//TriadQueue sysFrame[MAX_sys];	// system objec frames
+
 void freeBlk(DbMap *map, DbAddr addr) {
-	addSlotToFrame(map, &map->arena->freeBlk[addr.type], NULL, addr.bits);
+int type = addr.type;
+DbAddr *free;
+
+	free = map->arena->blkFrame[type].freeFrame;
+	addSlotToFrame(map, free, addr.bits);
 }
 
 void freeId(DbMap *map, ObjId objId) {
-	addSlotToFrame(map, &map->arena->freeBlk[ObjIdType], NULL, objId.bits);
+DbAddr *free;
+int type = freeObjId;
+
+	free = map->arena->blkFrame[type].freeFrame;
+	addSlotToFrame(map, free, objId.bits);
 }
 
 uint64_t allocBlk(DbMap *map, uint32_t size, bool zeroit) {
-	return allocObj(map, map->arena->freeBlk, NULL, -1, size, zeroit);
+
+	return allocObj(map, map->arena->blkFrame, -1, size, zeroit);
 }
 
 void mapAll (DbMap *map) {
@@ -404,7 +422,7 @@ uint64_t max, addr, off;
 	lockLatch(map->arena->mutex);
 
 	max = map->arena->segs[map->arena->currSeg].size
-		  - map->arena->segs[map->arena->objSeg].nextId.off * (uint64_t)map->objSize;
+		  - map->arena->segs[map->arena->objSeg].maxId * (uint64_t)map->objSize;
 
 	// round request up to cache line size
 
@@ -447,7 +465,7 @@ uint64_t off = map->arena->segs[currSeg].off;
 //	return pointer to Obj slot
 
 void *fetchIdSlot (DbMap *map, ObjId objId) {
-	if (!objId.seg) {
+	if (!objId.off) {
 		fprintf (stderr, "Invalid zero document segment: %s\n", map->arenaPath);
 		exit(1);
 	}
@@ -460,10 +478,14 @@ void *fetchIdSlot (DbMap *map, ObjId objId) {
 
 //
 // allocate next available object id
-//
+//uint64_t allocObj(DbMap* map, TriadQueue *queue, int type, uint32_t size, bool zeroit ) {
 
-uint64_t allocObjId(DbMap *map, DbAddr *free, DbAddr *wait) {
+uint64_t allocObjId(DbMap *map) {
+int type = freeObjId;
 ObjId objId[1];
+DbAddr *free;
+
+	free = map->arena->sysFrame[freeObjId].freeFrame;
 
 	lockLatch(free->latch);
 

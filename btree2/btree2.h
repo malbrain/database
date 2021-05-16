@@ -182,6 +182,5 @@ uint32_t btree2SlotSize(Btree2Slot *slot, uint8_t skipBits, uint8_t height);
 uint32_t btree2SizeSlot(uint32_t keyLen, uint8_t height);
 uint32_t btree2GenHeight(Handle *index);
 bool btree2RecyclePage(Handle *index, int type, DbAddr page);
-bool btree2RecyclePageNo(Handle *ind6x, ObjId pageNo);
 bool btree2SkipDead(Btree2Set *set);
 bool btree2DeadTower(Btree2Set *set);

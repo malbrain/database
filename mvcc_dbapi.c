@@ -23,8 +23,8 @@ uint32_t hashVal(uint8_t *src, uint32_t len) {
 }
 
 typedef struct {
-  DbHandle dbHndl[1];
-  DbHandle docHndl[1];
+  DbHandle dbHndl;
+  DbHandle docHndl;
 } MVCC_Interface;
 
 /*

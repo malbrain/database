@@ -22,13 +22,11 @@ uint64_t nodeWait[64];
 
 uint64_t artAllocateNode(Handle *index, int type, uint32_t size) {
 DbMap *idxMap = MapAddr(index);
-DbAddr *free = listFree(index,type);
-DbAddr *wait = listWait(index,type);
 
 	if( stats )
 		atomicAdd64(&nodeAlloc[type], 1ULL);
 
-	return allocObj(idxMap, free, wait, type, size, true);
+	return allocObj(idxMap,idxMap->arena->usrFrame, type, size, true);
 }
 
 uint64_t allocSpanNode(InsertParam *p, uint32_t len) {
@@ -332,9 +330,7 @@ DbAddr slot;
 		  // add old node to free/wait list
 
 		  if (slot.type && slot.addr) {
-                    if ((!addSlotToFrame(
-                            p->idxMap, listHead(p->index, slot.type),
-                            listWait(p->index, slot.type), slot.bits)))
+        if ((!addSlotToFrame(p->idxMap, p->idxMap->arena->usrFrame[slot.type].headFrame, slot.bits)))
 			  return p->stat = DB_ERROR_outofmemory, false;
 
 			if( stats )

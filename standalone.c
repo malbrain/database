@@ -241,10 +241,14 @@ int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
 
         // store the entry in the docStore?
 
-        if (args->docHndl->hndlId.bits) {
+        if (args->docHndl->hndlId.bits)
+        {
           docId->bits = 0;
-          if (args->txnBatch) {
-            result = mvcc_writeDoc(txn, args->docHndl, docId, docLen, docBuff, 1);
+
+          if (args->txnBatch)
+          {
+            result = mvcc_writeDoc(txn, *args->docHndl, docId, docLen, docBuff, 1);
+
             if (args->line % args->txnBatch == 0) {
               ObjId nestTxn, currTxn;
               nestTxn.bits = 0;
@@ -255,17 +259,23 @@ int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
               currTxn.bits = result.value;
               txn = fetchIdSlot(txnMap, currTxn);
             }
+
+          // end of txn code, begin non mvcc
+
           } else {
-            if ((stat =
-              storeDoc(args->docHndl, docBuff, docLen, docId)))
-              fprintf(stderr, "Add Doc %s Error %d Line: %" PRIu64 " *********\n",
-              args->inFile, stat, args->line), exit(0);
+            if ((stat = storeDoc(*args->docHndl, docBuff, docLen, docId)))
+              fprintf(stderr, "Add Doc %s Error %d Line: %" PRIu64 " *********\n", args->inFile, stat, args->line), exit(0);
           }
-        } else if (args->idxHndl->hndlId.bits) {
-            if( suffixLen = store64(keyBuff, kv->keyLen, args->line + args->offset))
+
+          // end of writing into docstore
+  
+      } // add key?          
+
+        if (args->idxHndl->hndlId.bits) {
+           if( suffixLen = store64(keyBuff, kv->keyLen, args->line + args->offset))
               kv->keyLen += kv->suffixLen;
 
-          stat = insertKey(args->idxHndl, kv->keyBuff, kv->keyLen, *docId, MAX_BUFF);
+          stat = insertKey(*args->idxHndl, kv->keyBuff, kv->keyLen, *docId, MAX_BUFF);
 
           switch (stat) {
             case DB_ERROR_unique_key_constraint:
@@ -277,14 +287,13 @@ int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
              return msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1,"thrd:%d cmd:%c file:%s InsertKey " "dbError:%d errno:%d line: %" PRIu64 " **********\n",
               args->idx, cmd, args->inFile, stat, errno, args->line);
           }
-                  
-        break;
-
+        } break;         
+    
         //	delete key
 
       case 'd':
 
-        if ((stat = deleteKey(args->idxHndl, kv->keyBuff, kv->keyLen, 0)))
+        if ((stat = deleteKey(*args->idxHndl, kv->keyBuff, kv->keyLen, 0)))
           return msgLen + sprintf_s(msg + msgLen, msgMax - msgLen - 1,"thrd:%d cmd:%c file:%s deleteKey "
            "dbError:%d errno:%d line: %" PRIu64 " **********\n", args->idx, cmd, args->inFile, stat, errno,
                  args->line);
@@ -294,12 +303,12 @@ int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
         //	find record by key
 
       case 'f':
-        if ((stat = positionCursor(args->cursor, OpOne, kv->keyBuff, kv->keyLen)))
+        if ((stat = positionCursor(*args->cursor, OpOne, kv->keyBuff, kv->keyLen)))
           return msgLen + sprintf_s(msg + msgLen, msgMax - msgLen - 1, "thrd:%d cmd:%c file:%s findKey dbError:%d " "errno: %d line: %" PRIu64 " **********\n",
            args->idx, cmd, args->inFile, stat, errno,
                                     args->line);
 
-        if ((stat = keyAtCursor(args->cursor, &foundKey, &foundLen)))
+        if ((stat = keyAtCursor(*args->cursor, &foundKey, &foundLen)))
           return msgLen + sprintf_s(msg + msgLen, msgMax - msgLen - 1, "thrd:%d cmd:%c file:%s findKey dbError:%d " "errno: %d line: %" PRIu64 " **********\n", args->idx, cmd, args->inFile, stat, errno, args->line);
 
         if (args->docHndl->hndlId.bits && args->idxHndl->hndlId.bits) {
@@ -312,23 +321,20 @@ int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
             fprintf(stderr, "findKey %s not Found: line: %" PRIu64 " expected: %.*s \n",
              args->inFile, args->line, kv->keyLen, kv->keyBuff), myExit(args);
 
-        break;
+      }
     }
-  }
+
 
   msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1,
         "thrd:%d cmd:%c %s: end: %" PRIu64 " records processed\n", args->idx, cmd, idxName, args->line);
 
   msg[msgLen++] = '\n';
 
-  closeHandle(args->docHndl);
-  closeHandle(args->idxHndl);
-  closeHandle(args->cursor);
-  closeHandle(args->dbHndl);
-  }
-
- return msgLen;
-  
+  closeHandle(*args->docHndl);
+  closeHandle(*args->idxHndl);
+  closeHandle(*args->cursor);
+  closeHandle(*args->dbHndl);
+  return msgLen;
 }
 
 uint64_t index_scan(ScanArgs *scan, DbHandle *database) {
@@ -366,7 +372,7 @@ uint64_t index_scan(ScanArgs *scan, DbHandle *database) {
           fprintf(stderr, "Cannot specify noDocs with iterator scan\n"),
               exit(0);
 
-        while ((ourDoc = iteratorNext(scan->iterator)))
+        while ((ourDoc = iteratorNext(*scan->iterator)))
         {
           if (dump) {
             fwrite_unlocked(ourDoc + 1, ourDoc->docSize, 1, stdout);
@@ -423,20 +429,20 @@ uint64_t index_scan(ScanArgs *scan, DbHandle *database) {
   if (scan->maxKey) fprintf(stderr, " max key: <%s>\n", scan->maxKey);
 
   if (!reverse && scan->minKey)
-    stat = positionCursor(scan->cursor, OpBefore, scan->minKey,
+    stat = positionCursor(*scan->cursor, OpBefore, scan->minKey,
                           (int)strlen(scan->minKey));
   else if (reverse && scan->maxKey)
-    stat = positionCursor(scan->cursor, OpAfter, scan->maxKey,
+    stat = positionCursor(*scan->cursor, OpAfter, scan->maxKey,
                           (int)strlen(scan->maxKey));
   else
-    stat = moveCursor(scan->cursor, reverse ? OpRight : OpLeft);
+    stat = moveCursor(*scan->cursor, reverse ? OpRight : OpLeft);
 
   if (stat) fprintf(stderr, "positionCursor Error %d\n", stat), exit(0);
 
-  while (!(stat = moveCursor(scan->cursor, reverse ? OpPrev : OpNext))) {
+  while (!(stat = moveCursor(*scan->cursor, reverse ? OpPrev : OpNext))) {
     uint32_t keyLen;
 
-    if ((stat = keyAtCursor(scan->cursor, &foundKey, &foundLen)))
+    if ((stat = keyAtCursor(*scan->cursor, &foundKey, &foundLen)))
       fprintf(stderr, "keyAtCursor Error %d\n", stat), exit(0);
 
     keyLen = foundLen - size64(foundKey, foundLen);
@@ -481,7 +487,7 @@ uint64_t index_scan(ScanArgs *scan, DbHandle *database) {
 
     if (dump && !scan->noDocs) {
       docId->bits = get64(foundKey, foundLen);
-      ourDoc = fetchDoc(scan->docHndl, *docId);
+      ourDoc = fetchDoc(*scan->docHndl, *docId);
       fwrite_unlocked(ourDoc + 1, ourDoc->docSize, 1, stdout);
     }
 
@@ -581,11 +587,11 @@ int main(int argc, char **argv) {
   ScanArgs scan[1];
 
   memset(scan, 0, sizeof(ScanArgs));
-  iterator->hndlId.bits = 0;
-  docHndl->hndlId.bits = 0;
-  cursor->hndlId.bits = 0;
-  idxHndl->hndlId.bits = 0;
-  dbHndl->hndlId.bits = 0;
+  iterator->hndlBits = 0;
+  docHndl->hndlBits = 0;
+  cursor->hndlBits = 0;
+  idxHndl->hndlBits = 0;
+  dbHndl->hndlBits = 0;
 
   if (argc < 3) {
     fprintf(stderr,
@@ -648,6 +654,7 @@ int main(int argc, char **argv) {
   params[Btree1Bits].intVal = 14;
   params[OnDisk].boolVal = true;
   params[Btree2Bits].intVal = 14;
+  params[ObjIdSize].intVal = sizeof(ObjId);
 
   // process configuration arguments
 
@@ -723,30 +730,30 @@ int main(int argc, char **argv) {
   //  drop the database?
 
   if (dropDb) {
-    dropArena(dbHndl, true);
+    dropArena(*dbHndl, true);
     openDatabase(dbHndl, dbName, (int)strlen(dbName), params);
   }
 
   parent = dbHndl;
 
   if (!noDocs) {
-    if ((stat = openDocStore(docHndl, dbHndl, "documents",
+    if ((stat = openDocStore(docHndl, *dbHndl, "documents",
                              (int)strlen("documents"), params)))
       fprintf(stderr, "file:%s unable to open error %d\n", "docStore", stat),
           exit(3);
 
     parent = docHndl;
 
-    if ((stat = createIterator(iterator, docHndl, scan->params)))
+    if ((stat = createIterator(iterator, *docHndl, scan->params)))
       fprintf(stderr, "createIterator Error %d\n", stat), exit(0);
   }
 
   if (!noIdx) {
-    if ((stat = createIndex(idxHndl, parent, idxName, (int)strlen(idxName), params)))
+    if ((stat = createIndex(idxHndl, *parent, idxName, (int)strlen(idxName), params)))
       fprintf(stderr, "file:%s unable to open error %d\n", idxName, stat),
           exit(3);
 
-    createCursor(cursor, idxHndl, params);
+    createCursor(cursor, *idxHndl, params);
   }
 
   if (noDocs && noIdx)
@@ -765,11 +772,11 @@ int main(int argc, char **argv) {
     args[idx].inFile = idx < argc ? argv[idx] : argv[argc - 1];
     args[idx].dbHndl->hndlId.bits = dbHndl->hndlId.bits;
 
-    cloneHandle(args[idx].docHndl, docHndl);
-    cloneHandle(args[idx].iterator, iterator);
-    cloneHandle(args[idx].docHndl, docHndl);
-    cloneHandle(args[idx].cursor, cursor);
-    cloneHandle(args[idx].idxHndl, idxHndl);
+    cloneHandle(args[idx].docHndl, *docHndl);
+    cloneHandle(args[idx].iterator, *iterator);
+    cloneHandle(args[idx].docHndl, *docHndl);
+    cloneHandle(args[idx].cursor, *cursor);
+    cloneHandle(args[idx].idxHndl, *idxHndl);
 
     args[idx].params = params;
     args[idx].keyLen = keyLen;
@@ -789,8 +796,7 @@ int main(int argc, char **argv) {
     if ((err = pthread_create(threads + idx, NULL, pipego, args + idx)))
       fprintf(stderr, "Error creating thread %d\n", err);
 #else
-    while (((int64_t)(threads[idx] = (HANDLE)_beginthreadex(
-                          NULL, 65536, pipego, args + idx, 0, NULL)) < 0LL))
+    while (((int64_t)(threads[idx] = (HANDLE)_beginthreadex(NULL, 65536, pipego, args + idx, 0, NULL)) < 0LL))
       fprintf(stderr, "Error creating thread errno = %d\n", errno);
 #endif
 
@@ -862,11 +868,11 @@ int main(int argc, char **argv) {
     }
   }
 
-  closeHandle(docHndl);
-  closeHandle(idxHndl);
-  closeHandle(cursor);
-  closeHandle(dbHndl);
-  closeHandle(iterator);
+  closeHandle(*docHndl);
+  closeHandle(*idxHndl);
+  closeHandle(*cursor);
+  closeHandle(*dbHndl);
+  closeHandle(*iterator);
 
   if (debug) {
 #ifdef _WIN32

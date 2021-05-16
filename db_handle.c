@@ -10,24 +10,16 @@
 
 extern char *hndlNames[]; 
 
-DbAddr *listQueue(Handle *handle, int nodeType, FrameList listType) {
-DbMap *map = MapAddr(handle);
-int listBase = listType * handle->maxType[0] + nodeType;
-  return (DbAddr *)((uint8_t *)arrayEntry(map, map->arena->listArray, handle->listIdx + listBase));
-}
-
 //	make handle from map pointer
 //	leave it bound
 
-Handle *makeHandle(DbMap *dbMap, uint32_t clntSize, uint32_t xtraSize,
-  HandleType type) {
+Handle *makeHandle(DbMap *map, uint32_t clntSize,   uint32_t xtraSize, HandleType type) {
+  ObjId hndlId[1];
   Handle *handle;
-  ObjId hndlId[1], *mapHndls;
 
   //	get a new or recycled ObjId slot where the handle will live
 
-  if (!(hndlId->bits =
-    allocObjId(hndlMap, hndlMap->arena->freeBlk + ObjIdType, NULL)))
+  if (!(hndlId->bits = allocObjId(hndlMap)))
     return NULL;
 
   handle = fetchIdSlot(hndlMap, *hndlId);
@@ -50,37 +42,14 @@ Handle *makeHandle(DbMap *dbMap, uint32_t clntSize, uint32_t xtraSize,
   }
 
   if ((handle->clntSize = clntSize))
-    handle->clientAddr.bits = allocBlk(dbMap, clntSize, true);
+    handle->clientAddr.bits = allocBlk(hndlMap, clntSize, true);
 
-  handle->entryTs = atomicAdd64(&dbMap->arena->nxtTs, 1);
+  handle->entryTs = atomicAdd64(&map->arena->nxtTs, 1);
+  handle->mapAddr = db_memAddr(map);
   handle->hndlId.bits = hndlId->bits;
   handle->hndlType = type;
   handle->bindCnt[0] = 1;
 
-  //  allocate recycled frame queues
-  //	three times the number of node types
-  //	for the handle type
-
-  if ((*handle->maxType = dbMap->arenaDef->numTypes))
-    handle->listIdx = arrayAlloc(dbMap, dbMap->arena->listArray,
-    sizeof(DbAddr) * *handle->maxType * 3);
-
-  //	allocate entry slot in the open hndlId array for this arena
-  //	and fill in the id for the handle's map
-
-  handle->arrayIdx =
-    arrayAlloc(dbMap, dbMap->arenaDef->hndlArray, sizeof(ObjId));
-
-  mapHndls = arrayEntry(dbMap, dbMap->arenaDef->hndlArray, handle->arrayIdx);
-  mapHndls->bits = hndlId->bits;
-
-  if (debug)
-    printf("listIdx = %.6d  maxType = %.3d arrayIdx = %.6d  hndl:%s\n",
-
-    handle->listIdx, *handle->maxType, handle->arrayIdx,
-    hndlNames[handle->hndlType]);
-
-  handle->mapAddr = db_memAddr(dbMap);
   return handle;
 }
 
@@ -98,27 +67,20 @@ void destroyHandle(Handle *handle) {
   uint32_t count;
 
   if (!maxType) return;
-  if (handle->clntSize) freeBlk(dbMap, handle->clientAddr);
-
-  arrayRelease(dbMap, dbMap->arena->listArray, handle->listIdx);
-  arrayRelease(dbMap, dbMap->arenaDef->hndlArray, handle->arrayIdx);
+  if (handle->clntSize) freeBlk(hndlMap, handle->clientAddr);
 
   //  specific handle cleanup
 
   switch (handle->hndlType) {
     case Hndl_cursor:
-      dbCloseCursor(getObj(dbMap, handle->clientAddr), dbMap);
+      dbCloseCursor(getObj(hndlMap, handle->clientAddr), dbMap);
       break;
   }
-
-  // release the hndlId reservation in the arena
-
-  arrayRelease(dbMap, dbMap->arenaDef->hndlArray, handle->arrayIdx);
 
   //	never return the handle Id slot
   //	but return the memory
 
-  freeBlk(dbMap, handle->clientAddr);
+  freeBlk(hndlMap, handle->clientAddr);
 
   // zero the handle Id status
 
@@ -134,13 +96,14 @@ void destroyHandle(Handle *handle) {
 
 //	enter api with a handle
 
-bool enterHandle(Handle *handle, DbMap *map) {
+bool enterHandle(Handle *handle) {
   int cnt = atomicAdd32(handle->bindCnt, 1);
+  DbMap *map = MapAddr(handle);
 
   //  are we the first call after an idle period?
   //	set the entryTs if so.
 
-  if (cnt == 1) handle->entryTs = atomicAdd64(&map->arena->nxtTs, 1);
+   if (cnt == 1) handle->entryTs = atomicAdd64(&map->arena->nxtTs, 1);
 
   //	exit if the handle is being closed
 
@@ -166,8 +129,8 @@ bool enterHandle(Handle *handle, DbMap *map) {
 //	bind handle for use in API call
 //	return NULL if handle closed
 
-Handle *bindHandle(DbHandle *dbHndl, HandleType hndlType) {
-  Handle *handle = HandleAddr(dbHndl);
+Handle *bindHandle(DbHandle dbHndl, HandleType hndlType) {
+  Handle *handle = HandleAddr(dbHndl.hndlId);
   HandleType type = handle->hndlType;
 
   switch (hndlType) {
@@ -180,7 +143,7 @@ Handle *bindHandle(DbHandle *dbHndl, HandleType hndlType) {
 
     case Hndl_any:
       break;
-
+ 
     default:
       if (hndlType != type) 
           return NULL;
@@ -192,7 +155,7 @@ Handle *bindHandle(DbHandle *dbHndl, HandleType hndlType) {
   //	and capture timestamp if we are the
   //	first handle bind
 
-  if (enterHandle(handle, MapAddr(handle))) return handle;
+  if (enterHandle(handle)) return handle;
 
   return NULL;
 }

@@ -21,13 +21,13 @@ typedef enum {
   IterFetch = 'f'
 } IteratorOp;
 
-DbStatus iteratorMove(DbHandle hndl[1], IteratorOp op, DocId *docId);
+DbStatus iteratorMove(DbHandle hndl, IteratorOp op, DocId *docId);
 
-DbDoc *iteratorFetch(DbHandle *hndl, ObjId docId);
-DbDoc *iteratorSeek(DbHandle *hndl, ObjId docId);
-DbDoc *iteratorNext(DbHandle *hndl);
-DbDoc *iteratorPrev(DbHandle *hndl);
+DbDoc *iteratorFetch(DbHandle hndl, ObjId docId);
+DbDoc *iteratorSeek(DbHandle hndl, ObjId docId);
+DbDoc *iteratorNext(DbHandle hndl);
+DbDoc *iteratorPrev(DbHandle hndl);
 
-DbStatus createIterator(DbHandle hndl[1], DbHandle docHndl[1], Params *params);
+DbStatus createIterator(DbHandle *hndl, DbHandle docHndl, Params *params);
 
 

@@ -19,12 +19,18 @@ uint8_t txnInit[1];
 
 //	GlobalTxn structure, follows ArenaDef in Txn file
 
+/*typedef struct {
+  DbAddr headFrame[1];	// FIFO queue head
+  DbAddr freeFrame[1];	// unencombered free space
+  DbAddr waitFrame[1];	// waiting for timestamp to expire (tail)
+} TriadQueue;
+*/
 typedef struct {
   uint64_t rdtscUnits;
-  DbAddr txnFree[1];    // frames of available txnId
+  TriadQueue txnFrame[1]; // frames of available txnId
 	DbAddr txnWait[1];		// frames of waiting txnId
-    uint16_t maxClients;	// number of timestamp slots
-    Timestamp baseTs[1];	// ATOMIC-ALIGN master timestamp slot,
+  uint16_t maxClients;	// number of timestamp slots
+  Timestamp baseTs[1];	// ATOMIC-ALIGN master slot,
 							// followed by timestamp client slots
 } GlobalTxn;
 
@@ -42,9 +48,9 @@ void initTxn(int maxClients) {
 		return;
 	}
 
-	// configure transaction table
+//  configure inter-process txn arena
 
-	memset(arenaDef, 0, sizeof(arenaDef));
+  memset(arenaDef, 0, sizeof(arenaDef));
 	arenaDef->params[OnDisk].boolVal = hndlMap->arenaDef->params[OnDisk].boolVal;
 	arenaDef->arenaXtra = sizeof(GlobalTxn) + sizeof(Timestamp) * maxClients;
 	arenaDef->arenaType = Hndl_txns;
@@ -138,7 +144,7 @@ MVCCResult result = (MVCCResult) {
   }
 
   result.status =
-      addValuesToFrame(txnMap, txn->wrtFrame, txn->wrtFirst, values, cnt)
+      addValuesToFrame(txnMap, txn->wrtFrame, values, cnt)
           ? (DbStatus)DB_OK
           : DB_ERROR_outofmemory;
 
@@ -206,7 +212,7 @@ MVCCResult result = {
   }
 
   if (cnt) 
-      result.status = addValuesToFrame(txnMap, txn->rdrFrame, txn->rdrFirst, values, cnt);
+      result.status = addValuesToFrame(txnMap, txn->rdrFrame, values, cnt);
 
   return result;
 }
@@ -226,7 +232,7 @@ MVCCResult result = {.value = 0, .count = 0, .objType = objTxn, .status = DB_OK}
   else
     return result.status = MVCC_NoTimestampSlots, result;
 
-  if ((txnId.bits = allocObjId(txnMap, globalTxn->txnFree, globalTxn->txnWait)))
+  if ((txnId.bits = allocObjId(txnMap)))
     txn = fetchIdSlot(txnMap, txnId);
   else {
     timestampQuit(globalTxn->baseTs, tsClnt);

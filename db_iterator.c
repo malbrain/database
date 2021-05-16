@@ -17,7 +17,7 @@ uint64_t start = it->docId.bits;
 uint64_t mask, *tstNull, span;
 
 	while (it->docId.seg <= map->arena->objSeg) {
-		while (++it->docId.off <= map->arena->segs[it->docId.seg].nextId.off) {
+		while (++it->docId.off <= map->arena->segs[it->docId.seg].maxId) {
 
 			span = map->objSize;
 
@@ -78,7 +78,7 @@ uint64_t mask, *tstNull, span;
 
 		if (it->docId.seg) {
 			it->docId.seg--;
-			it->docId.off = map->arena->segs[it->docId.seg].nextId.off + 1;
+			it->docId.off = map->arena->segs[it->docId.seg].maxId + 1;
 			continue;
 		}
 
@@ -89,7 +89,7 @@ uint64_t mask, *tstNull, span;
 
 //	advance/reverse iterator
 
-DbStatus iteratorMove(DbHandle hndl[1], IteratorOp op, DocId *docId) {
+DbStatus iteratorMove(DbHandle hndl, IteratorOp op, DocId *docId) {
 	DbStatus stat = DB_OK;
   Handle *docHndl;
   Iterator *it;
@@ -100,7 +100,7 @@ DbStatus iteratorMove(DbHandle hndl[1], IteratorOp op, DocId *docId) {
   else
     return DB_ERROR_handleclosed;
 
-  it = getObj(docMap, docHndl->clientAddr);
+  it = getObj(hndlMap, docHndl->clientAddr);
 
   switch (op) {
     case IterNext:
@@ -135,7 +135,7 @@ DbStatus iteratorMove(DbHandle hndl[1], IteratorOp op, DocId *docId) {
 
 		case IterEnd:
 			it->docId.seg = docMap->arena->objSeg;
-			it->docId.off = docMap->arena->segs[it->docId.seg].nextId.off;
+			it->docId.off = docMap->arena->segs[it->docId.seg].maxId;
 
 				docId->bits = it->docId.bits;
 				it->state = IterRightEof;
@@ -160,7 +160,7 @@ DbStatus iteratorMove(DbHandle hndl[1], IteratorOp op, DocId *docId) {
 //  advance iterator forward
 //
 
-DbDoc *iteratorNext(DbHandle *hndl) {
+DbDoc *iteratorNext(DbHandle hndl) {
   Handle *docHndl;
   DbAddr *slot;
   DbMap *docMap;
@@ -172,7 +172,7 @@ DbDoc *iteratorNext(DbHandle *hndl) {
   else
     return NULL;
 
-  it = getObj(docMap, docHndl->clientAddr);
+  it = getObj(hndlMap, docHndl->clientAddr);
 
 	if (incrObjId(it, docMap)) {
 		slot = fetchIdSlot(docMap, it->docId);
@@ -189,7 +189,7 @@ DbDoc *iteratorNext(DbHandle *hndl) {
 //  advance iterator backward
 //
 
-DbDoc *iteratorPrev(DbHandle *hndl) {
+DbDoc *iteratorPrev(DbHandle hndl) {
   Handle *docHndl;
   DbAddr *slot;
   DbMap *docMap;
@@ -201,7 +201,7 @@ DbDoc *iteratorPrev(DbHandle *hndl) {
   else
 	  return NULL;
 
-  it = getObj(docMap, docHndl->clientAddr);
+  it = getObj(hndlMap, docHndl->clientAddr);
 
 	if (decrObjId(it, docMap)) {
 		slot = fetchIdSlot(docMap, it->docId);
@@ -217,7 +217,7 @@ DbDoc *iteratorPrev(DbHandle *hndl) {
 //  set iterator to specific objectId
 //
 
-DbDoc *iteratorFetch(DbHandle *hndl, ObjId docId) {
+DbDoc *iteratorFetch(DbHandle hndl, ObjId docId) {
   Handle *docHndl;
   DbAddr *slot;
   DbMap *docMap;
@@ -238,7 +238,7 @@ DbDoc *iteratorFetch(DbHandle *hndl, ObjId docId) {
 //  set iterator to specific objectId
 //
 
-DbDoc *iteratorSeek(DbHandle *hndl, ObjId docId) {
+DbDoc *iteratorSeek(DbHandle hndl, ObjId docId) {
   Handle *docHndl;
   DbAddr *slot;
   DbMap *docMap;
@@ -250,7 +250,7 @@ DbDoc *iteratorSeek(DbHandle *hndl, ObjId docId) {
   else
     return NULL;
 
-	it = getObj(docMap, docHndl->clientAddr);
+	it = getObj(hndlMap, docHndl->clientAddr);
 	it->docId.bits = docId.bits;
 
 	slot = fetchIdSlot(docMap, docId);

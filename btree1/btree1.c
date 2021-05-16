@@ -40,12 +40,12 @@ DbAddr *pageAddr;
 	if (type == Btree1_leafPage )
 		size <<= btree1->leafXtra;
 
-	if( pageId.bits = allocObjId(idxMap, listFree(hndl,    ObjIdType), listWait(hndl, ObjIdType)) )
-		pageAddr = fetchIdSlot(idxMap, pageId);
+	if( ((pageId.bits = allocObjId(idxMap))))
+		pageAddr = fetchIdSlot(idxMap,pageId);
 	else
 	  return 0;
 
-	if ((pageAddr->bits = allocObj(idxMap, listFree(hndl,type), NULL, type, size, true ) ))
+	if ((pageAddr->bits = allocObj(idxMap,  idxMap->arena->usrFrame, type, size, true) ))
 	  page = getObj(idxMap, *pageAddr);
 	else
 	  return 0;

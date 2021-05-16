@@ -68,11 +68,11 @@ uint8_t ch;
 				stack->addr->bits = fldEndNode->sameFld->bits;
 				fldEndNode->nextFld->bits = 0;
 
-				if(addSlotToFrame(idxMap, listHead(index,newSlot.type), listWait(index,newSlot.type), newSlot.bits)) {
-				  if (stack->addr->type)
-					rt = EndSearch;
-				  else
-					continue;
+				if(addSlotToFrame(idxMap, idxMap->arena->usrFrame[newSlot.type].freeFrame, newSlot.bits)) {
+						if (stack->addr->type)
+							rt = EndSearch;
+						else
+							continue;
 				} else
 				  rt = ErrorSearch;
 
@@ -107,7 +107,7 @@ uint8_t ch;
 				  stack->addr->bits = keyEndNode->next->bits;
 				  keyEndNode->next->bits = 0;
 
-				  if(addSlotToFrame(idxMap, listHead(index,newSlot.type), listWait(index,newSlot.type), newSlot.bits)) {
+				if(addSlotToFrame(idxMap, idxMap->arena->usrFrame[newSlot.type].freeFrame, newSlot.bits)) {
 					if (stack->addr->type)
 					  rt = EndSearch;
 					else
@@ -122,7 +122,7 @@ uint8_t ch;
 			case SpanNode: {
 				stack->addr->bits = 0;
 
-				if(addSlotToFrame(idxMap, listHead(index,newSlot.type), listWait(index,newSlot.type), newSlot.bits))
+				if(addSlotToFrame(idxMap, idxMap->arena->usrFrame[newSlot.type].freeFrame, newSlot.bits))
 					continue;
 
 				rt = ErrorSearch;
@@ -130,7 +130,7 @@ uint8_t ch;
 			}
 
 			case Array4: {
-                ARTNode4 *node = getObj(idxMap, *stack->addr);
+        ARTNode4 *node = getObj(idxMap, *stack->addr);
 
 				for (bit = 0; bit < 4; bit++) {
 					if (node->alloc & (1 << bit))
@@ -154,7 +154,7 @@ uint8_t ch;
 
 				stack->addr->bits = 0;
 
-				if(addSlotToFrame(idxMap, listHead(index,newSlot.type), listWait(index,newSlot.type), newSlot.bits))
+				if(addSlotToFrame(idxMap, idxMap->arena->usrFrame[newSlot.type].freeFrame, newSlot.bits))
 					continue;
 
 				rt = ErrorSearch;
@@ -162,7 +162,7 @@ uint8_t ch;
 			}
 
 			case Array14: {
-                ARTNode14 *node = getObj(idxMap, *stack->addr);
+      ARTNode14 *node = getObj(idxMap, *stack->addr);
 
 				for (bit = 0; bit < 14; bit++) {
 					if (node->alloc & (1 << bit))
@@ -186,7 +186,7 @@ uint8_t ch;
 
 				stack->addr->bits = 0;
 
-				if(addSlotToFrame(idxMap, listHead(index,newSlot.type), listWait(index,newSlot.type), newSlot.bits))
+				if(addSlotToFrame(idxMap, idxMap->arena->usrFrame[newSlot.type].freeFrame, newSlot.bits))
 					continue;
 
 				rt = ErrorSearch;
@@ -194,7 +194,7 @@ uint8_t ch;
 			}
 
 			case Array64: {
-            ARTNode64 *node = getObj(idxMap, *stack->addr);
+      ARTNode64 *node = getObj(idxMap, *stack->addr);
 				bit = node->keys[ch];
 
 				if (bit == 0xff) {
@@ -212,7 +212,7 @@ uint8_t ch;
 
 				stack->addr->bits = 0;
 
-				if(addSlotToFrame(idxMap, listHead(index,newSlot.type), listWait(index,newSlot.type), newSlot.bits))
+				if(addSlotToFrame(idxMap, idxMap->arena->usrFrame[newSlot.type].freeFrame, newSlot.bits))
 					continue;
 
 				rt = ErrorSearch;
@@ -238,7 +238,7 @@ uint8_t ch;
 				// remove the slot
 				stack->addr->bits = 0;
 
-				if(addSlotToFrame(idxMap, listHead(index,newSlot.type), listWait(index,newSlot.type), newSlot.bits))
+				if(addSlotToFrame(idxMap, idxMap->arena->usrFrame[newSlot.type].freeFrame, newSlot.bits))
 					continue;
 
 				rt = ErrorSearch;
