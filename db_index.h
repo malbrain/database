@@ -17,6 +17,8 @@ typedef struct {
     uint8_t *keyBuff;
     DbAddr bytes;
   };
+  ObjId docId[1];
+  uint16_t keyMax;
   uint16_t keyLen; 	    // len of entire key
   uint8_t suffixLen; 	// len of payload key at end
   uint8_t unique : 1;   // index is unique

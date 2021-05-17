@@ -110,9 +110,9 @@ int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
   uint16_t nrandState[3];
   int batchSize = 0;
   uint32_t msgLen = 0;
-  uint32_t suffixLen;
   MVCCResult result;
-  uint32_t keyOff, keyMax;
+  uint16_t keyMax = MAX_key;
+  uint16_t keyOff;
   uint32_t foundLen = 0;
   uint8_t keyBuff[MAX_key];
   uint8_t docBuff[MAX_BUFF];
@@ -198,7 +198,7 @@ int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
 
       kv->keyLen += keyMax;
     } else {
-      keyMax = MAX_key;
+      kv->keyMax = MAX_key;
 
       while (ch = getc_unlocked(in), ch != EOF && ch != '\n') {
         if (!args->noDocs)
@@ -272,10 +272,10 @@ int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
       } // add key?          
 
         if (args->idxHndl->hndlId.bits) {
-           if( suffixLen = store64(keyBuff, kv->keyLen, args->line + args->offset))
+           if( kv->suffixLen = store64(kv->keyBuff, kv->keyLen, args->line + args->offset))
               kv->keyLen += kv->suffixLen;
 
-          stat = insertKey(*args->idxHndl, kv->keyBuff, kv->keyLen, *docId, MAX_BUFF);
+          stat = insertKey(*args->idxHndl, kv);
 
           switch (stat) {
             case DB_ERROR_unique_key_constraint:

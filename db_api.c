@@ -5,6 +5,7 @@
 #include "btree1/btree1.h"
 #include "btree2/btree2.h"
 #include "db_map.h"
+#include "db_index.h"
 #include "db_iterator.h"
 #include "db_redblack.h"
 #include "db_malloc.h"
@@ -639,7 +640,7 @@ DbStatus deleteKey(DbHandle hndl, uint8_t *key, uint32_t len, uint64_t suffix) {
   releaseHandle(idxHndl);
   return stat;
 }
-
+            
 //	call back fcn to determine if key is unique
 //	since we are not MVCC, all calls are from duplicates
 
@@ -647,9 +648,8 @@ DbStatus deleteKey(DbHandle hndl, uint8_t *key, uint32_t len, uint64_t suffix) {
 
 bool uniqueKey(DbMap *map, DbCursor *dbCursor) { return true; }
 
-DbStatus insertKey(DbHandle hndl, uint8_t *keyBuff, uint32_t keyLen, DocId docId, uint32_t maxLen) {
+DbStatus insertKey(DbHandle hndl, DbKeyValue *kv) {
   DbStatus stat = DB_OK;
-  DbKeyValue kv[1];
   Handle *idxHndl;
   DbIndex *index;
   DbMap *idxMap;
@@ -659,14 +659,11 @@ DbStatus insertKey(DbHandle hndl, uint8_t *keyBuff, uint32_t keyLen, DocId docId
   else
       return DB_ERROR_handleclosed;
   
-  memset (kv, 0, sizeof(kv));
-
-  if( calc64(docId.bits) > maxLen - keyLen)
+  if( calc64(kv->docId->bits) + kv->keyLen > kv->keyMax)
     return 0;
 
-  kv->keyBuff = keyBuff;
-  kv->suffixLen = store64(keyBuff, keyLen, docId.bits);
-  kv->keyLen = keyLen + kv->suffixLen; 
+  kv->suffixLen = store64(kv->keyBuff, kv->keyLen, kv->docId->bits);
+  kv->keyLen += kv->suffixLen; 
 
   switch (*idxMap->arena->type) {
     case Hndl_artIndex: {

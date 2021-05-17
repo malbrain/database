@@ -57,7 +57,7 @@ DbStatus positionCursor(DbHandle hndl, CursorOp op, void *key, uint32_t keyLen);
 DbStatus keyAtCursor(DbHandle hndl, uint8_t **key, uint32_t *keyLen);
 DbStatus moveCursor(DbHandle hndl, CursorOp op);
 
-DbStatus insertKey(DbHandle hndl, uint8_t *keyBuff, uint32_t keylen, DocId docId, uint32_t maxLen);
+DbStatus insertKey(DbHandle hndl, DbKeyValue *kv);
 DbStatus deleteKey(DbHandle hndl, uint8_t *key, uint32_t len, uint64_t suffix);
 
 uint64_t arenaAlloc(DbHandle arenaHndl, uint32_t size, bool zeroit,
