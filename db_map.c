@@ -343,17 +343,24 @@ void *mapMemory (DbMap *map, uint64_t offset, uint64_t size, uint32_t segNo) {
 void *mem;
 
 #ifndef _WIN32
-int flags = MAP_SHARED;
+int flags = 0;
 
 	if( map->hndl < 0 ) {
+		offset = 0;
 #ifdef MAP_ANON
 		flags |= MAP_ANON;
+#endif
+#ifdef __MAP_ANONYMOUS
+		flags |= __MAP_ANONYMOUS;
 #endif
 #ifdef MAP_ANONYMOUS
 		flags |= MAP_ANONYMOUS;
 #endif
-		offset = 0;
+	if(flags == 0 )
+		flags = 0x20;
 	}
+
+	flags |= MAP_SHARED;
 
 	mem = mmap(NULL, size, PROT_READ | PROT_WRITE, flags, map->hndl, offset);
 
