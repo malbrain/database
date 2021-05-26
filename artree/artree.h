@@ -117,7 +117,7 @@ typedef struct {
 	DbCursor base[1];
 	uint16_t depth;					// current depth of cursor
 	uint16_t fldLen;	// length remaining in current field
-	char binaryFlds;	// keys have binary fields
+	char delimFlds;	// keys have binary fields
 	char inSuffix;      //  binaryFlds in suffix string
 	uint8_t key[MAX_key];			// current cursor key
 	CursorStack stack[MAX_cursor];	// cursor stack
@@ -139,7 +139,7 @@ typedef struct {
 	uint16_t lastFld;	// previous field start
 	uint16_t fldLen;	// length remaining in current field
 	uint8_t ch;			// current key character
-	char binaryFlds;	// keys have binary fields
+	char delimFlds;	// keys have binary fields
 	uint8_t restart;	// restart insert from beginning
 } InsertParam;
 

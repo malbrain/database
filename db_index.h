@@ -8,7 +8,7 @@
 typedef struct {
 	uint64_t numKeys[1];  // number of keys in index
 	DbAddr keySpec;
-	bool binaryFlds;  // keys made with field values
+	bool delimFlds;  // keys made with field values
 	bool uniqueKeys;  // keys made with field values
 } DbIndex;
 
@@ -18,11 +18,12 @@ typedef struct {
     DbAddr bytes;
   };
   ObjId docId[1];
+  uint16_t lastFld;
   uint16_t keyMax;
   uint16_t keyLen; 	    // len of entire key
-  uint8_t suffixLen; 	// len of payload key at end
+  uint16_t delimFlds;	// use key fields with binary comparisons
+  uint16_t suffixLen; 	// len of payload key at end
   uint8_t unique : 1;   // index is unique
   uint8_t deferred : 1;	// uniqueness deferred
-  uint8_t binaryKeys : 1;	// use key fields with binary comparisons
 } DbKeyValue;
 

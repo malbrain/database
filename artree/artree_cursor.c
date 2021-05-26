@@ -9,7 +9,7 @@ ArtCursor *cursor = (ArtCursor *)dbCursor;
 
 	dbCursor->binaryFlds = map->arenaDef->params[IdxKeyFlds].charVal;
 	dbCursor->key = cursor->key;
-	cursor->binaryFlds = dbCursor->binaryFlds;
+	cursor->delimFlds = dbCursor->binaryFlds;
 	return DB_OK;
 }
 
@@ -32,7 +32,7 @@ DbAddr *base;
 
 	stack->off = 0;
 
-	if( cursor->binaryFlds )                         
+	if( cursor->delimFlds )                         
 		stack->startFld = true;
 
 	stack->slot->bits = base->bits;
@@ -224,8 +224,8 @@ int slot, len;
 		  cursor->stack[cursor->depth].startFld = false;
 		  cursor->stack[cursor ->depth++].ch = -1;
 
-		  cursor->inSuffix = cursor->binaryFlds;
-		  cursor->binaryFlds = 0;
+		  cursor->inSuffix = cursor->delimFlds;
+		  cursor->delimFlds = 0;
 
 		  dbCursor->baseLen = dbCursor->keyLen;
 		  stack->ch = 0;
@@ -235,7 +235,7 @@ int slot, len;
 		// continue with larger key values that share prefix key
 
 		if(stack->ch == 0) {
-		  cursor->binaryFlds = cursor->inSuffix;
+		  cursor->delimFlds = cursor->inSuffix;
 		  cursor->inSuffix = 0;
 
 		  cursor->stack[cursor->depth].slot->bits = keyEndNode->next->bits;
@@ -501,7 +501,7 @@ int slot, len;
 */
 	  case KeyEnd: {
 		if (stack->ch > 255) {
-		  if (cursor->binaryFlds) {
+		  if (cursor->delimFlds) {
 			int fldLen = dbCursor->keyLen - stack->lastFld - 2;
 			cursor->key[stack->lastFld] = fldLen >> 8;
 			cursor->key[stack->lastFld + 1] = fldLen;

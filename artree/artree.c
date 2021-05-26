@@ -6,7 +6,7 @@ DbStatus artInit(Handle *hndl, Params *params) {
   DbMap *artMap = MapAddr(hndl);
   ArtIndex *artIndex = artindex(artMap);
 
-	artIndex->dbIndex->binaryFlds = artMap->arenaDef->params[IdxKeyFlds].charVal;
+	artIndex->dbIndex->delimFlds = artMap->arenaDef->params[IdxKeyFlds].charVal;
 	artIndex->dbIndex->uniqueKeys =
     artMap->arenaDef->params[IdxKeyUnique].boolVal;
 

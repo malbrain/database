@@ -64,14 +64,14 @@ uint32_t len;
   slot = fill;
 
   while ((len = (p->keyLen - p->off))) {
-	if (p->binaryFlds && !p->fldLen) {
+	if (p->delimFlds && !p->fldLen) {
 	  p->fldLen = p->key[p->off] << 8 | p->key[p->off + 1];
 
 	  p->off += 2;
 	  continue;
 	}
 
-	if (p->binaryFlds)
+	if (p->delimFlds)
 	  if (len > p->fldLen)
 		len = p->fldLen;
 
@@ -89,10 +89,10 @@ uint32_t len;
 	slot = spanNode->next;
 	p->off += len;
 
-	if (p->binaryFlds)
+	if (p->delimFlds)
 	  p->fldLen -= len;
 
-	if (p->binaryFlds && !p->fldLen) {
+	if (p->delimFlds && !p->fldLen) {
 	  if ((slot->bits = artAllocateNode(p->index, FldEnd, sizeof(ARTFldEnd)))) {
 		ARTFldEnd *fldEndNode = getObj(p->idxMap, *slot);
 		slot = fldEndNode->nextFld;
@@ -127,7 +127,7 @@ DbAddr* install;
 	do {
 		memset (p, 0, sizeof (p));
 
-		p->binaryFlds = artIndex->dbIndex->binaryFlds;
+		p->delimFlds = artIndex->dbIndex->delimFlds;
         p->slot = artIndex->root;
         p->keyLen = kv->keyLen;
         p->restart = false;
@@ -179,7 +179,7 @@ DbAddr* install;
 		p->key = kv->keyBuff + kv->keyLen;
         p->keyLen = kv->suffixLen;
         p->restart = false;
-		p->binaryFlds = 0;
+		p->delimFlds = 0;
 		p->fldLen = 0;
 		p->off = 0;
 
@@ -228,7 +228,7 @@ DbAddr slot;
 
 	  //  begin a new field?
 
-	  if (p->binaryFlds && !p->fldLen) {
+	  if (p->delimFlds && !p->fldLen) {
 		p->fldLen = p->key[p->off] << 8 | p->key[p->off + 1];
 		p->off += 2;
 		continue;
@@ -306,7 +306,7 @@ DbAddr slot;
 		  return false;
 
 		case ContinueSearch:	//	continue to next key byte
-		  if (p->binaryFlds)
+		  if (p->delimFlds)
 			p->fldLen--;
 
 		  p->off++;
@@ -342,7 +342,7 @@ DbAddr slot;
 
 	  //  insert FldEnd node?
 
-	  if( !p->binaryFlds || p->fldLen )
+	  if( !p->delimFlds || p->fldLen )
 		  continue;
 
 	  if ((slot.bits = artAllocateNode(p->index, FldEnd, sizeof(ARTFldEnd)))) {
@@ -410,7 +410,7 @@ uint8_t bits;
 		idx = __builtin_ctz(~node->alloc);
 #endif
 
-		if (p->binaryFlds)
+		if (p->delimFlds)
 		  p->fldLen--;
 
 		node->keys[idx] = p->ch;
@@ -458,7 +458,7 @@ uint8_t bits;
 	out = __builtin_ctz(~radix14Node->alloc);
 #endif
 
-	if (p->binaryFlds)
+	if (p->delimFlds)
 	  p->fldLen--;
 
 	radix14Node->keys[out] = p->ch;
@@ -525,7 +525,7 @@ uint16_t bits;
 		idx = __builtin_ctz(~node->alloc);
 #endif
 
-		if (p->binaryFlds)
+		if (p->delimFlds)
 		  p->fldLen--;
 
 		node->keys[idx] = p->ch;
@@ -574,7 +574,7 @@ uint16_t bits;
 	out = __builtin_ctzll(~radix64Node->alloc);
 #endif
 
-	if (p->binaryFlds)
+	if (p->delimFlds)
 	  p->fldLen--;
 
 	radix64Node->keys[p->ch] = out;
@@ -639,7 +639,7 @@ uint32_t idx, out;
 #else
 		out = __builtin_ctzll(~node->alloc);
 #endif
-		if (p->binaryFlds)
+		if (p->delimFlds)
 		  p->fldLen--;
 
 		p->off++;
@@ -676,7 +676,7 @@ uint32_t idx, out;
 
 	// fill in the rest of the key bytes into Span nodes
 
-	if (p->binaryFlds)
+	if (p->delimFlds)
 	  p->fldLen--;
 
 	p->newSlot->nslot++;
@@ -709,7 +709,7 @@ ReturnState insertKeyNode256(ARTNode256 *node, InsertParam *p) {
 
 	// fill-in empty radix slot
 
-	if (p->binaryFlds)
+	if (p->delimFlds)
 	  p->fldLen--;
 
 	p->off++;
@@ -734,7 +734,7 @@ ARTNode4 *radix4Node;
 	if (len > (uint16_t)(p->keyLen - p->off) )
 		len = p->keyLen - p->off;
 
-	if (p->binaryFlds)
+	if (p->delimFlds)
 	  if (len > p->fldLen)
 		len = p->fldLen;
 
@@ -747,7 +747,7 @@ ARTNode4 *radix4Node;
 	// did we use the entire span node exactly?  If so continue search
 
 	if (idx == max) {
-	  if (p->binaryFlds)
+	  if (p->delimFlds)
 		p->fldLen -= idx;
 	  p->off += idx;
 	  p->slot = node->next;
@@ -783,7 +783,7 @@ ARTNode4 *radix4Node;
 
 	if (idx) {
 		ARTSpan *spanNode2;
-		if (p->binaryFlds)
+		if (p->delimFlds)
 			p->fldLen -= idx;
 
 		p->off += idx;
@@ -822,7 +822,7 @@ ARTNode4 *radix4Node;
 
 		// fill in second radix element with next byte of our search key
 
-		if (p->binaryFlds)
+		if (p->delimFlds)
 			p->fldLen--;
 
 		radix4Node->keys[1] = p->key[p->off++];

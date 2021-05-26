@@ -40,7 +40,7 @@ bool pennysort = false;
 
 char *idxName;
 int numThreads = 1;
-char binaryFlds = 0;
+char delimFlds = 0;
 
 #define MAX_BUFF 65535
 
@@ -111,15 +111,13 @@ int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
   int batchSize = 0;
   uint32_t msgLen = 0;
   MVCCResult result;
-  uint16_t keyMax = MAX_key;
-  uint16_t keyOff;
   uint32_t foundLen = 0;
   uint8_t keyBuff[MAX_key];
   uint8_t docBuff[MAX_BUFF];
   uint32_t docMax = MAX_BUFF - sizeof(DbDoc);
   uint32_t docLen = 0;
   DbKeyValue kv[1];
-  int lastFld = 0;
+  uint16_t keyOff, out;
   uint8_t *foundKey;
   uint64_t count = ~0ULL;
   Params params[MaxParam];
@@ -127,13 +125,15 @@ int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
   Txn *txn = NULL;
   FILE *in;
   DbStatus stat;
-  int ch;
+  int ch = 0;
+  uint32_t idx;
 
   if (pennysort)
     docMax = 100;
   
   memset (kv, 0, sizeof(kv));
   kv->keyBuff = keyBuff;
+  kv->delimFlds = delimFlds;
   msg[msgLen++] = '\n';
 
   switch (cmd | 0x20) {
@@ -158,6 +158,7 @@ int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
     in = stdin;
   } else if (fopen_s(&in, args->inFile, "r"))
     return msgLen + sprintf_s(msg + msgLen, msgMax - msgLen - 1, "thrd:%d cmd:%c file:%s unable to open\n", args->idx, cmd, args->inFile);
+
   if (args->txnBatch) {
     ObjId nestTxn, currTxn;
     nestTxn.bits = 0;
@@ -171,15 +172,20 @@ int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
   //  read or generate next doc and key
 
   while (args->line < count) {
+    if( ch == EOF )
+      break;
+
     docLen = 0;
 
-    keyOff = binaryFlds ? 2 : 0;
+    keyOff = kv->delimFlds ? 2 : 0;
     kv->keyLen = keyOff;
-    lastFld = 0;
+    kv->keyMax = sizeof(keyBuff);
+    kv->lastFld = 0;
 
     if (pennysort) {
-      keyMax = args->keyLen ? args->keyLen : 10;
-      docLen = createB64(kv->keyBuff, keyMax, nrandState);
+      if(args->keyLen > kv->keyMax)
+        args->keyLen = kv->keyMax;
+      docLen = createB64(kv->keyBuff, args->keyLen ? args->keyLen : 10, nrandState);
 
       while (docLen < 100) {
         docBuff[docLen++] = '\t';
@@ -194,116 +200,96 @@ int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
           msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1, "lineno offset: %" PRIu64,   args->offset);
 
         msg[msgLen++] = '\n';
+    
+    
+      }     
+    } else
+      while (ch = getc_unlocked(in) )
+      {
+        if(ch == EOF || ch == '\n')
+          break;
+        if (docLen < docMax)
+          docBuff[docLen++] = (uint8_t)ch;
+        else
+          break;
       }
 
-      kv->keyLen += keyMax;
-    } else {
-      kv->keyMax = MAX_key;
+    // store the line in the docStore?
 
-      while (ch = getc_unlocked(in), ch != EOF && ch != '\n') {
-        if (!args->noDocs)
-          if (docLen < docMax) docBuff[docLen++] = (uint8_t)ch;
+    if (!args->noDocs)
+     if( (cmd | 0x20) == 'w' ) {
+      if (args->docHndl->hndlId.bits)
+          docId->bits = 0;
 
-        if (!args->noIdx)
-          if (docLen < keyMax) {
-            if (binaryFlds)
-              if (ch == '\t' || ch == binaryFlds) {
-                kv->keyBuff[lastFld] = (uint8_t)((kv->keyLen - lastFld - 2) >> 8);
-                kv->keyBuff[lastFld + 1] = (uint8_t)(kv->keyLen - lastFld - 2);
-                lastFld = kv->keyLen;
-                if (ch == '\t')
-                  keyMax = 0;
-                else
-                  kv->keyLen += 2;
-              } else
-                kv->keyBuff[kv->keyLen++] = (uint8_t)ch;
-          }
-      }
+      if (args->txnBatch)
+       if(args->line % 100 == 0) {
+        ObjId nestTxn, currTxn;
+          nestTxn.bits = 0;
+          memset(params, 0, sizeof(Params));
+          params[Concurrency].intVal = TxnSerializable;
+          result = mvcc_commitTxn(txn, params);
+          result = mvcc_beginTxn(params, nestTxn);
+          currTxn.bits = result.value;
+          txn = fetchIdSlot(txnMap, currTxn);
+       }
 
-      if (ch == EOF) 
-        break;
-    }
+      if (args->txnBatch)
+        result = mvcc_writeDoc(txn, *args->docHndl, docId, docLen, docBuff, 1);
+      else
+        if ((stat = storeDoc(*args->docHndl, docBuff, docLen, docId)))
+            fprintf(stderr, "Add Doc %s Error %d Line: %" PRIu64 " *********\n", args->inFile, stat, args->line), exit(0);
+     }
+    
+     // add key?          
 
-    // add or delete next record to collection and index
+     if (args->noIdx)
+        continue;
+     
+     kv->lastFld = 0;
+     kv->keyLen = 0;
+
+     if (!kv->delimFlds) {
+        memcpy(kv->keyBuff, docBuff, kv->keyLen = args->keyLen);
+     } else {
+        for(out = idx = 0; idx < docLen; idx++) {
+           if (docBuff[idx] == '\t' || docBuff[idx] == kv->delimFlds ) {
+             kv->keyBuff[kv->lastFld] = (uint8_t)((kv->keyLen - kv->lastFld - 2) >> 8);
+             kv->keyBuff[kv->lastFld + 1] = (uint8_t)(kv->keyLen - kv->lastFld - 2);
+             kv->lastFld = kv->keyLen;
+             kv->keyLen += 2;
+           } else {
+             kv->keyBuff[kv->keyLen++] = docBuff[idx];
+             out++;
+           } if(args->keyLen < out)
+              break;
+        }
+     }
+
+    // add or delete next key to index
 
     if (!(++args->line % 1000000) && monitor)
       fprintf(stderr, "thrd:%d cmd:%c line: %" PRIu64 "\n", args->idx, cmd, args->line);
 
-    if (binaryFlds && keyMax) {
-      kv->keyBuff[lastFld] = (uint8_t)((kv->keyLen - lastFld - 2) >> 8);
-      kv->keyBuff[lastFld + 1] = (uint8_t)(kv->keyLen - lastFld - 2);
+    if (kv->delimFlds && kv->lastFld) {
+      kv->keyBuff[kv->lastFld] = (uint8_t)((kv->keyLen - kv->lastFld - 2) >> 8);
+      kv->keyBuff[kv->lastFld + 1] = (uint8_t)(kv->keyLen - kv->lastFld - 2);
     }
+      
+    if (args->idxHndl->hndlId.bits) {
+      if( kv->suffixLen = store64(kv->keyBuff, kv->keyLen, args->line + args->offset))
+          kv->keyLen += kv->suffixLen;
 
-    lastFld = 0;
+      if((cmd | 0x20) == 'd' )
+        stat = deleteKey(*args->idxHndl, kv->keyBuff, kv->keyLen, 0);
 
-    switch (cmd | 0x20) {
-      case 'w':
+      if((cmd | 0x20) == 'w' )
+        stat = insertKey(*args->idxHndl, kv);
 
-        // store the entry in the docStore?
+      if((cmd | 0x20) == 'f' ) {
 
-        if (args->docHndl->hndlId.bits)
-        {
-          docId->bits = 0;
+      //	find record by key
 
-          if (args->txnBatch)
-          {
-            result = mvcc_writeDoc(txn, *args->docHndl, docId, docLen, docBuff, 1);
-
-            if (args->line % args->txnBatch == 0) {
-              ObjId nestTxn, currTxn;
-              nestTxn.bits = 0;
-              memset(params, 0, sizeof(Params));
-              params[Concurrency].intVal = TxnSerializable;
-              result = mvcc_commitTxn(txn, params);
-              result = mvcc_beginTxn(params, nestTxn);
-              currTxn.bits = result.value;
-              txn = fetchIdSlot(txnMap, currTxn);
-            }
-
-          // end of txn code, begin non mvcc
-
-          } else {
-            if ((stat = storeDoc(*args->docHndl, docBuff, docLen, docId)))
-              fprintf(stderr, "Add Doc %s Error %d Line: %" PRIu64 " *********\n", args->inFile, stat, args->line), exit(0);
-          }
-
-          // end of writing into docstore
-  
-      } // add key?          
-
-        if (args->idxHndl->hndlId.bits) {
-           if( kv->suffixLen = store64(kv->keyBuff, kv->keyLen, args->line + args->offset))
-              kv->keyLen += kv->suffixLen;
-
-          stat = insertKey(*args->idxHndl, kv);
-
-          switch (stat) {
-            case DB_ERROR_unique_key_constraint:
-              fprintf(stderr, "Duplicate key <%.*s> line: %" PRIu64 "\n", kv->keyLen, kv->keyBuff, args->line);
-              break;
-            case DB_OK:
-              break;
-            default:
-             return msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1,"thrd:%d cmd:%c file:%s InsertKey " "dbError:%d errno:%d line: %" PRIu64 " **********\n",
-              args->idx, cmd, args->inFile, stat, errno, args->line);
-          }
-        } break;         
-    
-        //	delete key
-
-      case 'd':
-
-        if ((stat = deleteKey(*args->idxHndl, kv->keyBuff, kv->keyLen, 0)))
-          return msgLen + sprintf_s(msg + msgLen, msgMax - msgLen - 1,"thrd:%d cmd:%c file:%s deleteKey "
-           "dbError:%d errno:%d line: %" PRIu64 " **********\n", args->idx, cmd, args->inFile, stat, errno,
-                 args->line);
-
-        break;
-
-        //	find record by key
-
-      case 'f':
-        if ((stat = positionCursor(*args->cursor, OpOne, kv->keyBuff, kv->keyLen)))
+        if( stat = positionCursor(*args->cursor, OpOne, kv->keyBuff, kv->keyLen))
           return msgLen + sprintf_s(msg + msgLen, msgMax - msgLen - 1, "thrd:%d cmd:%c file:%s findKey dbError:%d " "errno: %d line: %" PRIu64 " **********\n",
            args->idx, cmd, args->inFile, stat, errno,
                                     args->line);
@@ -316,14 +302,25 @@ int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
           foundLen -= size64(foundKey, foundLen);
         }
 
-        if (!binaryFlds)
+        if (!kv->delimFlds)
           if (memcmp(foundKey, kv->keyBuff, kv->keyLen))
             fprintf(stderr, "findKey %s not Found: line: %" PRIu64 " expected: %.*s \n",
              args->inFile, args->line, kv->keyLen, kv->keyBuff), myExit(args);
 
-      }
-    }
+       switch (stat) {
+        case DB_ERROR_unique_key_constraint:             fprintf(stderr, "Duplicate key <%.*s> line: %" PRIu64 "\n", kv->keyLen, kv->keyBuff, args->line);
+          break;
+        case DB_OK:
+          break;
+        default:
+          return msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1,"thrd:%d cmd:%c file:%s InsertKey " "dbError:%d errno:%d line: %" PRIu64 " **********\n",
+           args->idx, cmd, args->inFile, stat, errno, args->line);
+       }
 
+      } if( ch == EOF )
+          break;
+    }      
+  }
 
   msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1,
         "thrd:%d cmd:%c %s: end: %" PRIu64 " records processed\n", args->idx, cmd, idxName, args->line);
@@ -478,8 +475,8 @@ uint64_t index_scan(ScanArgs *scan, DbHandle *database) {
     }
 
     if (keyList)
-      if (binaryFlds)
-        printBinary(binaryFlds, foundKey, keyLen, stdout);
+      if (delimFlds)
+        printBinary(delimFlds, foundKey, keyLen, stdout);
       else
         fwrite_unlocked(foundKey, keyLen, 1, stdout);
 
@@ -714,7 +711,7 @@ int main(int argc, char **argv) {
 
   cnt = numThreads > argc ? numThreads : argc;
   idxName = indexNames[params[IdxType].intVal];
-  binaryFlds = params[IdxKeyFlds].charVal;
+  delimFlds = params[IdxKeyFlds].charVal;
 
   initialize();
 
