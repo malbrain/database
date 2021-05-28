@@ -1,3 +1,14 @@
 The primary data structure is the memory mapped arena which consists of DocID arrays which grow downwards from the end of the arena, and documents which are allocated space starting from the bottom of the arena. The DbAddr objects which identify these arena allocations are 64 bits.  The largest possible arena size is 64 GB, and 1000 arenas per collection.  Using the DbAddr means that multi-process and multi-threaded programs are suppoted with differing base addresses.
 
 The database data structures support the DocID which is uniquely assigned to each document out of a segmented linear array created for each collection.  Each collection supports an arbitrary number of the Iterator and the cursor objects which return de-duplication sets of DocId and collection DbAddr.
+
+1. access to a document version (or rowID or tuple) is via a DocID presented to the storage layer.  The version returned to the caller depends on the timestamp of the request. The most recent TS that is less than the requestor is chosen.
+
+2. an iterator can be opened over the DocId segmented linear index which will return all of the current document versions subject to TS selection. The iterator supports first or last DocID, next or prev DocID, move-to DocID.
+
+3.  an arbitrary number of keyed indexes can be added, or not, to each document version as part of document creation or updating.  There are currently 2 types: ART and btree. Cursors can be used to lookup individual documents by index key, or traverse the DocID according to cursor ordering.
+
+4. Javascript tools can be written to administer and debug the various facets that SQLite programs are invoking and running into problems. The Javascript engine natively supports documents, collections and indexes, network connections with JSON/BSON encoding. 
+
+5.  Backend API for SQLite or Javascript or mongoDB is based on Handles returned and managed by db_handle.c, db_api.c mvcc_dbapi.c
+for document stores, collections, indexes.  A demonstration system, with appropriate glue in a db_sqlite.c 
