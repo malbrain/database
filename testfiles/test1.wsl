@@ -4,4 +4,4 @@ rm testdb* 2>/dev/null
 
 echo expect 13 sorted keys
 set -v
-./standalone testdb -cmds=w -summary=skn -idxBinary=: testfiles/test1
+./standalone testdb -cmds=w -summary=skn -idxBinary=: -keyLen=10 testfiles/test1

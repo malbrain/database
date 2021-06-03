@@ -169,7 +169,7 @@ DbStatus stat;
 		stat = DB_ERROR_indextype;
 		break;
 	}
-	stat = DB_OK;
+
 	return stat;
 }
 

@@ -7,7 +7,6 @@
 DbStatus artNewCursor(DbCursor *dbCursor, DbMap *map) {
 ArtCursor *cursor = (ArtCursor *)dbCursor;
 
-	dbCursor->binaryFlds = map->arenaDef->params[IdxKeyFlds].charVal;
 	dbCursor->key = cursor->key;
 	cursor->delimFlds = dbCursor->binaryFlds;
 	return DB_OK;
@@ -40,7 +39,7 @@ DbAddr *base;
 	stack->ch = -1;
 
 	dbCursor->state = CursorLeftEof;
-	return DB_OK;
+	return DB_CURSOR_eof;
 }
 
 DbStatus artRightKey(DbCursor *dbCursor, DbMap *map) {
@@ -61,7 +60,7 @@ DbAddr *base;
 	stack->ch = 256;
 
 	dbCursor->state = CursorRightEof;
-	return DB_OK;
+	return DB_CURSOR_eof;
 }
 
 /**

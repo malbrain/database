@@ -186,6 +186,8 @@ int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
       if(args->keyLen > kv->keyMax)
         args->keyLen = kv->keyMax;
       docLen = createB64(kv->keyBuff, args->keyLen ? args->keyLen : 10, nrandState);
+      
+      memcpy(docBuff, kv->keyBuff, docLen);
 
       while (docLen < 100) {
         docBuff[docLen++] = '\t';
@@ -355,6 +357,7 @@ uint64_t index_scan(ScanArgs *scan, DbHandle *database) {
   bool verify = false;
   bool dump = false;
   uint8_t *foundKey;
+  uint8_t *prevKey = NULL;
   DocId docId[1];
   DbDoc *ourDoc;
   int stat;
@@ -434,12 +437,13 @@ uint64_t index_scan(ScanArgs *scan, DbHandle *database) {
   else
     stat = moveCursor(*scan->cursor, reverse ? OpRight : OpLeft);
 
-  if (stat) fprintf(stderr, "positionCursor Error %d\n", stat), exit(0);
+  if (stat) 
+    fprintf(stderr, "positionCursor Error %d\n", stat);
 
   while (!(stat = moveCursor(*scan->cursor, reverse ? OpPrev : OpNext))) {
     uint32_t keyLen;
 
-    if ((stat = keyAtCursor(*scan->cursor, &foundKey, &foundLen)))
+      if ((stat = keyAtCursor(*scan->cursor, &foundKey, &foundLen)))
       fprintf(stderr, "keyAtCursor Error %d\n", stat), exit(0);
 
     keyLen = foundLen - size64(foundKey, foundLen);
@@ -451,14 +455,15 @@ uint64_t index_scan(ScanArgs *scan, DbHandle *database) {
 
     cnt++;
 
-    if (verify) {
+    if (verify && prevKey) {
       if (prevLen == keyLen) {
-        int comp = memcmp(foundKey, ourDoc + 1, prevLen);
+        int comp = memcmp(foundKey, prevKey, prevLen);
 
         if ((reverse && comp > 0) || (!reverse && comp < 0))
           fprintf(stderr, "verify: Key compare error: %d\n", (int)cnt), exit(0);
       }
 
+      prevKey = foundKey;
       prevLen = keyLen;
       memcpy(docBuff, foundKey, keyLen);
     }
