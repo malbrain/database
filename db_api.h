@@ -1,6 +1,7 @@
 //	database API interface
 
 #pragma once
+#include <stdint.h>
 #include "base64.h"
 #include "db.h"
 
@@ -54,7 +55,7 @@ DbStatus closeHandle(DbHandle dbHndl);
 DbStatus createCursor(DbHandle *hndl, DbHandle idxHndl, Params *params);
 DbStatus closeCursor(DbHandle dbHndl);
 DbStatus positionCursor(DbHandle hndl, CursorOp op, void *key, uint32_t keyLen);
-DbStatus keyAtCursor(DbHandle hndl, uint8_t **key, uint32_t *keyLen);
+DbStatus keyAtCursor(DbHandle hndl, DocId *docId, uint8_t **key, uint32_t *keyLen);
 DbStatus moveCursor(DbHandle hndl, CursorOp op);
 
 DbStatus insertKey(DbHandle hndl, DbKeyValue *kv);

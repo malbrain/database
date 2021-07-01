@@ -60,6 +60,11 @@ void printBinary(uint8_t fieldDelim, uint8_t *key, int len, FILE *file) {
 }
 
 int prng = 0, offset = 0;
+uint64_t keyCount = 0;
+uint64_t recCount = 0;
+uint64_t keyCnt = 0;
+uint64_t recCnt = 0;
+
 
 typedef struct {
   char *cmds;
@@ -119,7 +124,8 @@ int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
   DbKeyValue kv[1];
   uint16_t keyOff, out;
   uint8_t *foundKey;
-  uint64_t count = ~0ULL;
+  uint64_t keyCnt = 0;
+  uint64_t recCount = 0;
   Params params[MaxParam];
   DocId docId[1];
   Txn *txn = NULL;
@@ -154,7 +160,7 @@ int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
 
   if (pennysort) {
     msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1, "thrd:%d cmd:%c %s: prng:%d 10 byte pennysort keys\n", args->idx, cmd, idxName, prng);
-    count = atoi(args->inFile);
+     recCount = atoi(args->inFile);
     in = stdin;
   } else if (fopen_s(&in, args->inFile, "r"))
     return msgLen + sprintf_s(msg + msgLen, msgMax - msgLen - 1, "thrd:%d cmd:%c file:%s unable to open\n", args->idx, cmd, args->inFile);
@@ -171,7 +177,7 @@ int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
 
   //  read or generate next doc and key
 
-  while (args->line < count) {
+  while (args->line < (recCount ? recCount : ~1ULL)) {
     if( ch == EOF )
       break;
 
@@ -202,19 +208,18 @@ int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
           msgLen += sprintf_s(msg + msgLen, msgMax - msgLen - 1, "lineno offset: %" PRIu64,   args->offset);
 
         msg[msgLen++] = '\n';
-    
-    
+
       }     
     } else
-      while (ch = getc_unlocked(in) )
-      {
-        if(ch == EOF || ch == '\n')
+      while ( docLen < docMax) {
+
+      ch = getc_unlocked(in);
+
+      if(ch == EOF || ch == '\n')
           break;
-        if (docLen < docMax)
-          docBuff[docLen++] = (uint8_t)ch;
-        else
-          break;
-      }
+
+      docBuff[docLen++] = (uint8_t)ch;
+     }
 
     // store the line in the docStore?
 
@@ -222,6 +227,13 @@ int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
      if( (cmd | 0x20) == 'w' ) {
       if (args->docHndl->hndlId.bits)
           docId->bits = 0;
+
+
+      recCnt++;
+
+      if(recCount )
+        if(recCnt >= recCount)
+          break;
 
       if (args->txnBatch)
        if(args->line % 100 == 0) {
@@ -242,6 +254,7 @@ int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
             fprintf(stderr, "Add Doc %s Error %d Line: %" PRIu64 " *********\n", args->inFile, stat, args->line), exit(0);
      }
     
+
      // add key?          
 
      if (args->noIdx)
@@ -249,14 +262,19 @@ int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
      
      kv->lastFld = 0;
      kv->keyLen = 0;
+     kv->docId->bits = docId->bits;
 
      if (!kv->delimFlds) {
         memcpy(kv->keyBuff, docBuff, kv->keyLen = args->keyLen);
      } else {
+        kv->keyLen = 2;
+
         for(out = idx = 0; idx < docLen; idx++) {
-           if (docBuff[idx] == '\t' || docBuff[idx] == kv->delimFlds ) {
+         if(docBuff[idx] == '\t' || docBuff[idx] ==  kv->delimFlds ) {
              kv->keyBuff[kv->lastFld] = (uint8_t)((kv->keyLen - kv->lastFld - 2) >> 8);
              kv->keyBuff[kv->lastFld + 1] = (uint8_t)(kv->keyLen - kv->lastFld - 2);
+             if( out > args->keyLen )
+               break;
              kv->lastFld = kv->keyLen;
              kv->keyLen += 2;
            } else {
@@ -267,19 +285,24 @@ int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
         }
      }
 
-    // add or delete next key to index
-
-    if (!(++args->line % 1000000) && monitor)
-      fprintf(stderr, "thrd:%d cmd:%c line: %" PRIu64 "\n", args->idx, cmd, args->line);
-
     if (kv->delimFlds && kv->lastFld) {
       kv->keyBuff[kv->lastFld] = (uint8_t)((kv->keyLen - kv->lastFld - 2) >> 8);
       kv->keyBuff[kv->lastFld + 1] = (uint8_t)(kv->keyLen - kv->lastFld - 2);
     }
       
+    // add or delete next key to index
+
+    keyCnt++;
+
+    if(keyCount )
+      if( keyCnt == keyCount )
+        break;
+
+    if (!(++args->line % 1000000) && monitor)
+       fprintf(stderr, "thrd:%d cmd:%c   line: %" PRIu64 "\n", args->idx, cmd, args->line);
+
     if (args->idxHndl->hndlId.bits) {
-      if( kv->suffixLen = store64(kv->keyBuff, kv->keyLen, args->line + args->offset))
-          kv->keyLen += kv->suffixLen;
+      kv->docId->bits = args->line + args->offset;
 
       if((cmd | 0x20) == 'd' )
         stat = deleteKey(*args->idxHndl, kv->keyBuff, kv->keyLen, 0);
@@ -293,10 +316,9 @@ int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
 
         if( stat = positionCursor(*args->cursor, OpOne, kv->keyBuff, kv->keyLen))
           return msgLen + sprintf_s(msg + msgLen, msgMax - msgLen - 1, "thrd:%d cmd:%c file:%s findKey dbError:%d " "errno: %d line: %" PRIu64 " **********\n",
-           args->idx, cmd, args->inFile, stat, errno,
-                                    args->line);
+           args->idx, cmd, args->inFile, stat, errno, args->line);
 
-        if ((stat = keyAtCursor(*args->cursor, &foundKey, &foundLen)))
+        if ((stat = keyAtCursor(*args->cursor, docId, &foundKey, &foundLen)))
           return msgLen + sprintf_s(msg + msgLen, msgMax - msgLen - 1, "thrd:%d cmd:%c file:%s findKey dbError:%d " "errno: %d line: %" PRIu64 " **********\n", args->idx, cmd, args->inFile, stat, errno, args->line);
 
         if (args->docHndl->hndlId.bits && args->idxHndl->hndlId.bits) {
@@ -310,7 +332,7 @@ int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
              args->inFile, args->line, kv->keyLen, kv->keyBuff), myExit(args);
 
        switch (stat) {
-        case DB_ERROR_unique_key_constraint:             fprintf(stderr, "Duplicate key <%.*s> line: %" PRIu64 "\n", kv->keyLen, kv->keyBuff, args->line);
+        case DB_ERROR_unique_key_constraint: fprintf(stderr, "Duplicate key <%.*s> line: %" PRIu64 "\n", kv->keyLen, kv->keyBuff, args->line);
           break;
         case DB_OK:
           break;
@@ -337,7 +359,7 @@ int index_file(ThreadArgs *args, char cmd, char *msg, uint64_t msgMax) {
 }
 
 uint64_t index_scan(ScanArgs *scan, DbHandle *database) {
-  uint64_t cnt = 0;
+  uint64_t recCnt = 0;
   uint8_t *docBuff = malloc   (65532);
   DbDoc *dbDoc = (DbDoc *)docBuff;
   uint32_t docMax = MAX_BUFF - sizeof(DbDoc);
@@ -378,11 +400,14 @@ uint64_t index_scan(ScanArgs *scan, DbHandle *database) {
             fwrite_unlocked(ourDoc + 1, ourDoc->docSize, 1, stdout);
             fputc_unlocked('\n', stdout);
           }
-          cnt++;
+
+          if(++recCnt && recCount )
+           if(recCnt >= recCount)
+            break;
         }
 
-        fprintf(stderr, " iterator scan total: %" PRIu64 "\n", cnt);
-        return cnt;
+        fprintf(stderr, " iterator scan total: %" PRIu64 "\n", recCnt);
+        return recCnt;
 
       case 'd':
         dump = true;
@@ -422,6 +447,10 @@ uint64_t index_scan(ScanArgs *scan, DbHandle *database) {
 
   if (cntOnly) fprintf(stderr, " index key count\n");
 
+  if (keyCount) fprintf(stderr, " index key max count: %"PRIu64 "\n", keyCount);
+
+  if (recCount) fprintf(stderr, " document max count: %"PRIu64 "\n", recCount);
+
   if (dump) fprintf(stderr, " doc/key dump\n");
 
   if (scan->minKey) fprintf(stderr, " min key: <%s>\n", scan->minKey);
@@ -429,21 +458,19 @@ uint64_t index_scan(ScanArgs *scan, DbHandle *database) {
   if (scan->maxKey) fprintf(stderr, " max key: <%s>\n", scan->maxKey);
 
   if (!reverse && scan->minKey)
-    stat = positionCursor(*scan->cursor, OpBefore, scan->minKey,
-                          (int)strlen(scan->minKey));
+    stat = positionCursor(*scan->cursor, OpBefore, scan->minKey, (int)strlen(scan->minKey));
   else if (reverse && scan->maxKey)
-    stat = positionCursor(*scan->cursor, OpAfter, scan->maxKey,
-                          (int)strlen(scan->maxKey));
+    stat = positionCursor(*scan->cursor, OpAfter, scan->maxKey, (int)strlen(scan->maxKey));
   else
     stat = moveCursor(*scan->cursor, reverse ? OpRight : OpLeft);
 
   if (stat) 
-    fprintf(stderr, "positionCursor Error %d\n", stat);
+    fprintf(stderr, "positionCursor at leftEof or rightEof %d\n", stat);
 
   while (!(stat = moveCursor(*scan->cursor, reverse ? OpPrev : OpNext))) {
     uint32_t keyLen;
 
-      if ((stat = keyAtCursor(*scan->cursor, &foundKey, &foundLen)))
+      if ((stat = keyAtCursor(*scan->cursor, docId, &foundKey, &foundLen)))
       fprintf(stderr, "keyAtCursor Error %d\n", stat), exit(0);
 
     keyLen = foundLen - size64(foundKey, foundLen);
@@ -453,14 +480,14 @@ uint64_t index_scan(ScanArgs *scan, DbHandle *database) {
     if (!reverse && scan->maxKey)
       if (memcmp(foundKey, scan->maxKey, (int)strlen(scan->maxKey)) > 0) break;
 
-    cnt++;
+    keyCnt++;
 
     if (verify && prevKey) {
       if (prevLen == keyLen) {
         int comp = memcmp(foundKey, prevKey, prevLen);
 
         if ((reverse && comp > 0) || (!reverse && comp < 0))
-          fprintf(stderr, "verify: Key compare error: %d\n", (int)cnt), exit(0);
+          fprintf(stderr, "verify: Key compare error: %d\n", (int)keyCnt), exit(0);
       }
 
       prevKey = foundKey;
@@ -469,8 +496,8 @@ uint64_t index_scan(ScanArgs *scan, DbHandle *database) {
     }
 
     if (cntOnly) {
-      if (monitor && !(cnt % 1000000))
-        fprintf(stderr, " scan %s count: %" PRIu64 "\n", idxName, cnt);
+      if (monitor && !(keyCnt % 1000000))
+        fprintf(stderr, " scan %s count: %" PRIu64 "\n", idxName, keyCnt);
       continue;
     }
 
@@ -498,10 +525,10 @@ uint64_t index_scan(ScanArgs *scan, DbHandle *database) {
 
   if (stat && stat != DB_CURSOR_eof)
     fprintf(stderr, " Index %s Scan: Error %d Syserr %d Line: %" PRIu64 "\n",
-            idxName, stat, errno, cnt),
+            idxName, stat, errno, keyCnt),
         exit(0);
 
-  fprintf(stderr, " Index scan complete\n Total keys %" PRIu64 "\n\n", cnt);
+  fprintf(stderr, " Index scan complete\n Total keys %" PRIu64 "\n\n", keyCnt);
 
   elapsed = getCpuTime(0) - startx1;
   fprintf(stderr, " real %dm%.3fs\n", (int)(elapsed / 60),
@@ -511,10 +538,9 @@ uint64_t index_scan(ScanArgs *scan, DbHandle *database) {
   fprintf(stderr, " user %dm%.3fs\n", (int)(elapsed / 60),(elapsed / 60) * 60);
 
   elapsed = getCpuTime(2) - startx3;
-  fprintf(stderr, " sys  %dm%.3fs\n", (int)(elapsed / 60),
-          elapsed - (elapsed / 60) * 60);
+  fprintf(stderr, " sys  %dm%.3fs\n", (int)(elapsed / 60), elapsed - (elapsed / 60) * 60);
 
-  return cnt;
+  return keyCnt;
 }
 
 //  run index_file once for each command
@@ -599,7 +625,7 @@ int main(int argc, char **argv) {
     fprintf(stderr,
             "Usage: %s db_name -cmds=[wdf] -summary=[csrvikdn]idxType=[012] "
             "-bits=# -xtra=# -inMem -s -prng=# -debug -monitor -uniqueKeys "
-            "-noDocs -noIdx -keyLen=# -minKey=abcd -maxKey=abce -drop "
+            "-noDocs -noIdx -keyLen=# -minKey=abcd -maxKey=abce -drop -keyCount=#"
             "-idxBinary=. -pipeline -offset=# src_file1 src_file2 ... ]\n",
             argv[0]);
     fprintf(stderr,
@@ -619,6 +645,8 @@ int main(int argc, char **argv) {
         stderr,
         "  idxType is the type of index: 0 = ART, 1 = btree1, 2 = btree2\n");
     fprintf(stderr, "  keyLen is key size, zero for whole input file line\n");
+    fprintf(stderr, "  keyCount is the count of keys to process\n");
+    fprintf(stderr, "  recMax is the max count of documents to process\n");
     fprintf(stderr, "  bits is the btree page size in bits\n");
     fprintf(stderr, "  xtra is the btree leaf page extra bits\n");
     fprintf(stderr, "  inMem specifies no disk files\n");
@@ -658,6 +686,9 @@ int main(int argc, char **argv) {
   params[Btree2Bits].intVal = 14;
   params[ObjIdSize].intVal = sizeof(ObjId);
 
+  keyCount = 0;
+  recCount = 0;
+
   // process configuration arguments
 
   while (--argc > 0 && (++argv)[0][0] == '-')
@@ -695,6 +726,10 @@ int main(int argc, char **argv) {
       pipeLine = true;
     else if (!strncasecmp(argv[0], "-noExit", 7))
       noExit = true;
+    else if (!strncasecmp(argv[0], "-keyCount=", 10))
+      keyCount = atoi(argv[0] + 10);
+    else if (!strncasecmp(argv[0], "-recCount=", 10))
+      recCount = atoi(argv[0] + 10);
     else if (!strncasecmp(argv[0], "-uniqueKeys", 11))
       params[IdxKeyUnique].boolVal = true;
     else if (!strncasecmp(argv[0], "-idxType=", 9))

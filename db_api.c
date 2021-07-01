@@ -435,7 +435,7 @@ DbStatus moveCursor(DbHandle hndl, CursorOp op) {
 
 //	return cursor key
 
-DbStatus keyAtCursor(DbHandle hndl, uint8_t **key, uint32_t *keyLen) {
+DbStatus keyAtCursor(DbHandle hndl, DocId *docId, uint8_t **key, uint32_t *keyLen) {
   DbCursor *dbCursor;
   Handle *cursorHndl;
   DbStatus stat = DB_OK;
@@ -454,6 +454,9 @@ DbStatus keyAtCursor(DbHandle hndl, uint8_t **key, uint32_t *keyLen) {
 
       if (keyLen)
           *keyLen = dbCursor->keyLen;
+
+      if(docId)
+          docId->bits = get64(*key, *keyLen);
 
       break;
 

@@ -144,7 +144,7 @@ int slot, len;
 	case CursorNone:
 	  artLeftKey(dbCursor, map);
 	  break;
-
+		 
 	case CursorRightEof:
 	  return DB_CURSOR_eof;
 
