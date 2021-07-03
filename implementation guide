@@ -12,3 +12,4 @@ The database data structures support the DocID which is uniquely assigned to eac
 
 5.  Backend API for SQLite or Javascript or mongoDB is based on Handles returned and managed by db_handle.c, db_api.c mvcc_dbapi.c
 for document stores, collections, indexes.  A demonstration system, with appropriate glue in a db_sqlite.c 
+d
