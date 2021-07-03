@@ -170,6 +170,10 @@
     <ClCompile Include="mvcc_dbapi.c" />
     <ClCompile Include="mvcc_dbdoc.c" />
     <ClCompile Include="mvcc_dbidx.c" />
+    <ClCompile Include="mvcc_dbssn1.c" />
+    <ClCompile Include="mvcc_dbssn2.c" />
+    <ClCompile Include="mvcc_dbssn3.c" />
+    <ClCompile Include="mvcc_dbssn4.c" />
     <ClCompile Include="mvcc_dbtxn.c" />
     <ClCompile Include="rwlock\readerwriter.c" />
     <ClCompile Include="standalone.c" />
@@ -199,6 +203,8 @@
     <ClInclude Include="mvcc_dbapi.h" />
     <ClInclude Include="mvcc_dbdoc.h" />
     <ClInclude Include="mvcc_dbidx.h" />
+    <ClInclude Include="mvcc_dbssn.h" />
+    <ClInclude Include="mvcc_dbtxn.h" />
     <ClInclude Include="rwlock\readerwriter.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
